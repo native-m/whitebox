@@ -1,0 +1,800 @@
+#include "gui_timeline.h"
+#include "gui_content_browser.h"
+#include "widget.h"
+#include "core/color.h"
+#include "engine/sample_table.h"
+#include <imgui_stdlib.h>
+#include <imgui_stdlib.h>
+#include <random>
+
+namespace wb
+{
+    GUITimeline g_gui_timeline;
+
+    GUITimeline::GUITimeline()
+    {
+        //tracks[0].clips.push_back(wb::ClipInfo{.color = ImColor(0.5f, 0.3f, 0.4f), .min_time = 0.0, .max_time = 96.0f});
+        //tracks[0].clips.push_back(wb::ClipInfo{.color = ImColor(0.5f, 0.3f, 0.4f), .min_time = 96.0f, .max_time = 192.0f});
+
+    }
+
+    void GUITimeline::render_track_header(Track& track)
+    {
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.f, ImGui::GetStyle().ItemSpacing.y));
+        ImGui::BeginMenuBar();
+        auto cursor_pos = ImGui::GetCursorScreenPos();
+        auto size = ImGui::GetWindowContentRegionMax();
+
+        ImGui::PushClipRect(cursor_pos, ImVec2(cursor_pos.x + size.x - 32.f, cursor_pos.y + size.y), true);
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4());
+        ImGui::Text((const char*)track.name.c_str());
+        ImGui::PopStyleColor();
+        ImGui::PopClipRect();
+
+        ImVec4 bg_color = ImGui::GetStyleColorVec4(ImGuiCol_FrameBg);
+        bg_color.w = 1.0f;
+
+        //ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, ImVec2(2.0f, 2.0f));
+        ImGui::SameLine(size.x - ImGui::GetStyle().ItemInnerSpacing.x - ImGui::GetFontSize() - 2.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.0f, 0.0f, 0.0f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.0f, 0.0f, 0.0f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.0f, 0.0f, 0.0f, 1.0f));
+        ImGui::Checkbox("##track_active", &track.active);
+        ImGui::PopStyleColor(3);
+        ImGui::PopStyleVar();
+
+        ImGui::EndMenuBar();
+        ImGui::PopStyleVar();
+    }
+
+    void GUITimeline::render_track_context_menu(Track& track)
+    {
+        auto states = ImGui::GetStateStorage();
+        bool rename_track = false;
+        bool show_track_context_menu = false;
+
+        if (ImGui::BeginPopup("track_context_menu")) {
+            ImGui::MenuItem(track.name.c_str(), nullptr, false, false);
+            ImGui::Separator();
+            ImGui::MenuItem("Delete");
+            ImGui::MenuItem("Duplicate");
+            if (ImGui::MenuItem("Rename...")) {
+                ImGui::CloseCurrentPopup();
+                rename_track = true;
+            }
+            ImGui::MenuItem("Change color...");
+            ImGui::Separator();
+            if (ImGui::MenuItem("Reset Height")) {
+                ImGui::CloseCurrentPopup();
+                track.height = 56.0f;
+            }
+            ImGui::EndPopup();
+        }
+
+        if (rename_track)
+            ImGui::OpenPopup("rename_track_popup");
+
+        auto is_renaming = states->GetBoolRef(ImGui::GetID("is_renaming"));
+        auto rename_track_str_id = ImGui::GetID("rename_track_str");
+
+        *is_renaming = false;
+        if (ImGui::BeginPopup("rename_track_popup")) {
+            *is_renaming = true;
+            auto rename_str = (std::string**)states->GetVoidPtrRef(rename_track_str_id);
+            if (!*rename_str)
+                *rename_str = new std::string(track.name);
+
+            ImGui::Text("Rename Track");
+
+            bool change = ImGui::InputTextWithHint("##new_name", "New name", *rename_str, ImGuiInputTextFlags_EnterReturnsTrue);
+            change |= ImGui::Button("Ok");
+
+            if (change) {
+                ImGui::CloseCurrentPopup();
+                track.name = **rename_str;
+            }
+
+            ImGui::SameLine();
+
+            if (ImGui::Button("Cancel"))
+                ImGui::CloseCurrentPopup();
+
+            ImGui::EndPopup();
+        }
+
+        if (!*is_renaming) {
+            auto rename_str = (std::string**)states->GetVoidPtrRef(rename_track_str_id);
+            if (*rename_str) {
+                // TODO: delete the string when quitting.
+                delete* rename_str;
+                *rename_str = nullptr;
+            }
+        }
+    }
+
+    void GUITimeline::render_track_controls(Track& track)
+    {
+        ImGui::DragFloat("Vol.", &track.volume);
+    }
+
+    void GUITimeline::render_horizontal_scrollbar()
+    {
+        ImGuiStyle& style = ImGui::GetStyle();
+        auto draw_list = ImGui::GetWindowDrawList();
+        auto font_size = ImGui::GetFontSize();
+        auto btn_size_y = font_size + style.FramePadding.y * 2.0f;
+        auto arrow_btn_size = ImGui::CalcItemSize(ImVec2(), font_size + style.FramePadding.x * 2.0f, btn_size_y);
+        ImGui::SetCursorPosX(std::max(separator_x, 100.0f) + 2.0f);
+        ImGui::PushButtonRepeat(true);
+
+        if (ImGui::Button("<", arrow_btn_size))
+            handle_scroll_drag_x(-0.05f, 1.0f);
+
+        auto scroll_btn_length = ImGui::GetContentRegionAvail().x - arrow_btn_size.x;
+        ImGui::SameLine();
+        auto scroll_btn_min_bb = ImGui::GetCursorScreenPos();
+        ImGui::SameLine(scroll_btn_length);
+        auto scroll_btn_max_bb = ImGui::GetCursorScreenPos();
+
+        if (ImGui::Button(">", arrow_btn_size))
+            handle_scroll_drag_x(0.05f, 1.0f);
+
+        ImGui::PopButtonRepeat();
+
+        // Add gap between arrow buttons and scroll grab
+        scroll_btn_min_bb.x += 1.0f;
+        scroll_btn_max_bb.x -= 1.0f;
+
+        auto scroll_btn_max_length = scroll_btn_max_bb.x - scroll_btn_min_bb.x;
+        ImGui::SetCursorScreenPos(scroll_btn_min_bb);
+        ImGui::InvisibleButton("##timeline_hscroll", ImVec2(scroll_btn_max_length, btn_size_y));
+        bool hovered = ImGui::IsItemHovered();
+        bool active = ImGui::IsItemActive();
+        bool scrolling = resizing_lhs_scroll_grab || resizing_rhs_scroll_grab || grabbing_scroll;
+
+        if (!active && scrolling) {
+            resizing_lhs_scroll_grab = false;
+            resizing_rhs_scroll_grab = false;
+            grabbing_scroll = false;
+            ImGui::ResetMouseDragDelta();
+        }
+
+        if (hovered)
+            handle_scroll_drag_x(ImGui::GetIO().MouseWheel, 1.0f, -0.05f * (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) ? 0.1f : 0.5f));
+
+        // Reinterpret scroll units in pixels
+        float min_scroll_pos_x_pixels = (float)min_scroll_pos_x * scroll_btn_max_length;
+        float max_scroll_pos_x_pixels = (1.0f - (float)max_scroll_pos_x) * scroll_btn_max_length;
+
+        // Calculate bounds
+        ImVec2 lhs_min(scroll_btn_min_bb.x + min_scroll_pos_x_pixels, scroll_btn_min_bb.y);
+        ImVec2 lhs_max(scroll_btn_min_bb.x + min_scroll_pos_x_pixels + 2.0f, scroll_btn_min_bb.y + btn_size_y);
+        ImVec2 rhs_min(scroll_btn_max_bb.x - max_scroll_pos_x_pixels - 2.0f, scroll_btn_min_bb.y);
+        ImVec2 rhs_max(scroll_btn_max_bb.x - max_scroll_pos_x_pixels, scroll_btn_min_bb.y + btn_size_y);
+
+        // Check whether the mouse hovering the left-hand side bound
+        if (!grabbing_scroll && ImGui::IsMouseHoveringRect(lhs_min, lhs_max)) {
+            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+            if (active && !resizing_lhs_scroll_grab)
+                resizing_lhs_scroll_grab = true;
+        }
+        // Check whether the mouse hovering the right-hand side bound
+        else if (!grabbing_scroll && ImGui::IsMouseHoveringRect(rhs_min, rhs_max)) {
+            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+            if (active && !resizing_rhs_scroll_grab)
+                resizing_rhs_scroll_grab = true;
+        }
+        // Check whether the mouse is grabbing the scroll
+        else if (ImGui::IsMouseHoveringRect(lhs_min, rhs_max) && active && !grabbing_scroll) {
+            last_min_scroll_pos_x = min_scroll_pos_x;
+            grabbing_scroll = true;
+        }
+        // Check whether the mouse clicking on the scroll area
+        else if (ImGui::IsItemActivated()) {
+            double scroll_grab_length = max_scroll_pos_x - min_scroll_pos_x;
+            double half_scroll_grab_length = scroll_grab_length * 0.5;
+            auto mouse_pos_x = (ImGui::GetMousePos().x - scroll_btn_min_bb.x) / (double)scroll_btn_max_length;
+            double new_min_scroll_pos_x = std::clamp(mouse_pos_x - half_scroll_grab_length, 0.0, 1.0 - scroll_grab_length);
+            max_scroll_pos_x = new_min_scroll_pos_x + scroll_grab_length;
+            min_scroll_pos_x = new_min_scroll_pos_x;
+        }
+
+        if (resizing_lhs_scroll_grab) {
+            auto drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left, 1.0f);
+            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+            min_scroll_pos_x = std::clamp(min_scroll_pos_x + drag_delta.x / scroll_btn_max_length, 0.0, max_scroll_pos_x);
+            ImGui::ResetMouseDragDelta(ImGuiMouseButton_Left); 
+        }
+        else if (resizing_rhs_scroll_grab) {
+            auto drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left, 1.0f);
+            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+            max_scroll_pos_x = std::clamp(max_scroll_pos_x + drag_delta.x / scroll_btn_max_length, min_scroll_pos_x, 1.0);
+            ImGui::ResetMouseDragDelta(ImGuiMouseButton_Left);
+        }
+        else if (grabbing_scroll) {
+            ImVec2 drag_delta = ImGui::GetMouseDragDelta();
+            double scroll_grab_length = max_scroll_pos_x - min_scroll_pos_x;
+            double new_min_scroll_pos_x = std::clamp(last_min_scroll_pos_x + drag_delta.x / scroll_btn_max_length, 0.0, 1.0 - scroll_grab_length);
+            max_scroll_pos_x = new_min_scroll_pos_x + scroll_grab_length;
+            min_scroll_pos_x = new_min_scroll_pos_x;
+        }
+
+        draw_list->AddRectFilled(lhs_min, rhs_max, ImGui::GetColorU32(ImGuiCol_Button), style.GrabRounding);
+        if (hovered || active)
+            draw_list->AddRect(lhs_min, rhs_max, active ? ImGui::GetColorU32(ImGuiCol_FrameBgActive) : ImGui::GetColorU32(ImGuiCol_FrameBgHovered), style.GrabRounding);
+    }
+
+    void GUITimeline::render_time_ruler()
+    {
+        ImGuiStyle& style = ImGui::GetStyle();
+        auto col = ImGui::GetColorU32(ImGuiCol_Separator, 1.0f);
+        auto draw_list = ImGui::GetWindowDrawList();
+        auto mouse_pos = ImGui::GetMousePos();
+        ImGui::SetCursorPosX(std::max(separator_x, 100.0f) + 2.0f);
+
+        auto cursor_pos = ImGui::GetCursorScreenPos();
+        auto size = ImVec2(ImGui::GetContentRegionAvail().x, ImGui::GetFontSize() + style.FramePadding.y * 2.0f);
+        float view_scale = (float)((max_scroll_pos_x - min_scroll_pos_x) * music_length) / timeline_width;
+        auto drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left);
+        ImGui::InvisibleButton("##time_ruler_control", size);
+
+        if (ImGui::IsItemActivated() || (ImGui::IsItemActive() && std::abs(drag_delta.x) > 0.001f)) {
+            double mapped_x_pos = (double)(mouse_pos.x - cursor_pos.x) / music_length * (double)view_scale + min_scroll_pos_x;
+            double mouse_time_pos = mapped_x_pos * music_length / 96.0;
+            double mouse_time_pos_grid = std::max(std::round(mouse_time_pos), 0.0);
+            g_engine.seek_to(mouse_time_pos_grid);
+            ImGui::ResetMouseDragDelta();
+        }
+
+        // Handle zoom scrolling on ruler
+        float mouse_wheel = ImGui::GetIO().MouseWheel;
+        if (ImGui::IsItemHovered() && mouse_wheel != 0.0f) {
+            handle_zoom(mouse_pos.x, cursor_pos.x, view_scale, mouse_wheel);
+            view_scale = (float)((max_scroll_pos_x - min_scroll_pos_x) * music_length) / timeline_width;
+        }
+
+        auto font = ImGui::GetFont();
+        float grid_inc_x = 96.0f * 4.0f / view_scale;
+        float inv_grid_inc_x = 1.0f / grid_inc_x;
+        float scroll_pos_x = (float)(min_scroll_pos_x * music_length) / view_scale;
+        float gridline_pos_x = cursor_pos.x - std::fmod(scroll_pos_x, grid_inc_x);
+        float scroll_offset = cursor_pos.x - scroll_pos_x;
+        int line_count = (uint32_t)(size.x * inv_grid_inc_x) + 1;
+        int count_offset = (uint32_t)(scroll_pos_x * inv_grid_inc_x);
+
+        draw_list->PushClipRect(cursor_pos, ImVec2(cursor_pos.x + size.x, cursor_pos.y + size.y));
+
+        bool is_playing = g_engine.is_playing();
+        if (is_playing) {
+            float play_position = std::round(scroll_offset + get_playhead_screen_position(view_scale, g_engine.play_position) - size.y * 0.5f);
+            draw_list->AddTriangleFilled(ImVec2(play_position, cursor_pos.y + 2.0f),
+                                         ImVec2(play_position + size.y, cursor_pos.y + 2.0f),
+                                         ImVec2(play_position + size.y * 0.5f, cursor_pos.y + size.y - 2.0f), col);
+        }
+
+        for (int i = 0; i <= line_count; i++) {
+            char digits[24]{};
+            float rounded_gridline_pos_x = std::round(gridline_pos_x);
+            fmt::format_to_n(digits, sizeof(digits), "{}", i + count_offset);
+            draw_list->AddText(ImVec2(rounded_gridline_pos_x + 4.0f, cursor_pos.y + style.FramePadding.y * 2.0f - 2.0f), ImGui::GetColorU32(ImGuiCol_Text), digits);
+            draw_list->AddLine(ImVec2(rounded_gridline_pos_x, cursor_pos.y + size.y - 8.0f),
+                               ImVec2(rounded_gridline_pos_x, cursor_pos.y + size.y - 3.0f),
+                               col);
+            gridline_pos_x += grid_inc_x;
+        }
+
+        float playhead_screen_position = std::round(scroll_offset + get_playhead_screen_position(view_scale, playhead_position) - size.y * 0.5f);
+        draw_list->AddTriangleFilled(ImVec2(playhead_screen_position, cursor_pos.y + 2.0f),
+                                     ImVec2(playhead_screen_position + size.y, cursor_pos.y + 2.0f),
+                                     ImVec2(playhead_screen_position + size.y * 0.5f, cursor_pos.y + size.y - 2.0f),
+                                     playhead_color);
+
+        draw_list->PopClipRect();
+
+        draw_list->AddLine(ImVec2(cursor_pos.x, cursor_pos.y + size.y - 1.0f),
+                           ImVec2(cursor_pos.x + size.x, cursor_pos.y + size.y - 1.0f),
+                           col);
+    }
+
+    /*
+        TODO:
+        - Implement Clip Nodes
+        - Implement UI controls/input
+        - Implement sample visualization (probably decimate the samples with LTTB algorithm)
+    */
+    void GUITimeline::render()
+    {
+        if (!g_show_timeline_window)
+            return;
+
+        //ImGuiWindowClass WindowClass;
+        //WindowClass.ViewportFlagsOverrideClear = ImGuiViewportFlags_NoDecoration | ImGuiViewportFlags_NoTaskBarIcon;
+        //ImGui::SetNextWindowClass(&WindowClass);
+        ImGui::SetNextWindowSize(ImVec2(640.f, 480.f), ImGuiCond_FirstUseEver);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 1.0f));
+        // When docked, there is no reason to draw the window background
+        if (!ImGui::Begin("Timeline", &g_show_timeline_window, docked ? ImGuiWindowFlags_NoBackground : 0)) {
+            ImGui::PopStyleVar();
+            ImGui::End();
+            return;
+        }
+        ImGui::PopStyleVar();
+
+        playhead_position = g_engine.get_playback_position();
+        docked = ImGui::IsWindowDocked();
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
+        render_horizontal_scrollbar();
+        render_time_ruler();
+        ImGui::PopStyleVar();
+
+        if (zooming) {
+            // Avoid y-axis scrolling while zooming.
+            ImGui::SetNextWindowScroll(ImVec2(0.0f, last_scroll_pos_y));
+            zooming = false;
+        }
+
+        ImGui::BeginChild("##timeline_content", ImVec2(0.0f, 0.0f), false, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_AlwaysVerticalScrollbar);
+
+        if (scrolling && std::abs(scroll_delta_y) > 0.0f)
+            ImGui::SetScrollY(ImGui::GetScrollY() - scroll_delta_y);
+
+        float mouse_wheel = ImGui::GetIO().MouseWheel;
+        auto mouse_pos = ImGui::GetMousePos();
+        auto min_window_content = ImGui::GetWindowContentRegionMin();
+        auto window_size = ImGui::GetWindowContentRegionMax();
+        auto cursor_orig = ImGui::GetCursorPos();
+        auto draw_pos = ImGui::GetCursorScreenPos();
+        auto draw_list = ImGui::GetWindowDrawList();
+        auto scroll_offset_y = draw_pos.y + ImGui::GetScrollY();
+        const auto& style = ImGui::GetStyle();
+        float font_size = ImGui::GetFontSize();
+
+        window_size.x -= min_window_content.x;
+        window_size.y -= min_window_content.y;
+
+        // Handle separator
+        ImGui::SetCursorScreenPos(ImVec2(draw_pos.x + separator_x - 2.0f, scroll_offset_y));
+        ImGui::InvisibleButton("timeline_separator", ImVec2(4, window_size.y));
+
+        bool is_separator_active = ImGui::IsItemActive();
+        bool is_separator_hovered = ImGui::IsItemHovered();
+
+        if (is_separator_hovered || is_separator_active) {
+            if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+                separator_x = 150.0f;
+            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+        }
+
+        if (is_separator_active) {
+            auto drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left, 1.0f);
+            ImGui::ResetMouseDragDelta(ImGuiMouseButton_Left);
+            separator_x += drag_delta.x;
+        }
+        else {
+            separator_x = std::max(separator_x, 100.0f);
+        }
+
+        float clamped_separator = std::max(separator_x, 100.0f);
+
+        ImGui::SetCursorPos(cursor_orig);
+        ImGui::PushClipRect(ImVec2(draw_pos.x, draw_pos.y), ImVec2(draw_pos.x + clamped_separator, draw_pos.y + window_size.y + ImGui::GetScrollY()), true);
+
+        // Render track controls
+        int id = 0;
+        static float drag_test = 0.0f;
+        constexpr ImGuiWindowFlags child_flags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_AlwaysUseWindowPadding | ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoBackground;
+        auto& frame_bg_color = ImGui::GetStyleColorVec4(ImGuiCol_FrameBg);
+        for (auto& track : g_engine.tracks) {
+            auto tmp_item_spacing = style.ItemSpacing;
+            auto frame_bg_accent = color_adjust_alpha(color_darken(track->color, 0.2f), frame_bg_color.w);
+
+            // Draw collapse button
+            auto current_cur_pos = ImGui::GetCursorScreenPos();
+            draw_list->AddRectFilled(current_cur_pos, ImVec2(current_cur_pos.x + font_size + style.FramePadding.x, current_cur_pos.y + track->height), ImGui::GetColorU32((ImVec4)track->color));
+            ImGui::PushID(id);
+            widget::collapse_button("##track_collapse", &track->shown);
+            ImGui::SameLine(0.0f, 0.0f);
+
+            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2());
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(style.WindowPadding.x, 4.0f));
+            ImGui::PushStyleColor(ImGuiCol_MenuBarBg, (ImVec4)frame_bg_accent);
+            ImGui::BeginChild("##track_control", ImVec2(clamped_separator - font_size - style.FramePadding.x, track->height), false, child_flags);
+            {
+                ImGui::PopStyleVar();
+                ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, tmp_item_spacing);
+                render_track_header(*track);
+
+                // Set items coloring to the track color accent.
+                ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
+                ImGui::PushStyleColor(ImGuiCol_FrameBg, (ImVec4)frame_bg_accent);
+                ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, (ImVec4)color_adjust_alpha(track->color, frame_bg_color.w));
+                ImGui::PushStyleColor(ImGuiCol_FrameBgActive, (ImVec4)track->color);
+                ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)color_adjust_alpha(color_darken(track->color, 0.2f), 0.8f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)track->color);
+                ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)color_adjust_contrast(track->color, 0.6f));
+
+                render_track_controls(*track);
+
+                ImGui::PopStyleColor(6);
+                ImGui::PopStyleVar();
+
+                if (ImGui::IsWindowHovered() && !(ImGui::IsAnyItemActive() || ImGui::IsAnyItemHovered()) && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+                    ImGui::OpenPopup("track_context_menu");
+                }
+
+                render_track_context_menu(*track);
+                ImGui::PopStyleVar();
+            }
+            ImGui::EndChild();
+            ImGui::PopID();
+            widget::hseparator_resizer(id, &track->height, 56.0f, 30.f, 500.f);
+            ImGui::PopStyleColor();
+            ImGui::PopStyleVar();
+            id++;
+        }
+
+        if (ImGui::Button("Add Audio Track"))
+            g_engine.add_track(TrackType::Audio, "New track");
+
+        ImGui::PopClipRect();
+        auto end_cursor = ImGui::GetCursorPos();
+
+        // Calculate view scale (zooming)
+        float timeline_orig_pos_x = draw_pos.x + clamped_separator + 2.0f;
+        ImGui::SetCursorScreenPos(ImVec2(timeline_orig_pos_x, draw_pos.y));
+
+        auto timeline_area = ImGui::GetContentRegionAvail();
+        float view_scale = (float)((max_scroll_pos_x - min_scroll_pos_x) * music_length) / timeline_area.x;
+        float inv_view_scale = 1.0f / view_scale;
+        timeline_width = timeline_area.x;
+        ImGui::PushClipRect(ImVec2(timeline_orig_pos_x, scroll_offset_y), ImVec2(timeline_orig_pos_x + timeline_width, timeline_area.y + scroll_offset_y), true);
+        ImGui::InvisibleButton("##timeline", ImVec2(timeline_width, end_cursor.y));
+
+        bool left_mouse_clicked = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+        bool left_mouse_down = ImGui::IsMouseDown(ImGuiMouseButton_Left);
+        bool middle_mouse_clicked = ImGui::IsMouseClicked(ImGuiMouseButton_Middle);
+        bool middle_mouse_down = ImGui::IsMouseDown(ImGuiMouseButton_Middle);
+        bool timeline_hovered = ImGui::IsItemHovered();
+
+        if (middle_mouse_clicked && middle_mouse_down && timeline_hovered)
+            scrolling = true;
+
+        if (scrolling) {
+            ImVec2 drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Middle, 1.0f);
+            handle_scroll_drag_x(drag_delta.x, music_length, -view_scale);
+            scroll_delta_y = drag_delta.y;
+            ImGui::ResetMouseDragDelta(ImGuiMouseButton_Middle);
+        }
+
+        if (!middle_mouse_down) {
+            scrolling = false;
+            scroll_delta_y = 0.0f;
+        }
+
+        ContentBrowserFilePayload item_drop{};
+        bool dragging_file = false;
+        if (ImGui::BeginDragDropTarget()) {
+            if (ImGui::AcceptDragDropPayload("WB_FILEDROP", ImGuiDragDropFlags_AcceptPeekOnly)) {
+                auto drop_payload = ImGui::AcceptDragDropPayload("WB_FILEDROP");
+                if (drop_payload)
+                    std::memcpy(&item_drop, drop_payload->Data, drop_payload->DataSize);
+                dragging_file = true;
+            }
+            ImGui::EndDragDropTarget();
+        }
+
+        // Auto scroll when moving/resizing clips or dragging files to the edge of timeline
+        float timeline_end_x = timeline_orig_pos_x + timeline_width;
+        if (clip_action != GUITimelineClipAction::None || dragging_file) {
+            float min_offset = !dragging_file ? timeline_orig_pos_x : timeline_orig_pos_x + 20.0f;
+            float max_offset = !dragging_file ? timeline_end_x : timeline_end_x - 20.0f;
+            if (mouse_pos.x < min_offset) {
+                float distance = min_offset - mouse_pos.x;
+                handle_scroll_drag_x(distance * 0.5f * inv_view_scale, music_length, -view_scale);
+            }
+            if (mouse_pos.x > max_offset) {
+                float distance = max_offset - mouse_pos.x;
+                handle_scroll_drag_x(distance * 0.5f * inv_view_scale, music_length, -view_scale);
+            }
+        }
+
+        // ------------- Render track grid lines -------------
+        auto grid_color = (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.3f);
+        float grid_inc_x = 96.0f / view_scale;
+        float inv_grid_inc_x = 1.0f / grid_inc_x;
+        float scroll_pos_x = (float)(min_scroll_pos_x * music_length) / view_scale;
+        float gridline_pos_x = timeline_orig_pos_x - std::fmod(scroll_pos_x, grid_inc_x);
+        int line_count = (uint32_t)(timeline_width * inv_grid_inc_x);
+        int count_offset = (uint32_t)(scroll_pos_x * inv_grid_inc_x);
+        for (int i = 0; i <= line_count; i++) {
+            gridline_pos_x += grid_inc_x;
+            draw_list->AddLine(ImVec2(std::round(gridline_pos_x), scroll_offset_y),
+                               ImVec2(std::round(gridline_pos_x), scroll_offset_y + window_size.y),
+                               grid_color, (i + count_offset + 1) % 4 ? 1.0f : 2.0f);
+        }
+
+        // ------------- Render tracks -------------
+        uint32_t track_separator_color = color_premul_alpha(ImGui::GetStyleColorVec4(ImGuiCol_Separator)); // Remove transparency
+        uint32_t text_color = ImGui::GetColorU32(ImGuiCol_Text);
+        auto font = ImGui::GetFont();
+        float track_pos_y = draw_pos.y;
+        float timeline_scroll_offset_x = timeline_orig_pos_x - scroll_pos_x;
+        double mapped_x_pos = (double)(mouse_pos.x - timeline_orig_pos_x) / music_length * (double)view_scale + min_scroll_pos_x;
+        double mouse_time_pos = mapped_x_pos * music_length / 96.0;
+        double mouse_time_pos_grid = std::round(mouse_time_pos);
+        float clip_scale = inv_view_scale * 96.0f;
+        ImDrawListFlags old_draw_list = draw_list->Flags;
+        ImDrawListFlags disable_aa = ~(draw_list->Flags & (ImDrawListFlags_AntiAliasedLines |
+                                                           ImDrawListFlags_AntiAliasedLinesUseTex |
+                                                           ImDrawListFlags_AntiAliasedFill));
+
+        // Apply clip action
+        switch (clip_action) {
+            case GUITimelineClipAction::Move:
+                if (!left_mouse_down) {
+                    g_engine.move_clip(g_selected_track, g_selected_clip, mouse_time_pos_grid - initial_move_pos);
+                    g_selected_clip = nullptr;
+                    clip_action = GUITimelineClipAction::None;
+                    initial_move_pos = 0.0;
+                }
+                ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+                break;
+            case GUITimelineClipAction::ResizeLeft:
+                if (!left_mouse_down) {
+                    g_engine.resize_clip(g_selected_track, g_selected_clip, mouse_time_pos_grid - initial_move_pos, false);
+                    g_selected_clip = nullptr;
+                    clip_action = GUITimelineClipAction::None;
+                    initial_move_pos = 0.0;
+                }
+                ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+                break;
+            case GUITimelineClipAction::ResizeRight:
+                if (!left_mouse_down) {
+                    g_engine.resize_clip(g_selected_track, g_selected_clip, mouse_time_pos_grid - initial_move_pos, true);
+                    g_selected_clip = nullptr;
+                    clip_action = GUITimelineClipAction::None;
+                    initial_move_pos = 0.0;
+                }
+                ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+                break;
+            default:
+                break;
+        }
+
+        for (auto& track : g_engine.tracks) {
+            float height = track->height;
+            // Skip out-of-screen tracks.
+            if (track_pos_y > window_size.y + scroll_offset_y) {
+                break;
+            }
+
+            if (track_pos_y < scroll_offset_y - height - 2.0f) {
+                track_pos_y += height + 2.0f;
+                continue;
+            }
+            
+            bool hovering_track_rect = !scrolling && ImGui::IsMouseHoveringRect(ImVec2(timeline_orig_pos_x, track_pos_y),
+                                                                                ImVec2(timeline_orig_pos_x + timeline_width, track_pos_y + height));
+            bool hovering_current_track = timeline_hovered && hovering_track_rect;
+
+            // Handle file drag & drop
+            if (hovering_track_rect && dragging_file) {
+                // Highlight drop target
+                float highlight_pos = (float)mouse_time_pos_grid; // Snap to grid
+                draw_list->AddRectFilled(ImVec2(timeline_scroll_offset_x + highlight_pos * clip_scale, track_pos_y),
+                                         ImVec2(timeline_scroll_offset_x + (highlight_pos + 1.0f) * clip_scale, track_pos_y + height),
+                                         ImGui::GetColorU32(ImGuiCol_Border));
+
+                // We have file dropped
+                if (item_drop.item) {
+                    std::filesystem::path file_path = item_drop.item->get_file_path(*item_drop.root_dir);
+                    auto sample_asset = g_engine.get_or_load_sample_asset(file_path);
+                    if (sample_asset) {
+                        AudioClip* clip = g_engine.add_audio_clip(track.get(), highlight_pos, highlight_pos + 2.0f);
+                        clip->name = (*sample_asset)->name;
+                        clip->asset = std::move(*sample_asset);
+                    }
+                    Log::info("Dropped at: {}", mapped_x_pos);
+                }
+            }
+
+            // Render clips
+            Clip* current_clip = (Clip*)track->head_node.next;
+            while (current_clip != &track->tail_node) {
+                double min_time = current_clip->min_time;
+                double max_time = current_clip->max_time;
+
+                if (current_clip == g_selected_clip) {
+                    switch (clip_action) {
+                        case GUITimelineClipAction::Move:
+                        {
+                            double new_min_time = std::max(min_time + mouse_time_pos_grid - initial_move_pos, 0.0);
+                            max_time = new_min_time + (max_time - min_time);
+                            min_time = new_min_time;
+                            
+                            // Readjust music length and scrolling range
+                            if (max_time * 96.0f > music_length) {
+                                double new_music_length = std::max(max_time * 96.0f, music_length);
+                                min_scroll_pos_x = min_scroll_pos_x * music_length / new_music_length;
+                                max_scroll_pos_x = max_scroll_pos_x * music_length / new_music_length;
+                                music_length = new_music_length;
+                            }
+                            break;
+                        }
+                        case GUITimelineClipAction::ResizeLeft:
+                            min_time = std::max(min_time + mouse_time_pos_grid - initial_move_pos, 0.0);
+                            if (min_time >= max_time)
+                                min_time = max_time - 1.0f;
+                            break;
+                        case GUITimelineClipAction::ResizeRight:
+                            max_time = std::max(max_time + mouse_time_pos_grid - initial_move_pos, 0.0);
+                            if (max_time <= min_time)
+                                max_time = min_time + 1.0f;
+                            break;
+                        default:
+                            break;
+                    }
+                }
+
+                float min_pos_x = std::round(timeline_scroll_offset_x + (float)(min_time * clip_scale));
+                float max_pos_x = std::round(timeline_scroll_offset_x + (float)(max_time * clip_scale));
+
+                // Skip out-of-screen clips.
+                if (min_pos_x > timeline_end_x)
+                    break;
+
+                if (max_pos_x < timeline_orig_pos_x) {
+                    current_clip = (Clip*)current_clip->next;
+                    continue;
+                }
+
+                // Setup clip's minimum and maximum bounding box
+                ImVec2 min_bb(min_pos_x, track_pos_y);
+                ImVec2 max_bb(max_pos_x, track_pos_y + track->height);
+                ImVec4 fine_scissor_rect(min_bb.x, min_bb.y, max_bb.x, max_bb.y);
+                bool hovering_left_side = false;
+                bool hovering_right_side = false;
+
+                if (hovering_current_track && clip_action == GUITimelineClipAction::None) {
+                    ImRect clip_rect(min_bb, max_bb);
+                    ImRect lhs(min_pos_x, track_pos_y, min_pos_x + 4.0f, max_bb.y);
+                    ImRect rhs(max_pos_x - 4.0f, track_pos_y, max_pos_x, max_bb.y);
+
+                    // Apply clip action in next frame
+                    if (lhs.Contains(mouse_pos)) {
+                        if (left_mouse_clicked)
+                            clip_action = GUITimelineClipAction::ResizeLeft;
+                        ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+                        hovering_left_side = true;
+                    }
+                    else if (rhs.Contains(mouse_pos)) {
+                        if (left_mouse_clicked)
+                            clip_action = GUITimelineClipAction::ResizeRight;
+                        ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+                        hovering_right_side = true;
+                    }
+                    else if (clip_rect.Contains(mouse_pos)) {
+                        if (left_mouse_clicked)
+                            clip_action = GUITimelineClipAction::Move;
+                        ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+                    }
+
+                    if (clip_action != GUITimelineClipAction::None) {
+                        initial_move_pos = mouse_time_pos_grid;
+                        g_selected_track = track.get();
+                        g_selected_clip = current_clip;
+                    }
+                }
+
+                // Draw clip background. It does not have to be anti-aliased.
+                float clip_title_max_y = min_bb.y + font_size + 2.0f;
+                ImVec2 clip_title_max_bb = ImVec2(max_bb.x, clip_title_max_y);
+                draw_list->Flags = disable_aa;
+                draw_list->AddRectFilled(min_bb, clip_title_max_bb, current_clip->color);
+                draw_list->AddRectFilled(ImVec2(min_bb.x, clip_title_max_y), max_bb, color_adjust_alpha(current_clip->color, 0.5f));
+                draw_list->AddRect(min_bb, clip_title_max_bb, ImColor(1.0f, 1.0f, 1.0f, 0.15f));
+                draw_list->Flags = old_draw_list;
+
+                const char* str = current_clip->name.c_str();
+                ImVec4 clip_label_rect(min_bb.x, min_bb.y, max_bb.x - 3.0f, clip_title_max_y);
+                draw_list->AddText(font, font_size, ImVec2(std::max(min_bb.x, timeline_orig_pos_x) + 3.0f, min_bb.y),
+                                   text_color, str, str + current_clip->name.size(), 0.0f, &clip_label_rect);
+
+                float line_center_y = track_pos_y + (track->height - font_size + 2.0f) * 0.5f + font_size;
+                draw_list->AddLine(ImVec2(min_pos_x, line_center_y),
+                                   ImVec2(max_pos_x, line_center_y),
+                                   color_brighten(current_clip->color, 0.75f), 10.0f);
+
+                if (hovering_left_side)
+                    draw_list->AddLine(ImVec2(min_bb.x + 1.0f, min_bb.y), ImVec2(min_bb.x + 1.0f, max_bb.y), ImGui::GetColorU32(ImGuiCol_SeparatorHovered), 3.0f);
+                if (hovering_right_side)
+                    draw_list->AddLine(ImVec2(max_bb.x - 2.0f, min_bb.y), ImVec2(max_bb.x - 2.0f, max_bb.y), ImGui::GetColorU32(ImGuiCol_SeparatorHovered), 3.0f);
+
+                current_clip = (Clip*)current_clip->next;
+            }
+
+            track_pos_y += track->height;
+            
+            draw_list->AddLine(ImVec2(timeline_orig_pos_x, track_pos_y + 0.5f),
+                               ImVec2(timeline_orig_pos_x + timeline_width, track_pos_y + 0.5f),
+                               track_separator_color, 2.0f);
+
+            track_pos_y += 2.0f;
+        }
+
+        // Draw playhead line
+        if (g_engine.is_playing()) {
+            float playhead_pos = std::round(timeline_orig_pos_x - scroll_pos_x + get_playhead_screen_position(view_scale, playhead_position));
+            draw_list->AddLine(ImVec2(playhead_pos, scroll_offset_y),
+                               ImVec2(playhead_pos, scroll_offset_y + timeline_area.y),
+                               playhead_color);
+        }
+
+        ImGui::PopClipRect();
+
+        // Draw Separator
+        draw_list->AddLine(ImVec2(draw_pos.x + clamped_separator + 0.5f, scroll_offset_y),
+                           ImVec2(draw_pos.x + clamped_separator + 0.5f, scroll_offset_y + timeline_area.y),
+                           is_separator_active || is_separator_hovered ? ImGui::GetColorU32(ImGuiCol_SeparatorHovered) : ImGui::GetColorU32(ImGuiCol_Separator),
+                           2.0f);
+
+        // Handle zooming
+        if (timeline_hovered && ImGui::IsKeyDown(ImGuiKey_LeftCtrl) && mouse_wheel != 0.0f) {
+            last_scroll_pos_y = ImGui::GetScrollY();
+            handle_zoom(mouse_pos.x, timeline_orig_pos_x, view_scale, mouse_wheel);
+            zooming = true;
+        }
+
+        ImGui::EndChild();
+
+        ImGui::End();
+    }
+
+    void GUITimeline::handle_scroll_drag_x(float drag_delta, double scroll_view_width, float direction)
+    {
+        double norm_drag_delta = (drag_delta / scroll_view_width) * (double)direction;
+        if (std::abs(norm_drag_delta) >= 0.0001) {
+            double new_min_scroll_pos_x = min_scroll_pos_x + norm_drag_delta;
+            double new_max_scroll_pos_x = max_scroll_pos_x + norm_drag_delta;
+            if (new_min_scroll_pos_x >= 0.0f && new_max_scroll_pos_x <= 1.0f) {
+                min_scroll_pos_x = new_min_scroll_pos_x;
+                max_scroll_pos_x = new_max_scroll_pos_x;
+            }
+            else {
+                // Clip overflowing scroll
+                if (new_min_scroll_pos_x < 0.0f) {
+                    min_scroll_pos_x = 0.0f;
+                    max_scroll_pos_x = new_max_scroll_pos_x + std::abs(new_min_scroll_pos_x);
+                }
+                else if (new_max_scroll_pos_x > 1.0f) {
+                    min_scroll_pos_x = new_min_scroll_pos_x - (new_max_scroll_pos_x - 1.0f);
+                    max_scroll_pos_x = 1.0f;
+                }
+            }
+        }
+    }
+
+    void GUITimeline::handle_zoom(float mouse_pos_x, float cursor_pos_x, float view_scale, float mouse_wheel)
+    {
+        // Map mouse cursor x position on ruler to scroll position
+        float zoom_position = (mouse_pos_x - cursor_pos_x) / (float)music_length * view_scale + (float)min_scroll_pos_x;
+        if (zoom_position <= 1.0f) {
+            float dist_from_start = zoom_position - (float)min_scroll_pos_x;
+            float dist_to_end = (float)max_scroll_pos_x - zoom_position;
+            mouse_wheel *= 0.1f;
+            min_scroll_pos_x = std::clamp((float)min_scroll_pos_x + dist_from_start * mouse_wheel, 0.0f, (float)max_scroll_pos_x);
+            max_scroll_pos_x = std::clamp((float)max_scroll_pos_x - dist_to_end * mouse_wheel, (float)min_scroll_pos_x, 1.0f);
+        }
+    }
+
+    float GUITimeline::get_playhead_screen_position(float view_scale, double playhead_position)
+    {
+        return (float)(playhead_position * 96.0) / view_scale;
+    }
+
+    float GUITimeline::calculate_music_length()
+    {
+        return (float)music_length * 96.0f;
+    }
+}
