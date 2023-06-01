@@ -10,6 +10,7 @@
 #include <imgui.h>
 #include <imgui_freetype.h>
 #include <chrono>
+#include <random>
 
 namespace wb
 {
@@ -37,9 +38,10 @@ namespace wb
         ImFontConfig config;
         config.SizePixels = 13.0f;
         config.FontBuilderFlags = ImGuiFreeTypeBuilderFlags_LoadColor | ImGuiFreeTypeBuilderFlags_LightHinting;
-        //config.RasterizerMultiply = 1.25f;
+        config.RasterizerMultiply = 1.25f;
 
         io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
+        //io.Fonts->AddFontDefault(&config);
         io.Fonts->AddFontFromFileTTF("../../../assets/Inter-Regular.otf", 0.0f, &config);
 
         ImGuiStyle& style = ImGui::GetStyle();
@@ -49,7 +51,29 @@ namespace wb
             style.Colors[ImGuiCol_WindowBg].w = 1.0f;
         }
 
-        g_engine.set_bpm(120.0f);
+        g_engine.set_bpm(180.0f);
+
+        /*std::random_device rd;
+        std::uniform_int_distribution<uint32_t> dist(1, 9);
+
+        for (uint32_t i = 0; i < 64; i++) {
+            auto track = g_engine.add_track(TrackType::Audio, "Audio Track");
+            track->color = ImColor::HSV((float)i / 64.f, 0.5f, 0.5f);
+
+            double current_time = 0;
+
+            for (uint32_t j = 0; j < 15; j++) {
+                double min_time = current_time + (double)dist(rd);
+                double max_time = min_time + (double)dist(rd);
+                
+                if (max_time > g_gui_timeline.music_length / 96.0f)
+                    break;
+
+                current_time = max_time;
+                auto clip = track->add_audio_clip(min_time, max_time, nullptr);
+                fmt::format_to(std::back_inserter(clip->name), "Test Clip {}", j);
+            }
+        }*/
         
         Renderer::init(this, Renderer::D3D11);
     }
@@ -100,7 +124,9 @@ namespace wb
                     g_engine.play();
             }
             if (is_playing)
-                ImGui::Text("%f", g_engine.get_playback_position());
+                ImGui::Text("%f", g_engine.get_playhead_position());
+            for (auto& track : g_engine.tracks)
+                ImGui::Text("%s: %f", track->name.c_str(), track->play_time);
             ImGui::End();
 
             g_gui_content_browser.render();

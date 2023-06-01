@@ -5,7 +5,6 @@
 #include "engine/sample_table.h"
 #include <imgui_stdlib.h>
 #include <imgui_stdlib.h>
-#include <random>
 
 namespace wb
 {
@@ -13,9 +12,6 @@ namespace wb
 
     GUITimeline::GUITimeline()
     {
-        //tracks[0].clips.push_back(wb::ClipInfo{.color = ImColor(0.5f, 0.3f, 0.4f), .min_time = 0.0, .max_time = 96.0f});
-        //tracks[0].clips.push_back(wb::ClipInfo{.color = ImColor(0.5f, 0.3f, 0.4f), .min_time = 96.0f, .max_time = 192.0f});
-
     }
 
     void GUITimeline::render_track_header(Track& track)
@@ -243,7 +239,7 @@ namespace wb
             double mapped_x_pos = (double)(mouse_pos.x - cursor_pos.x) / music_length * (double)view_scale + min_scroll_pos_x;
             double mouse_time_pos = mapped_x_pos * music_length / 96.0;
             double mouse_time_pos_grid = std::max(std::round(mouse_time_pos), 0.0);
-            g_engine.seek_to(mouse_time_pos_grid);
+            g_engine.set_play_position(mouse_time_pos_grid);
             ImGui::ResetMouseDragDelta();
         }
 
@@ -267,10 +263,10 @@ namespace wb
 
         bool is_playing = g_engine.is_playing();
         if (is_playing) {
-            float play_position = std::round(scroll_offset + get_playhead_screen_position(view_scale, g_engine.play_position) - size.y * 0.5f);
-            draw_list->AddTriangleFilled(ImVec2(play_position, cursor_pos.y + 2.0f),
-                                         ImVec2(play_position + size.y, cursor_pos.y + 2.0f),
-                                         ImVec2(play_position + size.y * 0.5f, cursor_pos.y + size.y - 2.0f), col);
+            float play_position = std::round(scroll_offset + get_playhead_screen_position(view_scale, g_engine.play_position)) - size.y * 0.5f;
+            draw_list->AddTriangleFilled(ImVec2(play_position, cursor_pos.y + 2.5f),
+                                         ImVec2(play_position + size.y, cursor_pos.y + 2.5f),
+                                         ImVec2(play_position + size.y * 0.5f, cursor_pos.y + size.y - 2.5f), col);
         }
 
         for (int i = 0; i <= line_count; i++) {
@@ -284,10 +280,10 @@ namespace wb
             gridline_pos_x += grid_inc_x;
         }
 
-        float playhead_screen_position = std::round(scroll_offset + get_playhead_screen_position(view_scale, playhead_position) - size.y * 0.5f);
-        draw_list->AddTriangleFilled(ImVec2(playhead_screen_position, cursor_pos.y + 2.0f),
-                                     ImVec2(playhead_screen_position + size.y, cursor_pos.y + 2.0f),
-                                     ImVec2(playhead_screen_position + size.y * 0.5f, cursor_pos.y + size.y - 2.0f),
+        float playhead_screen_position = std::round(scroll_offset + get_playhead_screen_position(view_scale, playhead_position)) - size.y * 0.5f;
+        draw_list->AddTriangleFilled(ImVec2(playhead_screen_position, cursor_pos.y + 2.5f),
+                                     ImVec2(playhead_screen_position + size.y, cursor_pos.y + 2.5f),
+                                     ImVec2(playhead_screen_position + size.y * 0.5f, cursor_pos.y + size.y - 2.5f),
                                      playhead_color);
 
         draw_list->PopClipRect();
@@ -321,7 +317,7 @@ namespace wb
         }
         ImGui::PopStyleVar();
 
-        playhead_position = g_engine.get_playback_position();
+        playhead_position = g_engine.get_playhead_position();
         docked = ImGui::IsWindowDocked();
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
         render_horizontal_scrollbar();
@@ -491,11 +487,11 @@ namespace wb
             float max_offset = !dragging_file ? timeline_end_x : timeline_end_x - 20.0f;
             if (mouse_pos.x < min_offset) {
                 float distance = min_offset - mouse_pos.x;
-                handle_scroll_drag_x(distance * 0.5f * inv_view_scale, music_length, -view_scale);
+                handle_scroll_drag_x(distance * 0.25f * inv_view_scale, music_length, -view_scale);
             }
             if (mouse_pos.x > max_offset) {
                 float distance = max_offset - mouse_pos.x;
-                handle_scroll_drag_x(distance * 0.5f * inv_view_scale, music_length, -view_scale);
+                handle_scroll_drag_x(distance * 0.25f * inv_view_scale, music_length, -view_scale);
             }
         }
 
@@ -692,7 +688,7 @@ namespace wb
                 ImVec2 clip_title_max_bb = ImVec2(max_bb.x, clip_title_max_y);
                 draw_list->Flags = disable_aa;
                 draw_list->AddRectFilled(min_bb, clip_title_max_bb, current_clip->color);
-                draw_list->AddRectFilled(ImVec2(min_bb.x, clip_title_max_y), max_bb, color_adjust_alpha(current_clip->color, 0.5f));
+                draw_list->AddRectFilled(ImVec2(min_bb.x, clip_title_max_y), max_bb, color_adjust_alpha(current_clip->color, 0.35f));
                 draw_list->AddRect(min_bb, clip_title_max_bb, ImColor(1.0f, 1.0f, 1.0f, 0.15f));
                 draw_list->Flags = old_draw_list;
 
@@ -790,7 +786,7 @@ namespace wb
 
     float GUITimeline::get_playhead_screen_position(float view_scale, double playhead_position)
     {
-        return (float)(playhead_position * 96.0) / view_scale;
+        return (float)(playhead_position * 96.0 / (double)view_scale);
     }
 
     float GUITimeline::calculate_music_length()

@@ -87,4 +87,9 @@ namespace wb
             };
         }
     };
+
+    inline static double beat_to_seconds(double beat, double beat_duration)
+    {
+        return beat * beat_duration;
+    }
 }

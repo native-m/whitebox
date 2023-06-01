@@ -337,9 +337,10 @@ namespace wb
 
     void AudioDriverWASAPI::audio_thread_runner_()
     {
-        AudioBuffer buffer(output_mode.format, stream_buffer_size, output_mode.channels);
-        float* l_buffer = buffer.get_write_pointer<float>(0);
-        float* r_buffer = buffer.get_write_pointer<float>(1);
+        WB_ASSERT(is_floating_point_format(output_mode.format));
+        AudioBuffer<float> buffer(output_mode.format, stream_buffer_size, output_mode.channels);
+        float* l_buffer = buffer.get_write_pointer(0);
+        float* r_buffer = buffer.get_write_pointer(1);
         float* audio_buffer;
 
         uint32_t output_write_count = get_sample_write_count_(output_client);

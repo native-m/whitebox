@@ -121,7 +121,7 @@ namespace wb
         swapchain_desc.Windowed = TRUE;
         swapchain_desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 
-        UINT create_device_flags = 0;// D3D11_CREATE_DEVICE_DEBUG;
+        UINT create_device_flags = D3D11_CREATE_DEVICE_BGRA_SUPPORT | D3D11_CREATE_DEVICE_DEBUG;// D3D11_CREATE_DEVICE_DEBUG;
 
         static const D3D_FEATURE_LEVEL featureLevelArray[2] = {
             D3D_FEATURE_LEVEL_11_0,

@@ -10,12 +10,14 @@
 
 namespace wb
 {
+    template<typename T>
+        requires std::floating_point<T>
     struct AudioBuffer
     {
         AudioFormat format{};
         uint32_t n_samples{};
         uint32_t n_channels{};
-        std::vector<std::byte*> buffers_;
+        std::vector<T*> buffers_;
         bool managed_{};
 
         AudioBuffer(AudioFormat format, uint32_t n_samples, uint32_t n_channels) :
@@ -30,14 +32,14 @@ namespace wb
             buffers_.reserve(n_channels);
             for (uint32_t i = 0; i < n_channels; i++) {
                 // Use aligned buffer
-                std::byte* buffer = (std::byte*)allocate_aligned(n_samples * sample_size, 64);
+                T* buffer = (T*)allocate_aligned(n_samples * sample_size, 64);
                 std::memset(buffer, 0, n_samples * sample_size);
                 WB_CHECK(buffer != nullptr && "Out of memory");
                 buffers_.push_back(buffer);
             }
         }
 
-        AudioBuffer(std::byte* const* buffer_mem, AudioFormat format, uint32_t n_samples, uint32_t n_channels) :
+        AudioBuffer(T* const* buffer_mem, AudioFormat format, uint32_t n_samples, uint32_t n_channels) :
             format(format),
             n_samples(n_samples),
             n_channels(n_channels),
@@ -56,15 +58,11 @@ namespace wb
                     free_aligned(buffer);
         }
 
-        template<typename T>
-            requires std::floating_point<T>
         inline const T* get_read_pointer(uint32_t channel) const
         {
             return (const T*)buffers_[channel];
         }
 
-        template<typename T>
-            requires std::floating_point<T>
         inline T* get_write_pointer(uint32_t channel)
         {
             return (T*)buffers_[channel];

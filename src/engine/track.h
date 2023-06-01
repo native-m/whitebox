@@ -3,9 +3,11 @@
 #include <string>
 #include <variant>
 #include <optional>
+#include <deque>
 #include <imgui.h>
 #include "clip.h"
 #include "../core/memory.h"
+#include "../core/audio_buffer.h"
 
 namespace wb
 {
@@ -13,6 +15,18 @@ namespace wb
     {
         Audio,
         Midi
+    };
+
+    enum class TrackMessageType : uint8_t
+    {
+        AudioEvent,
+        MIDIEvent
+    };
+
+    struct TrackMessage
+    {
+        double timestamp;
+        TrackMessageType event;
     };
 
     struct Track
@@ -36,15 +50,29 @@ namespace wb
         ClipNode head_node;
         ClipNode tail_node;
 
+        // Playback
+        double playhead_position = -1.0;
+        double play_time = 0.0;
+        Clip* current_playing_clip = nullptr;
+        Clip* last_played_clip = nullptr;
+
         Track(TrackType type, const std::string& name);
         ~Track();
         AudioClip* add_audio_clip(double min_time, double max_time, AudioClip* nearby_clip = nullptr);
         void move_clip(Clip* clip, double relative_pos);
         void resize_clip(Clip* clip, double relative_pos, bool right_side);
         Clip* find_clip(double time, Clip* nearby_clip = nullptr);
-        Clip* seek_adjacent_clip(double time, Clip* nearby_clip = nullptr);
+        Clip* seek_adjacent_clip(double time, Clip* hint = nullptr);
         Clip* seek_backward(double time, Clip* clip);
         Clip* seek_forward(double time, Clip* clip);
+
+        void prepare_play(double position, double beat_duration);
+        void get_next_message(double tick_duration, double beat_duration, TrackMessage& message);
+
+        void process(AudioBuffer<float>& output_buffer,
+                     double sample_rate,
+                     double tick_duration,
+                     bool is_playing);
 
         void log_clip_ordering_();
     };

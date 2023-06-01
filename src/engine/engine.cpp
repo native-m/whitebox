@@ -1,6 +1,4 @@
 #include "engine.h"
-#include "engine.h"
-#include "engine.h"
 #include "../core/debug.h"
 #include "../core/thread.h"
 #include "../core/midi.h"
@@ -17,8 +15,7 @@ namespace wb
 
     Engine::~Engine()
     {
-        playing = true;
-        stop_thread = true;
+        playing = false;
     }
 
     std::optional<SampleAsset> Engine::get_or_load_sample_asset(const std::filesystem::path& path)
@@ -26,18 +23,20 @@ namespace wb
         return sample_table.load_sample_from_file(path);
     }
 
-    void Engine::add_track(TrackType type, const std::string& name)
+    Track* Engine::add_track(TrackType type, const std::string& name)
     {
         std::scoped_lock lock(mtx_);
         Track* new_track = new Track(type, name);
         tracks.push_back(std::unique_ptr<Track>(new_track));
+        return new_track;
     }
 
-    void Engine::add_track_at(uint32_t index, TrackType type, const std::string& name)
+    Track* Engine::add_track_at(uint32_t index, TrackType type, const std::string& name)
     {
         std::scoped_lock lock(mtx_);
         Track* new_track = new Track(type, name);
         tracks.insert(tracks.begin() + index, std::unique_ptr<Track>(new_track));
+        return new_track;
     }
 
     AudioClip* Engine::add_audio_clip(Track* track, double min_time, double max_time)
@@ -68,6 +67,10 @@ namespace wb
 
     void Engine::play()
     {
+        for (auto& track : tracks)
+            track->prepare_play(play_position, beat_duration);
+
+        play_time = beat_to_seconds(play_position, beat_duration);
         playing = true;
         playing.notify_all();
     }
@@ -76,21 +79,51 @@ namespace wb
     {
         playing = false;
         playing.notify_all();
-        playback_position_.store(play_position, std::memory_order_release);
+        playhead_position_ = play_position;
     }
 
-    void Engine::seek_to(double new_position)
+    void Engine::set_play_position(double new_position)
     {
+        std::unique_lock lock(mtx_);
+
+        for (auto& track : tracks)
+            track->prepare_play(new_position, beat_duration);
+
         play_position = new_position;
-        playback_position_.store(new_position, std::memory_order_release);
+        playhead_position_ = play_position;
     }
 
-    void Engine::process(AudioBuffer& output_buffer, double sample_rate)
+    double Engine::get_playhead_position() const
     {
+        std::shared_lock lock(mtx_);
+        return playhead_position_;
+    }
+
+    void Engine::prepare_audio(double sample_rate, uint32_t buffer_size)
+    {
+
+    }
+
+    void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate)
+    {
+        std::unique_lock lock(mtx_);
+        double buffer_duration = (double)output_buffer.n_samples / sample_rate;
+
+        // Interpret messages from track clips
         if (is_playing()) {
-            double buffer_duration = (double)output_buffer.n_samples / sample_rate;
-            double last_playback_position = playback_position_.load(std::memory_order_relaxed);
-            playback_position_.store(last_playback_position + (buffer_duration / beat_duration.load(std::memory_order_relaxed)));
+            playhead_position_ = playhead_position_ + (buffer_duration / beat_duration.load(std::memory_order_relaxed));
+            double playhead_position_sec = beat_to_seconds(playhead_position_, beat_duration.load(std::memory_order_relaxed));
+            uint32_t count = 0;
+            while (play_time < playhead_position_sec) {
+                double tmp_beat_duration = beat_duration.load(std::memory_order_relaxed);
+                double tick_duration = tmp_beat_duration / 96.0;
+                TrackMessage message{};
+                for (auto& track : tracks)
+                    track->get_next_message(tick_duration, tmp_beat_duration, message);
+                play_time += tick_duration;
+                count++;
+            }
+            Log::info("{}", count);
         }
     }
 }
