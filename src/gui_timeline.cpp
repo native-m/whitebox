@@ -263,7 +263,7 @@ namespace wb
 
         bool is_playing = g_engine.is_playing();
         if (is_playing) {
-            float play_position = std::round(scroll_offset + get_playhead_screen_position(view_scale, g_engine.play_position)) - size.y * 0.5f;
+            float play_position = std::round(scroll_offset + get_playhead_screen_position(view_scale, g_engine.play_time)) - size.y * 0.5f;
             draw_list->AddTriangleFilled(ImVec2(play_position, cursor_pos.y + 2.5f),
                                          ImVec2(play_position + size.y, cursor_pos.y + 2.5f),
                                          ImVec2(play_position + size.y * 0.5f, cursor_pos.y + size.y - 2.5f), col);

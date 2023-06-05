@@ -6,8 +6,10 @@
 #include <deque>
 #include <imgui.h>
 #include "clip.h"
+#include "track_message.h"
 #include "../core/memory.h"
 #include "../core/audio_buffer.h"
+#include "../core/local_queue.h"
 
 namespace wb
 {
@@ -19,14 +21,8 @@ namespace wb
 
     enum class TrackMessageType : uint8_t
     {
-        AudioEvent,
-        MIDIEvent
-    };
-
-    struct TrackMessage
-    {
-        double timestamp;
-        TrackMessageType event;
+        AudioMessage,
+        MIDIMessage
     };
 
     struct Track
@@ -52,9 +48,10 @@ namespace wb
 
         // Playback
         double playhead_position = -1.0;
-        double play_time = 0.0;
         Clip* current_playing_clip = nullptr;
+        Clip* first_played_clip = nullptr;
         Clip* last_played_clip = nullptr;
+        LocalQueue<TrackMessage, 96> message_queue;
 
         Track(TrackType type, const std::string& name);
         ~Track();
@@ -66,8 +63,8 @@ namespace wb
         Clip* seek_backward(double time, Clip* clip);
         Clip* seek_forward(double time, Clip* clip);
 
-        void prepare_play(double position, double beat_duration);
-        void get_next_message(double tick_duration, double beat_duration, TrackMessage& message);
+        void prepare_play(double position);
+        void process_message(double current_position, double tick_duration, double sample_rate);
 
         void process(AudioBuffer<float>& output_buffer,
                      double sample_rate,

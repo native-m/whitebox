@@ -343,13 +343,14 @@ namespace wb
         float* r_buffer = buffer.get_write_pointer(1);
         float* audio_buffer;
 
+        double sample_rate = (double)output_mode.sample_rate;
         uint32_t output_write_count = get_sample_write_count_(output_client);
         render_client->GetBuffer(output_write_count, (BYTE**)&audio_buffer);
         render_client->ReleaseBuffer(output_write_count, AUDCLNT_BUFFERFLAGS_SILENT);
 
         output_client->Start();
         while (running.load(std::memory_order_relaxed)) {
-            current_engine->process(buffer, output_mode.sample_rate);
+            current_engine->process(buffer, sample_rate);
 
             uint32_t samples = 0;
             while (samples < buffer.n_samples) {

@@ -68,9 +68,9 @@ namespace wb
     void Engine::play()
     {
         for (auto& track : tracks)
-            track->prepare_play(play_position, beat_duration);
+            track->prepare_play(play_position);
 
-        play_time = beat_to_seconds(play_position, beat_duration);
+        play_time = play_position;
         playing = true;
         playing.notify_all();
     }
@@ -79,7 +79,7 @@ namespace wb
     {
         playing = false;
         playing.notify_all();
-        playhead_position_ = play_position;
+        playhead_position_ = play_time;
     }
 
     void Engine::set_play_position(double new_position)
@@ -87,10 +87,10 @@ namespace wb
         std::unique_lock lock(mtx_);
 
         for (auto& track : tracks)
-            track->prepare_play(new_position, beat_duration);
+            track->prepare_play(new_position);
 
         play_position = new_position;
-        playhead_position_ = play_position;
+        playhead_position_ = play_time;
     }
 
     double Engine::get_playhead_position() const
@@ -109,20 +109,29 @@ namespace wb
         std::unique_lock lock(mtx_);
         double buffer_duration = (double)output_buffer.n_samples / sample_rate;
 
-        // Interpret messages from track clips
+        // Prepare messages from track clips
         if (is_playing()) {
-            playhead_position_ = playhead_position_ + (buffer_duration / beat_duration.load(std::memory_order_relaxed));
-            double playhead_position_sec = beat_to_seconds(playhead_position_, beat_duration.load(std::memory_order_relaxed));
             uint32_t count = 0;
-            while (play_time < playhead_position_sec) {
-                double tmp_beat_duration = beat_duration.load(std::memory_order_relaxed);
+            const double tick_length = 1.0 / 96.0;
+            double tmp_beat_duration = 0.0;
+
+            // Clear before processing messages
+            for (auto& track : tracks)
+                track->message_queue.clear();
+
+            for (;;) {
+                tmp_beat_duration = beat_duration.load(std::memory_order_relaxed);
                 double tick_duration = tmp_beat_duration / 96.0;
-                TrackMessage message{};
                 for (auto& track : tracks)
-                    track->get_next_message(tick_duration, tmp_beat_duration, message);
-                play_time += tick_duration;
+                    track->process_message(play_time, tick_duration, sample_rate);
+                play_time += tick_length;
                 count++;
+
+                if (play_time > playhead_position_ + (buffer_duration / tmp_beat_duration))
+                    break;
             }
+
+            playhead_position_ = playhead_position_ + (buffer_duration / tmp_beat_duration);
             Log::info("{}", count);
         }
     }

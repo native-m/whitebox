@@ -51,7 +51,7 @@ namespace wb
             style.Colors[ImGuiCol_WindowBg].w = 1.0f;
         }
 
-        g_engine.set_bpm(180.0f);
+        g_engine.set_bpm(120.0f);
 
         /*std::random_device rd;
         std::uniform_int_distribution<uint32_t> dist(1, 9);
@@ -125,16 +125,14 @@ namespace wb
             }
             if (is_playing)
                 ImGui::Text("%f", g_engine.get_playhead_position());
-            for (auto& track : g_engine.tracks)
-                ImGui::Text("%s: %f", track->name.c_str(), track->play_time);
+            ImGui::Text("%f", g_engine.play_time);
             ImGui::End();
 
             g_gui_content_browser.render();
             g_gui_timeline.render();
             
-            if (g_settings_window_open) {
+            if (g_settings_window_open)
                 render_settings_ui();
-            }
 
             ImGui::Render();
             Renderer::instance->render_draw_data(ImGui::GetDrawData());

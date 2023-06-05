@@ -21,9 +21,9 @@ namespace wb
         SampleTable sample_table;
         std::vector<std::unique_ptr<Track>> tracks;
 
+        double play_time = 0;
         double play_position = 0;
         double playhead_position_;
-        double record_time = 0;
         mutable std::shared_mutex mtx_;
 
         Engine();

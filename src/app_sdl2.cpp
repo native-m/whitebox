@@ -96,7 +96,6 @@ namespace wb
         auto& io = ImGui::GetIO();
         auto time = 0.001f;
         if ((std::abs(mouse_wheel.x) > io.DeltaTime) || (std::abs(mouse_wheel.y) > io.DeltaTime)) {
-            Log::info("{} {}", acc, mouse_wheel.y);
             io.AddMouseWheelEvent(mouse_wheel.x, mouse_wheel.y);
             acc += mouse_wheel.y;
             mouse_wheel.x = mouse_wheel.x - mouse_wheel.x * 25.0f * io.DeltaTime;

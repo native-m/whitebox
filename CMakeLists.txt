@@ -15,7 +15,7 @@ set(DAW_SOURCES
     "src/core/debug.cpp"
     "src/core/debug.h"
     "src/core/midi.h"
-    "src/core/midi_buffer.h"
+    "src/core/local_queue.h"
 
     "src/engine/audio_driver_wasapi.cpp"
     "src/engine/audio_driver_wasapi.h"
@@ -30,6 +30,8 @@ set(DAW_SOURCES
     "src/engine/sample_table.h"
     "src/engine/track.cpp"
     "src/engine/track.h"
+    "src/engine/track_message.h"
+    "src/engine/track_message_queue.h"
     
     "src/app.cpp"
     "src/app.h"
