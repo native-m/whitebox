@@ -1,9 +1,4 @@
 #include "track.h"
-#include "track.h"
-#include "track.h"
-#include "track.h"
-#include "track.h"
-#include "track.h"
 #include "../core/debug.h"
 #include "../core/midi.h"
 #include <algorithm>
