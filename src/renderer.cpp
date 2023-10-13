@@ -1,3 +1,4 @@
+#include "app.h"
 #include "renderer.h"
 #include "renderer_d3d11.h"
 #include "core/debug.h"

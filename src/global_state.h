@@ -35,5 +35,6 @@ namespace wb
     void set_audio_mode_to_default();
     void apply_audio_devices();
     void try_start_audio_stream();
+    double get_output_sample_rate();
     void render_settings_ui();
 }

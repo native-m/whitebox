@@ -1,7 +1,6 @@
 #include "app.h"
 #include "def.h"
 #include "app_sdl2.h"
-#include "renderer.h"
 #include "gui_timeline.h"
 #include "gui_content_browser.h"
 #include "global_state.h"
@@ -40,9 +39,9 @@ namespace wb
         config.FontBuilderFlags = ImGuiFreeTypeBuilderFlags_LoadColor | ImGuiFreeTypeBuilderFlags_LightHinting;
         config.RasterizerMultiply = 1.25f;
 
-        io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
+        //io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
         //io.Fonts->AddFontDefault(&config);
-        io.Fonts->AddFontFromFileTTF("../../../assets/Inter-Regular.otf", 0.0f, &config);
+        //io.Fonts->AddFontFromFileTTF("../../../assets/Inter-Regular.otf", 0.0f, &config);
 
         ImGuiStyle& style = ImGui::GetStyle();
         //apply_theme(style);
@@ -51,7 +50,7 @@ namespace wb
             style.Colors[ImGuiCol_WindowBg].w = 1.0f;
         }
 
-        g_engine.set_bpm(120.0f);
+        g_engine.set_bpm(145.0f);
 
         /*std::random_device rd;
         std::uniform_int_distribution<uint32_t> dist(1, 9);
@@ -76,10 +75,14 @@ namespace wb
         }*/
         
         Renderer::init(this, Renderer::D3D11);
+        g_gui_timeline.initialize();
     }
     
     void App::run()
     {
+        float scale_x = 1.0f;
+        float scale_y = 200.0f;
+
         while (running) {
             new_frame();
 
@@ -92,6 +95,9 @@ namespace wb
                     ImGui::Separator();
                     ImGui::MenuItem("Save", "Ctrl+S");
                     ImGui::MenuItem("Save As...", "Shift+Ctrl+S");
+                    ImGui::Separator();
+                    if (ImGui::MenuItem("Quit"))
+                        running = false;
                     ImGui::EndMenu();
                 }
 
@@ -126,6 +132,9 @@ namespace wb
             if (is_playing)
                 ImGui::Text("%f", g_engine.get_playhead_position());
             ImGui::Text("%f", g_engine.play_time);
+            ImGui::Text("%f", g_gui_timeline.sample_scale);
+            ImGui::DragFloat("scale x", &scale_x, 0.01f, 0.01f, 2.0f);
+            ImGui::DragFloat("scale y", &scale_y, 1.00f, 20.0f, 500.0f);
             ImGui::End();
 
             g_gui_content_browser.render();
@@ -134,8 +143,12 @@ namespace wb
             if (g_settings_window_open)
                 render_settings_ui();
 
+            ImVec4 bg_col = ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg);
+
             ImGui::Render();
-            Renderer::instance->render_draw_data(ImGui::GetDrawData());
+            Renderer::instance->set_framebuffer(nullptr);
+            Renderer::instance->clear_framebuffer(bg_col.x, bg_col.y, bg_col.z, 1.0f);
+            Renderer::instance->render_imgui(ImGui::GetDrawData());
             ImGui::UpdatePlatformWindows();
             ImGui::RenderPlatformWindowsDefault();
             Renderer::instance->present();

@@ -60,12 +60,19 @@ namespace wb
 
         inline const T* get_read_pointer(uint32_t channel) const
         {
-            return (const T*)buffers_[channel];
+            return buffers_[channel];
         }
 
         inline T* get_write_pointer(uint32_t channel)
         {
-            return (T*)buffers_[channel];
+            return buffers_[channel];
+        }
+
+        void clear()
+        {
+            uint32_t sample_size = get_audio_sample_size(format);
+            for (auto buffer : buffers_)
+                std::memset(buffer, 0, n_samples * sample_size);
         }
     };
 }

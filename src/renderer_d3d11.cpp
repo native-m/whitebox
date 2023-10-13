@@ -1,5 +1,6 @@
 #include "renderer_d3d11.h"
 #include "core/debug.h"
+#include "core/file.h"
 #include "types.h"
 #include "app_sdl2.h"
 
@@ -9,6 +10,17 @@
 
 namespace wb
 {
+    struct WaveformViewParam
+    {
+        float origin_x;
+        float origin_y;
+        float scale_x;
+        float scale_y;
+        ImVec4 color;
+        float vp_width;
+        float vp_height;
+    };
+
     RendererD3D11::RendererD3D11(IDXGISwapChain2* swapchain,
                                  ID3D11Device* device,
                                  ID3D11DeviceContext* context) :
@@ -23,22 +35,174 @@ namespace wb
 
     RendererD3D11::~RendererD3D11()
     {
-        WaitForSingleObjectEx(frame_latency_waitable_object_, 1000, true);
-        ImGui_ImplDX11_Shutdown();
-
-        if (backbuffer_rtv_) {
-            backbuffer_rtv_->Release();
+        if (frame_latency_waitable_object_) {
+            WaitForSingleObjectEx(frame_latency_waitable_object_, 1000, true);
+            CloseHandle(frame_latency_waitable_object_);
         }
 
-        CloseHandle(frame_latency_waitable_object_);
-        swapchain_->Release();
-        context_->Release();
-        device_->Release();
+        ImGui_ImplDX11_Shutdown();
+
+        if (waveform_vs_) waveform_vs_->Release();
+        if (waveform_ps_) waveform_ps_->Release();
+        if (waveform_input_layout_) waveform_input_layout_->Release();
+        if (parameter_cbuffer_) parameter_cbuffer_->Release();
+        if (backbuffer_rtv_) backbuffer_rtv_->Release();
+        if (swapchain_) swapchain_->Release();
+        if (context_) context_->Release();
+        if (device_) device_->Release();
     }
 
-    std::shared_ptr<SamplePreviewBuffer> RendererD3D11::create_sample_preview_buffer(uint32_t num_samples, PixelFormat format, GPUMemoryType memory_type)
+    bool RendererD3D11::init()
     {
-        return std::shared_ptr<SamplePreviewBuffer>();
+        auto waveform_vs_bytecode{ load_binary_file("assets/waveform2_vs.hlsl.dxbc") };
+        auto waveform_ps_bytecode{ load_binary_file("assets/waveform_ps.hlsl.dxbc") };
+
+        if (!(waveform_vs_bytecode && waveform_ps_bytecode))
+            return false;
+
+        Microsoft::WRL::ComPtr<ID3D11VertexShader> waveform_vs{};
+        Microsoft::WRL::ComPtr<ID3D11PixelShader> waveform_ps{};
+        device_->CreateVertexShader(waveform_vs_bytecode->data(), waveform_vs_bytecode->size(), nullptr, &waveform_vs);
+        device_->CreatePixelShader(waveform_ps_bytecode->data(), waveform_ps_bytecode->size(), nullptr, &waveform_ps);
+        if (!(waveform_vs && waveform_ps))
+            return false;
+
+        D3D11_INPUT_ELEMENT_DESC waveform_vtx;
+        waveform_vtx.SemanticName = "POSITION";
+        waveform_vtx.SemanticIndex = 0;
+        waveform_vtx.Format = DXGI_FORMAT_R8_SNORM;
+        waveform_vtx.InputSlot = 0;
+        waveform_vtx.AlignedByteOffset = 0;
+        waveform_vtx.InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+        waveform_vtx.InstanceDataStepRate = 0;
+
+        Microsoft::WRL::ComPtr<ID3D11InputLayout> waveform_input_layout{};
+        device_->CreateInputLayout(&waveform_vtx, 1, waveform_vs_bytecode->data(), waveform_vs_bytecode->size(), &waveform_input_layout);
+        if (!waveform_input_layout)
+            return false;
+
+        D3D11_BUFFER_DESC desc{};
+        desc.ByteWidth = 256;
+        desc.Usage = D3D11_USAGE_DYNAMIC;
+        desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+        desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
+        Microsoft::WRL::ComPtr<ID3D11Buffer> parameter_cbuffer{};
+        device_->CreateBuffer(&desc, nullptr, &parameter_cbuffer);
+        if (!parameter_cbuffer)
+            return false;
+
+        waveform_vs_ = waveform_vs.Detach();
+        waveform_ps_ = waveform_ps.Detach();
+        waveform_input_layout_ = waveform_input_layout.Detach();
+        parameter_cbuffer_ = parameter_cbuffer.Detach();
+
+        return true;
+    }
+
+    std::shared_ptr<Framebuffer> RendererD3D11::create_framebuffer(uint32_t width, uint32_t height)
+    {
+        D3D11_TEXTURE2D_DESC desc;
+        desc.Width = width;
+        desc.Height = height;
+        desc.MipLevels = 1;
+        desc.ArraySize = 1;
+        desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        desc.SampleDesc.Count = 1;
+        desc.SampleDesc.Quality = 0;
+        desc.Usage = D3D11_USAGE_DEFAULT;
+        desc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+        desc.CPUAccessFlags = 0;
+        desc.MiscFlags = 0;
+
+        Microsoft::WRL::ComPtr<ID3D11Texture2D> texture{};
+        device_->CreateTexture2D(&desc, nullptr, &texture);
+        if (!texture)
+            return {};
+
+        Microsoft::WRL::ComPtr<ID3D11RenderTargetView> rtv{};
+        device_->CreateRenderTargetView(texture.Get(), nullptr, &rtv);
+        if (!rtv)
+            return {};
+
+        Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srv{};
+        device_->CreateShaderResourceView(texture.Get(), nullptr, &srv);
+        if (!rtv)
+            return {};
+
+        std::shared_ptr<FramebufferD3D11> fb { std::make_shared<FramebufferD3D11>() };
+        fb->width = width;
+        fb->height = height;
+        fb->texture = texture.Detach();
+        fb->rtv = rtv.Detach();
+        fb->srv = srv.Detach();
+
+        return fb;
+    }
+
+    std::shared_ptr<WaveformViewBuffer> RendererD3D11::create_waveform_view_buffer(const Sample& sample, PixelFormat format, GPUMemoryType memory_type)
+    {
+        int8_t* data = (int8_t*)std::malloc(sample.sample_count * sample.channels);
+        if (!data)
+            return {};
+
+        switch (sample.format) {
+            case AudioFormat::F32:
+                for (uint32_t i = 0; i < sample.channels; i++) {
+                    const float* sample_data = sample.get_read_pointer<float>(i);
+                    int8_t* channel_data = data + (i * sample.sample_count);
+                    for (uint32_t j = 0; j < sample.sample_count; j++) {
+                        float value = sample_data[j] * (float)((1 << 7) - 1);
+                        channel_data[j] = (int8_t)(value >= 0 ? value + 0.5 : value - 0.5);
+                    }
+                }
+                break;
+            case AudioFormat::F64:
+            default:
+                WB_ASSERT(false && "Incompatible format at the moment");
+        }
+
+        D3D11_BUFFER_DESC desc{};
+        desc.ByteWidth = (UINT)(sample.sample_count * sample.channels);
+        desc.Usage = D3D11_USAGE_DEFAULT;
+        desc.BindFlags = D3D11_BIND_VERTEX_BUFFER | D3D11_BIND_SHADER_RESOURCE;
+
+        D3D11_SUBRESOURCE_DATA init_data{};
+        init_data.pSysMem = data;
+
+        Microsoft::WRL::ComPtr<ID3D11Buffer> buffer{};
+        if (FAILED(device_->CreateBuffer(&desc, &init_data, &buffer))) {
+            std::free(data);
+            return {};
+        }
+
+        Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srv{};
+        D3D11_SHADER_RESOURCE_VIEW_DESC srv_desc{
+            .Format = DXGI_FORMAT_R8_SNORM,
+            .ViewDimension = D3D11_SRV_DIMENSION_BUFFER,
+            .Buffer = {
+                .FirstElement = 0,
+                .NumElements = desc.ByteWidth,
+            }
+        };
+
+        if (FAILED(device_->CreateShaderResourceView(buffer.Get(), &srv_desc, &srv))) {
+            std::free(data);
+            return {};
+        }
+
+        std::shared_ptr<WaveformViewBufferD3D11> ret = std::make_shared<WaveformViewBufferD3D11>();
+        if (!ret)
+            return {};
+
+        ret->sample_count = (uint32_t)sample.sample_count;
+        ret->num_channels = sample.channels;
+        ret->buffer = buffer.Detach();
+        ret->srv = srv.Detach();
+
+        std::free(data);
+
+        return ret;
     }
 
     void RendererD3D11::resize_swapchain()
@@ -64,14 +228,129 @@ namespace wb
     void RendererD3D11::new_frame()
     {
         ImGui_ImplDX11_NewFrame();
+        current_render_target_ = nullptr;
     }
 
-    void RendererD3D11::render_draw_data(ImDrawData* draw_data)
+    void RendererD3D11::set_framebuffer(const std::shared_ptr<Framebuffer>& framebuffer)
     {
-        ImVec4 bg_col = ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg);
-        const float clear_color[4] = { bg_col.x, bg_col.y, bg_col.z, 1.0f };
-        context_->OMSetRenderTargets(1, &backbuffer_rtv_, nullptr);
-        context_->ClearRenderTargetView(backbuffer_rtv_, clear_color);
+        if (framebuffer == nullptr) {
+            UINT width, height;
+            swapchain_->GetSourceSize(&width, &height);
+
+            context_->OMSetRenderTargets(1, &backbuffer_rtv_, nullptr);
+
+            const D3D11_RECT rect = { 0, 0, (LONG)width, (LONG)height };
+            context_->RSSetScissorRects(1, &rect);
+
+            D3D11_VIEWPORT vp;
+            vp.Width = (float)width;
+            vp.Height = (float)height;
+            vp.MinDepth = 0.0f;
+            vp.MaxDepth = 1.0f;
+            vp.TopLeftX = vp.TopLeftY = 0;
+            context_->RSSetViewports(1, &vp);
+
+            vp_width = vp.Width;
+            vp_height = vp.Height;
+            current_render_target_ = backbuffer_rtv_;
+            return;
+        }
+
+        FramebufferD3D11* impl = static_cast<FramebufferD3D11*>(framebuffer.get());
+        if (current_render_target_ == impl->rtv)
+            return;
+
+        context_->OMSetRenderTargets(1, &impl->rtv, nullptr);
+
+        const D3D11_RECT rect = { 0, 0, (LONG)impl->width, (LONG)impl->height };
+        context_->RSSetScissorRects(1, &rect);
+
+        D3D11_VIEWPORT vp;
+        vp.Width = (float)impl->width;
+        vp.Height = (float)impl->height;
+        vp.MinDepth = 0.0f;
+        vp.MaxDepth = 1.0f;
+        vp.TopLeftX = vp.TopLeftY = 0;
+        context_->RSSetViewports(1, &vp);
+
+        vp_width = vp.Width;
+        vp_height = vp.Height;
+        current_render_target_ = impl->rtv;
+    }
+
+    void RendererD3D11::clear_framebuffer(float r, float g, float b, float a)
+    {
+        const float clear_color[4] = { r, g, b, a };
+        context_->ClearRenderTargetView(current_render_target_, clear_color);
+    }
+
+    void RendererD3D11::draw_waveform(const std::shared_ptr<WaveformViewBuffer>& waveform_view_buffer, const ImColor& color, const ImVec2& origin, float scale_x, float scale_y)
+    {
+        auto impl_buffer{ static_cast<WaveformViewBufferD3D11*>(waveform_view_buffer.get()) };
+        const UINT stride = 1;
+        const UINT offset = 0;
+
+        D3D11_MAPPED_SUBRESOURCE mapped_resource{};
+        context_->Map(parameter_cbuffer_, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped_resource);
+        WaveformViewParam* param = (WaveformViewParam*)mapped_resource.pData;
+        param->origin_x = origin.x;
+        param->origin_y = origin.y;
+        param->scale_x = scale_x;
+        param->scale_y = scale_y;
+        param->color = color;
+        param->vp_width = vp_width;
+        param->vp_height = vp_height;
+        context_->Unmap(parameter_cbuffer_, 0);
+
+        ID3D11Buffer* vtx_buf = impl_buffer->buffer;
+        context_->IASetInputLayout(waveform_input_layout_);
+        context_->IASetVertexBuffers(0, 1, &vtx_buf, &stride, &offset);
+        context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP);
+        context_->VSSetShader(waveform_vs_, nullptr, 0);
+        context_->VSSetConstantBuffers(0, 1, &parameter_cbuffer_);
+        context_->PSSetShader(waveform_ps_, nullptr, 0);
+        context_->Draw(impl_buffer->sample_count, 0);
+    }
+
+    void RendererD3D11::draw_clip_content(const ImVector<ClipContentDrawArgs>& clip_contents)
+    {
+        ID3D11ShaderResourceView* srv = nullptr;
+        const UINT stride = 1;
+        const UINT offset = 0;
+
+        context_->IASetInputLayout(nullptr);
+        context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP);
+        context_->VSSetShader(waveform_vs_, nullptr, 0);
+        context_->PSSetShader(waveform_ps_, nullptr, 0);
+
+        for (auto& clip_content : clip_contents) {
+            WaveformViewBufferD3D11* waveform_view_buf = static_cast<WaveformViewBufferD3D11*>(clip_content.view_buffer);
+
+            if (srv != waveform_view_buf->srv) {
+                context_->VSSetShaderResources(0, 1, &waveform_view_buf->srv);
+                //context_->IASetVertexBuffers(0, 1, &waveform_view_buf->buffer, &stride, &offset);
+                srv = waveform_view_buf->srv;
+            }
+
+            D3D11_MAPPED_SUBRESOURCE mapped_resource{};
+            context_->Map(parameter_cbuffer_, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped_resource);
+            WaveformViewParam* param = (WaveformViewParam*)mapped_resource.pData;
+            param->origin_x = clip_content.min.x;
+            param->origin_y = clip_content.min.y;
+            param->scale_x = clip_content.scale_x;
+            param->scale_y = clip_content.max.y - clip_content.min.y;
+            param->color = clip_content.color;
+            param->vp_width = vp_width;
+            param->vp_height = vp_height;
+            context_->Unmap(parameter_cbuffer_, 0);
+
+            context_->VSSetConstantBuffers(0, 1, &parameter_cbuffer_);
+            context_->Draw(waveform_view_buf->sample_count, 0);
+        }
+    }
+
+    void RendererD3D11::render_imgui(ImDrawData* draw_data)
+    {
         ImGui_ImplDX11_RenderDrawData(draw_data);
     }
 
@@ -153,6 +432,19 @@ namespace wb
         swapchain_->QueryInterface(&swapchain2);
         swapchain2->Release();
 
-        return new RendererD3D11(swapchain2, device, device_context);
+        RendererD3D11* ret = new(std::nothrow) RendererD3D11(swapchain2, device, device_context);
+        if (!ret) {
+            swapchain2->Release();
+            device->Release();
+            device_context->Release();
+            return {};
+        }
+
+        if (!ret->init()) {
+            delete ret;
+            return {};
+        }
+
+        return ret;
     }
 }

@@ -11,7 +11,7 @@ namespace wb
     int g_input_device = -1;
     int g_output_audio_mode = 0;
     int g_input_audio_mode = 0;
-    uint32_t g_audio_buffer_size = 512;
+    uint32_t g_audio_buffer_size = 1024;
     int g_default_resampler_mode = 0;
     int g_default_resampler_param = 0;
 
@@ -96,7 +96,7 @@ namespace wb
 
     void update_audio_device_list()
     {
-        Log::info("Scanning Audio Interface...");
+        Log::info("Scanning audio interface...");
         g_input_devices = ae_get_input_devices();
         g_output_devices = ae_get_output_devices();
     }
@@ -123,7 +123,13 @@ namespace wb
 
     void try_start_audio_stream()
     {
-        ae_start_stream(false, 512 , g_input_modes[g_input_audio_mode].first, g_output_modes[g_output_audio_mode].first, &g_engine);
+        Log::info("Opening audio stream...");
+        ae_start_stream(false, g_audio_buffer_size, g_input_modes[g_input_audio_mode].first, g_output_modes[g_output_audio_mode].first, &g_engine);
+    }
+
+    double get_output_sample_rate()
+    {
+        return g_input_modes[g_output_audio_mode].first.sample_rate;
     }
 
     void render_settings_ui()

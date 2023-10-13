@@ -14,16 +14,27 @@ namespace wb
         AudioFormat             format{};
         uint16_t                channels{};
         uint32_t                sample_rate{};
-        size_t                  sample_length{};
+        size_t                  sample_count{};
         size_t                  byte_length{};
         std::vector<std::byte*> sample_data_;
-
 
         Sample() = default;
 
         Sample(Sample&& other) noexcept;
 
         ~Sample();
+
+        template<typename T>
+        inline const T* get_read_pointer(uint32_t channel) const
+        {
+            return (const T*)sample_data_[channel];
+        }
+
+        template<typename T>
+        inline T* get_write_pointer(uint32_t channel)
+        {
+            return (T*)sample_data_[channel];
+        }
 
         // Load sample from file
         static std::optional<Sample> load_file(const std::filesystem::path& path) noexcept;

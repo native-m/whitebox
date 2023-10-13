@@ -3,7 +3,8 @@
 #include <imgui.h>
 #include <string>
 #include <vector>
-#include "global_state.h"
+#include "renderer.h"
+#include "engine/track.h"
 
 namespace wb
 {
@@ -19,7 +20,9 @@ namespace wb
         None,
         Move,
         ResizeLeft,
-        ResizeRight
+        ResizeRight,
+        Duplicate,
+        ContextMenu,
     };
 
     struct GUITimeline
@@ -32,21 +35,32 @@ namespace wb
         double last_min_scroll_pos_x = 0.0;
         float scroll_delta_y = 0.0f;
         float last_scroll_pos_y = 0.0f;
+        float grid_scale = 2.0f;
+        float sample_scale = 0.0f;
         double playhead_position{};
+        bool should_redraw_clip_content = false;
         bool resizing_lhs_scroll_grab = false;
         bool resizing_rhs_scroll_grab = false;
         bool grabbing_scroll = false;
         bool scrolling = false;
         bool zooming = false;
         bool docked = false;
+        uint32_t timeline_view_width = 0;
+        uint32_t timeline_view_height = 0;
         uint32_t current_clip_n = 0;
+
+        ImVec2 last_mouse_pos;
 
         GUITimelineClipAction clip_action{};
         double initial_move_pos = 0.0f;
+        std::shared_ptr<Framebuffer> clip_content_fb;
+        ImVector<std::pair<ImVec2, ImVec2>> clip_content_bounding_boxes;
+        ImVector<ClipContentDrawArgs> clip_content_draw_list;
 
         static constexpr uint32_t playhead_color = 0xFF53A3F9;
 
         GUITimeline();
+        void initialize();
         void render_track_header(Track& track);
         void render_track_context_menu(Track& track);
         void render_track_controls(Track& track);

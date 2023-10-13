@@ -4,6 +4,8 @@ project("that-daw")
 
 include(Dependencies.cmake)
 
+add_subdirectory(assets)
+
 if (${CMAKE_CXX_COMPILER_ID} EQUAL "MSVC")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc- /permissive-")
 endif()
@@ -14,8 +16,9 @@ set(DAW_SOURCES
     "src/core/color.h"
     "src/core/debug.cpp"
     "src/core/debug.h"
+    "src/core/file.h"
     "src/core/midi.h"
-    "src/core/local_queue.h"
+    "src/core/queue.h"
 
     "src/engine/audio_driver_wasapi.cpp"
     "src/engine/audio_driver_wasapi.h"
@@ -31,7 +34,6 @@ set(DAW_SOURCES
     "src/engine/track.cpp"
     "src/engine/track.h"
     "src/engine/track_message.h"
-    "src/engine/track_message_queue.h"
     
     "src/app.cpp"
     "src/app.h"
@@ -52,6 +54,7 @@ set(DAW_SOURCES
     "src/renderer_d3d11.cpp"
     "src/renderer_d3d11.h"
     "src/types.h"
+    "src/waveform_view_buffer.h"
     "src/widget.cpp"
     "src/widget.h"
     "src/widget_test.h")
@@ -70,5 +73,6 @@ target_link_libraries(daw_lib PUBLIC
 add_executable(daw "src/main.cpp")
 target_link_libraries(daw PUBLIC daw_lib)
 set_property(TARGET daw PROPERTY CXX_STANDARD 20)
+add_dependencies(daw_lib assets)
 
 add_subdirectory(test)

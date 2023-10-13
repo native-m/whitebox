@@ -1,30 +1,35 @@
 #pragma once
 
+#include "clip.h"
 #include "../core/midi.h"
 
 namespace wb
 {
     enum class AudioStatus : uint8_t
     {
-        Start,
-        Stop
+        Stop,
+        Play
     };
 
     struct AudioMessage
     {
         AudioStatus status;
-
-        inline static constexpr AudioMessage start()
-        {
-            return AudioMessage{
-                .status = AudioStatus::Start,
-            };
-        }
+        AudioClip* clip;
+        uint32_t start_sample;
 
         inline static constexpr AudioMessage end()
         {
             return AudioMessage{
                 .status = AudioStatus::Stop,
+            };
+        }
+
+        inline static constexpr AudioMessage start(AudioClip* clip, uint32_t start_sample)
+        {
+            return AudioMessage{
+                .status = AudioStatus::Play,
+                .clip = clip,
+                .start_sample = start_sample,
             };
         }
     };

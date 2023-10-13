@@ -7,25 +7,27 @@
 
 namespace wb
 {
-    struct ClipNode
+    struct Clip
     {
-        ClipNode* prev{};
-        ClipNode* next{};
-        
-        virtual ~ClipNode() {}
+        std::string name;
+        ImColor color;
+        double min_time = 0.0;
+        double max_time = 0.0;
+        Clip* prev{};
+        Clip* next{};
 
-        inline void push_front(ClipNode* other_node)
+        inline void push_front(Clip* other_node)
         {
-            ClipNode* prev_node = prev;
+            Clip* prev_node = prev;
             if (prev_node) prev_node->next = other_node;
             other_node->prev = prev_node;
             other_node->next = this;
             prev = other_node;
         }
-        
-        inline void push_back(ClipNode* other_node)
+
+        inline void push_back(Clip* other_node)
         {
-            ClipNode* next_node = next;
+            Clip* next_node = next;
             if (next_node) next_node->prev = other_node;
             other_node->next = next_node;
             other_node->prev = this;
@@ -39,14 +41,7 @@ namespace wb
             prev = {};
             next = {};
         }
-    };
 
-    struct Clip : public ClipNode
-    {
-        std::string name;
-        ImColor color;
-        double min_time = 0.0;
-        double max_time = 0.0;
         virtual ~Clip() { }
     };
 
@@ -61,6 +56,8 @@ namespace wb
         }
 
         ~AudioClip() {}
+
+        Sample* get_sample_instance() { return &asset.ref->sample_instance; }
     };
 
     struct MIDIClip : public Clip

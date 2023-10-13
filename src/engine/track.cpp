@@ -1,4 +1,9 @@
 #include "track.h"
+#include "track.h"
+#include "track.h"
+#include "track.h"
+#include "track.h"
+#include "track.h"
 #include "../core/debug.h"
 #include "../core/midi.h"
 #include <algorithm>
@@ -19,20 +24,28 @@ namespace wb
                 break;
         }
 
-        head_node.push_back(&tail_node);
+        // Helper nodes
+        head_node.name = "Head";
+        tail_node.name = "Tail";
+        tail_node.push_front(&head_node);
+
+        dbg_message.reserve(128);
     }
 
     Track::~Track()
     {
-        ClipNode* current = head_node.next;
+        Clip* current = head_node.next;
         while (current != &tail_node) {
-            current->~ClipNode();
+            current->~Clip();
             current = current->next;
         }
     }
 
     AudioClip* Track::add_audio_clip(double min_time, double max_time, AudioClip* nearby_clip)
     {
+        if (type != TrackType::Audio)
+            return nullptr;
+
         auto clip = new(std::get<Pool<AudioClip>>(*clip_allocator).allocate()) AudioClip(min_time, max_time);
         clip->color = color;
 
@@ -118,6 +131,11 @@ namespace wb
 #endif
     }
 
+    void Track::delete_clip(Clip* clip)
+    {
+        deleted_clips.insert(clip);
+    }
+
     Clip* Track::find_clip(double time, Clip* nearby_clip)
     {
         Clip* first_clip = (Clip*)head_node.next;
@@ -128,22 +146,22 @@ namespace wb
             // Seek backward from the last clip
             Clip* current = last_clip;
             while (current && current->min_time > time)
-                current = (Clip*)current->prev;
+                current = current->prev;
             return current;
         }
 
         // Seek forward from the first clip
         Clip* current = first_clip;
         while (current && current->min_time < time)
-            current = (Clip*)current->next;
+            current = current->next;
 
         return current;
     }
 
     Clip* Track::seek_adjacent_clip(double time, Clip* hint)
     {
-        Clip* first_clip = (Clip*)head_node.next;
-        Clip* last_clip = (Clip*)tail_node.prev;
+        Clip* first_clip = head_node.next;
+        Clip* last_clip = tail_node.prev;
 
         if (first_clip == last_clip)
             return first_clip;
@@ -158,60 +176,158 @@ namespace wb
     Clip* Track::seek_backward(double time, Clip* clip)
     {
         while (clip != &head_node && clip->min_time > time)
-            clip = (Clip*)clip->prev;
+            clip = clip->prev;
         return clip;
     }
 
     Clip* Track::seek_forward(double time, Clip* clip)
     {
         while (clip != &tail_node && clip->min_time < time)
-            clip = (Clip*)clip->next;
+            clip = clip->next;
         return clip;
     }
 
-    void Track::prepare_play(double position)
+    void Track::flush_deleted_clips()
     {
-        last_played_clip = nullptr;
-        
-        if (playhead_position == position) {
-            current_playing_clip = first_played_clip;
-            return;
+        Clip* old_currently_playing_clip = currently_playing_clip.load(std::memory_order_relaxed);
+        Clip* old_next_clip = next_clip.load(std::memory_order_relaxed);
+
+        for (auto clip : deleted_clips) {
+            if (old_currently_playing_clip == clip)
+                currently_playing_clip.store(nullptr, std::memory_order_relaxed);
+            if (old_next_clip == clip)
+                next_clip.store(old_next_clip->next, std::memory_order_relaxed);
+            clip->detach();
+            clip->~Clip();
+            std::get<Pool<AudioClip>>(*clip_allocator).free(clip);
         }
 
-        playhead_position = position;
-        current_playing_clip = seek_adjacent_clip(position);
-        first_played_clip = current_playing_clip;
+        deleted_clips.clear();
+        Log::info("Clips flushed");
     }
 
-    void Track::process_message(double current_position, double tick_duration, double sample_rate)
+    void Track::update_play_state(double position)
     {
-        double current_sec = beat_to_seconds(current_position, tick_duration);
+        // Invalidate currently playing clip
+        currently_playing_clip.store(nullptr, std::memory_order_release);
+        last_position = position;
 
-        if (last_played_clip && current_position >= last_played_clip->max_time) {
-            last_played_clip = nullptr;
+        Clip* new_next_clip = seek_adjacent_clip(position);
+        if (new_next_clip != &tail_node && new_next_clip != &head_node) {
+            last_position_clip = new_next_clip;
+            next_clip.store(new_next_clip, std::memory_order_release);
+
+            Log::info("Node: {:x} {} {} {}",
+                      reinterpret_cast<uintptr_t>(new_next_clip),
+                      new_next_clip->name,
+                      new_next_clip->min_time,
+                      new_next_clip->max_time);
+        }
+
+        dbg_message.clear();
+    }
+
+    void Track::stop()
+    {
+        current_message = {};
+        samples_processed = 0;
+    }
+
+    void Track::process_message(double offset, double current_position, double beat_duration, double sample_rate)
+    {
+        Clip* old_currently_playing_clip = currently_playing_clip.load(std::memory_order_acquire);
+        Clip* old_next_clip = next_clip.load(std::memory_order_acquire);
+        double current_sec = beat_to_seconds(current_position - offset, beat_duration);
+
+        if (old_currently_playing_clip && current_position >= old_currently_playing_clip->max_time) {
+            uint64_t sample_pos = (uint64_t)(current_sec * sample_rate);
+            currently_playing_clip.store(nullptr, std::memory_order_release);
             message_queue.push(
                 TrackMessage{
-                    .sample_position = (uint64_t)(current_sec * sample_rate),
+                    .sample_position = sample_pos,
                     .audio = AudioMessage::end()
                 });
         }
 
-        if (current_playing_clip && current_playing_clip != &tail_node && current_position >= current_playing_clip->min_time) {
-            last_played_clip = current_playing_clip;
-            current_playing_clip = (Clip*)current_playing_clip->next;
-            message_queue.push(
-                TrackMessage{
-                    .sample_position = (uint64_t)(current_sec * sample_rate),
-                    .audio = AudioMessage::start()
-                });
+        if (old_next_clip && old_next_clip != &tail_node && current_position >= old_next_clip->min_time) {
+            double min_time_sec = beat_to_seconds(old_next_clip->min_time - offset, beat_duration);
+            uint32_t start_sample = (uint32_t)((current_sec - min_time_sec) * sample_rate);
+            auto msg = TrackMessage{
+                .sample_position = (uint64_t)(current_sec * sample_rate),
+                .audio = AudioMessage::start((AudioClip*)old_next_clip, start_sample)
+            };
+            currently_playing_clip.store(next_clip, std::memory_order_release); // Set current clip
+            next_clip.store(old_next_clip->next, std::memory_order_release);
+            message_queue.push(msg);
+            dbg_message.push_back(msg);
+            Log::info("Trigger: {} {} {}", current_position, old_next_clip->min_time, (uint64_t)(current_sec * sample_rate));
         }
     }
 
     void Track::process(AudioBuffer<float>& output_buffer, double sample_rate, double tick_duration, bool is_playing)
     {
         if (is_playing) {
-
+            if (message_queue.empty()) {
+                // Continue process the whole block
+                switch (current_message.audio.status) {
+                    case AudioStatus::Play:
+                    {
+                        play_sample(output_buffer, current_message, samples_processed);
+                        break;
+                    }
+                    case AudioStatus::Stop:
+                        samples_processed = 0;
+                        break;
+                }
+            }
+            else {
+                while (message_queue.size() > 0) {
+                    last_message = current_message;
+                    current_message = *message_queue.pop();
+                    switch (current_message.audio.status) {
+                        case AudioStatus::Play:
+                        {
+                            samples_processed = current_message.audio.start_sample;
+                            play_sample(output_buffer, current_message, samples_processed);
+                            break;
+                        }
+                        case AudioStatus::Stop:
+                        {
+                            // Before stopping, check if we still need to continue sample playback.
+                            if (last_message.audio.status == AudioStatus::Play &&
+                                current_message.sample_position < last_message.sample_position)
+                                play_sample(output_buffer, last_message, samples_processed);
+                            samples_processed = 0;
+                            break;
+                        }
+                    }
+                }
+            }
         }
+    }
+
+    void Track::play_sample(AudioBuffer<float>& output_buffer, TrackMessage& msg, uint32_t offset)
+    {
+        Sample* sample = msg.audio.clip->get_sample_instance();
+        uint32_t position_at_buffer = (uint32_t)(msg.sample_position % (uint64_t)output_buffer.n_samples);
+        
+        // Make sure we do not pass the sample_length
+        uint32_t samples_produced = std::min(output_buffer.n_samples - position_at_buffer,
+                                             (uint32_t)sample->sample_count - offset);
+
+        if (offset < sample->sample_count) {
+            for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
+                float* output = output_buffer.get_write_pointer(i);
+                float* sample_data = (float*)sample->sample_data_[i];
+                for (uint32_t j = 0; j < samples_produced; j++) {
+                    output[j + position_at_buffer] += sample_data[offset + j];
+                }
+            }
+        }
+
+        // Ascend current message sample position and the number of processed samples
+        msg.sample_position += samples_produced;
+        samples_processed += samples_produced;
     }
 
     void Track::log_clip_ordering_()

@@ -34,7 +34,7 @@ namespace wb
         format(other.format),
         channels(other.channels),
         sample_rate(other.sample_rate),
-        sample_length(other.sample_length),
+        sample_count(other.sample_count),
         byte_length(other.byte_length),
         sample_data_(std::move(other.sample_data_))
     {
@@ -139,8 +139,8 @@ namespace wb
         ret->format = format;
         ret->channels = info.channels;
         ret->sample_rate = info.samplerate;
-        ret->sample_length = info.frames;
-        ret->byte_length = data_size;
+        ret->sample_count = info.frames;
+        ret->byte_length = data_size * info.channels;
         ret->sample_data_ = std::move(data);
 
         return ret;
@@ -157,7 +157,7 @@ namespace wb
         ret->format = other.format;
         ret->channels = other.channels;
         ret->sample_rate = other.sample_rate;
-        ret->sample_length = other.sample_length;
+        ret->sample_count = other.sample_count;
         ret->byte_length = other.byte_length;
 
         return std::optional<Sample>();

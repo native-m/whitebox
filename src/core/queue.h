@@ -2,6 +2,7 @@
 
 #include "../types.h"
 #include <memory>
+#include <mutex>
 
 namespace wb
 {
@@ -68,6 +69,11 @@ namespace wb
             return tmp;
         }
 
+        inline T& front() { return *read_ptr; }
+        inline const T& front() const { return *read_ptr; }
+        inline T& back() { return *write_ptr; }
+        inline const T& back() const { return *write_ptr; }
+
         inline size_t size() const noexcept
         {
             return write_ptr - read_ptr;
@@ -114,6 +120,44 @@ namespace wb
             }
 
             return true;
+        }
+    };
+
+    template<typename T, uint32_t Size>
+        requires std::is_trivial_v<T>
+    struct ConcurrentRingBuffer
+    {
+        T                       data[Size];
+        std::atomic_uint32_t    read_pos;
+        std::atomic_uint32_t    write_pos;
+        std::mutex              mtx_;
+
+        inline bool push(const T& value) noexcept
+        {
+            uint32_t pos = write_pos.load(std::memory_order_acquire);
+            uint32_t current_read_pos = read_pos.load(std::memory_order_acquire);
+            uint32_t new_pos = (pos + 1) % Size;
+
+            while (!write_pos.compare_exchange_weak(current_read_pos, new_pos,
+                                                    std::memory_order_release,
+                                                    std::memory_order_relaxed));
+
+            data[pos] = value;
+            return true;
+        }
+
+        inline T* pop() noexcept
+        {
+            uint32_t pos = read_pos.load(std::memory_order_acquire);
+            if (pos == write_pos.load(std::memory_order_acquire))
+                return nullptr;
+            read_pos.store((pos + 1) % Size, std::memory_order_release);
+            return data + pos;
+        }
+
+        inline bool empty() noexcept
+        {
+            return read_pos.load(std::memory_order_relaxed) == write_pos.load(std::memory_order_relaxed);
         }
     };
 }

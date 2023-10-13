@@ -1,9 +1,9 @@
 #include "catch_amalgamated.hpp"
-#include "../src/track.h"
+#include "../src/engine/track.h"
 
 TEST_CASE("Add clip")
 {
-    daw::AudioTrack track;
+    wb::AudioTrack track;
 
     track.add_node(new daw::ClipNode{
                         .start_time = 10,

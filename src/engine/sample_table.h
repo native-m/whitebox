@@ -1,6 +1,8 @@
 #pragma once
 
 #include "sample.h"
+#include "../waveform_view_buffer.h"
+#include <memory>
 #include <unordered_map>
 #include <optional>
 
@@ -14,10 +16,11 @@ namespace wb
         size_t hash;
         uint32_t ref_count = 1;
         Sample sample_instance;
+        std::shared_ptr<WaveformViewBuffer> view_buffer;
 
-        SampleRef(SampleTable* sample_table, size_t hash, Sample&& sample);
-        void add_ref() noexcept { ++ref_count; }
-        void release();
+        SampleRef(SampleTable* sample_table, size_t hash, Sample&& sample, std::shared_ptr<WaveformViewBuffer>& view_buffer);
+        inline void add_ref() noexcept { ++ref_count; }
+        inline void release();
     };
 
     struct SampleAsset
@@ -41,6 +44,13 @@ namespace wb
         ~SampleAsset()
         {
             if (ref) ref->release();
+        }
+
+        SampleAsset& operator=(const SampleAsset& other)
+        {
+            ref = other.ref;
+            ref->add_ref();
+            return *this;
         }
 
         SampleAsset& operator=(SampleAsset&& other) noexcept

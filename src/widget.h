@@ -18,7 +18,7 @@ namespace wb::widget
     }
 
     template<typename T>
-    static void hseparator_resizer(T id, float* size, float default_size, float min_size = 0.0f, float max_size = 0.0f)
+    static bool hseparator_resizer(T id, float* size, float default_size, float min_size = 0.0f, float max_size = 0.0f)
     {
         ImGuiStyle& style = ImGui::GetStyle();
         ImVec2 cur_pos = ImGui::GetCursorScreenPos();
@@ -31,9 +31,9 @@ namespace wb::widget
         //ImGuiStorage* states = ImGui::GetStateStorage();
 
         ImGui::InvisibleButton("", ImVec2(region_avail.x, separator_pad));
+        bool is_separator_active = ImGui::IsItemActive();
 
         if (size) {
-            bool is_separator_active = ImGui::IsItemActive();
             bool is_separator_hovered = ImGui::IsItemHovered();
 
             if (is_separator_hovered || is_separator_active) {
@@ -61,6 +61,7 @@ namespace wb::widget
                            2.0f);
 
         ImGui::PopID();
+        return is_separator_active;
     }
 
     static bool collapse_button(const char* str_id, bool* shown)

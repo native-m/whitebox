@@ -1,11 +1,13 @@
 #include "sample_table.h"
+#include "../renderer.h"
 
 namespace wb
 {
-    SampleRef::SampleRef(SampleTable* sample_table, size_t hash, Sample&& sample) :
+    SampleRef::SampleRef(SampleTable* sample_table, size_t hash, Sample&& sample, std::shared_ptr<WaveformViewBuffer>& view_buffer) :
         sample_table(sample_table),
         hash(hash),
-        sample_instance(std::move(sample))
+        sample_instance(std::move(sample)),
+        view_buffer(view_buffer)
     {
     }
 
@@ -14,6 +16,8 @@ namespace wb
         if (ref_count-- == 1)
             sample_table->destroy_sample(hash);
     }
+
+    //
 
     std::optional<SampleAsset> SampleTable::load_sample_from_file(const std::filesystem::path& path)
     {
@@ -28,7 +32,11 @@ namespace wb
         if (!new_sample)
             return {};
 
-        auto result = samples.try_emplace(hash, this, hash, std::move(*new_sample));
+        auto waveform_view_buffer{ Renderer::instance->create_waveform_view_buffer(new_sample.value(), PixelFormat::R_8_SNORM, GPUMemoryType::Device) };
+        if (!waveform_view_buffer)
+            return {};
+
+        auto result = samples.try_emplace(hash, this, hash, std::move(*new_sample), waveform_view_buffer);
         return SampleAsset(&result.first->second);
     }
 
