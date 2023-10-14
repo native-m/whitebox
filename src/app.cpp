@@ -50,7 +50,11 @@ namespace wb
             style.Colors[ImGuiCol_WindowBg].w = 1.0f;
         }
 
-        g_engine.set_bpm(145.0f);
+        g_engine.on_bpm_change = [&]() {
+            g_gui_timeline.redraw_clip_content();
+        };
+
+        g_engine.set_bpm(150.0f);
 
         /*std::random_device rd;
         std::uniform_int_distribution<uint32_t> dist(1, 9);
@@ -132,9 +136,9 @@ namespace wb
             if (is_playing)
                 ImGui::Text("%f", g_engine.get_playhead_position());
             ImGui::Text("%f", g_engine.play_time);
-            ImGui::Text("%f", g_gui_timeline.sample_scale);
-            ImGui::DragFloat("scale x", &scale_x, 0.01f, 0.01f, 2.0f);
-            ImGui::DragFloat("scale y", &scale_y, 1.00f, 20.0f, 500.0f);
+            float tempo = (float)(60.0 / g_engine.beat_duration.load(std::memory_order_relaxed));
+            if (ImGui::DragFloat("tempo", &tempo, 1.0f, 0.0f, 0.0f, "%.2f"))
+                g_engine.set_bpm(tempo);
             ImGui::End();
 
             g_gui_content_browser.render();

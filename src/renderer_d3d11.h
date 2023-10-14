@@ -40,17 +40,37 @@ namespace wb
         }
     };
 
+    struct ShadersD3D11
+    {
+        ID3D11VertexShader* vs;
+        ID3D11GeometryShader* gs;
+        ID3D11PixelShader* ps;
+
+        void destroy()
+        {
+            if (vs) vs->Release();
+            if (gs) gs->Release();
+            if (ps) ps->Release();
+            vs = nullptr;
+            gs = nullptr;
+            ps = nullptr;
+        }
+    };
+
     struct RendererD3D11 : public Renderer
     {
         IDXGISwapChain2* swapchain_{};
         ID3D11Device* device_{};
         ID3D11DeviceContext* context_{};
         ID3D11RenderTargetView* backbuffer_rtv_{};
-        ID3D11VertexShader* waveform_vs_{};
-        ID3D11PixelShader* waveform_ps_{};
         ID3D11InputLayout* waveform_input_layout_{};
         ID3D11Buffer* parameter_cbuffer_{};
+        ID3D11BlendState* blend_state_{};
         HANDLE frame_latency_waitable_object_{};
+
+        // Shaders
+        ShadersD3D11 waveform_{};
+        ShadersD3D11 waveform_aa_{};
 
         ID3D11RenderTargetView* current_render_target_{};
 
@@ -72,9 +92,11 @@ namespace wb
         void set_framebuffer(const std::shared_ptr<Framebuffer>& framebuffer) override;
         void clear_framebuffer(float r, float g, float b, float a) override;
         void draw_waveform(const std::shared_ptr<WaveformViewBuffer>& waveform_view_buffer, const ImColor& color, const ImVec2& origin, float scale_x, float scale_y) override;
-        void draw_clip_content(const ImVector<ClipContentDrawArgs>& clip_contents) override;
+        void draw_clip_content(const ImVector<ClipContentDrawArgs>& clip_contents, bool anti_aliasing) noexcept override;
         void render_imgui(ImDrawData* draw_data) override;
         void present() override;
+
+        bool load_shaders_(const char* vs, const char* gs, const char* ps, ShadersD3D11* ret);
 
         static Renderer* create(App* app);
     };

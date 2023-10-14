@@ -60,7 +60,7 @@ namespace wb
         virtual void set_framebuffer(const std::shared_ptr<Framebuffer>& framebuffer) = 0;
         virtual void clear_framebuffer(float r, float g, float b, float a) = 0;
         virtual void draw_waveform(const std::shared_ptr<WaveformViewBuffer>& waveform_view_buffer, const ImColor& color, const ImVec2& origin, float scale_x, float scale_y) = 0;
-        virtual void draw_clip_content(const ImVector<ClipContentDrawArgs>& clip_contents) = 0;
+        virtual void draw_clip_content(const ImVector<ClipContentDrawArgs>& clip_contents, bool anti_aliasing) = 0;
         virtual void render_imgui(ImDrawData* draw_data) = 0;
         virtual void present() = 0;
 

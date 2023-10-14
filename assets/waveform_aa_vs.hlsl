@@ -20,15 +20,11 @@ Buffer<float> vertex_input : register(t0);
 VSOutput main(uint vertex : SV_VertexID)
 {
     float amplitude = vertex_input.Load(vertex);
-    float x = origin_x + float(vertex) * scale_x;
-    float y = origin_y + (amplitude * scale_y * 0.5) + scale_y * 0.5;
-    
     VSOutput output;
-    output.pos.x = x * vp_width - 1.0;
-    output.pos.y = 1.0 - y * vp_height;
+    output.pos.x = origin_x + float(vertex) * scale_x;
+    output.pos.y = origin_y + (amplitude * scale_y * 0.5) + scale_y * 0.5;
     output.pos.z = 0.0;
     output.pos.w = 1.0;
     output.color = color;
-    
     return output;
 }

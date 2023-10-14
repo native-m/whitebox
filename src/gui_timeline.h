@@ -36,8 +36,8 @@ namespace wb
         float scroll_delta_y = 0.0f;
         float last_scroll_pos_y = 0.0f;
         float grid_scale = 2.0f;
-        float sample_scale = 0.0f;
         double playhead_position{};
+        bool force_redraw_clip_content = false;
         bool should_redraw_clip_content = false;
         bool resizing_lhs_scroll_grab = false;
         bool resizing_rhs_scroll_grab = false;
@@ -61,6 +61,7 @@ namespace wb
 
         GUITimeline();
         void initialize();
+        void redraw_clip_content();
         void render_track_header(Track& track);
         void render_track_context_menu(Track& track);
         void render_track_controls(Track& track);

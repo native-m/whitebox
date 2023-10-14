@@ -74,6 +74,8 @@ namespace wb
     void Engine::set_bpm(float bpm)
     {
         beat_duration.store(60.0 / (double)bpm, std::memory_order_release);
+        if (on_bpm_change)
+            on_bpm_change();
     }
 
     void Engine::play()

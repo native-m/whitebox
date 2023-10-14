@@ -43,6 +43,8 @@ namespace wb
         mutable std::mutex                      player_mtx_;
         mutable Spinlock                        sync_;
 
+        std::function<void()>                   on_bpm_change;
+
         Engine();
         ~Engine();
 

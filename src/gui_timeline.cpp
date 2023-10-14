@@ -49,6 +49,11 @@ namespace wb
     {
     }
 
+    void GUITimeline::redraw_clip_content()
+    {
+        force_redraw_clip_content = true;
+    }
+
     void GUITimeline::render_track_context_menu(Track& track)
     {
         auto states = ImGui::GetStateStorage();
@@ -68,6 +73,7 @@ namespace wb
             ImGui::Separator();
             if (ImGui::MenuItem("Reset Height")) {
                 ImGui::CloseCurrentPopup();
+                should_redraw_clip_content = true;
                 track.height = 56.0f;
             }
             ImGui::EndPopup();
@@ -325,7 +331,9 @@ namespace wb
         }
         ImGui::PopStyleVar();
 
-        should_redraw_clip_content = false;
+        should_redraw_clip_content = force_redraw_clip_content;
+        if (force_redraw_clip_content)
+            force_redraw_clip_content = false;
 
         playhead_position = g_engine.get_playhead_position();
         docked = ImGui::IsWindowDocked();
@@ -346,8 +354,10 @@ namespace wb
         if (ImGui::GetActiveID() == ImGui::GetWindowScrollbarID(timeline_content_window, ImGuiAxis_Y))
             should_redraw_clip_content = true;
 
-        if (scrolling && std::abs(scroll_delta_y) > 0.0f)
+        if (scrolling && std::abs(scroll_delta_y) > 0.0f) {
             ImGui::SetScrollY(ImGui::GetScrollY() - scroll_delta_y);
+            should_redraw_clip_content = true;
+        }
 
         float mouse_wheel = ImGui::GetIO().MouseWheel;
         auto mouse_pos = ImGui::GetMousePos();
@@ -552,6 +562,7 @@ namespace wb
         auto font = ImGui::GetFont();
         float track_pos_y = draw_pos.y;
         float timeline_scroll_offset_x = timeline_orig_pos_x - scroll_pos_x;
+        float sample_scale = (float)(96.0 / (view_scale * get_output_sample_rate() * g_engine.beat_duration.load(std::memory_order_relaxed)));
         double mapped_x_pos = (double)(mouse_pos.x - timeline_orig_pos_x) / music_length * (double)view_scale + min_scroll_pos_x;
         double mouse_time_pos = mapped_x_pos * music_length / 96.0;
         double mouse_time_pos_grid = std::round(mouse_time_pos * grid_scale) / grid_scale;
@@ -561,7 +572,6 @@ namespace wb
                                                            ImDrawListFlags_AntiAliasedLinesUseTex |
                                                            ImDrawListFlags_AntiAliasedFill));
 
-        sample_scale = (float)(96.0 / (view_scale * get_output_sample_rate() * g_engine.beat_duration.load(std::memory_order_relaxed)));
         
         if (clip_action != GUITimelineClipAction::None && mouse_move)
             should_redraw_clip_content = true;
@@ -790,7 +800,7 @@ namespace wb
                         .color = color_brighten(current_clip->color, 0.75f),
                         .min = clip_content_min,
                         .max = max_bb,
-                        .scale_x = sample_scale,
+                        .scale_x = (float)sample_scale,
                     });
 
                 //float line_center_y = track_pos_y + (track->height - font_size + 2.0f) * 0.5f + font_size;
@@ -836,13 +846,20 @@ namespace wb
             clip_content.max = fb_max;
         }
         draw_list->PopTextureID();
+
+        static bool use_aa = true;
+
+        if (ImGui::IsKeyPressed(ImGuiKey_A)) {
+            use_aa = !use_aa;
+            should_redraw_clip_content = true;
+        }
       
         // Render clip content to an offscreen framebuffer
         if (clip_content_draw_list.size() > 0 && should_redraw_clip_content) {
             Renderer* renderer = Renderer::instance;
             renderer->set_framebuffer(clip_content_fb);
             renderer->clear_framebuffer(0.0f, 0.0f, 0.0f, 0.0f);
-            renderer->draw_clip_content(clip_content_draw_list);
+            renderer->draw_clip_content(clip_content_draw_list, use_aa);
         }
 
         // Draw playhead line
@@ -885,7 +902,7 @@ namespace wb
     void GUITimeline::handle_scroll_drag_x(float drag_delta, double scroll_view_width, float direction)
     {
         double norm_drag_delta = ((double)drag_delta / scroll_view_width) * (double)direction;
-        if (std::abs(drag_delta) >= 1.0f) {
+        if (std::abs(drag_delta) >= 0.0001f) {
             double new_min_scroll_pos_x = min_scroll_pos_x + norm_drag_delta;
             double new_max_scroll_pos_x = max_scroll_pos_x + norm_drag_delta;
             if (new_min_scroll_pos_x >= 0.0f && new_max_scroll_pos_x <= 1.0f) {

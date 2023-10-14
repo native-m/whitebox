@@ -42,8 +42,9 @@ namespace wb
 
         ImGui_ImplDX11_Shutdown();
 
-        if (waveform_vs_) waveform_vs_->Release();
-        if (waveform_ps_) waveform_ps_->Release();
+        waveform_.destroy();
+        waveform_aa_.destroy();
+
         if (waveform_input_layout_) waveform_input_layout_->Release();
         if (parameter_cbuffer_) parameter_cbuffer_->Release();
         if (backbuffer_rtv_) backbuffer_rtv_->Release();
@@ -54,32 +55,28 @@ namespace wb
 
     bool RendererD3D11::init()
     {
-        auto waveform_vs_bytecode{ load_binary_file("assets/waveform2_vs.hlsl.dxbc") };
-        auto waveform_ps_bytecode{ load_binary_file("assets/waveform_ps.hlsl.dxbc") };
-
-        if (!(waveform_vs_bytecode && waveform_ps_bytecode))
+        if (!load_shaders_("assets/waveform2_vs.hlsl.dxbc", nullptr, "assets/waveform_ps.hlsl.dxbc", &waveform_))
             return false;
 
-        Microsoft::WRL::ComPtr<ID3D11VertexShader> waveform_vs{};
-        Microsoft::WRL::ComPtr<ID3D11PixelShader> waveform_ps{};
-        device_->CreateVertexShader(waveform_vs_bytecode->data(), waveform_vs_bytecode->size(), nullptr, &waveform_vs);
-        device_->CreatePixelShader(waveform_ps_bytecode->data(), waveform_ps_bytecode->size(), nullptr, &waveform_ps);
-        if (!(waveform_vs && waveform_ps))
+        if (!load_shaders_("assets/waveform_aa_vs.hlsl.dxbc",
+                           "assets/waveform_aa_gs.hlsl.dxbc",
+                           "assets/waveform_aa_ps.hlsl.dxbc",
+                           &waveform_aa_))
             return false;
 
-        D3D11_INPUT_ELEMENT_DESC waveform_vtx;
-        waveform_vtx.SemanticName = "POSITION";
-        waveform_vtx.SemanticIndex = 0;
-        waveform_vtx.Format = DXGI_FORMAT_R8_SNORM;
-        waveform_vtx.InputSlot = 0;
-        waveform_vtx.AlignedByteOffset = 0;
-        waveform_vtx.InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
-        waveform_vtx.InstanceDataStepRate = 0;
+        //D3D11_INPUT_ELEMENT_DESC waveform_vtx;
+        //waveform_vtx.SemanticName = "POSITION";
+        //waveform_vtx.SemanticIndex = 0;
+        //waveform_vtx.Format = DXGI_FORMAT_R8_SNORM;
+        //waveform_vtx.InputSlot = 0;
+        //waveform_vtx.AlignedByteOffset = 0;
+        //waveform_vtx.InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+        //waveform_vtx.InstanceDataStepRate = 0;
 
-        Microsoft::WRL::ComPtr<ID3D11InputLayout> waveform_input_layout{};
-        device_->CreateInputLayout(&waveform_vtx, 1, waveform_vs_bytecode->data(), waveform_vs_bytecode->size(), &waveform_input_layout);
-        if (!waveform_input_layout)
-            return false;
+        //Microsoft::WRL::ComPtr<ID3D11InputLayout> waveform_input_layout{};
+        //device_->CreateInputLayout(&waveform_vtx, 1, waveform_vs_bytecode->data(), waveform_vs_bytecode->size(), &waveform_input_layout);
+        //if (!waveform_input_layout)
+        //    return false;
 
         D3D11_BUFFER_DESC desc{};
         desc.ByteWidth = 256;
@@ -92,9 +89,18 @@ namespace wb
         if (!parameter_cbuffer)
             return false;
 
-        waveform_vs_ = waveform_vs.Detach();
-        waveform_ps_ = waveform_ps.Detach();
-        waveform_input_layout_ = waveform_input_layout.Detach();
+        D3D11_BLEND_DESC blend_desc{};
+        blend_desc.AlphaToCoverageEnable = false;
+        blend_desc.RenderTarget[0].BlendEnable = true;
+        blend_desc.RenderTarget[0].SrcBlend = D3D11_BLEND_ONE;
+        blend_desc.RenderTarget[0].DestBlend = D3D11_BLEND_ZERO;
+        blend_desc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+        blend_desc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+        blend_desc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
+        blend_desc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+        blend_desc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+        device_->CreateBlendState(&blend_desc, &blend_state_);
+
         parameter_cbuffer_ = parameter_cbuffer.Detach();
 
         return true;
@@ -142,7 +148,7 @@ namespace wb
 
     std::shared_ptr<WaveformViewBuffer> RendererD3D11::create_waveform_view_buffer(const Sample& sample, PixelFormat format, GPUMemoryType memory_type)
     {
-        int8_t* data = (int8_t*)std::malloc(sample.sample_count * sample.channels);
+        int16_t* data = (int16_t*)std::malloc(sample.sample_count * sample.channels * sizeof(int16_t));
         if (!data)
             return {};
 
@@ -150,10 +156,10 @@ namespace wb
             case AudioFormat::F32:
                 for (uint32_t i = 0; i < sample.channels; i++) {
                     const float* sample_data = sample.get_read_pointer<float>(i);
-                    int8_t* channel_data = data + (i * sample.sample_count);
+                    int16_t* channel_data = data + (i * sample.sample_count);
                     for (uint32_t j = 0; j < sample.sample_count; j++) {
-                        float value = sample_data[j] * (float)((1 << 7) - 1);
-                        channel_data[j] = (int8_t)(value >= 0 ? value + 0.5 : value - 0.5);
+                        float value = sample_data[j] * (float)((1 << 15) - 1);
+                        channel_data[j] = (int16_t)(value >= 0 ? value + 0.5 : value - 0.5);
                     }
                 }
                 break;
@@ -163,7 +169,7 @@ namespace wb
         }
 
         D3D11_BUFFER_DESC desc{};
-        desc.ByteWidth = (UINT)(sample.sample_count * sample.channels);
+        desc.ByteWidth = (UINT)(sample.sample_count * sample.channels * sizeof(int16_t));
         desc.Usage = D3D11_USAGE_DEFAULT;
         desc.BindFlags = D3D11_BIND_VERTEX_BUFFER | D3D11_BIND_SHADER_RESOURCE;
 
@@ -178,11 +184,11 @@ namespace wb
 
         Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srv{};
         D3D11_SHADER_RESOURCE_VIEW_DESC srv_desc{
-            .Format = DXGI_FORMAT_R8_SNORM,
+            .Format = DXGI_FORMAT_R16_SNORM,
             .ViewDimension = D3D11_SRV_DIMENSION_BUFFER,
             .Buffer = {
                 .FirstElement = 0,
-                .NumElements = desc.ByteWidth,
+                .NumElements = (UINT)(sample.sample_count * sample.channels),
             }
         };
 
@@ -250,8 +256,8 @@ namespace wb
             vp.TopLeftX = vp.TopLeftY = 0;
             context_->RSSetViewports(1, &vp);
 
-            vp_width = vp.Width;
-            vp_height = vp.Height;
+            vp_width = 2.0f / vp.Width;
+            vp_height = 2.0f / vp.Height;
             current_render_target_ = backbuffer_rtv_;
             return;
         }
@@ -273,8 +279,8 @@ namespace wb
         vp.TopLeftX = vp.TopLeftY = 0;
         context_->RSSetViewports(1, &vp);
 
-        vp_width = vp.Width;
-        vp_height = vp.Height;
+        vp_width = 2.0f / vp.Width;
+        vp_height = 2.0f / vp.Height;
         current_render_target_ = impl->rtv;
     }
 
@@ -303,22 +309,25 @@ namespace wb
         context_->Unmap(parameter_cbuffer_, 0);
 
         ID3D11Buffer* vtx_buf = impl_buffer->buffer;
-        context_->IASetInputLayout(waveform_input_layout_);
+        context_->IASetInputLayout(nullptr);
         context_->IASetVertexBuffers(0, 1, &vtx_buf, &stride, &offset);
         context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP);
-        context_->VSSetShader(waveform_vs_, nullptr, 0);
+        context_->VSSetShader(waveform_.vs, nullptr, 0);
         context_->VSSetConstantBuffers(0, 1, &parameter_cbuffer_);
-        context_->PSSetShader(waveform_ps_, nullptr, 0);
+        context_->PSSetShader(waveform_.ps, nullptr, 0);
         context_->Draw(impl_buffer->sample_count, 0);
     }
 
-    void RendererD3D11::draw_clip_content(const ImVector<ClipContentDrawArgs>& clip_contents)
+#define USE_AA
+
+    void RendererD3D11::draw_clip_content(const ImVector<ClipContentDrawArgs>& clip_contents, bool anti_aliasing) noexcept
     {
-        ID3D11ShaderResourceView* srv = nullptr;
+#if 0
+        ID3D11Buffer* buffer = nullptr;
         const UINT stride = 1;
         const UINT offset = 0;
 
-        context_->IASetInputLayout(nullptr);
+        context_->IASetInputLayout(waveform_input_layout_);
         context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP);
         context_->VSSetShader(waveform_vs_, nullptr, 0);
         context_->PSSetShader(waveform_ps_, nullptr, 0);
@@ -326,10 +335,9 @@ namespace wb
         for (auto& clip_content : clip_contents) {
             WaveformViewBufferD3D11* waveform_view_buf = static_cast<WaveformViewBufferD3D11*>(clip_content.view_buffer);
 
-            if (srv != waveform_view_buf->srv) {
-                context_->VSSetShaderResources(0, 1, &waveform_view_buf->srv);
-                //context_->IASetVertexBuffers(0, 1, &waveform_view_buf->buffer, &stride, &offset);
-                srv = waveform_view_buf->srv;
+            if (buffer != waveform_view_buf->buffer) {
+                context_->IASetVertexBuffers(0, 1, &waveform_view_buf->buffer, &stride, &offset);
+                buffer = waveform_view_buf->buffer;
             }
 
             D3D11_MAPPED_SUBRESOURCE mapped_resource{};
@@ -347,6 +355,79 @@ namespace wb
             context_->VSSetConstantBuffers(0, 1, &parameter_cbuffer_);
             context_->Draw(waveform_view_buf->sample_count, 0);
         }
+#else
+        ID3D11ShaderResourceView* srv = nullptr;
+        const UINT stride = 1;
+        const UINT offset = 0;
+
+        context_->IASetInputLayout(nullptr);
+        context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP);
+        
+        context_->VSSetConstantBuffers(0, 1, &parameter_cbuffer_);
+        context_->GSSetConstantBuffers(0, 1, &parameter_cbuffer_);
+        context_->PSSetConstantBuffers(0, 1, &parameter_cbuffer_);
+        context_->OMSetBlendState(blend_state_, {}, 0xffffffff);
+
+        if (anti_aliasing) {
+            context_->VSSetShader(waveform_aa_.vs, nullptr, 0);
+            context_->GSSetShader(waveform_aa_.gs, nullptr, 0);
+            context_->PSSetShader(waveform_aa_.ps, nullptr, 0);
+
+            for (auto& clip_content : clip_contents) {
+                WaveformViewBufferD3D11* waveform_view_buf = static_cast<WaveformViewBufferD3D11*>(clip_content.view_buffer);
+
+                if (srv != waveform_view_buf->srv) {
+                    context_->VSSetShaderResources(0, 1, &waveform_view_buf->srv);
+                    srv = waveform_view_buf->srv;
+                }
+
+                //uint32_t bucket_size = (uint32_t)(1. / (double)clip_content.scale_x);
+                //uint32_t bucket_count = waveform_view_buf->sample_count / bucket_size;
+
+                D3D11_MAPPED_SUBRESOURCE mapped_resource{};
+                context_->Map(parameter_cbuffer_, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped_resource);
+                WaveformViewParam* param = (WaveformViewParam*)mapped_resource.pData;
+                param->origin_x = clip_content.min.x;
+                param->origin_y = clip_content.min.y;
+                param->scale_x = clip_content.scale_x;
+                param->scale_y = clip_content.max.y - clip_content.min.y;
+                param->color = clip_content.color;
+                param->vp_width = vp_width;
+                param->vp_height = vp_height;
+                context_->Unmap(parameter_cbuffer_, 0);
+
+                context_->Draw(waveform_view_buf->sample_count, 0);
+            }
+        }
+        else {
+            context_->VSSetShader(waveform_.vs, nullptr, 0);
+            context_->GSSetShader(nullptr, nullptr, 0);
+            context_->PSSetShader(waveform_.ps, nullptr, 0);
+
+            for (auto& clip_content : clip_contents) {
+                WaveformViewBufferD3D11* waveform_view_buf = static_cast<WaveformViewBufferD3D11*>(clip_content.view_buffer);
+
+                if (srv != waveform_view_buf->srv) {
+                    context_->VSSetShaderResources(0, 1, &waveform_view_buf->srv);
+                    srv = waveform_view_buf->srv;
+                }
+
+                D3D11_MAPPED_SUBRESOURCE mapped_resource{};
+                context_->Map(parameter_cbuffer_, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped_resource);
+                WaveformViewParam* param = (WaveformViewParam*)mapped_resource.pData;
+                param->origin_x = clip_content.min.x;
+                param->origin_y = clip_content.min.y;
+                param->scale_x = clip_content.scale_x;
+                param->scale_y = clip_content.max.y - clip_content.min.y;
+                param->color = clip_content.color;
+                param->vp_width = vp_width;
+                param->vp_height = vp_height;
+                context_->Unmap(parameter_cbuffer_, 0);
+
+                context_->Draw(waveform_view_buf->sample_count, 0);
+            }
+        }
+#endif
     }
 
     void RendererD3D11::render_imgui(ImDrawData* draw_data)
@@ -446,5 +527,43 @@ namespace wb
         }
 
         return ret;
+    }
+
+    bool RendererD3D11::load_shaders_(const char* vs_file, const char* gs_file, const char* ps_file, ShadersD3D11* ret)
+    {
+        ShadersD3D11 tmp{};
+
+        if (vs_file) {
+            auto bytecode{ load_binary_file(vs_file) };
+            if (!bytecode) return false;
+
+            Microsoft::WRL::ComPtr<ID3D11VertexShader> shader{};
+            device_->CreateVertexShader(bytecode->data(), bytecode->size(), nullptr, &shader);
+            if (!shader) return false;
+            tmp.vs = shader.Detach();
+        }
+
+        if (gs_file) {
+            auto bytecode{ load_binary_file(gs_file) };
+            if (!bytecode) return false;
+
+            Microsoft::WRL::ComPtr<ID3D11GeometryShader> shader{};
+            device_->CreateGeometryShader(bytecode->data(), bytecode->size(), nullptr, &shader);
+            if (!shader) return false;
+            tmp.gs = shader.Detach();
+        }
+
+        if (ps_file) {
+            auto bytecode{ load_binary_file(ps_file) };
+            if (!bytecode) return false;
+
+            Microsoft::WRL::ComPtr<ID3D11PixelShader> shader{};
+            device_->CreatePixelShader(bytecode->data(), bytecode->size(), nullptr, &shader);
+            if (!shader) return false;
+            tmp.ps = shader.Detach();
+        }
+
+        *ret = tmp;
+        return true;
     }
 }
