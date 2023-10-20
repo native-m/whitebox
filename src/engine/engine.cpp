@@ -146,7 +146,7 @@ namespace wb
             static constexpr double tick_length = 1.0 / 96.0;
             double current_beat_duration = 0.0;
 
-            // Clear before buffering new messages
+            // Clear before buffering new messages 
             for (auto& track : tracks)
                 track->message_queue.clear();
             

@@ -17,6 +17,7 @@ namespace wb
         float scale_x;
         float scale_y;
         ImVec4 color;
+        uint32_t chunk_size;
         float vp_width;
         float vp_height;
     };
@@ -45,6 +46,7 @@ namespace wb
         waveform_.destroy();
         waveform_aa_.destroy();
 
+        if (blend_state_) blend_state_->Release();
         if (waveform_input_layout_) waveform_input_layout_->Release();
         if (parameter_cbuffer_) parameter_cbuffer_->Release();
         if (backbuffer_rtv_) backbuffer_rtv_->Release();
@@ -146,7 +148,7 @@ namespace wb
         return fb;
     }
 
-    std::shared_ptr<WaveformViewBuffer> RendererD3D11::create_waveform_view_buffer(const Sample& sample, PixelFormat format, GPUMemoryType memory_type)
+    std::shared_ptr<SamplePeaks> RendererD3D11::create_sample_peaks(const Sample& sample, PixelFormat format, GPUMemoryType memory_type)
     {
         int16_t* data = (int16_t*)std::malloc(sample.sample_count * sample.channels * sizeof(int16_t));
         if (!data)
@@ -168,45 +170,105 @@ namespace wb
                 WB_ASSERT(false && "Incompatible format at the moment");
         }
 
-        D3D11_BUFFER_DESC desc{};
-        desc.ByteWidth = (UINT)(sample.sample_count * sample.channels * sizeof(int16_t));
-        desc.Usage = D3D11_USAGE_DEFAULT;
-        desc.BindFlags = D3D11_BIND_VERTEX_BUFFER | D3D11_BIND_SHADER_RESOURCE;
-
-        D3D11_SUBRESOURCE_DATA init_data{};
-        init_data.pSysMem = data;
-
-        Microsoft::WRL::ComPtr<ID3D11Buffer> buffer{};
-        if (FAILED(device_->CreateBuffer(&desc, &init_data, &buffer))) {
-            std::free(data);
-            return {};
-        }
-
-        Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srv{};
-        D3D11_SHADER_RESOURCE_VIEW_DESC srv_desc{
-            .Format = DXGI_FORMAT_R16_SNORM,
-            .ViewDimension = D3D11_SRV_DIMENSION_BUFFER,
-            .Buffer = {
-                .FirstElement = 0,
-                .NumElements = (UINT)(sample.sample_count * sample.channels),
-            }
-        };
-
-        if (FAILED(device_->CreateShaderResourceView(buffer.Get(), &srv_desc, &srv))) {
-            std::free(data);
-            return {};
-        }
-
-        std::shared_ptr<WaveformViewBufferD3D11> ret = std::make_shared<WaveformViewBufferD3D11>();
+        std::shared_ptr<SamplePeaksD3D11> ret = std::make_shared<SamplePeaksD3D11>();
         if (!ret)
             return {};
 
         ret->sample_count = (uint32_t)sample.sample_count;
         ret->num_channels = sample.channels;
-        ret->buffer = buffer.Detach();
-        ret->srv = srv.Detach();
 
-        std::free(data);
+#if 1
+        int16_t* last_mip_data = nullptr;
+        for (uint32_t mip_level = 0; mip_level < 8; mip_level++) {
+            uint32_t chunk_size = 1 << mip_level;
+            uint32_t mip_sample_count = (uint32_t)sample.sample_count / chunk_size;
+            uint32_t chunk_count = mip_sample_count - mip_sample_count % 2;
+            int16_t* mip_data = data;
+            
+            if (mip_level >= 1) {
+                mip_data = (int16_t*)std::malloc(mip_sample_count * sample.channels * sizeof(int16_t));
+                
+                if (!mip_data)
+                    return {};
+
+                uint32_t last_mip_sample_count = (uint32_t)sample.sample_count / (1 << (mip_level - 1));
+
+                // min-max downsampling
+                for (uint32_t i = 0; i < sample.channels; i++) {
+                    int16_t* input_data = &last_mip_data[i * last_mip_sample_count];
+                    int16_t* output_data = &mip_data[i * mip_sample_count];
+
+                    for (uint32_t j = 0; j < chunk_count; j += 2) {
+                        int16_t* chunk = &input_data[j * 2];
+                        int32_t min_idx = 0;
+                        int32_t max_idx = 0;
+                        int16_t min_val = chunk[0];
+                        int16_t max_val = chunk[0];
+
+                        for (uint32_t k = 0; k < 4; k++) {
+                            int16_t value = chunk[k];
+                            if (value > max_val) {
+                                max_val = value;
+                                max_idx = k;
+                            }
+                            else if (value < min_val) {
+                                min_val = value;
+                                min_idx = k;
+                            }
+                        }
+
+                        if (max_idx < min_idx) {
+                            output_data[j] = max_val;
+                            output_data[j + 1] = min_val;
+                        }
+                        else {
+                            output_data[j] = min_val;
+                            output_data[j + 1] = max_val;
+                        }
+                    }
+
+                    if (chunk_count != mip_sample_count)
+                        output_data[mip_sample_count - 1] = input_data[last_mip_sample_count - 1];
+                }
+            }
+
+            D3D11_BUFFER_DESC desc{};
+            desc.ByteWidth = (UINT)(mip_sample_count * sample.channels * sizeof(int16_t));
+            desc.Usage = D3D11_USAGE_DEFAULT;
+            desc.BindFlags = D3D11_BIND_VERTEX_BUFFER | D3D11_BIND_SHADER_RESOURCE;
+
+            D3D11_SUBRESOURCE_DATA init_data{};
+            init_data.pSysMem = mip_data;
+
+            Microsoft::WRL::ComPtr<ID3D11Buffer> buffer{};
+            if (FAILED(device_->CreateBuffer(&desc, &init_data, &buffer))) {
+                std::free(data);
+                if (last_mip_data) std::free(last_mip_data);
+                return {};
+            }
+
+            Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srv{};
+            D3D11_SHADER_RESOURCE_VIEW_DESC srv_desc{
+                .Format = DXGI_FORMAT_R16_SNORM,
+                .ViewDimension = D3D11_SRV_DIMENSION_BUFFER,
+                .Buffer = {
+                    .FirstElement = 0,
+                    .NumElements = (UINT)(mip_sample_count * sample.channels),
+                }
+            };
+
+            if (FAILED(device_->CreateShaderResourceView(buffer.Get(), &srv_desc, &srv))) {
+                std::free(mip_data);
+                if (last_mip_data) std::free(last_mip_data);
+                return {};
+            }
+
+            ret->mip_map[mip_level].buffer = buffer.Detach();
+            ret->mip_map[mip_level].srv = srv.Detach();
+            if (last_mip_data) std::free(last_mip_data);
+            last_mip_data = mip_data;
+        }
+#endif
 
         return ret;
     }
@@ -290,8 +352,9 @@ namespace wb
         context_->ClearRenderTargetView(current_render_target_, clear_color);
     }
 
-    void RendererD3D11::draw_waveform(const std::shared_ptr<WaveformViewBuffer>& waveform_view_buffer, const ImColor& color, const ImVec2& origin, float scale_x, float scale_y)
+    void RendererD3D11::draw_waveform(const std::shared_ptr<SamplePeaks>& waveform_view_buffer, const ImColor& color, const ImVec2& origin, float scale_x, float scale_y)
     {
+#if 0
         auto impl_buffer{ static_cast<WaveformViewBufferD3D11*>(waveform_view_buffer.get()) };
         const UINT stride = 1;
         const UINT offset = 0;
@@ -316,46 +379,11 @@ namespace wb
         context_->VSSetConstantBuffers(0, 1, &parameter_cbuffer_);
         context_->PSSetShader(waveform_.ps, nullptr, 0);
         context_->Draw(impl_buffer->sample_count, 0);
+#endif
     }
-
-#define USE_AA
 
     void RendererD3D11::draw_clip_content(const ImVector<ClipContentDrawArgs>& clip_contents, bool anti_aliasing) noexcept
     {
-#if 0
-        ID3D11Buffer* buffer = nullptr;
-        const UINT stride = 1;
-        const UINT offset = 0;
-
-        context_->IASetInputLayout(waveform_input_layout_);
-        context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP);
-        context_->VSSetShader(waveform_vs_, nullptr, 0);
-        context_->PSSetShader(waveform_ps_, nullptr, 0);
-
-        for (auto& clip_content : clip_contents) {
-            WaveformViewBufferD3D11* waveform_view_buf = static_cast<WaveformViewBufferD3D11*>(clip_content.view_buffer);
-
-            if (buffer != waveform_view_buf->buffer) {
-                context_->IASetVertexBuffers(0, 1, &waveform_view_buf->buffer, &stride, &offset);
-                buffer = waveform_view_buf->buffer;
-            }
-
-            D3D11_MAPPED_SUBRESOURCE mapped_resource{};
-            context_->Map(parameter_cbuffer_, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped_resource);
-            WaveformViewParam* param = (WaveformViewParam*)mapped_resource.pData;
-            param->origin_x = clip_content.min.x;
-            param->origin_y = clip_content.min.y;
-            param->scale_x = clip_content.scale_x;
-            param->scale_y = clip_content.max.y - clip_content.min.y;
-            param->color = clip_content.color;
-            param->vp_width = vp_width;
-            param->vp_height = vp_height;
-            context_->Unmap(parameter_cbuffer_, 0);
-
-            context_->VSSetConstantBuffers(0, 1, &parameter_cbuffer_);
-            context_->Draw(waveform_view_buf->sample_count, 0);
-        }
-#else
         ID3D11ShaderResourceView* srv = nullptr;
         const UINT stride = 1;
         const UINT offset = 0;
@@ -374,15 +402,17 @@ namespace wb
             context_->PSSetShader(waveform_aa_.ps, nullptr, 0);
 
             for (auto& clip_content : clip_contents) {
-                WaveformViewBufferD3D11* waveform_view_buf = static_cast<WaveformViewBufferD3D11*>(clip_content.view_buffer);
+                SamplePeaksD3D11* waveform_view_buf = static_cast<SamplePeaksD3D11*>(clip_content.sample_peaks);
+                double chunk_size = std::max(std::round(0.25 / (double)clip_content.scale_x), 1.0);
+                uint32_t mip_level = std::min((uint32_t)std::floor(std::log2(chunk_size)), 7U);
+                ID3D11ShaderResourceView* mip_srv = waveform_view_buf->mip_map[mip_level].srv;
 
-                if (srv != waveform_view_buf->srv) {
-                    context_->VSSetShaderResources(0, 1, &waveform_view_buf->srv);
-                    srv = waveform_view_buf->srv;
+                if (srv != mip_srv) {
+                    context_->VSSetShaderResources(0, 1, &mip_srv);
+                    srv = mip_srv;
                 }
 
-                //uint32_t bucket_size = (uint32_t)(1. / (double)clip_content.scale_x);
-                //uint32_t bucket_count = waveform_view_buf->sample_count / bucket_size;
+                uint32_t vtx_count = waveform_view_buf->sample_count / (1 << mip_level);
 
                 D3D11_MAPPED_SUBRESOURCE mapped_resource{};
                 context_->Map(parameter_cbuffer_, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped_resource);
@@ -392,11 +422,12 @@ namespace wb
                 param->scale_x = clip_content.scale_x;
                 param->scale_y = clip_content.max.y - clip_content.min.y;
                 param->color = clip_content.color;
+                param->chunk_size = 1 << mip_level;
                 param->vp_width = vp_width;
                 param->vp_height = vp_height;
                 context_->Unmap(parameter_cbuffer_, 0);
 
-                context_->Draw(waveform_view_buf->sample_count, 0);
+                context_->Draw(vtx_count, 0);
             }
         }
         else {
@@ -405,12 +436,17 @@ namespace wb
             context_->PSSetShader(waveform_.ps, nullptr, 0);
 
             for (auto& clip_content : clip_contents) {
-                WaveformViewBufferD3D11* waveform_view_buf = static_cast<WaveformViewBufferD3D11*>(clip_content.view_buffer);
+                SamplePeaksD3D11* waveform_view_buf = static_cast<SamplePeaksD3D11*>(clip_content.sample_peaks);
+                double chunk_size = std::max(std::ceil(1. / (double)clip_content.scale_x), 1.0);
+                uint32_t mip_level = std::min((uint32_t)std::floor(std::log2(chunk_size)), 8U);
+                ID3D11ShaderResourceView* mip_srv = waveform_view_buf->mip_map[mip_level].srv;
 
-                if (srv != waveform_view_buf->srv) {
-                    context_->VSSetShaderResources(0, 1, &waveform_view_buf->srv);
-                    srv = waveform_view_buf->srv;
+                if (srv != mip_srv) {
+                    context_->VSSetShaderResources(0, 1, &mip_srv);
+                    srv = mip_srv;
                 }
+
+                uint32_t vtx_count = waveform_view_buf->sample_count / (1 << mip_level);
 
                 D3D11_MAPPED_SUBRESOURCE mapped_resource{};
                 context_->Map(parameter_cbuffer_, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped_resource);
@@ -420,14 +456,14 @@ namespace wb
                 param->scale_x = clip_content.scale_x;
                 param->scale_y = clip_content.max.y - clip_content.min.y;
                 param->color = clip_content.color;
+                param->chunk_size = 1 << mip_level;
                 param->vp_width = vp_width;
                 param->vp_height = vp_height;
                 context_->Unmap(parameter_cbuffer_, 0);
 
-                context_->Draw(waveform_view_buf->sample_count, 0);
+                context_->Draw(vtx_count, 0);
             }
         }
-#endif
     }
 
     void RendererD3D11::render_imgui(ImDrawData* draw_data)

@@ -2,6 +2,7 @@
 #include "gui_content_browser.h"
 #include "global_state.h"
 #include "widget.h"
+#include "popup_state_manager.h"
 #include "core/color.h"
 #include "engine/sample_table.h"
 #include <imgui_stdlib.h>
@@ -125,6 +126,60 @@ namespace wb
         ImGui::DragFloat("Vol.", &track.volume);
     }
 
+    void GUITimeline::render_clip_context_menu()
+    {
+        if (!(g_selected_clip && g_selected_track))
+            return;
+
+        bool change_color = false;
+
+        if (ImGui::BeginPopup("clip_context_menu")) {
+            if (ImGui::MenuItem("Change Color...")) {
+                ImGui::CloseCurrentPopup();
+                change_color = true;
+            }
+            ImGui::MenuItem("Rename...");
+            ImGui::Separator();
+            if (ImGui::MenuItem("Delete")) {
+                g_engine.delete_clip(g_selected_track, g_selected_clip);
+                g_selected_clip = nullptr;
+                g_selected_track = nullptr;
+            }
+            ImGui::EndPopup();
+        }
+
+        if (change_color)
+            ImGui::OpenPopup("change_clip_color");
+
+        if (ImGui::BeginPopup("change_clip_color")) {
+            PopupStateContext state;
+            int* color_value = state.GetIntRef(ImGui::GetID("clip_color"), std::bit_cast<int>((ImU32)g_selected_clip->color));
+            assert(color_value != nullptr);
+
+            ImGui::Text("Change color");
+            ImGui::Separator();
+
+            ImColor color(std::bit_cast<ImU32>(*color_value));
+            if (ImGui::ColorPicker4("Color##clip_color_picker", (float*)&color, ImGuiColorEditFlags_NoAlpha))
+                *color_value = color;
+
+            ImGui::Separator();
+
+            if (ImGui::Button("Ok")) {
+                g_selected_clip->color = color;
+                ImGui::CloseCurrentPopup();
+                redraw_clip_content();
+            }
+
+            ImGui::SameLine();
+
+            if (ImGui::Button("Cancel"))
+                ImGui::CloseCurrentPopup();
+
+            ImGui::EndPopup();
+        }
+    }
+
     void GUITimeline::render_horizontal_scrollbar()
     {
         ImGuiStyle& style = ImGui::GetStyle();
@@ -170,7 +225,7 @@ namespace wb
         if (hovered)
             handle_scroll_drag_x(ImGui::GetIO().MouseWheel, 1.0f, -0.05f * (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) ? 0.1f : 0.5f));
 
-        // Reinterpret scroll units in pixels
+        // Remap scroll units in pixels
         float min_scroll_pos_x_pixels = (float)min_scroll_pos_x * scroll_btn_max_length;
         float max_scroll_pos_x_pixels = (1.0f - (float)max_scroll_pos_x) * scroll_btn_max_length;
 
@@ -205,6 +260,7 @@ namespace wb
             double new_min_scroll_pos_x = std::clamp(mouse_pos_x - half_scroll_grab_length, 0.0, 1.0 - scroll_grab_length);
             max_scroll_pos_x = new_min_scroll_pos_x + scroll_grab_length;
             min_scroll_pos_x = new_min_scroll_pos_x;
+            should_redraw_clip_content = true;
         }
 
         if (resizing_lhs_scroll_grab) {
@@ -343,7 +399,7 @@ namespace wb
         ImGui::PopStyleVar();
 
         if (zooming) {
-            // Avoid y-axis scrolling while zooming.
+            // Lock y-axis scroll while zooming.
             ImGui::SetNextWindowScroll(ImVec2(0.0f, last_scroll_pos_y));
             zooming = false;
             should_redraw_clip_content = true;
@@ -380,6 +436,9 @@ namespace wb
             last_mouse_pos = mouse_pos;
             mouse_move = true;
         }
+
+        if ((last_scroll_pos_y - scroll_y) != 0.0f)
+            should_redraw_clip_content = true;
 
         // Handle separator
         ImGui::SetCursorScreenPos(ImVec2(draw_pos.x + separator_x - 2.0f, scroll_offset_y));
@@ -581,30 +640,21 @@ namespace wb
             case GUITimelineClipAction::Move:
                 if (!left_mouse_down) {
                     g_engine.move_clip(g_selected_track, g_selected_clip, mouse_time_pos_grid - initial_move_pos);
-                    g_selected_clip = nullptr;
-                    g_selected_track = nullptr;
-                    clip_action = GUITimelineClipAction::None;
-                    initial_move_pos = 0.0;
+                    finish_clip_action();
                 }
                 ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
                 break;
             case GUITimelineClipAction::ResizeLeft:
                 if (!left_mouse_down) {
                     g_engine.resize_clip(g_selected_track, g_selected_clip, mouse_time_pos_grid - initial_move_pos, false);
-                    g_selected_clip = nullptr;
-                    g_selected_track = nullptr;
-                    clip_action = GUITimelineClipAction::None;
-                    initial_move_pos = 0.0;
+                    finish_clip_action();
                 }
                 ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
                 break;
             case GUITimelineClipAction::ResizeRight:
                 if (!left_mouse_down) {
                     g_engine.resize_clip(g_selected_track, g_selected_clip, mouse_time_pos_grid - initial_move_pos, true);
-                    g_selected_clip = nullptr;
-                    g_selected_track = nullptr;
-                    clip_action = GUITimelineClipAction::None;
-                    initial_move_pos = 0.0;
+                    finish_clip_action();
                 }
                 ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
                 break;
@@ -614,11 +664,9 @@ namespace wb
                     AudioClip* new_clip = g_engine.add_audio_clip(g_selected_track, mouse_time_pos_grid, mouse_time_pos_grid + clip_length);
                     new_clip->name = g_selected_clip->name;
                     new_clip->asset = static_cast<AudioClip*>(g_selected_clip)->asset;
-                    g_selected_clip = nullptr;
-                    g_selected_track = nullptr;
-                    clip_action = GUITimelineClipAction::None;
-                    initial_move_pos = 0.0;
+                    new_clip->color = g_selected_clip->color;
                     should_redraw_clip_content = true;
+                    finish_clip_action();
                 }
                 break;
             case GUITimelineClipAction::ContextMenu:
@@ -784,7 +832,7 @@ namespace wb
                 ImVec2 clip_content_min = ImVec2(min_bb.x, clip_title_max_y);
                 draw_list->Flags = disable_aa;
                 draw_list->AddRectFilled(min_bb, clip_title_max_bb, current_clip->color);
-                draw_list->AddRectFilled(clip_content_min, max_bb, color_adjust_alpha(current_clip->color, 0.35f));
+                draw_list->AddRectFilled(clip_content_min, max_bb, color_adjust_alpha(track->color, 0.35f));
                 draw_list->AddRect(min_bb, clip_title_max_bb, ImColor(1.0f, 1.0f, 1.0f, 0.15f));
                 draw_list->Flags = old_draw_list;
 
@@ -796,7 +844,7 @@ namespace wb
                 AudioClip* audio_clip = static_cast<AudioClip*>(current_clip);
                 clip_content_draw_list.push_back(
                     {
-                        .view_buffer = audio_clip->asset.ref->view_buffer.get(),
+                        .sample_peaks = audio_clip->asset.ref->peaks.get(),
                         .color = color_brighten(current_clip->color, 0.75f),
                         .min = clip_content_min,
                         .max = max_bb,
@@ -837,8 +885,8 @@ namespace wb
         ImVec2 uv_timeline_area(1.0f / timeline_area.x, 1.0f / timeline_area.y); // Normalized UV
         draw_list->PushTextureID(clip_content_fb_tex);
         for (auto& clip_content : clip_content_draw_list) {
-            ImVec2 fb_min(clip_content.min.x - timeline_orig_pos_x_rounded, clip_content.min.y - inv_scroll_offset_y);
-            ImVec2 fb_max(clip_content.max.x - timeline_orig_pos_x_rounded, clip_content.max.y - inv_scroll_offset_y);
+            ImVec2 fb_min(clip_content.min.x - timeline_orig_pos_x_rounded, clip_content.min.y - scroll_offset_y);
+            ImVec2 fb_max(clip_content.max.x - timeline_orig_pos_x_rounded, clip_content.max.y - scroll_offset_y);
             draw_list->AddImage(clip_content_fb_tex, clip_content.min, clip_content.max,
                                 ImVec2(fb_min.x * uv_timeline_area.x, fb_min.y * uv_timeline_area.y),
                                 ImVec2(fb_max.x * uv_timeline_area.x, fb_max.y * uv_timeline_area.y));
@@ -880,22 +928,14 @@ namespace wb
 
         // Handle zooming
         if (timeline_hovered && ImGui::IsKeyDown(ImGuiKey_LeftCtrl) && mouse_wheel != 0.0f) {
-            last_scroll_pos_y = ImGui::GetScrollY();
             handle_zoom(mouse_pos.x, timeline_orig_pos_x, view_scale, mouse_wheel);
             zooming = true;
         }
 
-        if (ImGui::BeginPopup("clip_context_menu")) {
-            if (ImGui::MenuItem("Delete")) {
-                g_engine.delete_clip(g_selected_track, g_selected_clip);
-                g_selected_clip = nullptr;
-                g_selected_track = nullptr;
-            }
-            ImGui::EndPopup();
-        }
-
+        last_scroll_pos_y = ImGui::GetScrollY();
+        render_clip_context_menu();
+        
         ImGui::EndChild();
-
         ImGui::End();
     }
 
@@ -936,6 +976,14 @@ namespace wb
             max_scroll_pos_x = std::clamp((float)max_scroll_pos_x - dist_to_end * mouse_wheel, (float)min_scroll_pos_x, 1.0f);
             should_redraw_clip_content = true;
         }
+    }
+
+    void GUITimeline::finish_clip_action()
+    {
+        g_selected_clip = nullptr;
+        g_selected_track = nullptr;
+        clip_action = GUITimelineClipAction::None;
+        initial_move_pos = 0.0;
     }
 
     float GUITimeline::get_playhead_screen_position(float view_scale, double playhead_position)

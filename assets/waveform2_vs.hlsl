@@ -11,6 +11,7 @@ cbuffer Parameters : register(b0)
     float scale_x;
     float scale_y;
     float4 color;
+    uint chunk_size;
     float vp_width;
     float vp_height;
 };
@@ -20,7 +21,7 @@ Buffer<float> vertex_input : register(t0);
 VSOutput main(uint vertex : SV_VertexID)
 {
     float amplitude = vertex_input.Load(vertex);
-    float x = origin_x + float(vertex) * scale_x;
+    float x = origin_x + float(vertex * chunk_size) * scale_x;
     float y = origin_y + (amplitude * scale_y * 0.5) + scale_y * 0.5;
     
     VSOutput output;

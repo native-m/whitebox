@@ -1,14 +1,14 @@
 struct GSInput
 {
     float4 pos : SV_Position;
-    float4 color : TEXCOORD0;
+    half4 color : TEXCOORD0;
 };
 
 struct GSOutput
 {
     float4 pos : SV_Position;
-    float4 color : TEXCOORD0;
     float2 uv_pos : TEXCOORD1;
+    half4 color : TEXCOORD0;
 };
 
 cbuffer Parameters : register(b0)
@@ -18,6 +18,7 @@ cbuffer Parameters : register(b0)
     float scale_x;
     float scale_y;
     float4 color;
+    uint chunk_size;
     float vp_width;
     float vp_height;
 };

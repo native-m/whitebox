@@ -65,11 +65,13 @@ namespace wb
         void render_track_header(Track& track);
         void render_track_context_menu(Track& track);
         void render_track_controls(Track& track);
+        void render_clip_context_menu();
         void render_horizontal_scrollbar();
         void render_time_ruler();
         void render();
         void handle_scroll_drag_x(float drag_delta, double scroll_view_width, float direction = 1.0f);
         void handle_zoom(float mouse_pos_x, float cursor_pos_x, float view_scale, float mouse_wheel);
+        void finish_clip_action();
         float get_playhead_screen_position(float view_scale, double playhead_position);
         float calculate_music_length();
     };

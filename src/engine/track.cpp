@@ -170,7 +170,7 @@ namespace wb
 
     Clip* Track::seek_backward(double time, Clip* clip)
     {
-        while (clip != &head_node && clip->min_time > time)
+        while (clip != head_node.next && clip->min_time > time)
             clip = clip->prev;
         return clip;
     }
@@ -290,7 +290,7 @@ namespace wb
                         {
                             // Before stopping, check if we still need to continue sample playback.
                             if (last_message.audio.status == AudioStatus::Play &&
-                                current_message.sample_position < last_message.sample_position)
+                                last_message.sample_position < current_message.sample_position)
                                 play_sample(output_buffer, last_message, samples_processed);
                             samples_processed = 0;
                             break;

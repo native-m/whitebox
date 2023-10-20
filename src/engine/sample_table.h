@@ -16,9 +16,9 @@ namespace wb
         size_t hash;
         uint32_t ref_count = 1;
         Sample sample_instance;
-        std::shared_ptr<WaveformViewBuffer> view_buffer;
+        std::shared_ptr<SamplePeaks> peaks;
 
-        SampleRef(SampleTable* sample_table, size_t hash, Sample&& sample, std::shared_ptr<WaveformViewBuffer>& view_buffer);
+        SampleRef(SampleTable* sample_table, size_t hash, Sample&& sample, std::shared_ptr<SamplePeaks>& peaks);
         inline void add_ref() noexcept { ++ref_count; }
         inline void release();
     };

@@ -4,20 +4,28 @@
 #include <d3d11.h>
 #include <dxgi1_3.h>
 #include <memory>
+#include <array>
 
 #include "renderer.h"
 
 namespace wb
 {
-    struct WaveformViewBufferD3D11 : public WaveformViewBuffer
+    struct SamplePeaksD3D11 : public SamplePeaks
     {
-        ID3D11Buffer* buffer{};
-        ID3D11ShaderResourceView* srv{};
-
-        ~WaveformViewBufferD3D11()
+        struct BufferMipmap
         {
-            if (srv) srv->Release();
-            if (buffer) buffer->Release();
+            ID3D11Buffer* buffer{};
+            ID3D11ShaderResourceView* srv{};
+        };
+
+        BufferMipmap mip_map[8]{};
+
+        ~SamplePeaksD3D11()
+        {
+            for (auto& buffer_mip : mip_map) {
+                if (buffer_mip.srv) buffer_mip.srv->Release();
+                if (buffer_mip.buffer) buffer_mip.buffer->Release();
+            }
         }
     };
 
@@ -86,12 +94,12 @@ namespace wb
         bool init();
 
         std::shared_ptr<Framebuffer> create_framebuffer(uint32_t width, uint32_t height) override;
-        std::shared_ptr<WaveformViewBuffer> create_waveform_view_buffer(const Sample& sample, PixelFormat format, GPUMemoryType memory_type) override;
+        std::shared_ptr<SamplePeaks> create_sample_peaks(const Sample& sample, PixelFormat format, GPUMemoryType memory_type) override;
         void resize_swapchain() override;
         void new_frame() override;
         void set_framebuffer(const std::shared_ptr<Framebuffer>& framebuffer) override;
         void clear_framebuffer(float r, float g, float b, float a) override;
-        void draw_waveform(const std::shared_ptr<WaveformViewBuffer>& waveform_view_buffer, const ImColor& color, const ImVec2& origin, float scale_x, float scale_y) override;
+        void draw_waveform(const std::shared_ptr<SamplePeaks>& waveform_view_buffer, const ImColor& color, const ImVec2& origin, float scale_x, float scale_y) override;
         void draw_clip_content(const ImVector<ClipContentDrawArgs>& clip_contents, bool anti_aliasing) noexcept override;
         void render_imgui(ImDrawData* draw_data) override;
         void present() override;
