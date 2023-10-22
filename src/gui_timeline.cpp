@@ -845,16 +845,11 @@ namespace wb
                 clip_content_draw_list.push_back(
                     {
                         .sample_peaks = audio_clip->asset.ref->peaks.get(),
-                        .color = color_brighten(current_clip->color, 0.75f),
+                        .color = color_brighten(current_clip->color, 0.85f),
                         .min = clip_content_min,
                         .max = max_bb,
                         .scale_x = (float)sample_scale,
                     });
-
-                //float line_center_y = track_pos_y + (track->height - font_size + 2.0f) * 0.5f + font_size;
-                //draw_list->AddLine(ImVec2(min_pos_x, line_center_y),
-                //                   ImVec2(max_pos_x, line_center_y),
-                //                   color_brighten(current_clip->color, 0.75f), 10.0f);
 
                 if (hovering_left_side)
                     draw_list->AddLine(ImVec2(min_bb.x + 1.0f, min_bb.y), ImVec2(min_bb.x + 1.0f, max_bb.y), ImGui::GetColorU32(ImGuiCol_SeparatorHovered), 3.0f);

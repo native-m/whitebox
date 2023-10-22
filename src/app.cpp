@@ -37,11 +37,11 @@ namespace wb
         ImFontConfig config;
         config.SizePixels = 13.0f;
         config.FontBuilderFlags = ImGuiFreeTypeBuilderFlags_LoadColor | ImGuiFreeTypeBuilderFlags_LightHinting;
-        config.RasterizerMultiply = 1.25f;
+        config.RasterizerMultiply = 1.0f;
 
-        //io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
+        io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
         //io.Fonts->AddFontDefault(&config);
-        //io.Fonts->AddFontFromFileTTF("../../../assets/Inter-Regular.otf", 0.0f, &config);
+        io.Fonts->AddFontFromFileTTF("../../../assets/Inter-Regular.otf", 0.0f, &config);
 
         ImGuiStyle& style = ImGui::GetStyle();
         //apply_theme(style);
@@ -86,7 +86,7 @@ namespace wb
     {
         float scale_x = 1.0f;
         float scale_y = 200.0f;
-
+        
         while (running) {
             new_frame();
 

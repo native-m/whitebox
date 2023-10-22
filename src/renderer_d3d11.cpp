@@ -17,9 +17,10 @@ namespace wb
         float scale_x;
         float scale_y;
         ImVec4 color;
-        uint32_t chunk_size;
         float vp_width;
         float vp_height;
+        uint32_t chunk_size;
+        uint32_t max_sample_idx;
     };
 
     RendererD3D11::RendererD3D11(IDXGISwapChain2* swapchain,
@@ -45,8 +46,10 @@ namespace wb
 
         waveform_.destroy();
         waveform_aa_.destroy();
+        waveform_bevel_aa_.destroy();
 
         if (blend_state_) blend_state_->Release();
+        if (rasterizer_state_) rasterizer_state_->Release();
         if (waveform_input_layout_) waveform_input_layout_->Release();
         if (parameter_cbuffer_) parameter_cbuffer_->Release();
         if (backbuffer_rtv_) backbuffer_rtv_->Release();
@@ -64,6 +67,9 @@ namespace wb
                            "assets/waveform_aa_gs.hlsl.dxbc",
                            "assets/waveform_aa_ps.hlsl.dxbc",
                            &waveform_aa_))
+            return false;
+
+        if (!load_shaders_("assets/waveform_bevel_aa_vs.hlsl.dxbc", nullptr, nullptr, &waveform_bevel_aa_))
             return false;
 
         //D3D11_INPUT_ELEMENT_DESC waveform_vtx;
@@ -102,6 +108,17 @@ namespace wb
         blend_desc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
         blend_desc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
         device_->CreateBlendState(&blend_desc, &blend_state_);
+
+        D3D11_RASTERIZER_DESC raster_desc{
+            .FillMode = D3D11_FILL_SOLID,
+            .CullMode = D3D11_CULL_NONE,
+            .FrontCounterClockwise = FALSE,
+            .DepthClipEnable = TRUE,
+            .ScissorEnable = TRUE,
+            .MultisampleEnable = FALSE,
+            .AntialiasedLineEnable = FALSE,
+        };
+        device_->CreateRasterizerState(&raster_desc, &rasterizer_state_);
 
         parameter_cbuffer_ = parameter_cbuffer.Detach();
 
@@ -160,7 +177,7 @@ namespace wb
                     const float* sample_data = sample.get_read_pointer<float>(i);
                     int16_t* channel_data = data + (i * sample.sample_count);
                     for (uint32_t j = 0; j < sample.sample_count; j++) {
-                        float value = sample_data[j] * (float)((1 << 15) - 1);
+                        double value = (double)sample_data[j] * (double)((1 << 15) - 1);
                         channel_data[j] = (int16_t)(value >= 0 ? value + 0.5 : value - 0.5);
                     }
                 }
@@ -177,7 +194,6 @@ namespace wb
         ret->sample_count = (uint32_t)sample.sample_count;
         ret->num_channels = sample.channels;
 
-#if 1
         int16_t* last_mip_data = nullptr;
         for (uint32_t mip_level = 0; mip_level < 8; mip_level++) {
             uint32_t chunk_size = 1 << mip_level;
@@ -207,23 +223,23 @@ namespace wb
 
                         for (uint32_t k = 0; k < 4; k++) {
                             int16_t value = chunk[k];
-                            if (value > max_val) {
-                                max_val = value;
-                                max_idx = k;
-                            }
-                            else if (value < min_val) {
+                            if (value < min_val) {
                                 min_val = value;
                                 min_idx = k;
                             }
+                            else if (value > max_val) {
+                                max_val = value;
+                                max_idx = k;
+                            }
                         }
 
-                        if (max_idx < min_idx) {
-                            output_data[j] = max_val;
-                            output_data[j + 1] = min_val;
-                        }
-                        else {
+                        if (min_idx < max_idx) {
                             output_data[j] = min_val;
                             output_data[j + 1] = max_val;
+                        }
+                        else {
+                            output_data[j] = max_val;
+                            output_data[j + 1] = min_val;
                         }
                     }
 
@@ -268,7 +284,6 @@ namespace wb
             if (last_mip_data) std::free(last_mip_data);
             last_mip_data = mip_data;
         }
-#endif
 
         return ret;
     }
@@ -389,16 +404,13 @@ namespace wb
         const UINT offset = 0;
 
         context_->IASetInputLayout(nullptr);
-        context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP);
-        
+        context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
         context_->VSSetConstantBuffers(0, 1, &parameter_cbuffer_);
-        context_->GSSetConstantBuffers(0, 1, &parameter_cbuffer_);
         context_->PSSetConstantBuffers(0, 1, &parameter_cbuffer_);
         context_->OMSetBlendState(blend_state_, {}, 0xffffffff);
+        context_->RSSetState(rasterizer_state_);
 
         if (anti_aliasing) {
-            context_->VSSetShader(waveform_aa_.vs, nullptr, 0);
-            context_->GSSetShader(waveform_aa_.gs, nullptr, 0);
             context_->PSSetShader(waveform_aa_.ps, nullptr, 0);
 
             for (auto& clip_content : clip_contents) {
@@ -412,7 +424,8 @@ namespace wb
                     srv = mip_srv;
                 }
 
-                uint32_t vtx_count = waveform_view_buf->sample_count / (1 << mip_level);
+                uint32_t sample_count = waveform_view_buf->sample_count / (1 << mip_level);
+                //Log::info("{}", sample_count);
 
                 D3D11_MAPPED_SUBRESOURCE mapped_resource{};
                 context_->Map(parameter_cbuffer_, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped_resource);
@@ -422,17 +435,20 @@ namespace wb
                 param->scale_x = clip_content.scale_x;
                 param->scale_y = clip_content.max.y - clip_content.min.y;
                 param->color = clip_content.color;
-                param->chunk_size = 1 << mip_level;
                 param->vp_width = vp_width;
                 param->vp_height = vp_height;
+                param->chunk_size = 1 << mip_level;
+                param->max_sample_idx = sample_count - 1;
                 context_->Unmap(parameter_cbuffer_, 0);
 
-                context_->Draw(vtx_count, 0);
+                context_->VSSetShader(waveform_aa_.vs, nullptr, 0);
+                context_->Draw(sample_count * 6, 0);
+                context_->VSSetShader(waveform_bevel_aa_.vs, nullptr, 0);
+                context_->Draw(sample_count * 3, 0);
             }
         }
         else {
             context_->VSSetShader(waveform_.vs, nullptr, 0);
-            context_->GSSetShader(nullptr, nullptr, 0);
             context_->PSSetShader(waveform_.ps, nullptr, 0);
 
             for (auto& clip_content : clip_contents) {

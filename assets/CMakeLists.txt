@@ -18,4 +18,6 @@ wb_add_shader_d3d11(vs_5_0 waveform_aa_vs.hlsl)
 wb_add_shader_d3d11(gs_5_0 waveform_aa_gs.hlsl)
 wb_add_shader_d3d11(ps_5_0 waveform_aa_ps.hlsl)
 
+wb_add_shader_d3d11(vs_5_0 waveform_bevel_aa_vs.hlsl)
+
 add_custom_target(assets DEPENDS ${WB_SHADER_DEPENDENCIES})

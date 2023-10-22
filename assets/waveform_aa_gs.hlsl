@@ -7,8 +7,8 @@ struct GSInput
 struct GSOutput
 {
     float4 pos : SV_Position;
-    float2 uv_pos : TEXCOORD1;
-    half4 color : TEXCOORD0;
+    float2 uv_pos : TEXCOORD0;
+    half4 color : TEXCOORD1;
 };
 
 cbuffer Parameters : register(b0)

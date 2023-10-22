@@ -14,6 +14,7 @@ namespace wb
     GUIContentBrowser::GUIContentBrowser()
     {
         directories.push_back(ContentBrowserDir{ "D:\\packs", { .name = u8"packs" }});
+        directories.push_back(ContentBrowserDir{ "D:/packs/Some samples/NewPack2", { .name = u8"NewPack2" }});
     }
 
     void GUIContentBrowser::glob_path(const std::filesystem::path& path, ContentBrowserItem& item)

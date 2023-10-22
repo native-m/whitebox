@@ -95,7 +95,7 @@ CPMAddPackage(
 CPMAddPackage(
     NAME                simdjson
     GITHUB_REPOSITORY   simdjson/simdjson
-    VERSION             2.0.4
+    VERSION             3.3.0
 )
 
 CPMAddPackage(

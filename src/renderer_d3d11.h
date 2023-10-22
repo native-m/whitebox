@@ -74,11 +74,13 @@ namespace wb
         ID3D11InputLayout* waveform_input_layout_{};
         ID3D11Buffer* parameter_cbuffer_{};
         ID3D11BlendState* blend_state_{};
+        ID3D11RasterizerState* rasterizer_state_{};
         HANDLE frame_latency_waitable_object_{};
 
         // Shaders
         ShadersD3D11 waveform_{};
         ShadersD3D11 waveform_aa_{};
+        ShadersD3D11 waveform_bevel_aa_{};
 
         ID3D11RenderTargetView* current_render_target_{};
 
