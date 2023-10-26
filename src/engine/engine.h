@@ -1,13 +1,7 @@
 #pragma once
 
-#include <thread>
-#include <shared_mutex>
-#include <atomic>
-#include <chrono>
-#include <vector>
-#include <memory>
-#include <functional>
 #include "../def.h"
+#include "../stdpch.h"
 #include "../core/audio_buffer.h"
 #include "../core/thread.h"
 #include "track.h"

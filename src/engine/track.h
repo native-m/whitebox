@@ -1,12 +1,12 @@
 #pragma once
 
-#include <imgui.h>
 #include "clip.h"
 #include "track_message.h"
 #include "../stdpch.h"
 #include "../core/memory.h"
 #include "../core/audio_buffer.h"
 #include "../core/queue.h"
+#include <imgui.h>
 
 namespace wb
 {
@@ -75,6 +75,7 @@ namespace wb
                      bool is_playing);
 
         void play_sample(AudioBuffer<float>& output_buffer, TrackMessage& msg, uint32_t offset);
+        void stop_sample(AudioBuffer<float>& output_buffer, TrackMessage& msg, TrackMessage& stop_msg, uint32_t offset);
 
         void log_clip_ordering_();
     };

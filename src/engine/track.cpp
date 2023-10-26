@@ -245,17 +245,21 @@ namespace wb
         }
 
         if (old_next_clip && old_next_clip != &tail_node && current_position >= old_next_clip->min_time) {
-            double min_time_sec = beat_to_seconds(old_next_clip->min_time - offset, beat_duration);
-            uint32_t start_sample = (uint32_t)((current_sec - min_time_sec) * sample_rate);
-            auto msg = TrackMessage{
-                .sample_position = (uint64_t)(current_sec * sample_rate),
-                .audio = AudioMessage::start((AudioClip*)old_next_clip, start_sample)
-            };
-            currently_playing_clip.store(next_clip, std::memory_order_release); // Set current clip
-            next_clip.store(old_next_clip->next, std::memory_order_release);
-            message_queue.push(msg);
-            dbg_message.push_back(msg);
-            Log::info("Trigger: {} {} {}", current_position, old_next_clip->min_time, (uint64_t)(current_sec * sample_rate));
+            double min_time = old_next_clip->min_time;
+            double max_time = old_next_clip->max_time;
+            if (current_position >= min_time && current_position < max_time) {
+                double min_time_sec = beat_to_seconds(min_time - offset, beat_duration);
+                uint32_t start_sample = (uint32_t)((current_sec - min_time_sec) * sample_rate);
+                auto msg = TrackMessage{
+                    .sample_position = (uint64_t)(current_sec * sample_rate),
+                    .audio = AudioMessage::start((AudioClip*)old_next_clip, start_sample)
+                };
+                currently_playing_clip.store(next_clip, std::memory_order_release);
+                next_clip.store(old_next_clip->next, std::memory_order_release);
+                message_queue.push(msg);
+                dbg_message.push_back(msg);
+                Log::info("Trigger: {} {} {}", current_position, min_time, (uint64_t)(current_sec * sample_rate));
+            }
         }
     }
 
@@ -288,10 +292,10 @@ namespace wb
                         }
                         case AudioStatus::Stop:
                         {
-                            // Before stopping, check if we still need to continue sample playback.
+                            // Play remaining samples before stopping
                             if (last_message.audio.status == AudioStatus::Play &&
                                 last_message.sample_position < current_message.sample_position)
-                                play_sample(output_buffer, last_message, samples_processed);
+                                stop_sample(output_buffer, last_message, current_message, samples_processed);
                             samples_processed = 0;
                             break;
                         }
@@ -305,24 +309,37 @@ namespace wb
     {
         Sample* sample = msg.audio.clip->get_sample_instance();
         uint32_t position_at_buffer = (uint32_t)(msg.sample_position % (uint64_t)output_buffer.n_samples);
-        
-        // Make sure we do not pass the sample_length
-        uint32_t samples_produced = std::min(output_buffer.n_samples - position_at_buffer,
-                                             (uint32_t)sample->sample_count - offset);
+        uint32_t num_samples = std::min(output_buffer.n_samples - position_at_buffer, (uint32_t)sample->sample_count - offset);
 
         if (offset < sample->sample_count) {
             for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
                 float* output = output_buffer.get_write_pointer(i);
                 float* sample_data = (float*)sample->sample_data_[i];
-                for (uint32_t j = 0; j < samples_produced; j++) {
+                for (uint32_t j = 0; j < num_samples; j++)
                     output[j + position_at_buffer] += sample_data[offset + j];
-                }
             }
         }
 
-        // Ascend current message sample position and the number of processed samples
-        msg.sample_position += samples_produced;
-        samples_processed += samples_produced;
+        // Accumulate current message's sample position and the number of processed samples
+        msg.sample_position += num_samples;
+        samples_processed += num_samples;
+    }
+
+    void Track::stop_sample(AudioBuffer<float>& output_buffer, TrackMessage& msg, TrackMessage& stop_msg, uint32_t offset)
+    {
+        Sample* sample = msg.audio.clip->get_sample_instance();
+        uint32_t play_position_at_buffer = (uint32_t)(msg.sample_position % (uint64_t)output_buffer.n_samples);
+        uint32_t stop_position_at_buffer = (uint32_t)(stop_msg.sample_position % (uint64_t)output_buffer.n_samples + 1);
+        uint32_t num_samples = std::min(stop_position_at_buffer - play_position_at_buffer, (uint32_t)sample->sample_count - offset);
+
+        if (offset < sample->sample_count) {
+            for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
+                float* output = output_buffer.get_write_pointer(i);
+                float* sample_data = (float*)sample->sample_data_[i];
+                for (uint32_t j = 0; j < num_samples; j++)
+                    output[j + play_position_at_buffer] += sample_data[offset + j];
+            }
+        }
     }
 
     void Track::log_clip_ordering_()

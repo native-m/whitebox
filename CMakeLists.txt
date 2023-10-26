@@ -45,6 +45,7 @@ set(DAW_SOURCES
     "src/app_sdl2.h"
     "src/app_win32.cpp"
     "src/app_win32.h"
+    "src/controls.cpp"
     "src/controls.h"
     "src/def.h"
     "src/global_state.cpp"

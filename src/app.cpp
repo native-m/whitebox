@@ -1,5 +1,6 @@
 #include "app.h"
 #include "def.h"
+#include "stdpch.h"
 #include "app_sdl2.h"
 #include "gui_timeline.h"
 #include "gui_mixer.h"
@@ -7,11 +8,12 @@
 #include "global_state.h"
 #include "controls.h"
 #include "core/debug.h"
+#include "engine/audio_stream.h"
+#include "engine/engine.h"
 #include "engine/sample_table.h"
+
 #include <imgui.h>
 #include <imgui_freetype.h>
-#include <chrono>
-#include <random>
 
 namespace wb
 {
