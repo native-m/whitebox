@@ -2,7 +2,6 @@
 #include "audio_driver_wasapi.h"
 #include "../types.h"
 #include "../core/debug.h"
-#include <Functiondiscoverykeys_devpkey.h>
 
 namespace wb
 {

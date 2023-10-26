@@ -1,14 +1,18 @@
-﻿cmake_minimum_required(VERSION 3.12)
+﻿cmake_minimum_required(VERSION 3.16)
+
+if (POLICY CMP0141)
+    cmake_policy(SET CMP0141 NEW)
+endif()
 
 project("that-daw")
+
+if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /permissive-")
+endif ()
 
 include(Dependencies.cmake)
 
 add_subdirectory(assets)
-
-if (${CMAKE_CXX_COMPILER_ID} EQUAL "MSVC")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc- /permissive-")
-endif()
 
 set(DAW_SOURCES
     "src/core/audio_format.h"
@@ -57,6 +61,7 @@ set(DAW_SOURCES
     "src/renderer.h"
     "src/renderer_d3d11.cpp"
     "src/renderer_d3d11.h"
+    "src/stdpch.h"
     "src/types.h"
     "src/waveform_view_buffer.h"
     "src/widget.cpp"
@@ -65,6 +70,14 @@ set(DAW_SOURCES
 
 add_library(daw_lib ${DAW_SOURCES})
 set_property(TARGET daw_lib PROPERTY CXX_STANDARD 20)
+set_target_properties(daw_lib PROPERTIES CXX_EXTENSIONS OFF)
+
+target_precompile_headers(daw_lib
+    PRIVATE
+        "src/core/debug.h"
+        "src/types.h"
+        "src/stdpch.h")
+
 target_link_libraries(daw_lib PUBLIC
     imgui-sdl2
     imgui-d3d11
@@ -74,9 +87,14 @@ target_link_libraries(daw_lib PUBLIC
     sndfile
     SDL2::SDL2main)
 
+if ((CMAKE_C_COMPILER_ID STREQUAL "MSVC") AND (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC"))
+    set_target_properties(daw_lib PROPERTIES MSVC_DEBUG_INFORMATION_FORMAT $<$<CONFIG:Debug>:EditAndContinue>)
+endif ()
+
 add_executable(daw "src/main.cpp")
 target_link_libraries(daw PUBLIC daw_lib)
 set_property(TARGET daw PROPERTY CXX_STANDARD 20)
+set_target_properties(daw PROPERTIES CXX_EXTENSIONS OFF)
 add_dependencies(daw_lib assets)
 
 add_subdirectory(test)

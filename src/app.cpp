@@ -2,8 +2,10 @@
 #include "def.h"
 #include "app_sdl2.h"
 #include "gui_timeline.h"
+#include "gui_mixer.h"
 #include "gui_content_browser.h"
 #include "global_state.h"
+#include "controls.h"
 #include "core/debug.h"
 #include "engine/sample_table.h"
 #include <imgui.h>
@@ -85,7 +87,7 @@ namespace wb
     void App::run()
     {
         float scale_x = 1.0f;
-        float scale_y = 200.0f;
+        float scale_y = 1.0f;
         
         while (running) {
             new_frame();
@@ -111,6 +113,7 @@ namespace wb
 
                 if (ImGui::BeginMenu("View")) {
                     ImGui::MenuItem("Timeline", nullptr, &g_show_timeline_window);
+                    ImGui::MenuItem("Mixer", nullptr, &g_gui_mixer.shown);
                     ImGui::MenuItem("Browser", nullptr, &g_show_content_browser);
                     ImGui::EndMenu();
                 }
@@ -143,7 +146,8 @@ namespace wb
 
             g_gui_content_browser.render();
             g_gui_timeline.render();
-            
+            g_gui_mixer.render();
+
             if (g_settings_window_open)
                 render_settings_ui();
 

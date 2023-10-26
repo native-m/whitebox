@@ -6,6 +6,7 @@
 #include <chrono>
 #include <vector>
 #include <memory>
+#include <functional>
 #include "../def.h"
 #include "../core/audio_buffer.h"
 #include "../core/thread.h"

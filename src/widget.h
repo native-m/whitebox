@@ -1,11 +1,10 @@
 #pragma once
 
 #include "types.h"
+#include "stdpch.h"
 #include "core/debug.h"
 #include <imgui.h>
 #include <imgui_internal.h>
-#include <algorithm>
-#include <cmath>
 
 namespace wb::widget
 {

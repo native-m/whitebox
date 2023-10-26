@@ -1,11 +1,8 @@
 #pragma once
 #include "../core/audio_format.h"
 #include "../core/audio_buffer.h"
+#include "../stdpch.h"
 #include "engine.h"
-#include <vector>
-#include <functional>
-#include <thread>
-#include <atomic>
 
 namespace wb
 {

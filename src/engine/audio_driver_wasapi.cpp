@@ -1,8 +1,6 @@
 #include "audio_driver_wasapi.h"
 #include "../core/debug.h"
-#include <ranges>
-#include <chrono>
-#include <cmath>
+#include "../stdpch.h"
 #include <Functiondiscoverykeys_devpkey.h>
 
 using namespace std::chrono_literals;

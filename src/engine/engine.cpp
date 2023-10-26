@@ -1,12 +1,7 @@
 #include "engine.h"
-#include "engine.h"
-#include "engine.h"
 #include "../core/debug.h"
 #include "../core/thread.h"
 #include "../core/midi.h"
-#include <functional>
-#include <chrono>
-#include <semaphore>
 
 using namespace std::chrono_literals;
 

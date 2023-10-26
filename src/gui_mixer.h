@@ -4,6 +4,8 @@ namespace wb
 {
     struct GUIMixer
     {
+        bool shown = true;
+
         void render();
     };
 

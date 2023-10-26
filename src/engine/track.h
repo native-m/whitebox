@@ -1,13 +1,9 @@
 #pragma once
 
-#include <string>
-#include <variant>
-#include <optional>
-#include <deque>
-#include <unordered_set>
 #include <imgui.h>
 #include "clip.h"
 #include "track_message.h"
+#include "../stdpch.h"
 #include "../core/memory.h"
 #include "../core/audio_buffer.h"
 #include "../core/queue.h"

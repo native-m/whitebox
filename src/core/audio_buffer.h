@@ -1,12 +1,9 @@
 #pragma once
 
+#include "../stdpch.h"
 #include "memory.h"
 #include "audio_format.h"
 #include "debug.h"
-#include <cstddef>
-#include <optional>
-#include <vector>
-#include <ranges>
 
 namespace wb
 {

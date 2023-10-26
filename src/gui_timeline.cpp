@@ -6,7 +6,6 @@
 #include "core/color.h"
 #include "engine/sample_table.h"
 #include <imgui_stdlib.h>
-#include <imgui_stdlib.h>
 
 namespace wb
 {

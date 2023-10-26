@@ -2,9 +2,7 @@
 
 #include "sample.h"
 #include "../waveform_view_buffer.h"
-#include <memory>
-#include <unordered_map>
-#include <optional>
+#include "../stdpch.h"
 
 namespace wb
 {

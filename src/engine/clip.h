@@ -1,9 +1,9 @@
 #pragma once
 
 #include "../types.h"
+#include "../stdpch.h"
 #include "sample_table.h"
 #include <imgui.h>
-#include <string>
 
 namespace wb
 {

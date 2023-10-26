@@ -1,10 +1,7 @@
 #pragma once
-#include <thread>
-#include <atomic>
-#include <chrono>
-#include <cmath>
-#include <Windows.h>
+
 #include "../core/debug.h"
+#include "../stdpch.h"
 
 namespace wb
 {

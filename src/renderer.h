@@ -1,11 +1,9 @@
 #pragma once
 #include "waveform_view_buffer.h"
 #include "engine/sample.h"
-#include <memory>
-#include <cmath>
+#include "stdpch.h"
 #include <SDL.h>
 #include <imgui.h>
-#include <optional>
 
 namespace wb
 {
