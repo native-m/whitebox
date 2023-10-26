@@ -54,7 +54,6 @@ namespace wb
         GUITimelineClipAction clip_action{};
         double initial_move_pos = 0.0f;
         std::shared_ptr<Framebuffer> clip_content_fb;
-        ImVector<std::pair<ImVec2, ImVec2>> clip_content_bounding_boxes;
         ImVector<ClipContentDrawArgs> clip_content_draw_list;
 
         static constexpr uint32_t playhead_color = 0xFF53A3F9;
@@ -69,10 +68,10 @@ namespace wb
         void render_horizontal_scrollbar();
         void render_time_ruler();
         void render();
-        void handle_scroll_drag_x(float drag_delta, double scroll_view_width, float direction = 1.0f);
-        void handle_zoom(float mouse_pos_x, float cursor_pos_x, float view_scale, float mouse_wheel);
+        void handle_scroll_drag_x(float drag_delta, double scroll_view_width, double direction = 1.0);
+        void handle_zoom(float mouse_pos_x, float cursor_pos_x, double view_scale, float mouse_wheel);
         void finish_clip_action();
-        float get_playhead_screen_position(float view_scale, double playhead_position);
+        float get_playhead_screen_position(double view_scale, double playhead_position);
         float calculate_music_length();
     };
 

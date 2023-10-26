@@ -22,4 +22,7 @@ namespace wb
 
     template<typename T, typename... Types>
     concept All = (std::same_as<T, Types> && ...);
+
+    template<typename T>
+    concept ArithmeticType = std::is_arithmetic_v<T>;
 }
