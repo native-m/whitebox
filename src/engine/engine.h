@@ -47,6 +47,8 @@ namespace wb
 
         Track* add_track(TrackType type, const std::string& name);
         Track* add_track_at(uint32_t index, TrackType type, const std::string& name);
+        void delete_track(uint32_t index);
+
         AudioClip* add_audio_clip(Track* track, double min_time, double max_time);
         void move_clip(Track* track, Clip* clip, double relative_pos);
         void resize_clip(Track* track, Clip* clip, double relative_pos, bool right_side);

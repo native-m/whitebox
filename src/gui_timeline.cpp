@@ -54,10 +54,11 @@ namespace wb
         force_redraw_clip_content = true;
     }
 
-    void GUITimeline::render_track_context_menu(Track& track)
+    void GUITimeline::render_track_context_menu(Track& track, int track_id)
     {
         auto states = ImGui::GetStateStorage();
         bool rename_track = false;
+        bool delete_track = false;
         bool show_track_context_menu = false;
 
         if (ImGui::BeginPopup("track_context_menu")) {
@@ -67,8 +68,10 @@ namespace wb
                 ImGui::CloseCurrentPopup();
                 rename_track = true;
             }
-            ImGui::MenuItem("Delete");
             ImGui::MenuItem("Duplicate");
+            if (ImGui::MenuItem("Delete")) {
+                g_engine.delete_track((uint32_t)track_id);
+            }
             ImGui::MenuItem("Change color...");
             ImGui::Separator();
             if (ImGui::MenuItem("Reset Height")) {
@@ -513,7 +516,7 @@ namespace wb
                     ImGui::OpenPopup("track_context_menu");
                 }
 
-                render_track_context_menu(*track);
+                render_track_context_menu(*track, id);
                 ImGui::PopStyleVar();
             }
             ImGui::EndChild();
@@ -537,6 +540,10 @@ namespace wb
         ImGui::SetCursorScreenPos(ImVec2(timeline_orig_pos_x, draw_pos.y));
 
         auto timeline_area = ImGui::GetContentRegionAvail();
+        ImGui::PushClipRect(ImVec2(timeline_orig_pos_x, scroll_offset_y),
+                            ImVec2(timeline_orig_pos_x + timeline_width, timeline_area.y + scroll_offset_y),
+                            true);
+
         if (timeline_view_width != (int)timeline_area.x || timeline_view_height != (int)timeline_area.y) {
             timeline_view_width = (int)timeline_area.x;
             timeline_view_height = (int)timeline_area.y;
@@ -547,8 +554,7 @@ namespace wb
         double view_scale = ((max_scroll_pos_x - min_scroll_pos_x) * music_length) / (double)timeline_area.x;
         double inv_view_scale = 1.0 / view_scale;
         timeline_width = timeline_area.x;
-        ImGui::PushClipRect(ImVec2(timeline_orig_pos_x, scroll_offset_y), ImVec2(timeline_orig_pos_x + timeline_width, timeline_area.y + scroll_offset_y), true);
-        ImGui::InvisibleButton("##timeline", ImVec2(timeline_width, end_cursor.y));
+        ImGui::InvisibleButton("##timeline", ImVec2(timeline_width, timeline_area.y));
 
         bool left_mouse_clicked = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
         bool left_mouse_down = ImGui::IsMouseDown(ImGuiMouseButton_Left);
@@ -842,7 +848,8 @@ namespace wb
                 const char* str = current_clip->name.c_str();
                 ImVec4 clip_label_rect(min_bb.x, min_bb.y, max_bb.x - 6.0f, clip_title_max_y);
                 draw_list->AddText(font, font_size, ImVec2(std::max(min_bb.x, timeline_orig_pos_x) + 3.0f, min_bb.y),
-                                   text_color, str, str + current_clip->name.size(), 0.0f, &clip_label_rect);
+                                   text_color, str, str + current_clip->name.size(),
+                                   0.0f, &clip_label_rect);
 
                 AudioClip* audio_clip = static_cast<AudioClip*>(current_clip);
                 clip_content_draw_list.push_back(

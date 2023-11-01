@@ -37,6 +37,12 @@ namespace wb
         return new_track;
     }
 
+    void Engine::delete_track(uint32_t index)
+    {
+        std::scoped_lock lock(player_mtx_);
+        tracks.erase(tracks.begin() + index);
+    }
+
     AudioClip* Engine::add_audio_clip(Track* track, double min_time, double max_time)
     {
         WB_ASSERT(track);

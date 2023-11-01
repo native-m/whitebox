@@ -61,7 +61,7 @@ namespace wb
         void initialize();
         void redraw_clip_content();
         void render_track_header(Track& track);
-        void render_track_context_menu(Track& track);
+        void render_track_context_menu(Track& track, int track_id);
         void render_track_controls(Track& track);
         void render_clip_context_menu();
         void render_horizontal_scrollbar();
