@@ -66,8 +66,8 @@ namespace wb
         void render_horizontal_scrollbar();
         void render_time_ruler();
         void render();
-        void handle_horizontal_scroll_drag(float drag_delta, double scroll_view_width, double direction = 1.0);
-        void handle_zoom(float mouse_pos_x, float cursor_pos_x, double view_scale, float mouse_wheel);
+        void do_horizontal_scroll_drag(float drag_delta, double scroll_view_width, double direction = 1.0);
+        void do_zoom(float mouse_pos_x, float cursor_pos_x, double view_scale, float mouse_wheel);
         void finish_clip_action();
         float map_playhead_to_screen_position(double view_scale, double playhead_position);
         float calculate_music_length();

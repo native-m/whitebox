@@ -199,7 +199,7 @@ namespace wb
         ImGui::PushButtonRepeat(true);
 
         if (ImGui::Button("<", arrow_btn_size))
-            handle_horizontal_scroll_drag(-0.05f, 1.0f);
+            do_horizontal_scroll_drag(-0.05f, 1.0f);
 
         auto scroll_btn_length = ImGui::GetContentRegionAvail().x - arrow_btn_size.x;
         ImGui::SameLine();
@@ -208,7 +208,7 @@ namespace wb
         auto scroll_btn_max_bb = ImGui::GetCursorScreenPos();
 
         if (ImGui::Button(">", arrow_btn_size))
-            handle_horizontal_scroll_drag(0.05f, 1.0f);
+            do_horizontal_scroll_drag(0.05f, 1.0f);
 
         ImGui::PopButtonRepeat();
 
@@ -234,7 +234,7 @@ namespace wb
         }
 
         if (hovered)
-            handle_horizontal_scroll_drag(ImGui::GetIO().MouseWheel, 1.0f, -0.05f * (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) ? 0.1f : 0.5f));
+            do_horizontal_scroll_drag(ImGui::GetIO().MouseWheel, 1.0f, -0.05f * (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) ? 0.1f : 0.5f));
 
         // Remap scroll units in pixels
         float min_scroll_pos_x_pixels = (float)min_scroll_pos_x * scroll_btn_max_length;
@@ -324,7 +324,7 @@ namespace wb
         // Handle zoom scrolling on ruler
         float mouse_wheel = ImGui::GetIO().MouseWheel;
         if (ImGui::IsItemHovered() && mouse_wheel != 0.0f) {
-            handle_zoom(mouse_pos.x, cursor_pos.x, view_scale, mouse_wheel);
+            do_zoom(mouse_pos.x, cursor_pos.x, view_scale, mouse_wheel);
             view_scale = (float)((max_scroll_pos_x - min_scroll_pos_x) * music_length) / timeline_width;
         }
 
@@ -388,7 +388,7 @@ namespace wb
         constexpr ImDrawListFlags draw_list_aa_flags =
             ImDrawListFlags_AntiAliasedFill |
             ImDrawListFlags_AntiAliasedLinesUseTex |
-            ImDrawListFlags_AntiAliasedFill;
+            ImDrawListFlags_AntiAliasedLines;
 
         if (!g_show_timeline_window)
             return;
@@ -553,7 +553,7 @@ namespace wb
         ImGui::PopClipRect();
         auto end_cursor = ImGui::GetCursorPos();
 
-        // Calculate view scale (zooming)
+        // Calculate view scale (zoom)
         float timeline_orig_pos_x = draw_pos.x + clamped_separator + 2.0f;
         float timeline_orig_pos_x_rounded = std::round(timeline_orig_pos_x);
         ImGui::SetCursorScreenPos(ImVec2(timeline_orig_pos_x, draw_pos.y));
@@ -563,7 +563,7 @@ namespace wb
                             ImVec2(timeline_orig_pos_x + timeline_width, timeline_area.y + scroll_offset_y),
                             true);
 
-        // Re-render timeline
+        // Re-create clip content framebuffer
         if (timeline_view_width != (int)timeline_area.x || timeline_view_height != (int)timeline_area.y) {
             timeline_view_width = (int)timeline_area.x;
             timeline_view_height = (int)timeline_area.y;
@@ -588,7 +588,7 @@ namespace wb
 
         if (scrolling) {
             ImVec2 drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Middle, 1.0f);
-            handle_horizontal_scroll_drag(drag_delta.x, music_length, -view_scale);
+            do_horizontal_scroll_drag(drag_delta.x, music_length, -view_scale);
             scroll_delta_y = drag_delta.y;
             if (mouse_move)
                 should_redraw_clip_content = true;
@@ -622,11 +622,11 @@ namespace wb
             float max_offset = !dragging_file ? timeline_end_x : timeline_end_x - 20.0f;
             if (mouse_pos.x < min_offset) {
                 float distance = min_offset - mouse_pos.x;
-                handle_horizontal_scroll_drag(distance * 0.25f * (float)inv_view_scale, music_length, -view_scale);
+                do_horizontal_scroll_drag(distance * 0.25f * (float)inv_view_scale, music_length, -view_scale);
             }
             if (mouse_pos.x > max_offset) {
                 float distance = max_offset - mouse_pos.x;
-                handle_horizontal_scroll_drag(distance * 0.25f * (float)inv_view_scale, music_length, -view_scale);
+                do_horizontal_scroll_drag(distance * 0.25f * (float)inv_view_scale, music_length, -view_scale);
             }
         }
 
@@ -657,7 +657,7 @@ namespace wb
         double mouse_pos_time_grid = std::round(mouse_time_pos * grid_scale) / grid_scale;
         float clip_scale = (float)inv_view_scale * 96.0f;
         ImDrawListFlags old_draw_list = draw_list->Flags;
-        ImDrawListFlags disable_aa = ~(draw_list->Flags & draw_list_aa_flags);
+        ImDrawListFlags disable_aa = draw_list->Flags & ~draw_list_aa_flags;
         
         if (clip_action != GUITimelineClipAction::None && mouse_move)
             should_redraw_clip_content = true;
@@ -820,6 +820,7 @@ namespace wb
 
                 if (hovering_current_track && clip_action == GUITimelineClipAction::None) {
                     ImRect clip_rect(min_bb, max_bb);
+                    // Sizing hitboxes
                     ImRect lhs(min_pos_x, track_pos_y, min_pos_x + 4.0f, max_bb.y);
                     ImRect rhs(max_pos_x - 4.0f, track_pos_y, max_pos_x, max_bb.y);
 
@@ -880,9 +881,14 @@ namespace wb
                     });
 
                 if (hovering_left_side)
-                    draw_list->AddLine(ImVec2(min_bb.x + 1.0f, min_bb.y), ImVec2(min_bb.x + 1.0f, max_bb.y), ImGui::GetColorU32(ImGuiCol_SeparatorHovered), 3.0f);
+                    draw_list->AddLine(ImVec2(min_bb.x + 1.0f, min_bb.y),
+                                       ImVec2(min_bb.x + 1.0f, max_bb.y),
+                                       ImGui::GetColorU32(ImGuiCol_SeparatorHovered), 3.0f);
+
                 if (hovering_right_side)
-                    draw_list->AddLine(ImVec2(max_bb.x - 2.0f, min_bb.y), ImVec2(max_bb.x - 2.0f, max_bb.y), ImGui::GetColorU32(ImGuiCol_SeparatorHovered), 3.0f);
+                    draw_list->AddLine(ImVec2(max_bb.x - 2.0f, min_bb.y),
+                                       ImVec2(max_bb.x - 2.0f, max_bb.y),
+                                       ImGui::GetColorU32(ImGuiCol_SeparatorHovered), 3.0f);
 
                 current_clip = (Clip*)current_clip->next;
             }
@@ -954,7 +960,7 @@ namespace wb
 
         // Handle zooming
         if (timeline_hovered && ImGui::IsKeyDown(ImGuiKey_LeftCtrl) && mouse_wheel != 0.0f) {
-            handle_zoom(mouse_pos.x, timeline_orig_pos_x, view_scale, mouse_wheel);
+            do_zoom(mouse_pos.x, timeline_orig_pos_x, view_scale, mouse_wheel);
             zooming = true;
         }
 
@@ -965,7 +971,7 @@ namespace wb
         ImGui::End();
     }
 
-    void GUITimeline::handle_horizontal_scroll_drag(float drag_delta, double scroll_view_width, double direction)
+    void GUITimeline::do_horizontal_scroll_drag(float drag_delta, double scroll_view_width, double direction)
     {
         double norm_drag_delta = ((double)drag_delta / scroll_view_width) * direction;
         if (drag_delta != 0.0f) {
@@ -990,7 +996,7 @@ namespace wb
         }
     }
 
-    void GUITimeline::handle_zoom(float mouse_pos_x, float cursor_pos_x, double view_scale, float mouse_wheel)
+    void GUITimeline::do_zoom(float mouse_pos_x, float cursor_pos_x, double view_scale, float mouse_wheel)
     {
         // Get the mouse position in scroll bar coordinates
         float zoom_position = (float)((double)(mouse_pos_x - cursor_pos_x) / music_length * view_scale) + (float)min_scroll_pos_x;
