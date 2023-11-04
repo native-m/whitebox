@@ -2,6 +2,7 @@
 #include "core/debug.h"
 #include "core/file.h"
 #include "types.h"
+#include "stdpch.h"
 #include "app_sdl2.h"
 
 #include <SDL_syswm.h>
@@ -356,6 +357,8 @@ namespace wb
         vp.TopLeftX = vp.TopLeftY = 0;
         context_->RSSetViewports(1, &vp);
 
+        fb_width = impl->width;
+        fb_height = impl->height;
         vp_width = 2.0f / vp.Width;
         vp_height = 2.0f / vp.Height;
         current_render_target_ = impl->rtv;
@@ -441,6 +444,14 @@ namespace wb
                 param->max_sample_idx = sample_count - 1;
                 context_->Unmap(parameter_cbuffer_, 0);
 
+                RECT scissor_rect{
+                    std::max((int32_t)clip_content.min.x, 0),
+                    std::max((int32_t)clip_content.min.y, 0),
+                    std::min((int32_t)clip_content.max.x, fb_width),
+                    std::min((int32_t)clip_content.max.y, fb_height),
+                };
+
+                context_->RSSetScissorRects(1, &scissor_rect);
                 context_->VSSetShader(waveform_aa_.vs, nullptr, 0);
                 context_->Draw(sample_count * 6, 0);
                 context_->VSSetShader(waveform_bevel_aa_.vs, nullptr, 0);
@@ -477,6 +488,13 @@ namespace wb
                 param->vp_height = vp_height;
                 context_->Unmap(parameter_cbuffer_, 0);
 
+                RECT scissor_rect{
+                    std::max((int32_t)clip_content.min.x, 0),
+                    std::max((int32_t)clip_content.min.y, 0),
+                    std::min((int32_t)clip_content.max.x, fb_width),
+                    std::min((int32_t)clip_content.max.y, fb_height),
+                };
+                context_->RSSetScissorRects(1, &scissor_rect);
                 context_->Draw(vtx_count, 0);
             }
         }

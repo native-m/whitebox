@@ -86,6 +86,8 @@ namespace wb
 
         float vp_width = 0.0f;
         float vp_height = 0.0f;
+        int32_t fb_width = 0;
+        int32_t fb_height = 0;
 
         RendererD3D11(IDXGISwapChain2* swapchain,
                       ID3D11Device* device,

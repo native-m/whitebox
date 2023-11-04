@@ -870,6 +870,7 @@ namespace wb
                                    text_color, str, str + current_clip->name.size(),
                                    0.0f, &clip_label_rect);
 
+                // Push which content needs to be drawn
                 AudioClip* audio_clip = static_cast<AudioClip*>(current_clip);
                 clip_content_draw_list.push_back(
                     {
@@ -880,6 +881,7 @@ namespace wb
                         .scale_x = (float)sample_scale,
                     });
 
+                // TODO: Move this outside loop.
                 if (hovering_left_side)
                     draw_list->AddLine(ImVec2(min_bb.x + 1.0f, min_bb.y),
                                        ImVec2(min_bb.x + 1.0f, max_bb.y),
