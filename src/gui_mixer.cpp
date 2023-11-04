@@ -22,6 +22,7 @@ namespace wb
         ImGui::SetNextWindowSize(ImVec2(400, 300));
         if (!ImGui::Begin("Mixer", &shown)) {
             ImGui::End();
+            return;
         }
 
         ImGui::SmallButton("M");

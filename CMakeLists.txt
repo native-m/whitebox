@@ -56,6 +56,8 @@ set(DAW_SOURCES
     "src/gui_mixer.h"
     "src/gui_timeline.cpp"
     "src/gui_timeline.h"
+    "src/gui_step_sequencer.cpp"
+    "src/gui_step_sequencer.h"
     "src/IconsMaterialDesign.h"
     "src/popup_state_manager.h"
     "src/renderer.cpp"

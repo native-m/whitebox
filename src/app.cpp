@@ -3,8 +3,9 @@
 #include "stdpch.h"
 #include "app_sdl2.h"
 #include "gui_timeline.h"
-#include "gui_mixer.h"
 #include "gui_content_browser.h"
+#include "gui_step_sequencer.h"
+#include "gui_mixer.h"
 #include "global_state.h"
 #include "controls.h"
 #include "core/debug.h"
@@ -42,6 +43,7 @@ namespace wb
         config.SizePixels = 13.0f;
         config.FontBuilderFlags = ImGuiFreeTypeBuilderFlags_LoadColor;
         config.RasterizerMultiply = 1.0f;
+        config.GlyphOffset.x = -1.0f;
 
         io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
         //io.Fonts->AddFontDefault(&config);
@@ -149,6 +151,7 @@ namespace wb
 
             g_gui_content_browser.render();
             g_gui_timeline.render();
+            g_gui_step_sequencer.render();
             g_gui_mixer.render();
 
             if (g_settings_window_open)
@@ -218,8 +221,8 @@ namespace wb
 
         style.Colors[ImGuiCol_Text] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
         style.Colors[ImGuiCol_TextDisabled] = ImVec4(0.5921568870544434f, 0.5921568870544434f, 0.5921568870544434f, 1.0f);
-        style.Colors[ImGuiCol_WindowBg] = ImVec4(0.107295036315918f, 0.107295036315918f, 0.1072961091995239f, 1.0f);
-        style.Colors[ImGuiCol_ChildBg] = ImVec4(0.107295036315918f, 0.107295036315918f, 0.1072961091995239f, 1.0f);
+        style.Colors[ImGuiCol_WindowBg] = ImVec4(0.105882354080677f, 0.105882354080677f, 0.1098039224743843f, 1.0f);
+        style.Colors[ImGuiCol_ChildBg] = ImVec4(0.105882354080677f, 0.105882354080677f, 0.1098039224743843f, 1.0f);
         style.Colors[ImGuiCol_PopupBg] = ImVec4(0.1450980454683304f, 0.1450980454683304f, 0.1490196138620377f, 1.0f);
         style.Colors[ImGuiCol_Border] = ImVec4(0.3058823645114899f, 0.3058823645114899f, 0.3058823645114899f, 1.0f);
         style.Colors[ImGuiCol_BorderShadow] = ImVec4(0.3058823645114899f, 0.3058823645114899f, 0.3058823645114899f, 0.0f);

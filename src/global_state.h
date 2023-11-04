@@ -19,7 +19,6 @@ namespace wb
     extern bool g_settings_window_open;
     extern bool g_show_timeline_window;
     extern bool g_show_content_browser;
-    extern bool g_show_mixer;
     extern bool g_should_scan_audio_device;
     extern std::vector<AudioDeviceProperties> g_output_devices;
     extern std::vector<AudioDeviceProperties> g_input_devices;
