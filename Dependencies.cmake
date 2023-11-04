@@ -89,7 +89,7 @@ CPMAddPackage(
 CPMAddPackage(
     NAME                freetype
     GITHUB_REPOSITORY   freetype/freetype
-    GIT_TAG             VER-2-12-1
+    GIT_TAG             VER-2-13-2
     OPTIONS             "FT_DISABLE_ZLIB TRUE"
                         "FT_DISABLE_BZIP2 TRUE"
                         "FT_DISABLE_PNG TRUE"
