@@ -93,6 +93,8 @@ namespace wb::widget
                            ImVec2(cur_pos.x + padding * 0.5f, cur_pos.y + padding * 0.5f),
                            ImGui::GetColorU32(ImGuiCol_Text), *shown ? ImGuiDir_Down : ImGuiDir_Right);
 
+        //draw_list->AddRect(bb.Min, bb.Max, ImGui::GetColorU32(ImGuiCol_PlotLines));
+
         return pressed;
     }
 

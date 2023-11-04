@@ -15,6 +15,7 @@ namespace wb
     {
         directories.push_back(ContentBrowserDir{ "D:\\packs", { .name = u8"packs" }});
         directories.push_back(ContentBrowserDir{ "D:/packs/Some samples/NewPack2", { .name = u8"NewPack2" }});
+        directories.push_back(ContentBrowserDir{ "C:/Users/native-m/Documents/Image-Line/FL Studio/Projects/100 26 1023/Audio", { .name = u8"Audio" }});
     }
 
     void GUIContentBrowser::glob_path(const std::filesystem::path& path, ContentBrowserItem& item)

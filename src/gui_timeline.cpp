@@ -2,6 +2,7 @@
 #include "gui_content_browser.h"
 #include "global_state.h"
 #include "widget.h"
+#include "controls.h"
 #include "popup_state_manager.h"
 #include "core/color.h"
 #include "engine/sample_table.h"
@@ -17,13 +18,16 @@ namespace wb
 
     void GUITimeline::render_track_header(Track& track)
     {
-        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.f, ImGui::GetStyle().ItemSpacing.y));
+        auto& style = ImGui::GetStyle();
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.f, style.ItemSpacing.y));
         ImGui::BeginMenuBar();
+
         auto cursor_pos = ImGui::GetCursorScreenPos();
         auto size = ImGui::GetWindowContentRegionMax();
 
-        ImGui::PushClipRect(cursor_pos, ImVec2(cursor_pos.x + size.x - 32.f, cursor_pos.y + size.y), true);
+        ImGui::PushClipRect(cursor_pos, ImVec2(cursor_pos.x + size.x - 5.f, cursor_pos.y + size.y), true);
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4());
+        widget::collapse_button("##track_collapse", &track.shown);
         ImGui::Text((const char*)track.name.c_str());
         ImGui::PopStyleColor();
         ImGui::PopClipRect();
@@ -195,7 +199,7 @@ namespace wb
         ImGui::PushButtonRepeat(true);
 
         if (ImGui::Button("<", arrow_btn_size))
-            handle_scroll_drag_x(-0.05f, 1.0f);
+            handle_horizontal_scroll_drag(-0.05f, 1.0f);
 
         auto scroll_btn_length = ImGui::GetContentRegionAvail().x - arrow_btn_size.x;
         ImGui::SameLine();
@@ -204,7 +208,7 @@ namespace wb
         auto scroll_btn_max_bb = ImGui::GetCursorScreenPos();
 
         if (ImGui::Button(">", arrow_btn_size))
-            handle_scroll_drag_x(0.05f, 1.0f);
+            handle_horizontal_scroll_drag(0.05f, 1.0f);
 
         ImGui::PopButtonRepeat();
 
@@ -230,7 +234,7 @@ namespace wb
         }
 
         if (hovered)
-            handle_scroll_drag_x(ImGui::GetIO().MouseWheel, 1.0f, -0.05f * (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) ? 0.1f : 0.5f));
+            handle_horizontal_scroll_drag(ImGui::GetIO().MouseWheel, 1.0f, -0.05f * (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) ? 0.1f : 0.5f));
 
         // Remap scroll units in pixels
         float min_scroll_pos_x_pixels = (float)min_scroll_pos_x * scroll_btn_max_length;
@@ -337,7 +341,7 @@ namespace wb
 
         bool is_playing = g_engine.is_playing();
         if (is_playing) {
-            float play_position = std::round(scroll_offset + get_playhead_screen_position(view_scale, g_engine.play_time)) - size.y * 0.5f;
+            float play_position = std::round(scroll_offset + map_playhead_to_screen_position(view_scale, g_engine.play_time)) - size.y * 0.5f;
             draw_list->AddTriangleFilled(ImVec2(play_position, cursor_pos.y + 2.5f),
                                          ImVec2(play_position + size.y, cursor_pos.y + 2.5f),
                                          ImVec2(play_position + size.y * 0.5f, cursor_pos.y + size.y - 2.5f), col);
@@ -354,17 +358,13 @@ namespace wb
             gridline_pos_x += grid_inc_x;
         }
 
-        float playhead_screen_position = std::round(scroll_offset + get_playhead_screen_position(view_scale, playhead_position)) - size.y * 0.5f;
+        float playhead_screen_position = std::round(scroll_offset + map_playhead_to_screen_position(view_scale, playhead_position)) - size.y * 0.5f;
         draw_list->AddTriangleFilled(ImVec2(playhead_screen_position, cursor_pos.y + 2.5f),
                                      ImVec2(playhead_screen_position + size.y, cursor_pos.y + 2.5f),
                                      ImVec2(playhead_screen_position + size.y * 0.5f, cursor_pos.y + size.y - 2.5f),
                                      playhead_color);
 
         draw_list->PopClipRect();
-
-        draw_list->AddLine(ImVec2(cursor_pos.x, cursor_pos.y + size.y - 1.0f),
-                           ImVec2(cursor_pos.x + size.x, cursor_pos.y + size.y - 1.0f),
-                           col);
     }
 
     /*
@@ -375,6 +375,21 @@ namespace wb
     */
     void GUITimeline::render()
     {
+        constexpr ImGuiWindowFlags track_control_window_flags =
+            ImGuiWindowFlags_NoScrollbar |
+            ImGuiWindowFlags_NoScrollWithMouse |
+            ImGuiWindowFlags_NoBackground |
+            ImGuiWindowFlags_AlwaysUseWindowPadding;
+
+        constexpr ImGuiWindowFlags timeline_content_area_flags =
+            ImGuiWindowFlags_NoBackground |
+            ImGuiWindowFlags_AlwaysVerticalScrollbar;
+
+        constexpr ImDrawListFlags draw_list_aa_flags =
+            ImDrawListFlags_AntiAliasedFill |
+            ImDrawListFlags_AntiAliasedLinesUseTex |
+            ImDrawListFlags_AntiAliasedFill;
+
         if (!g_show_timeline_window)
             return;
 
@@ -383,8 +398,7 @@ namespace wb
         //ImGui::SetNextWindowClass(&WindowClass);
         ImGui::SetNextWindowSize(ImVec2(640.f, 480.f), ImGuiCond_FirstUseEver);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 1.0f));
-        // When docked, there is no reason to draw the window background
-        if (!ImGui::Begin("Timeline", &g_show_timeline_window, docked ? ImGuiWindowFlags_NoBackground : 0)) {
+        if (!controls::begin_dockable_window("Window", &g_show_timeline_window)) {
             ImGui::PopStyleVar();
             ImGui::End();
             return;
@@ -397,7 +411,6 @@ namespace wb
             force_redraw_clip_content = false;
 
         playhead_position = g_engine.get_playhead_position();
-        docked = ImGui::IsWindowDocked();
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
         render_horizontal_scrollbar();
         render_time_ruler();
@@ -409,8 +422,16 @@ namespace wb
             zooming = false;
             should_redraw_clip_content = true;
         }
+        
+        auto draw_pos = ImGui::GetCursorScreenPos();
+        auto draw_list = ImGui::GetWindowDrawList();
+        auto min_window_content = ImGui::GetWindowContentRegionMin();
+        auto window_size = ImGui::GetWindowContentRegionMax();
 
-        ImGui::BeginChild("##timeline_content", ImVec2(0.0f, 0.0f), false, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_AlwaysVerticalScrollbar);
+        window_size.x -= min_window_content.x;
+        draw_list->AddLine(ImVec2(draw_pos.x, draw_pos.y - 1.0f), ImVec2(draw_pos.x + window_size.x, draw_pos.y - 1.0f), ImGui::GetColorU32(ImGuiCol_Border));
+
+        ImGui::BeginChild("##timeline_content", ImVec2(0.0f, 0.0f), false, timeline_content_area_flags);
         auto timeline_content_window = ImGui::GetCurrentWindow();
         if (ImGui::GetActiveID() == ImGui::GetWindowScrollbarID(timeline_content_window, ImGuiAxis_Y))
             should_redraw_clip_content = true;
@@ -420,13 +441,12 @@ namespace wb
             should_redraw_clip_content = true;
         }
 
+        draw_pos = ImGui::GetCursorScreenPos();
+        draw_list = ImGui::GetWindowDrawList();
+
         float mouse_wheel = ImGui::GetIO().MouseWheel;
         auto mouse_pos = ImGui::GetMousePos();
-        auto min_window_content = ImGui::GetWindowContentRegionMin();
-        auto window_size = ImGui::GetWindowContentRegionMax();
         auto cursor_orig = ImGui::GetCursorPos();
-        auto draw_pos = ImGui::GetCursorScreenPos();
-        auto draw_list = ImGui::GetWindowDrawList();
         auto scroll_y = ImGui::GetScrollY();
         auto scroll_offset_y = draw_pos.y + scroll_y;
         auto inv_scroll_offset_y = draw_pos.y - scroll_y;
@@ -434,6 +454,8 @@ namespace wb
         float font_size = ImGui::GetFontSize();
         bool mouse_move = false;
 
+        min_window_content = ImGui::GetWindowContentRegionMin();
+        window_size = ImGui::GetWindowContentRegionMax();
         window_size.x -= min_window_content.x;
         window_size.y -= min_window_content.y;
 
@@ -445,7 +467,7 @@ namespace wb
         if ((last_scroll_pos_y - scroll_y) != 0.0f)
             should_redraw_clip_content = true;
 
-        // Handle separator
+        // A separator between track controls and its timeline lane
         ImGui::SetCursorScreenPos(ImVec2(draw_pos.x + separator_x - 2.0f, scroll_offset_y));
         ImGui::InvisibleButton("timeline_separator", ImVec2(4, window_size.y));
 
@@ -476,41 +498,30 @@ namespace wb
         // Render track controls
         int id = 0;
         static float drag_test = 0.0f;
-        constexpr ImGuiWindowFlags child_flags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_AlwaysUseWindowPadding | ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoBackground;
-        auto& frame_bg_color = ImGui::GetStyleColorVec4(ImGuiCol_FrameBg);
+        static float frame_bg_alpha = 0.1f;
+        static float track_color_width = 8.0f;
+        //auto& frame_bg_color = ImGui::GetStyleColorVec4(ImGuiCol_FrameBg);
         for (auto& track : g_engine.tracks) {
             auto tmp_item_spacing = style.ItemSpacing;
-            auto frame_bg_accent = color_adjust_alpha(color_darken(track->color, 0.2f), frame_bg_color.w);
+            auto frame_bg_accent = color_adjust_alpha(track->color, frame_bg_alpha);
+            ImVec2 track_color_min = ImGui::GetCursorScreenPos();
+            ImVec2 track_color_max = ImVec2(track_color_min.x + track_color_width, track_color_min.y + track->height);
 
-            // Draw collapse button
-            auto current_cur_pos = ImGui::GetCursorScreenPos();
-            draw_list->AddRectFilled(current_cur_pos, ImVec2(current_cur_pos.x + font_size + style.FramePadding.x, current_cur_pos.y + track->height), ImGui::GetColorU32((ImVec4)track->color));
+            ImGui::Indent(track_color_width);
             ImGui::PushID(id);
-            widget::collapse_button("##track_collapse", &track->shown);
-            ImGui::SameLine(0.0f, 0.0f);
-
             ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2());
-            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(style.WindowPadding.x, 4.0f));
-            ImGui::PushStyleColor(ImGuiCol_MenuBarBg, (ImVec4)frame_bg_accent);
-            ImGui::BeginChild("##track_control", ImVec2(clamped_separator - font_size - style.FramePadding.x, track->height), false, child_flags);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(track_color_width, 2.0f));
+            ImGui::BeginChild("##track_control", ImVec2(clamped_separator - track_color_width, track->height), false, track_control_window_flags);
             {
                 ImGui::PopStyleVar();
                 ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, tmp_item_spacing);
-                render_track_header(*track);
-
-                // Set items coloring to the track color accent.
-                ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
-                ImGui::PushStyleColor(ImGuiCol_FrameBg, (ImVec4)frame_bg_accent);
-                ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, (ImVec4)color_adjust_alpha(track->color, frame_bg_color.w));
-                ImGui::PushStyleColor(ImGuiCol_FrameBgActive, (ImVec4)track->color);
-                ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)color_adjust_alpha(color_darken(track->color, 0.2f), 0.8f));
-                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)track->color);
-                ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)color_adjust_contrast(track->color, 0.6f));
+                ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.0f, style.FramePadding.y));
+                widget::collapse_button("##track_collapse", &track->shown);
+                ImGui::PopStyleVar();
+                ImGui::SameLine(0.0f, 6.0f);
+                ImGui::Text((const char*)track->name.c_str());
 
                 render_track_controls(*track);
-
-                ImGui::PopStyleColor(6);
-                ImGui::PopStyleVar();
 
                 if (ImGui::IsWindowHovered() && !(ImGui::IsAnyItemActive() || ImGui::IsAnyItemHovered()) && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
                     ImGui::OpenPopup("track_context_menu");
@@ -521,15 +532,23 @@ namespace wb
             }
             ImGui::EndChild();
             ImGui::PopID();
+            ImGui::Unindent(track_color_width);
+            
             if (widget::hseparator_resizer(id, &track->height, 56.0f, 30.f, 500.f))
                 should_redraw_clip_content = true;
-            ImGui::PopStyleColor();
+
             ImGui::PopStyleVar();
+
+            draw_list->AddRectFilled(track_color_min, track_color_max, ImGui::GetColorU32((ImVec4)track->color));
+
             id++;
         }
 
-        if (ImGui::Button("Add Audio Track"))
-            g_engine.add_track(TrackType::Audio, "New track");
+        if (ImGui::Button("Add Audio Track")) {
+            auto track = g_engine.add_track(TrackType::Audio, "New track");
+            track->color = ImColor::HSV((float)current_clip_n / 15, 0.5f, 0.7f);
+            current_clip_n = (current_clip_n + 1) % 15;
+        }
 
         ImGui::PopClipRect();
         auto end_cursor = ImGui::GetCursorPos();
@@ -544,6 +563,7 @@ namespace wb
                             ImVec2(timeline_orig_pos_x + timeline_width, timeline_area.y + scroll_offset_y),
                             true);
 
+        // Re-render timeline
         if (timeline_view_width != (int)timeline_area.x || timeline_view_height != (int)timeline_area.y) {
             timeline_view_width = (int)timeline_area.x;
             timeline_view_height = (int)timeline_area.y;
@@ -554,7 +574,7 @@ namespace wb
         double view_scale = ((max_scroll_pos_x - min_scroll_pos_x) * music_length) / (double)timeline_area.x;
         double inv_view_scale = 1.0 / view_scale;
         timeline_width = timeline_area.x;
-        ImGui::InvisibleButton("##timeline", ImVec2(timeline_width, timeline_area.y));
+        ImGui::InvisibleButton("##timeline", ImVec2(timeline_width, std::max(timeline_area.y, end_cursor.y)));
 
         bool left_mouse_clicked = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
         bool left_mouse_down = ImGui::IsMouseDown(ImGuiMouseButton_Left);
@@ -568,7 +588,7 @@ namespace wb
 
         if (scrolling) {
             ImVec2 drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Middle, 1.0f);
-            handle_scroll_drag_x(drag_delta.x, music_length, -view_scale);
+            handle_horizontal_scroll_drag(drag_delta.x, music_length, -view_scale);
             scroll_delta_y = drag_delta.y;
             if (mouse_move)
                 should_redraw_clip_content = true;
@@ -595,27 +615,27 @@ namespace wb
             ImGui::EndDragDropTarget();
         }
 
-        // Do auto scroll when moving/resizing clips or dragging items to the edge of timeline
+        // Do automatic horizontal scroll when moving/resizing clips or dragging items to the edge of timeline
         float timeline_end_x = timeline_orig_pos_x + timeline_width;
         if (clip_action != GUITimelineClipAction::None || dragging_file) {
             float min_offset = !dragging_file ? timeline_orig_pos_x : timeline_orig_pos_x + 20.0f;
             float max_offset = !dragging_file ? timeline_end_x : timeline_end_x - 20.0f;
             if (mouse_pos.x < min_offset) {
                 float distance = min_offset - mouse_pos.x;
-                handle_scroll_drag_x(distance * 0.25f * (float)inv_view_scale, music_length, -view_scale);
+                handle_horizontal_scroll_drag(distance * 0.25f * (float)inv_view_scale, music_length, -view_scale);
             }
             if (mouse_pos.x > max_offset) {
                 float distance = max_offset - mouse_pos.x;
-                handle_scroll_drag_x(distance * 0.25f * (float)inv_view_scale, music_length, -view_scale);
+                handle_horizontal_scroll_drag(distance * 0.25f * (float)inv_view_scale, music_length, -view_scale);
             }
         }
 
         // ------------- Render track grid lines -------------
         auto grid_color = (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.3f);
-        float grid_inc_x = 96.0f / (float)view_scale / grid_scale;
+        float grid_inc_x = (float)(96.0 / view_scale / (double)grid_scale);
         float inv_grid_inc_x = 1.0f / grid_inc_x;
-        float scroll_pos_x = (float)(min_scroll_pos_x * music_length) / (float)view_scale;
-        float gridline_pos_x = timeline_orig_pos_x - std::fmod(scroll_pos_x, grid_inc_x);
+        double scroll_pos_x = (min_scroll_pos_x * music_length) / view_scale;
+        float gridline_pos_x = timeline_orig_pos_x - std::fmod((float)scroll_pos_x, grid_inc_x);
         int line_count = (uint32_t)(timeline_width * inv_grid_inc_x);
         int count_offset = (uint32_t)(scroll_pos_x * inv_grid_inc_x);
         for (int i = 0; i <= line_count; i++) {
@@ -629,17 +649,15 @@ namespace wb
         uint32_t text_color = ImGui::GetColorU32(ImGuiCol_Text);
         auto font = ImGui::GetFont();
         float track_pos_y = draw_pos.y;
-        float timeline_scroll_offset_x = timeline_orig_pos_x - scroll_pos_x;
+        double timeline_scroll_offset_x = (double)timeline_orig_pos_x - scroll_pos_x;
+        float timeline_scroll_offset_x_f32 = (float)timeline_scroll_offset_x;
         float sample_scale = (float)(96.0 / (view_scale * get_output_sample_rate() * g_engine.beat_duration.load(std::memory_order_relaxed)));
         double mapped_x_pos = (double)(mouse_pos.x - timeline_orig_pos_x) / music_length * view_scale + min_scroll_pos_x;
         double mouse_time_pos = mapped_x_pos * music_length / 96.0;
         double mouse_pos_time_grid = std::round(mouse_time_pos * grid_scale) / grid_scale;
         float clip_scale = (float)inv_view_scale * 96.0f;
         ImDrawListFlags old_draw_list = draw_list->Flags;
-        ImDrawListFlags disable_aa = ~(draw_list->Flags & (ImDrawListFlags_AntiAliasedLines |
-                                                           ImDrawListFlags_AntiAliasedLinesUseTex |
-                                                           ImDrawListFlags_AntiAliasedFill));
-
+        ImDrawListFlags disable_aa = ~(draw_list->Flags & draw_list_aa_flags);
         
         if (clip_action != GUITimelineClipAction::None && mouse_move)
             should_redraw_clip_content = true;
@@ -711,8 +729,8 @@ namespace wb
             if (hovering_track_rect && dragging_file) {
                 // Highlight drop target
                 float highlight_pos = (float)mouse_pos_time_grid; // Snap to grid
-                draw_list->AddRectFilled(ImVec2(timeline_scroll_offset_x + highlight_pos * clip_scale, track_pos_y),
-                                         ImVec2(timeline_scroll_offset_x + (highlight_pos + 1.0f) * clip_scale, track_pos_y + height),
+                draw_list->AddRectFilled(ImVec2(timeline_scroll_offset_x_f32 + highlight_pos * clip_scale, track_pos_y),
+                                         ImVec2(timeline_scroll_offset_x_f32 + (highlight_pos + 1.0f) * clip_scale, track_pos_y + height),
                                          ImGui::GetColorU32(ImGuiCol_Border));
 
                 // We have file dropped
@@ -771,8 +789,8 @@ namespace wb
                         {
                             float highlight_pos = (float)mouse_pos_time_grid; // Snap to grid
                             float length = (float)(g_selected_clip->max_time - g_selected_clip->min_time);
-                            draw_list->AddRectFilled(ImVec2(timeline_scroll_offset_x + highlight_pos * clip_scale, track_pos_y),
-                                                     ImVec2(timeline_scroll_offset_x + (highlight_pos + length) * clip_scale, track_pos_y + height),
+                            draw_list->AddRectFilled(ImVec2(timeline_scroll_offset_x_f32 + highlight_pos * clip_scale, track_pos_y),
+                                                     ImVec2(timeline_scroll_offset_x_f32 + (highlight_pos + length) * clip_scale, track_pos_y + height),
                                                      ImGui::GetColorU32(ImGuiCol_Border));
                             break;
                         }
@@ -781,8 +799,8 @@ namespace wb
                     }
                 }
 
-                float min_pos_x = std::round(timeline_scroll_offset_x + (float)(min_time * clip_scale));
-                float max_pos_x = std::round(timeline_scroll_offset_x + (float)(max_time * clip_scale));
+                float min_pos_x = (float)std::round(timeline_scroll_offset_x + min_time * (double)clip_scale);
+                float max_pos_x = (float)std::round(timeline_scroll_offset_x + max_time * (double)clip_scale);
 
                 // Skip out-of-screen clips.
                 if (min_pos_x > timeline_end_x)
@@ -805,7 +823,7 @@ namespace wb
                     ImRect lhs(min_pos_x, track_pos_y, min_pos_x + 4.0f, max_bb.y);
                     ImRect rhs(max_pos_x - 4.0f, track_pos_y, max_pos_x, max_bb.y);
 
-                    // Apply clip action in next frame
+                    // Start a clip action in the next frame
                     if (lhs.Contains(mouse_pos)) {
                         if (left_mouse_clicked)
                             clip_action = GUITimelineClipAction::ResizeLeft;
@@ -835,7 +853,7 @@ namespace wb
                     }
                 }
 
-                // Draw clip background. It does not have to be anti-aliased.
+                // Draw clip background.
                 float clip_title_max_y = min_bb.y + font_size + 2.0f;
                 ImVec2 clip_title_max_bb = ImVec2(max_bb.x, clip_title_max_y);
                 ImVec2 clip_content_min = ImVec2(min_bb.x, clip_title_max_y);
@@ -918,7 +936,7 @@ namespace wb
 
         // Draw playhead line
         if (g_engine.is_playing()) {
-            float playhead_pos = std::round(timeline_orig_pos_x - scroll_pos_x + get_playhead_screen_position(view_scale, playhead_position));
+            float playhead_pos = std::round(timeline_orig_pos_x - scroll_pos_x + map_playhead_to_screen_position(view_scale, playhead_position));
             draw_list->AddLine(ImVec2(playhead_pos, scroll_offset_y),
                                ImVec2(playhead_pos, scroll_offset_y + timeline_area.y),
                                playhead_color);
@@ -927,10 +945,12 @@ namespace wb
         ImGui::PopClipRect();
 
         // Draw Separator
+        ImU32 separator_color = (is_separator_active || is_separator_hovered) ?
+            ImGui::GetColorU32(ImGuiCol_SeparatorHovered) :
+            ImGui::GetColorU32(ImGuiCol_Separator);
         draw_list->AddLine(ImVec2(draw_pos.x + clamped_separator + 0.5f, scroll_offset_y),
                            ImVec2(draw_pos.x + clamped_separator + 0.5f, scroll_offset_y + timeline_area.y),
-                           is_separator_active || is_separator_hovered ? ImGui::GetColorU32(ImGuiCol_SeparatorHovered) : ImGui::GetColorU32(ImGuiCol_Separator),
-                           2.0f);
+                           separator_color, 2.0f);
 
         // Handle zooming
         if (timeline_hovered && ImGui::IsKeyDown(ImGuiKey_LeftCtrl) && mouse_wheel != 0.0f) {
@@ -945,7 +965,7 @@ namespace wb
         ImGui::End();
     }
 
-    void GUITimeline::handle_scroll_drag_x(float drag_delta, double scroll_view_width, double direction)
+    void GUITimeline::handle_horizontal_scroll_drag(float drag_delta, double scroll_view_width, double direction)
     {
         double norm_drag_delta = ((double)drag_delta / scroll_view_width) * direction;
         if (drag_delta != 0.0f) {
@@ -992,7 +1012,7 @@ namespace wb
         initial_move_pos = 0.0;
     }
 
-    float GUITimeline::get_playhead_screen_position(double view_scale, double playhead_position)
+    float GUITimeline::map_playhead_to_screen_position(double view_scale, double playhead_position)
     {
         return (float)(playhead_position * 96.0 / view_scale);
     }

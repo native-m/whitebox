@@ -31,7 +31,23 @@ namespace wb::controls
         float           frame_width     = 0.0f;
     };
 
-    void vu_meter(const char* str_id, const ImVec2& size, int num_channels, const float* levels);
+    // Optimizes dockable window and disable its borders when docked
+    // This should be ended with ImGui::End()
+    static bool begin_dockable_window(const char* title, bool* p_open = nullptr, ImGuiWindowFlags flags = 0)
+    {
+        auto state_storage = ImGui::GetStateStorage();
+        auto docked = state_storage->GetBoolRef(ImGui::GetID((const void*)title));
+        float border_size = 1.0f;
+        if (*docked) {
+            flags |= ImGuiWindowFlags_NoBackground;
+            border_size = 0.0f;
+        }
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, border_size);
+        bool ret = ImGui::Begin(title, p_open, flags);
+        *docked = ret && ImGui::IsWindowDocked();
+        ImGui::PopStyleVar();
+        return ret;
+    }
 
     static void knob()
     {
@@ -70,6 +86,7 @@ namespace wb::controls
         if (held) {
             float val = (mouse_pos.y - cursor_pos.y - g.SliderGrabClickOffset) * inv_scroll_height;
             *value = std::clamp(1.0f - val, 0.0f, 1.0f);
+            //ImGui::SetNextWindowPos(ImVec2())
             ImGui::BeginTooltip();
             ImGui::Text("%.3f", *value);
             ImGui::EndTooltip();
@@ -91,4 +108,6 @@ namespace wb::controls
 
         return true;
     }
+
+    void vu_meter(const char* str_id, const ImVec2& size, int num_channels, const float* levels);
 }

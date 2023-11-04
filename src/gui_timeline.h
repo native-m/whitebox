@@ -43,7 +43,6 @@ namespace wb
         bool grabbing_scroll = false;
         bool scrolling = false;
         bool zooming = false;
-        bool docked = false;
         uint32_t timeline_view_width = 0;
         uint32_t timeline_view_height = 0;
         uint32_t current_clip_n = 0;
@@ -67,10 +66,10 @@ namespace wb
         void render_horizontal_scrollbar();
         void render_time_ruler();
         void render();
-        void handle_scroll_drag_x(float drag_delta, double scroll_view_width, double direction = 1.0);
+        void handle_horizontal_scroll_drag(float drag_delta, double scroll_view_width, double direction = 1.0);
         void handle_zoom(float mouse_pos_x, float cursor_pos_x, double view_scale, float mouse_wheel);
         void finish_clip_action();
-        float get_playhead_screen_position(double view_scale, double playhead_position);
+        float map_playhead_to_screen_position(double view_scale, double playhead_position);
         float calculate_music_length();
     };
 

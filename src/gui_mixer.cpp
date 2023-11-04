@@ -14,6 +14,7 @@ namespace wb
             .grab_shape = controls::SliderGrabShape::Circle,
             .grab_size = { 16.0f, 28.0f },
             .grab_roundness = 2.0f,
+            .frame_width = 4.0f
         };
 
         if (!shown) return;
@@ -28,9 +29,9 @@ namespace wb
         ImGui::SmallButton("S");
 
         float value = (float)std::cos(time * 2.0);
-        controls::vu_meter("##test_vu", ImVec2(24.0f, 200.0f), 1, &value);
-        ImGui::SameLine(0.0f, 2.0f);
-        controls::slider2<float>(mixer_slider, "##test", ImVec2(24.0f, 200.0f), &volume, 0.0f, 1.0f);
+        controls::vu_meter("##test_vu", ImVec2(20.0f, 200.0f), 1, &value);
+        ImGui::SameLine(0.0f, 4.0f);
+        controls::slider2<float>(mixer_slider, "##test", ImVec2(20.0f, 200.0f), &volume, 0.0f, 1.0f);
 
         ImGui::End();
 
