@@ -311,14 +311,8 @@ namespace wb
         uint32_t position_at_buffer = (uint32_t)(msg.sample_position % (uint64_t)output_buffer.n_samples);
         uint32_t num_samples = std::min(output_buffer.n_samples - position_at_buffer, (uint32_t)sample->sample_count - offset);
 
-        if (offset < sample->sample_count) {
-            for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
-                float* output = output_buffer.get_write_pointer(i);
-                float* sample_data = (float*)sample->sample_data_[i];
-                for (uint32_t j = 0; j < num_samples; j++)
-                    output[j + position_at_buffer] += sample_data[offset + j];
-            }
-        }
+        if (offset < sample->sample_count)
+            stream_sample(output_buffer, sample, position_at_buffer, offset, num_samples);
 
         // Accumulate current message's sample position and the number of processed samples
         msg.sample_position += num_samples;
@@ -331,14 +325,70 @@ namespace wb
         uint32_t play_position_at_buffer = (uint32_t)(msg.sample_position % (uint64_t)output_buffer.n_samples);
         uint32_t stop_position_at_buffer = (uint32_t)(stop_msg.sample_position % (uint64_t)output_buffer.n_samples + 1);
         uint32_t num_samples = std::min(stop_position_at_buffer - play_position_at_buffer, (uint32_t)sample->sample_count - offset);
+        if (offset < sample->sample_count)
+            stream_sample(output_buffer, sample, play_position_at_buffer, offset, num_samples);
+    }
 
-        if (offset < sample->sample_count) {
-            for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
-                float* output = output_buffer.get_write_pointer(i);
-                float* sample_data = (float*)sample->sample_data_[i];
-                for (uint32_t j = 0; j < num_samples; j++)
-                    output[j + play_position_at_buffer] += sample_data[offset + j];
-            }
+    void Track::stream_sample(AudioBuffer<float>&   output_buffer,
+                              Sample*               sample,
+                              uint32_t              output_buffer_offset,
+                              uint32_t              offset,
+                              uint32_t              num_samples)
+    {
+        static constexpr float i16_pcm_normalizer = 1.0f / static_cast<float>(std::numeric_limits<int16_t>::max());
+        static constexpr double i24_pcm_normalizer = 1.0 / static_cast<double>(1 << 23);
+        static constexpr double i32_pcm_normalizer = 1.0 / static_cast<double>(std::numeric_limits<int32_t>::max());
+
+        switch (sample->format) {
+            case AudioFormat::I16:
+                for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
+                    float* output = output_buffer.get_write_pointer(i);
+                    int16_t* sample_data = std::bit_cast<int16_t*>(sample->sample_data_[i]);
+                    for (uint32_t j = 0; j < num_samples; j++) {
+                        float sample = (float)sample_data[offset + j] * i16_pcm_normalizer;
+                        output[j + output_buffer_offset] += std::clamp(sample, -1.0f, 1.0f);
+                    }
+                }
+                break;
+            case AudioFormat::I24:
+                for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
+                    float* output = output_buffer.get_write_pointer(i);
+                    int32_t* sample_data = std::bit_cast<int32_t*>(sample->sample_data_[i]);
+                    for (uint32_t j = 0; j < num_samples; j++) {
+                        double sample = (double)sample_data[offset + j] * i24_pcm_normalizer;
+                        output[j + output_buffer_offset] += (float)std::clamp(sample, -1.0, 1.0);
+                    }
+                }
+                break;
+            case AudioFormat::I32:
+                for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
+                    float* output = output_buffer.get_write_pointer(i);
+                    int32_t* sample_data = std::bit_cast<int32_t*>(sample->sample_data_[i]);
+                    for (uint32_t j = 0; j < num_samples; j++) {
+                        double sample = (double)sample_data[offset + j] * i32_pcm_normalizer;
+                        output[j + output_buffer_offset] += (float)std::clamp(sample, -1.0, 1.0);
+                    }
+                }
+                break;
+            case AudioFormat::F32:
+                for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
+                    float* output = output_buffer.get_write_pointer(i);
+                    float* sample_data = std::bit_cast<float*>(sample->sample_data_[i]);
+                    for (uint32_t j = 0; j < num_samples; j++)
+                        output[j + output_buffer_offset] += sample_data[offset + j];
+                }
+                break;
+            case AudioFormat::F64:
+                for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
+                    float* output = output_buffer.get_write_pointer(i);
+                    double* sample_data = std::bit_cast<double*>(sample->sample_data_[i]);
+                    for (uint32_t j = 0; j < num_samples; j++)
+                        output[j + output_buffer_offset] += (float)sample_data[offset + j];
+                }
+                break;
+            default:
+                WB_ASSERT(false && "Unsupported format");
+                break;
         }
     }
 

@@ -142,7 +142,6 @@ namespace wb
         ret->sample_count = info.frames;
         ret->byte_length = data_size * info.channels;
         ret->sample_data_ = std::move(data);
-
         return ret;
     }
 

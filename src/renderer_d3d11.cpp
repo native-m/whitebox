@@ -173,6 +173,13 @@ namespace wb
             return {};
 
         switch (sample.format) {
+            case AudioFormat::I16:
+                for (uint32_t i = 0; i < sample.channels; i++) {
+                    const int16_t* sample_data = sample.get_read_pointer<int16_t>(i);
+                    int16_t* channel_data = data + (i * sample.sample_count);
+                    std::memcpy(channel_data, sample_data, sample.sample_count * sizeof(int16_t));
+                }
+                break;
             case AudioFormat::F32:
                 for (uint32_t i = 0; i < sample.channels; i++) {
                     const float* sample_data = sample.get_read_pointer<float>(i);
@@ -428,8 +435,6 @@ namespace wb
                 }
 
                 uint32_t sample_count = waveform_view_buf->sample_count / (1 << mip_level);
-                //Log::info("{}", sample_count);
-
                 D3D11_MAPPED_SUBRESOURCE mapped_resource{};
                 context_->Map(parameter_cbuffer_, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped_resource);
                 WaveformViewParam* param = (WaveformViewParam*)mapped_resource.pData;
@@ -474,7 +479,6 @@ namespace wb
                 }
 
                 uint32_t vtx_count = waveform_view_buf->sample_count / (1 << mip_level);
-
                 D3D11_MAPPED_SUBRESOURCE mapped_resource{};
                 context_->Map(parameter_cbuffer_, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped_resource);
                 WaveformViewParam* param = (WaveformViewParam*)mapped_resource.pData;

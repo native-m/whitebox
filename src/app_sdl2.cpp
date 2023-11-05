@@ -22,7 +22,7 @@ namespace wb
             WB_ASSERT(false);
         }
 
-        main_window = SDL_CreateWindow("white box", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, window_width, window_height, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
+        main_window = SDL_CreateWindow("whitebox", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, window_width, window_height, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
         WB_ASSERT(main_window);
         main_window_id = SDL_GetWindowID(main_window);
 

@@ -76,7 +76,7 @@ namespace wb
 
         void play_sample(AudioBuffer<float>& output_buffer, TrackMessage& msg, uint32_t offset);
         void stop_sample(AudioBuffer<float>& output_buffer, TrackMessage& msg, TrackMessage& stop_msg, uint32_t offset);
-
+        void stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uint32_t output_buffer_offset, uint32_t offset, uint32_t num_samples);
         void log_clip_ordering_();
     };
 }

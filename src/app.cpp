@@ -46,7 +46,6 @@ namespace wb
         config.GlyphOffset.x = -1.0f;
 
         io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
-        //io.Fonts->AddFontDefault(&config);
         io.Fonts->AddFontFromFileTTF("../../../assets/Inter-Regular.otf", 0.0f, &config);
 
         ImGuiStyle& style = ImGui::GetStyle();
@@ -141,12 +140,11 @@ namespace wb
                 else
                     g_engine.play();
             }
-            if (is_playing)
-                ImGui::Text("%f", g_engine.get_playhead_position());
-            ImGui::Text("%f", g_engine.play_time);
             float tempo = (float)(60.0 / g_engine.beat_duration.load(std::memory_order_relaxed));
             if (ImGui::DragFloat("tempo", &tempo, 1.0f, 0.0f, 0.0f, "%.2f"))
                 g_engine.set_bpm(tempo);
+            if (is_playing)
+                ImGui::Text("%f", g_engine.get_playhead_position());
             ImGui::End();
 
             g_gui_content_browser.render();
