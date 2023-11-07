@@ -631,7 +631,7 @@ namespace wb
         }
 
         // ------------- Render track grid lines -------------
-        auto grid_color = (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.3f);
+        auto grid_color = (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.5f);
         float grid_inc_x = (float)(96.0 / view_scale / (double)grid_scale);
         float inv_grid_inc_x = 1.0f / grid_inc_x;
         double scroll_pos_x = (min_scroll_pos_x * music_length) / view_scale;
@@ -854,15 +854,11 @@ namespace wb
                     }
                 }
 
-                static constexpr float small_text_contrast_ratio = 1.0f / 4.5f;
-                float text_contrast_ratio = calc_contrast_ratio(current_clip->color, text_color);
-                ImColor border_color;
-                if (text_contrast_ratio > 0.65f) {
-                    border_color = ImColor(0.0f, 0.0f, 0.0f, 0.3f);
-                }
-                else {
-                    border_color = ImColor(1.0f, 1.0f, 1.0f, 0.3f);
-                }
+                static constexpr float border_contrast_ratio = 1.0f / 3.5f;
+                static constexpr float text_contrast_ratio = 1.0f / 1.57f;
+                float bg_contrast_ratio = calc_contrast_ratio(current_clip->color, text_color);
+                ImColor border_color = (bg_contrast_ratio > border_contrast_ratio) ? ImColor(0.0f, 0.0f, 0.0f, 0.3f) : ImColor(1.0f, 1.0f, 1.0f, 0.2f);
+                ImColor intended_text_color = (bg_contrast_ratio > text_contrast_ratio) ? ImColor(0.0f, 0.0f, 0.0f, 1.0f - bg_contrast_ratio * 0.6f) : text_color;
 
                 // Draw clip elements.
                 float clip_title_max_y = min_bb.y + font_size + 2.0f;
@@ -877,7 +873,7 @@ namespace wb
                 const char* str = current_clip->name.c_str();
                 ImVec4 clip_label_rect(min_bb.x, min_bb.y, max_bb.x - 6.0f, clip_title_max_y);
                 draw_list->AddText(font, font_size, ImVec2(std::max(min_bb.x, timeline_orig_pos_x) + 3.0f, min_bb.y),
-                                   text_color, str, str + current_clip->name.size(),
+                                   intended_text_color, str, str + current_clip->name.size(),
                                    0.0f, &clip_label_rect);
 
                 // Push which content needs to be drawn

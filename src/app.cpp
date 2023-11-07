@@ -42,11 +42,11 @@ namespace wb
         ImFontConfig config;
         config.SizePixels = 13.0f;
         config.FontBuilderFlags = ImGuiFreeTypeBuilderFlags_LoadColor;
-        config.RasterizerMultiply = 1.25f;
-        config.GlyphOffset.x = -1.0f;
+        config.RasterizerMultiply = 1.0f;
+        //config.GlyphOffset.x = -1.0f;
 
         io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
-        io.Fonts->AddFontFromFileTTF("../../../assets/Inter-Regular.otf", 0.0f, &config);
+        io.Fonts->AddFontFromFileTTF("../../../assets/Inter-Medium.otf", 0.0f, &config);
 
         ImGuiStyle& style = ImGui::GetStyle();
         apply_theme(style);
