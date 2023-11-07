@@ -233,15 +233,26 @@ namespace wb
         Clip* old_currently_playing_clip = currently_playing_clip.load(std::memory_order_acquire);
         Clip* old_next_clip = next_clip.load(std::memory_order_acquire);
         double current_sec = beat_to_seconds(current_position - offset, beat_duration);
+        uint64_t sample_position = (uint64_t)std::round(current_sec * sample_rate);
 
-        if (old_currently_playing_clip && current_position >= old_currently_playing_clip->max_time) {
-            uint64_t sample_pos = (uint64_t)(current_sec * sample_rate);
-            currently_playing_clip.store(nullptr, std::memory_order_release);
-            message_queue.push(
-                TrackMessage{
-                    .sample_position = sample_pos,
-                    .audio = AudioMessage::end()
-                });
+        if (old_currently_playing_clip) {
+            if (current_position >= old_currently_playing_clip->max_time) {
+                currently_playing_clip.store(nullptr, std::memory_order_release);
+                message_queue.push(
+                    TrackMessage{
+                        .sample_position = sample_position,
+                        .audio = AudioMessage::end()
+                    });
+            }
+            // Also stop when the clip gets deleted
+            else if (!deleted_clips.empty() && deleted_clips.contains(old_currently_playing_clip)) {
+                currently_playing_clip.store(nullptr, std::memory_order_release);
+                message_queue.push(
+                    TrackMessage{
+                        .sample_position = sample_position,
+                        .audio = AudioMessage::end()
+                    });
+            }
         }
 
         if (old_next_clip && old_next_clip != &tail_node && current_position >= old_next_clip->min_time) {
@@ -257,8 +268,8 @@ namespace wb
                 currently_playing_clip.store(next_clip, std::memory_order_release);
                 next_clip.store(old_next_clip->next, std::memory_order_release);
                 message_queue.push(msg);
-                dbg_message.push_back(msg);
-                Log::info("Trigger: {} {} {}", current_position, min_time, (uint64_t)(current_sec * sample_rate));
+                //dbg_message.push_back(msg);
+                Log::debug("Trigger: {} {} {}", current_position, min_time, msg.sample_position);
             }
         }
     }

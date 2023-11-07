@@ -47,4 +47,18 @@ namespace wb
                        std::lerp(a.Value.z, b.Value.z, t),
                        std::lerp(a.Value.w, b.Value.w, t));
     }
+
+    inline static constexpr float color_luminance(const ImColor& color)
+    {
+        return (0.2126f * color.Value.x) + (0.7152f * color.Value.y) + (0.0722f * color.Value.z);
+    }
+
+    inline static constexpr float calc_contrast_ratio(const ImColor& a, const ImColor& b)
+    {
+        float y1 = color_luminance(a);
+        float y2 = color_luminance(b);
+        return y1 > y2 ?
+            (y2 + 0.05f) / (y1 + 0.05f) :
+            (y1 + 0.05f) / (y2 + 0.05f);
+    }
 }

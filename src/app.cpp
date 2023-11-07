@@ -42,7 +42,7 @@ namespace wb
         ImFontConfig config;
         config.SizePixels = 13.0f;
         config.FontBuilderFlags = ImGuiFreeTypeBuilderFlags_LoadColor;
-        config.RasterizerMultiply = 1.0f;
+        config.RasterizerMultiply = 1.25f;
         config.GlyphOffset.x = -1.0f;
 
         io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();

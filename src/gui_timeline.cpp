@@ -398,7 +398,7 @@ namespace wb
         //ImGui::SetNextWindowClass(&WindowClass);
         ImGui::SetNextWindowSize(ImVec2(640.f, 480.f), ImGuiCond_FirstUseEver);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 1.0f));
-        if (!controls::begin_dockable_window("Window", &g_show_timeline_window)) {
+        if (!controls::begin_dockable_window("Timeline", &g_show_timeline_window)) {
             ImGui::PopStyleVar();
             ImGui::End();
             return;
@@ -646,7 +646,7 @@ namespace wb
         }
         
         uint32_t track_separator_color = color_premul_alpha(ImGui::GetStyleColorVec4(ImGuiCol_Separator)); // Remove transparency
-        uint32_t text_color = ImGui::GetColorU32(ImGuiCol_Text);
+        ImColor text_color = ImGui::GetStyleColorVec4(ImGuiCol_Text);
         auto font = ImGui::GetFont();
         float track_pos_y = draw_pos.y;
         double timeline_scroll_offset_x = (double)timeline_orig_pos_x - scroll_pos_x;
@@ -854,14 +854,24 @@ namespace wb
                     }
                 }
 
-                // Draw clip background.
+                static constexpr float small_text_contrast_ratio = 1.0f / 4.5f;
+                float text_contrast_ratio = calc_contrast_ratio(current_clip->color, text_color);
+                ImColor border_color;
+                if (text_contrast_ratio > 0.65f) {
+                    border_color = ImColor(0.0f, 0.0f, 0.0f, 0.3f);
+                }
+                else {
+                    border_color = ImColor(1.0f, 1.0f, 1.0f, 0.3f);
+                }
+
+                // Draw clip elements.
                 float clip_title_max_y = min_bb.y + font_size + 2.0f;
                 ImVec2 clip_title_max_bb = ImVec2(max_bb.x, clip_title_max_y);
                 ImVec2 clip_content_min = ImVec2(min_bb.x, clip_title_max_y);
                 draw_list->Flags = disable_aa;
                 draw_list->AddRectFilled(min_bb, clip_title_max_bb, current_clip->color);
                 draw_list->AddRectFilled(clip_content_min, max_bb, color_adjust_alpha(track->color, 0.35f));
-                draw_list->AddRect(min_bb, clip_title_max_bb, ImColor(1.0f, 1.0f, 1.0f, 0.15f));
+                draw_list->AddRect(min_bb, clip_title_max_bb, border_color);
                 draw_list->Flags = old_draw_list;
 
                 const char* str = current_clip->name.c_str();
@@ -871,7 +881,7 @@ namespace wb
                                    0.0f, &clip_label_rect);
 
                 // Push which content needs to be drawn
-                AudioClip* audio_clip = static_cast<AudioClip*>(current_clip);
+                const AudioClip* audio_clip = static_cast<AudioClip*>(current_clip);
                 clip_content_draw_list.push_back(
                     {
                         .sample_peaks = audio_clip->asset.ref->peaks.get(),
