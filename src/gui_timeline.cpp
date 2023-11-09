@@ -572,7 +572,7 @@ namespace wb
         }
 
         double view_scale = ((max_scroll_pos_x - min_scroll_pos_x) * music_length) / (double)timeline_area.x;
-        double sample_scale = (float)(96.0 / (view_scale * get_output_sample_rate() * g_engine.beat_duration.load(std::memory_order_relaxed)));
+        double sample_scale = 96.0 / (view_scale * get_output_sample_rate() * g_engine.beat_duration.load(std::memory_order_relaxed));
         double inv_sample_scale = 1.0 / sample_scale;
         double inv_view_scale = 1.0 / view_scale;
         timeline_width = timeline_area.x;
@@ -656,7 +656,7 @@ namespace wb
         double mapped_x_pos = (double)(mouse_pos.x - timeline_orig_pos_x) / music_length * view_scale + min_scroll_pos_x;
         double mouse_time_pos = mapped_x_pos * music_length / 96.0;
         double mouse_pos_time_grid = std::round(mouse_time_pos * grid_scale) / grid_scale;
-        float clip_scale = (float)inv_view_scale * 96.0f;
+        float clip_scale = (float)(inv_view_scale * 96.0);
         ImDrawListFlags old_draw_list = draw_list->Flags;
         ImDrawListFlags disable_aa = draw_list->Flags & ~draw_list_aa_flags;
         
@@ -896,7 +896,7 @@ namespace wb
                         .max = max_bb,
                         .scale_x = (float)sample_scale,
                         .start_sample_idx = start_sample,
-                        .end_sample_idx = end_sample
+                        .end_sample_idx = std::min(end_sample, sample_peaks->sample_count),
                     });
 
                 // TODO: Move this outside loop.

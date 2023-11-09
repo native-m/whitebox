@@ -4,7 +4,7 @@ Buffer<float> vertex_input : register(t0);
 
 VSOutput main(uint vertex : SV_VertexID)
 {
-    uint sample_idx = start_sample_idx + vertex / 6;
+    uint sample_idx = vertex / 6 + start_sample_idx;
     uint vertex_idx = vertex % 6;
     uint a_idx = clamp(sample_idx, 0, end_sample_idx);
     uint b_idx = clamp(sample_idx + 1, 0, end_sample_idx);

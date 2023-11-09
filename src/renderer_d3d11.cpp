@@ -27,7 +27,7 @@ namespace wb
 
     static inline uint32_t get_mip_level(float scale_x)
     {
-        double chunk_size = std::max(std::round(0.25 / (double)scale_x), 1.0);
+        double chunk_size = std::max(std::round(0.125 / (double)scale_x), 1.0);
         uint32_t mip_level = std::min((uint32_t)std::round(std::log2(chunk_size)), 7U);
         return mip_level;
     }
@@ -456,7 +456,7 @@ namespace wb
                 param->vp_height = vp_height;
                 param->chunk_size = 1 << mip_level;
                 param->start_sample_idx = start_sample_idx;
-                param->end_sample_idx = end_sample_idx;
+                param->end_sample_idx = end_sample_idx - 1;
                 context_->Unmap(parameter_cbuffer_, 0);
 
                 RECT scissor_rect{

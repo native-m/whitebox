@@ -4,7 +4,7 @@ Buffer<float> vertex_input : register(t0);
 
 VSOutput main(uint vertex : SV_VertexID)
 {
-    uint sample_idx = start_sample_idx + vertex / 3;
+    uint sample_idx = vertex / 3 + start_sample_idx;
     uint vertex_idx = vertex % 3;
     uint a_idx = clamp(sample_idx, 0, end_sample_idx);
     uint b_idx = clamp(sample_idx + 1, 0, end_sample_idx);
@@ -33,7 +33,7 @@ VSOutput main(uint vertex : SV_VertexID)
     float2 ba_normal = float2(-ba_tangent.y, ba_tangent.x);
     float2 cb_normal = float2(-cb_tangent.y, cb_tangent.x);
     float heading = sign(dot(ba_tangent, cb_normal)); // determine heading
-    float2 vtx_pos = origin + b + is_bevel * heading * (dir == 0 ? ba_normal : cb_normal);
+    float2 vtx_pos = is_bevel * heading * (dir == 0 ? ba_normal : cb_normal) + b + origin;
     
     VSOutput output;
     //output.pos.xy = b + is_bevel * heading * (dir == 0 ? ba_normal : cb_normal);
