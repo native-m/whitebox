@@ -114,3 +114,9 @@ CPMAddPackage(
                         "ENABLE_PACKAGE_CONFIG OFF"
                         "INSTALL_PKGCONFIG_MODULE OFF"
 )
+
+CPMAddPackage(
+    NAME                nativefiledialog-extended
+    GITHUB_REPOSITORY   btzy/nativefiledialog-extended
+    VERSION             1.1.0
+)

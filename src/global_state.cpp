@@ -24,6 +24,8 @@ namespace wb
     AudioModeString g_output_modes;
     AudioModeString g_input_modes;
 
+    std::vector<std::filesystem::path> g_item_dropped;
+
     Track* g_selected_track;
     Clip* g_selected_clip;
     uint32_t g_last_new_track_n = 0;
@@ -130,6 +132,16 @@ namespace wb
     double get_output_sample_rate()
     {
         return g_input_modes[g_output_audio_mode].first.sample_rate;
+    }
+
+    bool is_file_dropped()
+    {
+        return g_item_dropped.size() > 0;
+    }
+
+    void flush_dropped_files()
+    {
+        g_item_dropped.clear();
     }
 
     void render_settings_ui()

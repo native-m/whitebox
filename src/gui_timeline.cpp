@@ -863,14 +863,14 @@ namespace wb
                 ImColor border_color = (bg_contrast_ratio > border_contrast_ratio) ? ImColor(0.0f, 0.0f, 0.0f, 0.3f) : ImColor(1.0f, 1.0f, 1.0f, 0.2f);
                 ImColor intended_text_color = (bg_contrast_ratio > text_contrast_ratio) ? ImColor(0.0f, 0.0f, 0.0f, 1.0f - bg_contrast_ratio * 0.6f) : text_color;
 
-                // Clip the number of peaks that should be drawn
+                // Limit the number of peaks that should be drawn 
                 double dist_from_start = std::max(scroll_pos_x - min_pos_x, 0.0);
                 double dist_to_end = std::min(((double)timeline_width + scroll_pos_x) - min_pos_x, max_pos_x - min_pos_x);
                 uint32_t start_sample = (uint32_t)std::floor(dist_from_start * inv_sample_scale);
                 uint32_t end_sample = (uint32_t)std::ceil(dist_to_end * inv_sample_scale);
 
                 // Draw clip elements.
-                float clip_title_max_y = min_bb.y + font_size + 2.0f;
+                float clip_title_max_y = min_bb.y + font_size + 2.0f; 
                 ImVec2 clip_title_max_bb = ImVec2(max_bb.x, clip_title_max_y);
                 ImVec2 clip_content_min = ImVec2(min_bb.x, clip_title_max_y);
                 draw_list->Flags = disable_aa;

@@ -1,6 +1,7 @@
 #include "app_sdl2.h"
 #include "renderer.h"
 #include "types.h"
+#include "global_state.h"
 #include <algorithm>
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
@@ -26,6 +27,10 @@ namespace wb
         WB_ASSERT(main_window);
         main_window_id = SDL_GetWindowID(main_window);
 
+        SDL_EventState(SDL_DROPBEGIN, SDL_ENABLE);
+        SDL_EventState(SDL_DROPCOMPLETE, SDL_ENABLE);
+        SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
+
         App::init(argc, argv);
     }
 
@@ -38,6 +43,10 @@ namespace wb
     void AppSDL2::new_frame()
     {
         SDL_Event event;
+        
+        if (is_file_dropped())
+            flush_dropped_files();
+
         while (SDL_PollEvent(&event))
             handle_events(event);
 
@@ -52,17 +61,12 @@ namespace wb
     {
         switch (event.type) {
             case SDL_WINDOWEVENT:
-                if (event.window.windowID != main_window_id) {
+                if (event.window.windowID != main_window_id)
                     break;
-                }
-
-                if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
+                if (event.window.event == SDL_WINDOWEVENT_RESIZED)
                     Renderer::instance->resize_swapchain();
-                }
-
-                if (event.window.event == SDL_WINDOWEVENT_CLOSE) {
+                if (event.window.event == SDL_WINDOWEVENT_CLOSE)
                     running = false;
-                }
                 break;
             case SDL_QUIT:
                 running = false;
@@ -84,6 +88,10 @@ namespace wb
                 //ImGui::GetIO().AddMouseWheelEvent(mouse_wheel.x, mouse_wheel.y);
                 return;
             }
+            case SDL_DROPFILE:
+                g_item_dropped.push_back(event.drop.file);
+                SDL_free(event.drop.file);
+                break;
             default:
                 break;
         }

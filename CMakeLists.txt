@@ -88,7 +88,8 @@ target_link_libraries(whitebox_lib PUBLIC
     imgui-cpp
     spdlog::spdlog
     sndfile
-    SDL2::SDL2main)
+    SDL2::SDL2main
+    nfd)
 
 if ((CMAKE_C_COMPILER_ID STREQUAL "MSVC") AND (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC"))
     set_target_properties(whitebox_lib PROPERTIES MSVC_DEBUG_INFORMATION_FORMAT $<$<CONFIG:Debug>:EditAndContinue>)

@@ -15,6 +15,7 @@
 
 #include <imgui.h>
 #include <imgui_freetype.h>
+#include <nfd.hpp>
 
 namespace wb
 {
@@ -27,6 +28,8 @@ namespace wb
         apply_audio_devices();
         set_audio_mode_to_default();
         try_start_audio_stream();
+
+        NFD::Init();
 
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
@@ -56,12 +59,6 @@ namespace wb
             style.Colors[ImGuiCol_WindowBg].w = 1.0f;
         }
 
-        g_engine.on_bpm_change = [&]() {
-            g_gui_timeline.redraw_clip_content();
-        };
-
-        g_engine.set_bpm(150.0f);
-
         /*std::random_device rd;
         std::uniform_int_distribution<uint32_t> dist(1, 9);
 
@@ -86,6 +83,12 @@ namespace wb
         
         Renderer::init(this, Renderer::D3D11);
         g_gui_timeline.initialize();
+
+        g_engine.on_bpm_change = [&]() {
+            g_gui_timeline.redraw_clip_content();
+        };
+
+        g_engine.set_bpm(150.0f);
     }
     
     void App::run()
@@ -95,6 +98,13 @@ namespace wb
         
         while (running) {
             new_frame();
+
+            if (is_file_dropped()) {
+                if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceExtern)) {
+                    ImGui::SetDragDropPayload("ExternalFileDrop", nullptr, 0, ImGuiCond_Once);
+                    ImGui::EndDragDropSource();
+                }
+            }
 
             ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
 
@@ -172,6 +182,7 @@ namespace wb
         ae_close_driver();
         Renderer::shutdown();
         ImGui::DestroyContext();
+        NFD::Quit();
     }
 
     int App::run(int argc, const char* argv[])

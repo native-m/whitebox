@@ -1,10 +1,6 @@
 #pragma once
 
-#include <filesystem>
-#include <variant>
-#include <optional>
-#include <string>
-#include <spdlog/fmt/fmt.h>
+#include "stdpch.h"
 #include "core/math.h"
 
 namespace wb
@@ -51,6 +47,7 @@ namespace wb
         FileSize size;
         std::optional<std::vector<ContentBrowserItem>> dir_items;
         std::optional<std::vector<ContentBrowserItem>> file_items;
+        bool root_dir;
         bool open;
 
         std::filesystem::path get_file_path(const std::filesystem::path& root) const
@@ -81,10 +78,15 @@ namespace wb
 
     struct GUIContentBrowser
     {
+        using DirectorySet = std::unordered_set<std::filesystem::path>;
+        using DirectoryRefItem = std::pair<DirectorySet::iterator, ContentBrowserItem>;
         bool docked = false;
-        std::vector<ContentBrowserDir> directories;
+        DirectorySet directory_set;
+        std::vector<DirectoryRefItem> directories;
 
         GUIContentBrowser();
+        void add_directory(const std::filesystem::path& path);
+        void sort_directory();
         void glob_path(const std::filesystem::path& path, ContentBrowserItem& item);
         void render_item(const std::filesystem::path& root_dir, ContentBrowserItem& item);
         void render();

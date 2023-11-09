@@ -25,6 +25,8 @@ namespace wb
     extern AudioModeString g_output_modes;
     extern AudioModeString g_input_modes;
 
+    extern std::vector<std::filesystem::path> g_item_dropped;
+
     extern Track* g_selected_track;
     extern Clip* g_selected_clip;
     extern uint32_t g_last_new_track_n;
@@ -36,5 +38,9 @@ namespace wb
     void apply_audio_devices();
     void try_start_audio_stream();
     double get_output_sample_rate();
+
+    bool is_file_dropped();
+    void flush_dropped_files();
+
     void render_settings_ui();
 }
