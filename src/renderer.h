@@ -40,6 +40,8 @@ namespace wb
         ImVec2 min;
         ImVec2 max;
         float scale_x;
+        uint32_t start_sample_idx;
+        uint32_t end_sample_idx;
     };
 
     struct Renderer

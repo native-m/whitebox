@@ -14,5 +14,6 @@ cbuffer Parameters : register(b0)
     float vp_width;
     float vp_height;
     uint chunk_size;
-    uint max_sample_idx;
+    uint start_sample_idx;
+    uint end_sample_idx;
 };

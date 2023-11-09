@@ -134,6 +134,8 @@ namespace wb
 
     void render_settings_ui()
     {
+        ImGui::SetNextWindowSize(ImVec2(380.0f, 480.0f), ImGuiCond_FirstUseEver);
+
         if (!ImGui::Begin("Settings", &g_settings_window_open, ImGuiWindowFlags_NoDocking)) {
             ImGui::End();
             g_should_scan_audio_device = true;

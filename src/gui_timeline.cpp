@@ -572,6 +572,8 @@ namespace wb
         }
 
         double view_scale = ((max_scroll_pos_x - min_scroll_pos_x) * music_length) / (double)timeline_area.x;
+        double sample_scale = (float)(96.0 / (view_scale * get_output_sample_rate() * g_engine.beat_duration.load(std::memory_order_relaxed)));
+        double inv_sample_scale = 1.0 / sample_scale;
         double inv_view_scale = 1.0 / view_scale;
         timeline_width = timeline_area.x;
         ImGui::InvisibleButton("##timeline", ImVec2(timeline_width, std::max(timeline_area.y, end_cursor.y)));
@@ -645,13 +647,12 @@ namespace wb
                                grid_color, (i + count_offset + 1) % 4 ? 1.0f : 2.0f);
         }
         
-        uint32_t track_separator_color = color_premul_alpha(ImGui::GetStyleColorVec4(ImGuiCol_Separator)); // Remove transparency
+        uint32_t track_separator_color = ImGui::GetColorU32(ImGuiCol_Separator); // Remove transparency
         ImColor text_color = ImGui::GetStyleColorVec4(ImGuiCol_Text);
         auto font = ImGui::GetFont();
         float track_pos_y = draw_pos.y;
         double timeline_scroll_offset_x = (double)timeline_orig_pos_x - scroll_pos_x;
         float timeline_scroll_offset_x_f32 = (float)timeline_scroll_offset_x;
-        float sample_scale = (float)(96.0 / (view_scale * get_output_sample_rate() * g_engine.beat_duration.load(std::memory_order_relaxed)));
         double mapped_x_pos = (double)(mouse_pos.x - timeline_orig_pos_x) / music_length * view_scale + min_scroll_pos_x;
         double mouse_time_pos = mapped_x_pos * music_length / 96.0;
         double mouse_pos_time_grid = std::round(mouse_time_pos * grid_scale) / grid_scale;
@@ -799,21 +800,23 @@ namespace wb
                     }
                 }
 
-                float min_pos_x = (float)std::round(timeline_scroll_offset_x + min_time * (double)clip_scale);
-                float max_pos_x = (float)std::round(timeline_scroll_offset_x + max_time * (double)clip_scale);
+                double min_pos_x = min_time * (double)clip_scale;
+                double max_pos_x = max_time * (double)clip_scale;
+                float min_pos_x_in_pixel = (float)std::round(timeline_scroll_offset_x + min_pos_x);
+                float max_pos_x_in_pixel = (float)std::round(timeline_scroll_offset_x + max_pos_x);
 
                 // Skip out-of-screen clips.
-                if (min_pos_x > timeline_end_x)
+                if (min_pos_x_in_pixel > timeline_end_x)
                     break;
 
-                if (max_pos_x < timeline_orig_pos_x) {
+                if (max_pos_x_in_pixel < timeline_orig_pos_x) {
                     current_clip = (Clip*)current_clip->next;
                     continue;
                 }
 
                 // Setup clip's minimum and maximum bounding box
-                ImVec2 min_bb(min_pos_x, track_pos_y);
-                ImVec2 max_bb(max_pos_x, track_pos_y + track->height);
+                ImVec2 min_bb(min_pos_x_in_pixel, track_pos_y);
+                ImVec2 max_bb(max_pos_x_in_pixel, track_pos_y + track->height);
                 ImVec4 fine_scissor_rect(min_bb.x, min_bb.y, max_bb.x, max_bb.y);
                 bool hovering_left_side = false;
                 bool hovering_right_side = false;
@@ -821,8 +824,8 @@ namespace wb
                 if (hovering_current_track && clip_action == GUITimelineClipAction::None) {
                     ImRect clip_rect(min_bb, max_bb);
                     // Sizing hitboxes
-                    ImRect lhs(min_pos_x, track_pos_y, min_pos_x + 4.0f, max_bb.y);
-                    ImRect rhs(max_pos_x - 4.0f, track_pos_y, max_pos_x, max_bb.y);
+                    ImRect lhs(min_pos_x_in_pixel, track_pos_y, min_pos_x_in_pixel + 4.0f, max_bb.y);
+                    ImRect rhs(max_pos_x_in_pixel - 4.0f, track_pos_y, max_pos_x_in_pixel, max_bb.y);
 
                     // Start a clip action in the next frame
                     if (lhs.Contains(mouse_pos)) {
@@ -860,6 +863,12 @@ namespace wb
                 ImColor border_color = (bg_contrast_ratio > border_contrast_ratio) ? ImColor(0.0f, 0.0f, 0.0f, 0.3f) : ImColor(1.0f, 1.0f, 1.0f, 0.2f);
                 ImColor intended_text_color = (bg_contrast_ratio > text_contrast_ratio) ? ImColor(0.0f, 0.0f, 0.0f, 1.0f - bg_contrast_ratio * 0.6f) : text_color;
 
+                // Clip the number of peaks that should be drawn
+                double dist_from_start = std::max(scroll_pos_x - min_pos_x, 0.0);
+                double dist_to_end = std::min(((double)timeline_width + scroll_pos_x) - min_pos_x, max_pos_x - min_pos_x);
+                uint32_t start_sample = (uint32_t)std::floor(dist_from_start * inv_sample_scale);
+                uint32_t end_sample = (uint32_t)std::ceil(dist_to_end * inv_sample_scale);
+
                 // Draw clip elements.
                 float clip_title_max_y = min_bb.y + font_size + 2.0f;
                 ImVec2 clip_title_max_bb = ImVec2(max_bb.x, clip_title_max_y);
@@ -876,15 +885,18 @@ namespace wb
                                    intended_text_color, str, str + current_clip->name.size(),
                                    0.0f, &clip_label_rect);
 
-                // Push which content needs to be drawn
+                // Push which content needs to be drawn.
                 const AudioClip* audio_clip = static_cast<AudioClip*>(current_clip);
+                SamplePeaks* sample_peaks = audio_clip->asset.ref->peaks.get();
                 clip_content_draw_list.push_back(
                     {
-                        .sample_peaks = audio_clip->asset.ref->peaks.get(),
+                        .sample_peaks = sample_peaks,
                         .color = color_brighten(current_clip->color, 0.85f),
                         .min = clip_content_min,
                         .max = max_bb,
                         .scale_x = (float)sample_scale,
+                        .start_sample_idx = start_sample,
+                        .end_sample_idx = end_sample
                     });
 
                 // TODO: Move this outside loop.
@@ -919,6 +931,7 @@ namespace wb
         }
 
         // Merge clip content from the offscreen framebuffer
+        ImVec2 min_bb;
         ImTextureID clip_content_fb_tex = clip_content_fb->get_imgui_texture_id();
         ImVec2 uv_timeline_area(1.0f / timeline_area.x, 1.0f / timeline_area.y); // Normalized UV
         draw_list->PushTextureID(clip_content_fb_tex);

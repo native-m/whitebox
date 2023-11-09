@@ -21,8 +21,16 @@ namespace wb
         float vp_width;
         float vp_height;
         uint32_t chunk_size;
-        uint32_t max_sample_idx;
+        uint32_t start_sample_idx;
+        uint32_t end_sample_idx;
     };
+
+    static inline uint32_t get_mip_level(float scale_x)
+    {
+        double chunk_size = std::max(std::round(0.25 / (double)scale_x), 1.0);
+        uint32_t mip_level = std::min((uint32_t)std::round(std::log2(chunk_size)), 7U);
+        return mip_level;
+    }
 
     RendererD3D11::RendererD3D11(IDXGISwapChain2* swapchain,
                                  ID3D11Device* device,
@@ -425,8 +433,7 @@ namespace wb
 
             for (auto& clip_content : clip_contents) {
                 SamplePeaksD3D11* waveform_view_buf = static_cast<SamplePeaksD3D11*>(clip_content.sample_peaks);
-                double chunk_size = std::max(std::round(0.25 / (double)clip_content.scale_x), 1.0);
-                uint32_t mip_level = std::min((uint32_t)std::floor(std::log2(chunk_size)), 7U);
+                uint32_t mip_level = get_mip_level(clip_content.scale_x);
                 ID3D11ShaderResourceView* mip_srv = waveform_view_buf->mip_map[mip_level].srv;
 
                 if (srv != mip_srv) {
@@ -434,7 +441,9 @@ namespace wb
                     srv = mip_srv;
                 }
 
-                uint32_t sample_count = waveform_view_buf->sample_count / (1 << mip_level);
+                uint32_t start_sample_idx = clip_content.start_sample_idx / (1 << mip_level);
+                uint32_t end_sample_idx = clip_content.end_sample_idx / (1 << mip_level);
+                uint32_t sample_count = end_sample_idx - start_sample_idx;
                 D3D11_MAPPED_SUBRESOURCE mapped_resource{};
                 context_->Map(parameter_cbuffer_, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped_resource);
                 WaveformViewParam* param = (WaveformViewParam*)mapped_resource.pData;
@@ -446,7 +455,8 @@ namespace wb
                 param->vp_width = vp_width;
                 param->vp_height = vp_height;
                 param->chunk_size = 1 << mip_level;
-                param->max_sample_idx = sample_count - 1;
+                param->start_sample_idx = start_sample_idx;
+                param->end_sample_idx = end_sample_idx;
                 context_->Unmap(parameter_cbuffer_, 0);
 
                 RECT scissor_rect{
@@ -469,8 +479,7 @@ namespace wb
 
             for (auto& clip_content : clip_contents) {
                 SamplePeaksD3D11* waveform_view_buf = static_cast<SamplePeaksD3D11*>(clip_content.sample_peaks);
-                double chunk_size = std::max(std::ceil(1. / (double)clip_content.scale_x), 1.0);
-                uint32_t mip_level = std::min((uint32_t)std::floor(std::log2(chunk_size)), 8U);
+                uint32_t mip_level = get_mip_level(clip_content.scale_x);
                 ID3D11ShaderResourceView* mip_srv = waveform_view_buf->mip_map[mip_level].srv;
 
                 if (srv != mip_srv) {

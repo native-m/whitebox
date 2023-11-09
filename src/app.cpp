@@ -43,7 +43,7 @@ namespace wb
         config.SizePixels = 13.0f;
         config.FontBuilderFlags = ImGuiFreeTypeBuilderFlags_LoadColor;
         config.RasterizerMultiply = 1.0f;
-        //config.GlyphOffset.x = -1.0f;
+        config.GlyphOffset.x = -1.0f;
 
         io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
         io.Fonts->AddFontFromFileTTF("../../../assets/Inter-Medium.otf", 0.0f, &config);

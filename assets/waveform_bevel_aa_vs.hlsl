@@ -4,27 +4,27 @@ Buffer<float> vertex_input : register(t0);
 
 VSOutput main(uint vertex : SV_VertexID)
 {
-    uint sample_idx = vertex / 3;
+    uint sample_idx = start_sample_idx + vertex / 3;
     uint vertex_idx = vertex % 3;
-    uint a_idx = clamp(sample_idx, 0, max_sample_idx);
-    uint b_idx = clamp(sample_idx + 1, 0, max_sample_idx);
-    uint c_idx = clamp(sample_idx + 2, 0, max_sample_idx);
+    uint a_idx = clamp(sample_idx, 0, end_sample_idx);
+    uint b_idx = clamp(sample_idx + 1, 0, end_sample_idx);
+    uint c_idx = clamp(sample_idx + 2, 0, end_sample_idx);
     float a_val = vertex_input.Load(a_idx);
     float b_val = vertex_input.Load(b_idx);
     float c_val = vertex_input.Load(c_idx);
-    float offset_scale_y = scale_y * 0.5;
+    float offset_y = scale_y * 0.5;
 
     float2 a;
     a.x = float(a_idx * chunk_size) * scale_x;
-    a.y = a_val * offset_scale_y + offset_scale_y;
+    a.y = a_val * offset_y + offset_y;
     
     float2 b;
     b.x = float(b_idx * chunk_size) * scale_x;
-    b.y = b_val * offset_scale_y + offset_scale_y;
+    b.y = b_val * offset_y + offset_y;
     
     float2 c;
     c.x = float(c_idx * chunk_size) * scale_x;
-    c.y = c_val * offset_scale_y + offset_scale_y;
+    c.y = c_val * offset_y + offset_y;
     
     uint dir = vertex_idx & 1;
     float is_bevel = float(~(vertex_idx >> 1U) & 1U);
