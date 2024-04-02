@@ -1,0 +1,24 @@
+---
+Language: Cpp
+UseTab: Never
+ContinuationIndentWidth: 4
+IndentWidth: 4
+IndentCaseLabels: true
+ColumnLimit: 100
+AllowShortEnumsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: InlineOnly
+PointerAlignment: Left
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+AlwaysBreakTemplateDeclarations: true
+SpaceBeforeCpp11BracedList: true
+BreakConstructorInitializers: AfterColon
+BraceWrapping:
+    AfterControlStatement: false
+    AfterEnum: false
+    AfterFunction: false
+    AfterClass: false
+    AfterStruct: false
+    AfterNamespace: true
+    AfterUnion: false
+    BeforeElse: false
+    SplitEmptyFunction: true

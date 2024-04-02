@@ -1,0 +1,76 @@
+﻿# CMakeList.txt : CMake project for whitebox, include source and define
+# project specific logic here.
+#
+cmake_minimum_required (VERSION 3.8)
+
+# Enable Hot Reload for MSVC compilers if supported.
+if (POLICY CMP0141)
+  cmake_policy(SET CMP0141 NEW)
+  set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
+endif()
+
+project("whitebox")
+
+include(Dependencies.cmake)
+
+add_subdirectory(assets)
+
+set(WB_SOURCES
+    "src/core/color.h"
+    "src/core/common.h"
+    "src/core/debug.cpp"
+    "src/core/debug.h"
+    "src/core/memory.h"
+    "src/core/queue.h"
+    "src/core/thread.h"
+    
+    "src/engine/clip.h"
+    "src/engine/engine.cpp"
+    "src/engine/engine.h"
+    "src/engine/sample.cpp"
+    "src/engine/sample.h"
+    "src/engine/sample_table.cpp"
+    "src/engine/sample_table.h"
+    "src/engine/track.cpp"
+    "src/engine/track.h"
+
+    "src/ui/browser.cpp"
+    "src/ui/browser.h"
+    "src/ui/controls.h"
+    "src/ui/forms.h"
+    "src/ui/layout.h"
+    "src/ui/popup_state_manager.h"
+    "src/ui/timeline.cpp"
+    "src/ui/timeline.h"
+
+    "src/app.cpp"
+    "src/app.h"
+    "src/app_sdl2.cpp"
+    "src/app_sdl2.h"
+    "src/renderer_d3d11.cpp"
+    "src/renderer_d3d11.h"
+    "src/renderer.cpp"
+    "src/renderer.h"
+)
+
+set(WB_LINK_LIBARIES
+    SDL2-static
+    spdlog::spdlog
+    imgui-sdl2
+    imgui-d3d11
+    imgui-cpp
+    imgui-freetype
+    sndfile
+    nfd)
+
+add_library(whitebox-lib STATIC ${WB_SOURCES})
+set_target_properties(whitebox-lib PROPERTIES CXX_STANDARD 20)
+target_link_libraries(whitebox-lib PUBLIC ${WB_LINK_LIBARIES})
+target_include_directories(whitebox-lib PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
+
+
+# Add source to this project's executable.
+add_executable(whitebox "src/main.cpp")
+set_target_properties(whitebox PROPERTIES CXX_STANDARD 20)
+target_link_libraries(whitebox whitebox-lib)
+add_dependencies(whitebox wb-assets)
