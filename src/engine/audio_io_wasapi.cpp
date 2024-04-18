@@ -28,20 +28,6 @@ using namespace Microsoft::WRL;
 
 namespace wb {
 
-static const std::pair<uint32_t, AudioDeviceSampleRate> compatible_sample_rates[] = {
-    {44100, AudioDeviceSampleRate::Hz44100},   {48000, AudioDeviceSampleRate::Hz48000},
-    {88200, AudioDeviceSampleRate::Hz88200},   {96000, AudioDeviceSampleRate::Hz96000},
-    {176400, AudioDeviceSampleRate::Hz176400}, {192000, AudioDeviceSampleRate::Hz192000},
-};
-
-static const AudioFormat compatible_formats[] = {
-    AudioFormat::I16, AudioFormat::I24, AudioFormat::I24_X8, AudioFormat::I32, AudioFormat::F32,
-};
-
-static const uint16_t compatible_channel_count[] = {
-    2,
-};
-
 struct FormatBitSizes {
     GUID subtype;
     WORD bits_per_sample;
@@ -91,16 +77,6 @@ inline static WAVEFORMATEXTENSIBLE to_waveformatex(AudioFormat sample_format, ui
     waveformat.dwChannelMask = (1u << channels) - 1;
 
     return waveformat;
-}
-
-inline uint32_t to_sample_count(REFERENCE_TIME ref_time, uint32_t sample_rate) {
-    constexpr double sec_in_100_ns_units = 10000000.0;
-    return (uint32_t)std::round(sample_rate * ref_time / sec_in_100_ns_units);
-}
-
-inline REFERENCE_TIME to_period(uint32_t buffer_size, uint32_t sample_rate) {
-    constexpr double sec_in_100_ns_units = 10000000.0;
-    return (REFERENCE_TIME)std::round(sec_in_100_ns_units * (buffer_size / (double)sample_rate));
 }
 
 struct AudioDeviceWASAPI {
@@ -432,6 +408,8 @@ AudioIO* create_audio_io_wasapi() {
 } // namespace wb
 
 #else
+
+#include "audio_io.h"
 
 namespace wb {
 AudioIO* create_audio_io_wasapi() {
