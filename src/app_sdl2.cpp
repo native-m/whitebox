@@ -1,7 +1,6 @@
 #include "app_sdl2.h"
 #include "renderer.h"
 #include <SDL.h>
-#include <combaseapi.h>
 #include <imgui_impl_sdl2.h>
 
 namespace wb {

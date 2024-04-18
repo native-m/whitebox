@@ -62,12 +62,14 @@ if (imgui_ADDED)
     target_link_libraries(imgui-sdl2
         PUBLIC SDL2::SDL2-static imgui imgui-backends)
 
-    set(IMGUI_BACKEND_D3D11_SOURCES
-        "${imgui_SOURCE_DIR}/backends/imgui_impl_dx11.cpp"
-        "${imgui_SOURCE_DIR}/backends/imgui_impl_dx11.h")
-    add_library(imgui-d3d11 STATIC ${IMGUI_BACKEND_D3D11_SOURCES})
-    target_include_directories(imgui-d3d11 PUBLIC $<BUILD_INTERFACE:${imgui_SOURCE_DIR}/backends>)
-    target_link_libraries(imgui-d3d11 PUBLIC imgui dxguid)
+    if(WIN32)
+        set(IMGUI_BACKEND_D3D11_SOURCES
+            "${imgui_SOURCE_DIR}/backends/imgui_impl_dx11.cpp"
+            "${imgui_SOURCE_DIR}/backends/imgui_impl_dx11.h")
+        add_library(imgui-d3d11 STATIC ${IMGUI_BACKEND_D3D11_SOURCES})
+        target_include_directories(imgui-d3d11 PUBLIC $<BUILD_INTERFACE:${imgui_SOURCE_DIR}/backends>)
+        target_link_libraries(imgui-d3d11 PUBLIC imgui dxguid)
+    endif()
 
     # set(IMGUI_GL3_SRC_FILES
     #     "${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp"

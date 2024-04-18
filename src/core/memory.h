@@ -3,6 +3,7 @@
 #include "common.h"
 #include <algorithm>
 #include <memory>
+#include <cstring>
 
 namespace wb {
 inline void* allocate(size_t size) noexcept {
