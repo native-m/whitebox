@@ -1,9 +1,13 @@
 #include "app.h"
 #include "core/debug.h"
+#include "engine/audio_io.h"
 #include "engine/engine.h"
 #include "renderer.h"
 #include "ui/browser.h"
+#include "ui/controls.h"
+#include "ui/mixer.h"
 #include "ui/timeline.h"
+#include "ui/settings.h"
 #include <imgui.h>
 #include <imgui_freetype.h>
 
@@ -13,7 +17,9 @@ void apply_theme(ImGuiStyle& style);
 
 App::~App() {
     Log::info("Closing application...");
+    g_audio_io->close_device();
     g_timeline.shutdown();
+    shutdown_audio_io();
     shutdown_renderer();
     ImGui::DestroyContext();
 }
@@ -22,7 +28,7 @@ void App::init() {
     Log::info("Initializing UI...");
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    
+
     ImFontConfig config;
     config.SizePixels = 13.0f;
 
@@ -38,16 +44,21 @@ void App::init() {
     apply_theme(ImGui::GetStyle());
 
     init_renderer(this);
+    init_audio_io(AudioIOType::WASAPI);
     g_engine.set_bpm(150.0f);
     g_timeline.init();
+
+    AudioDeviceProperties& out_properties = g_audio_io->default_output_device;
+    AudioDeviceProperties& in_properties = g_audio_io->default_input_device;
+    g_audio_io->open_device(out_properties.id, in_properties.id);
 
     Track* track = g_timeline.add_track();
     g_engine.add_audio_clip_from_file(
         track, "D:/packs/Some samples/NewPacks/Buildups Drum/NM Buildup Drum 09 150 BPM.wav", 0.5);
-    
-    //Track* track = g_engine.add_track("New Track");
-    //track->add_audio_clip("Clip 1", 4.0, 8.0);
-    //track->add_audio_clip("Clip 2", 0.0, 4.0);
+
+    // Track* track = g_engine.add_track("New Track");
+    // track->add_audio_clip("Clip 1", 4.0, 8.0);
+    // track->add_audio_clip("Clip 2", 0.0, 4.0);
 }
 
 void App::run() {
@@ -75,17 +86,26 @@ void App::run() {
                 ImGui::MenuItem("Windows", nullptr, false, false);
                 ImGui::Separator();
                 ImGui::MenuItem("Timeline", nullptr, &g_timeline.open);
+                ImGui::MenuItem("Mixer", nullptr, &g_mixer.open);
                 ImGui::MenuItem("Browser", nullptr, &g_browser.open);
-                ImGui::MenuItem("Settings", nullptr, &settings_window_shown);
+                ImGui::MenuItem("Settings", nullptr, &g_settings.open);
+                ImGui::MenuItem("Test Controls", nullptr, &controls::g_test_control_shown);
                 ImGui::EndMenu();
             }
+
+            if (ImGui::BeginMenu("Help")) {
+                ImGui::MenuItem("About...");
+                ImGui::EndMenu();
+            }
+
             ImGui::EndMainMenuBar();
         }
 
         ImGui::ShowDemoWindow();
 
-        options_window();
+        g_settings.render();
         g_browser.render();
+        g_mixer.render();
         g_timeline.render();
 
         ImGui::Render();
@@ -99,30 +119,7 @@ void App::run() {
 }
 
 void App::options_window() {
-    if (!settings_window_shown)
-        return;
-
-    if (!ImGui::Begin("Settings", &settings_window_shown)) {
-        ImGui::End();
-    }
-
-    if (ImGui::BeginTabBar("settings_tab")) {
-        if (ImGui::BeginTabItem("General")) {
-            ImGui::Button("Test");
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem("Audio")) {
-            ImGui::Button("TODO");
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem("MIDI")) {
-            ImGui::Button("TODO");
-            ImGui::EndTabItem();
-        }
-        ImGui::EndTabBar();
-    }
-
-    ImGui::End();
+    
 }
 
 void apply_theme(ImGuiStyle& style) {

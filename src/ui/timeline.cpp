@@ -39,7 +39,7 @@ inline static void draw_clip(ImDrawList* draw_list, ImVector<ClipContentDrawCmd>
     ImDrawListFlags tmp_flags = draw_list->Flags;
     draw_list->Flags = draw_list->Flags & ~draw_list_aa_flags;
     draw_list->AddRectFilled(min_bb, clip_title_max_bb, clip->color);
-    draw_list->AddRectFilled(clip_content_min, max_bb, color_adjust_alpha(track->color, 0.35f));
+    draw_list->AddRectFilled(clip_content_min, max_bb, track->color); // color_adjust_alpha(track->color, 0.35f)
     draw_list->AddRect(min_bb, clip_title_max_bb, border_color);
     draw_list->Flags = tmp_flags;
 
@@ -74,7 +74,7 @@ inline static void draw_clip(ImDrawList* draw_list, ImVector<ClipContentDrawCmd>
         uint32_t start_idx =
             (uint32_t)std::round(std::max(-fb_min.x, 0.0f) + (float)waveform_start);
 
-        Log::info("{} {} {} {} {}", min_x, max_x, min_rem, start_idx, waveform_start);
+        //Log::info("{} {} {} {} {}", min_x, max_x, min_rem, start_idx, waveform_start);
 
         if (draw_count) {
             clip_content_cmds.push_back({
@@ -124,7 +124,7 @@ inline void draw_clip2(ImDrawList* draw_list, ImVector<ClipContentDrawCmd>& clip
     draw_list->Flags = draw_list->Flags & ~draw_list_aa_flags;
     draw_list->AddRectFilled(clip_title_min_bb, clip_title_max_bb, clip->color);
     draw_list->AddRectFilled(clip_content_min, clip_content_max,
-                             color_adjust_alpha(track_color, 0.35f));
+        color_adjust_alpha(track_color, 0.35f));
     draw_list->AddRect(clip_title_min_bb, clip_title_max_bb, border_color);
     draw_list->Flags = tmp_flags;
 
@@ -147,6 +147,31 @@ inline void draw_clip2(ImDrawList* draw_list, ImVector<ClipContentDrawCmd>& clip
         double mip_index = std::log(scale_x * 0.5) * log_base4; // Scale -> Index
         uint32_t index = std::clamp((uint32_t)mip_index, 0u, sample_peaks->mipmap_count);
         double mip_scale = std::pow(4.0, (mip_index - (double)index)) * 2.0; // Index -> Mip Scale
+
+        double waveform_start = start_sample_pos * inv_scale_x;
+        double waveform_len = ((double)asset->sample_instance.count - waveform_start) * inv_scale_x;
+        double rel_min_x = min_x - (double)min_draw_x;
+        double rel_max_x = max_x - (double)min_draw_x;
+        double min_pos_x = std::max(rel_min_x, 0.0);
+        double max_pos_x =
+            std::min(std::min(rel_max_x, rel_min_x + waveform_len), (double)(timeline_width + 2.0));
+        double draw_count = std::max(max_pos_x - min_pos_x, 0.0);
+        double start_idx = std::max(-rel_min_x, 0.0) + waveform_start;
+
+        //Log::info("{} {} {}", min_pos_x - waveform_start, draw_count, start_idx);
+
+        if (draw_count) {
+            clip_content_cmds.push_back({
+                .peaks = sample_peaks,
+                .min_bb = ImVec2((float)std::round(min_pos_x), clip_content_min.y - offset_y),
+                .max_bb = ImVec2((float)std::round(max_pos_x), clip_content_max.y - offset_y),
+                .color = color_brighten(clip->color, 0.85f),
+                .scale_x = (float)mip_scale,
+                .mip_index = index,
+                .start_idx = (uint32_t)std::round(start_idx),
+                .draw_count = (uint32_t)draw_count * 2,
+            });
+        }
     }
 }
 
@@ -206,16 +231,20 @@ void GuiTimeline::render() {
 
     ImGui::BeginChild("##timeline_content", ImVec2(), 0, timeline_content_area_flags);
 
-    if (scrolling && scroll_delta_y != 0.0f) {
-        ImGui::SetScrollY(ImGui::GetScrollY() - scroll_delta_y);
-        redraw = true;
-    }
-
     win_draw_list = ImGui::GetWindowDrawList();
     content_min = ImGui::GetWindowContentRegionMin();
     content_max = ImGui::GetWindowContentRegionMax();
     area_size = ImVec2(content_max.x - content_min.x, content_max.y - content_min.y);
     vscroll = ImGui::GetScrollY();
+
+    ImGuiID scrollbar_id = ImGui::GetWindowScrollbarID(ImGui::GetCurrentWindow(), ImGuiAxis_Y);
+    if (scrolling && scroll_delta_y != 0.0f || ImGui::GetActiveID() == scrollbar_id) {
+        ImGui::SetScrollY(vscroll - scroll_delta_y);
+        redraw = true;
+    }
+
+    if ((last_vscroll - vscroll) != 0.0f)
+        redraw = true;
 
     render_separator();
     render_track_controls();
@@ -567,6 +596,8 @@ inline void GuiTimeline::render_track_controls() {
 
     // ImGui::InvisibleButton("##test", ImVec2(10.0f, 1000.0f));
 
+    //Log::info("{} {}", screen_pos.x, screen_pos.y + area_size.y + vscroll);
+
     ImGui::PopClipRect();
 }
 
@@ -665,7 +696,7 @@ void GuiTimeline::render_tracks() {
     double ppq = g_engine.ppq;
     double beat_duration = g_engine.beat_duration;
     float offset_y = vscroll + timeline_view_pos.y;
-    ImGui::SetCursorScreenPos(ImVec2(timeline_view_pos.x, offset_y));
+    ImGui::SetCursorScreenPos(ImVec2(timeline_view_pos.x, timeline_view_pos.y));
 
     auto timeline_area = ImGui::GetContentRegionAvail();
     timeline_width = timeline_area.x;
@@ -681,7 +712,7 @@ void GuiTimeline::render_tracks() {
         timeline_fb = g_renderer->create_framebuffer((int)timeline_width, (int)area_size.y);
         old_timeline_size.x = timeline_width;
         old_timeline_size.y = area_size.y;
-        redraw = true;
+        redraw = redraw || true;
     }
 
     ImGui::InvisibleButton("##timeline",
@@ -790,10 +821,13 @@ void GuiTimeline::render_tracks() {
         int count_offset = (uint32_t)(scroll_pos_x * inv_grid_inc_x);
         for (int i = 0; i <= gridline_count; i++) {
             gridline_pos_x += grid_inc_x;
-            priv_draw_list->AddLine(ImVec2(std::floor(gridline_pos_x), offset_y),
-                                    ImVec2(std::floor(gridline_pos_x), offset_y + area_size.y),
+            priv_draw_list->AddLine(ImVec2(std::round(gridline_pos_x), offset_y),
+                                    ImVec2(std::round(gridline_pos_x), offset_y + area_size.y),
                                     grid_color, (i + count_offset + 1) % 4 ? 1.0f : 2.0f);
         }
+
+        //Log::info("{}")
+        Log::info("{} {} {}", view_max.y, view_max.y, vscroll + timeline_view_pos.y);
     }
 
     for (auto track : g_engine.tracks) {
@@ -883,7 +917,7 @@ void GuiTimeline::render_tracks() {
                           font_size);*/
                 draw_clip2(priv_draw_list, clip_content_cmds, clip, timeline_width, offset_y,
                            timeline_view_pos.x, min_pos_x, max_pos_x, clip_scale, sample_scale,
-                           start_sample_pos, offset_y, track->height, track->color, font,
+                           start_sample_pos, track_pos_y, track->height, track->color, font,
                            text_color);
             }
         }
@@ -995,6 +1029,13 @@ void GuiTimeline::render_tracks() {
 
         double min_pos_x = timeline_scroll_offset_x + min_time * clip_scale;
         double max_pos_x = timeline_scroll_offset_x + max_time * clip_scale;
+
+        if (min_pos_x < timeline_end_x && max_pos_x > timeline_view_pos.x) {
+            draw_clip2(priv_draw_list, clip_content_cmds, edited_clip, timeline_width, offset_y,
+                       timeline_view_pos.x, min_pos_x, max_pos_x, clip_scale, sample_scale,
+                       start_sample_pos, edited_track_pos_y, edited_track->height,
+                       edited_track->color, font, text_color);
+        }
         /*float min_pos_x_in_pixel = (float)std::floor(min_pos_x);
         float max_pos_x_in_pixel = (float)std::floor(max_pos_x);
         ImVec2 min_bb(min_pos_x_in_pixel, edited_track_pos_y);
@@ -1003,11 +1044,6 @@ void GuiTimeline::render_tracks() {
         /*draw_clip(priv_draw_list, clip_content_cmds, edited_track, edited_clip,
            timeline_view_pos.x, offset_y, timeline_width_f64, sample_scale, clip_scale,
            start_sample_pos, min_bb, max_bb, text_color, font, font_size);*/
-
-        draw_clip2(priv_draw_list, clip_content_cmds, edited_clip, timeline_width, offset_y,
-                   timeline_view_pos.x, min_pos_x, max_pos_x, clip_scale, sample_scale,
-                   start_sample_pos, offset_y, edited_track->height, edited_track->color, font,
-                   text_color);
 
         edited_clip_min_time = min_time;
         edited_clip_max_time = max_time;
@@ -1034,7 +1070,8 @@ void GuiTimeline::render_tracks() {
         switch (edit_action) {
             case TimelineEditAction::ClipMove:
                 if (!left_mouse_down) {
-                    edited_track->move_clip(edited_clip, mouse_at_gridline - initial_time_pos);
+                    edited_track->move_clip(edited_clip, mouse_at_gridline - initial_time_pos,
+                                            beat_duration);
                     finish_edit_action();
                     force_redraw = true;
                 }
@@ -1044,7 +1081,7 @@ void GuiTimeline::render_tracks() {
                 if (!left_mouse_down) {
                     double relative_pos = mouse_at_gridline - initial_time_pos;
                     edited_track->resize_clip(edited_clip, relative_pos, 1.0 / grid_scale,
-                                              g_engine.beat_duration, true);
+                                              beat_duration, true);
                     finish_edit_action();
                     force_redraw = true;
                 }
@@ -1054,7 +1091,7 @@ void GuiTimeline::render_tracks() {
                 if (!left_mouse_down) {
                     double relative_pos = mouse_at_gridline - initial_time_pos;
                     edited_track->resize_clip(edited_clip, relative_pos, 1.0 / grid_scale,
-                                              g_engine.beat_duration, false);
+                                              beat_duration, false);
                     finish_edit_action();
                     force_redraw = true;
                 }
@@ -1064,7 +1101,7 @@ void GuiTimeline::render_tracks() {
                 if (!left_mouse_down) {
                     double clip_length = edited_clip->max_time - edited_clip->min_time;
                     edited_track->duplicate_clip(edited_clip, mouse_at_gridline,
-                                                 mouse_at_gridline + clip_length);
+                                                 mouse_at_gridline + clip_length, beat_duration);
                     finish_edit_action();
                     force_redraw = true;
                 }
@@ -1095,7 +1132,7 @@ void GuiTimeline::render_tracks() {
         force_redraw = true;
     }
 
-    // last_vscroll = vscroll;
+    last_vscroll = vscroll;
 
     ImGui::PopClipRect();
 }

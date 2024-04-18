@@ -1,11 +1,13 @@
 #include "app_sdl2.h"
 #include "renderer.h"
 #include <SDL.h>
+#include <combaseapi.h>
 #include <imgui_impl_sdl2.h>
 
 namespace wb {
 
 AppSDL2::~AppSDL2() {
+    ImGui_ImplSDL2_Shutdown();
     if (!window)
         SDL_DestroyWindow(window);
     SDL_Quit();
@@ -15,7 +17,8 @@ void AppSDL2::init() {
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
 
     SDL_Window* new_window =
-        SDL_CreateWindow("whitebox", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, SDL_WINDOW_RESIZABLE);
+        SDL_CreateWindow("whitebox", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720,
+                         SDL_WINDOW_RESIZABLE);
 
     if (!new_window) {
         SDL_Quit();

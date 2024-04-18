@@ -11,12 +11,12 @@ class Log {
     std::optional<spdlog::logger> logger;
 
     Log(const std::string& logger_name) {
-        auto file_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
-            "logs/imdev-log.txt", 1048576, 3, false, spdlog::file_event_handlers{});
+        /*auto file_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
+            "logs/imdev-log.txt", 1048576, 3, false, spdlog::file_event_handlers{});*/
 
         auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
 
-        logger.emplace(logger_name, spdlog::sinks_init_list{console_sink, file_sink});
+        logger.emplace(logger_name, spdlog::sinks_init_list{console_sink});
         logger->set_level(spdlog::level::trace);
     }
 

@@ -24,6 +24,9 @@ set(WB_SOURCES
     "src/core/queue.h"
     "src/core/thread.h"
     
+    "src/engine/audio_io.cpp"
+    "src/engine/audio_io.h"
+    "src/engine/audio_io_wasapi.cpp"
     "src/engine/clip.h"
     "src/engine/engine.cpp"
     "src/engine/engine.h"
@@ -36,10 +39,18 @@ set(WB_SOURCES
 
     "src/ui/browser.cpp"
     "src/ui/browser.h"
+    "src/ui/controls.cpp"
     "src/ui/controls.h"
+    "src/ui/draw.cpp"
+    "src/ui/draw.h"
     "src/ui/forms.h"
     "src/ui/layout.h"
+    "src/ui/mixer.cpp"
+    "src/ui/mixer.h"
     "src/ui/popup_state_manager.h"
+    "src/ui/settings.cpp"
+    "src/ui/settings.h"
+    "src/ui/test_controls.cpp"
     "src/ui/timeline.cpp"
     "src/ui/timeline.h"
 
@@ -47,10 +58,12 @@ set(WB_SOURCES
     "src/app.h"
     "src/app_sdl2.cpp"
     "src/app_sdl2.h"
-    "src/renderer_d3d11.cpp"
-    "src/renderer_d3d11.h"
     "src/renderer.cpp"
     "src/renderer.h"
+    "src/renderer_d3d11.cpp"
+    "src/renderer_d3d11.h"
+    "src/settings_data.cpp"
+    "src/settings_data.h"
 )
 
 set(WB_LINK_LIBARIES
@@ -67,7 +80,6 @@ add_library(whitebox-lib STATIC ${WB_SOURCES})
 set_target_properties(whitebox-lib PROPERTIES CXX_STANDARD 20)
 target_link_libraries(whitebox-lib PUBLIC ${WB_LINK_LIBARIES})
 target_include_directories(whitebox-lib PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
-
 
 # Add source to this project's executable.
 add_executable(whitebox "src/main.cpp")

@@ -11,6 +11,9 @@ Engine::~Engine() {
 
 void Engine::set_bpm(double bpm) {
     beat_duration = 60.0 / bpm;
+    for (auto& listener : on_bpm_change_listener) {
+        listener(beat_duration, bpm);
+    }
 }
 
 Track* Engine::add_track(const std::string& name) {
@@ -51,8 +54,8 @@ Clip* Engine::add_audio_clip_from_file(Track* track, const std::filesystem::path
     double max_time =
         min_time + samples_to_beat(asset->sample_instance.count, sample_rate, beat_duration);
 
-    Clip* clip =
-        track->add_audio_clip(path.filename().string(), min_time, max_time, {.asset = asset});
+    Clip* clip = track->add_audio_clip(path.filename().string(), min_time, max_time,
+                                       {.asset = asset}, beat_duration);
     if (!clip) {
         asset->release();
         return nullptr;

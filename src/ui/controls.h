@@ -1,11 +1,32 @@
 #pragma once
 
+#include "draw.h"
 #include "popup_state_manager.h"
+#include <algorithm>
+#include <bit>
 #include <imgui.h>
 #include <imgui_internal.h>
-#include <bit>
 
 namespace wb::controls {
+
+enum class SliderGrabShape {
+    Circle,
+    Rectangle
+};
+
+enum class SliderScale {
+    Linear,
+    Logarithm
+};
+
+struct SliderProperties {
+    SliderScale scale = SliderScale::Linear;
+    SliderGrabShape grab_shape = SliderGrabShape::Circle;
+    ImVec2 grab_size = {};
+    float grab_roundness = 0.0f;
+    float frame_width = 0.0f;
+    ImVec2 extra_padding = {};
+};
 
 static bool begin_dockable_window(const char* title, bool* p_open = nullptr,
                                   ImGuiWindowFlags flags = 0) {
@@ -123,5 +144,74 @@ static bool hseparator_resizer(T id, float* size, float default_size, float min_
     ImGui::PopID();
     return is_separator_active;
 }
+
+template <typename T>
+static bool slider2(const SliderProperties& properties, const char* str_id, const ImVec2& size,
+                    const ImColor& color, T* value, T min, T max) {
+    ImGuiWindow* window = GImGui->CurrentWindow;
+    ImVec2 cursor_pos = window->DC.CursorPos;
+    //ImVec2 padded_size(size.x - properties.extra_padding.x, size.y - properties.extra_padding.y);
+    //cursor_pos.x += properties.extra_padding.x;
+    //cursor_pos.y += properties.extra_padding.y;
+
+    ImRect bb(ImVec2(cursor_pos.x, cursor_pos.y),
+              ImVec2(cursor_pos.x + size.x, cursor_pos.y + size.y));
+    ImGuiID id = ImGui::GetID(str_id);
+
+    ImGui::ItemSize(bb);
+    if (!ImGui::ItemAdd(bb, id))
+        return false;
+
+    bool hovered, held;
+    bool pressed = ImGui::ButtonBehavior(bb, id, &hovered, &held, ImGuiButtonFlags_None);
+    ImGuiContext& g = *ImGui::GetCurrentContext();
+    const ImVec2& mouse_pos = g.IO.MousePos;
+    ImVec2 grab_size(properties.grab_size);
+    ImU32 frame_col = ImGui::GetColorU32(ImGui::GetStyleColorVec4(ImGuiCol_Border));
+
+    ImU32 grab_col = ImGui::GetColorU32(color.Value);
+    float scroll_height = size.y - grab_size.y;
+    float inv_scroll_height = 1.0f / scroll_height;
+    float frame_width = std::max(properties.frame_width, 3.0f);
+    bool dragging = held && ImGui::IsMouseDragging(ImGuiMouseButton_Left);
+
+    if (ImGui::IsItemActivated())
+        g.SliderGrabClickOffset = mouse_pos.y - ((1.0f - *value) * scroll_height + cursor_pos.y);
+
+    if (held) {
+        float val = (mouse_pos.y - cursor_pos.y - g.SliderGrabClickOffset) * inv_scroll_height;
+        *value = std::clamp(1.0f - val, 0.0f, 1.0f);
+        // ImGui::SetNextWindowPos(ImVec2())
+        ImGui::BeginTooltip();
+        ImGui::Text("%.3f", *value);
+        ImGui::EndTooltip();
+    }
+
+    float grab_pos = (1.0f - *value) * scroll_height;
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    ImVec2 frame_rect_min(cursor_pos.x + size.x * 0.5f - frame_width * 0.5f,
+                          cursor_pos.y + grab_size.y * 0.5f);
+    ImVec2 frame_rect_max(frame_rect_min.x + frame_width, frame_rect_min.y + scroll_height);
+    ImVec2 grab_rect_min(cursor_pos.x + size.x * 0.5f - grab_size.x * 0.5f,
+                         cursor_pos.y + grab_pos);
+    ImVec2 grab_rect_max(grab_rect_min.x + grab_size.x, grab_rect_min.y + grab_size.y);
+
+    // draw_list->AddRect(cursor_pos, bb.Max, frame_col);
+    draw_list->AddRectFilled(frame_rect_min, frame_rect_max, frame_col);
+    draw_list->AddRectFilled(grab_rect_min, grab_rect_max, grab_col, properties.grab_roundness);
+    draw_list->AddLine(
+        ImVec2(grab_rect_min.x + 2.0f, grab_rect_min.y + grab_size.y * 0.5f),
+        ImVec2(grab_rect_min.x + grab_size.x - 2.0f, grab_rect_min.y + grab_size.y * 0.5f),
+        0xFFFFFFFF, 3.0f);
+
+    return true;
+}
+
+bool mixer_label(const char* caption, const float height, const ImColor& color);
+
+void metering(const ImVec2& size, uint32_t count, const float* channels);
+
+void render_test_controls();
+extern bool g_test_control_shown;
 
 } // namespace wb::controls

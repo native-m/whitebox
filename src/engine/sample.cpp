@@ -236,11 +236,11 @@ bool Sample::summarize_for_mipmaps(SamplePeaksPrecision precision, uint32_t chan
     std::byte* sample = sample_data[channel];
 
     switch (precision) {
-        case SamplePeaksPrecision ::Low:
+        case SamplePeaksPrecision::Low:
             summarize_for_mipmaps_impl(format, count, sample, chunk_count, block_count,
                                        mip_data_count, (int8_t*)output_data + output_offset);
             break;
-        case SamplePeaksPrecision ::High:
+        case SamplePeaksPrecision::High:
             summarize_for_mipmaps_impl(format, count, sample, chunk_count, block_count,
                                        mip_data_count, (int16_t*)output_data + output_offset);
             break;

@@ -11,27 +11,19 @@
 namespace wb {
 
 Clip* Track::add_audio_clip(const std::string& name, double min_time, double max_time,
-                            double beat_duration, SampleAsset* asset) {
+                            const AudioClip& clip_info, double beat_duration) {
     Clip* clip = (Clip*)clip_allocator.allocate();
     if (!clip)
         return nullptr;
-
     new (clip) Clip(name, color, min_time, max_time);
-    double sample_pos =
-        beat_to_samples(min_time, asset->sample_instance.sample_rate, beat_duration);
-
-    clip->as_audio_clip({
-        .asset = asset,
-        .min_sample_pos = sample_pos,
-        .start_offset = sample_pos,
-    });
-
+    clip->as_audio_clip(clip_info);
     clips.push_back(clip);
-    update(clip);
+    update(clip, beat_duration);
     return clip;
 }
 
-Clip* Track::duplicate_clip(Clip* clip_to_duplicate, double min_time, double max_time) {
+Clip* Track::duplicate_clip(Clip* clip_to_duplicate, double min_time, double max_time,
+                            double beat_duration) {
     Clip* clip = (Clip*)clip_allocator.allocate();
     if (!clip)
         return nullptr;
@@ -39,17 +31,17 @@ Clip* Track::duplicate_clip(Clip* clip_to_duplicate, double min_time, double max
     clip->min_time = min_time;
     clip->max_time = max_time;
     clips.push_back(clip);
-    update(clip);
+    update(clip, beat_duration);
     return clip;
 }
 
-void Track::move_clip(Clip* clip, double relative_pos) {
+void Track::move_clip(Clip* clip, double relative_pos, double beat_duration) {
     if (relative_pos == 0.0)
         return;
     double new_pos = std::max(clip->min_time + relative_pos, 0.0);
     clip->max_time = new_pos + (clip->max_time - clip->min_time);
     clip->min_time = new_pos;
-    update(clip);
+    update(clip, beat_duration);
 }
 
 void Track::resize_clip(Clip* clip, double relative_pos, double min_length, double beat_duration,
@@ -72,13 +64,14 @@ void Track::resize_clip(Clip* clip, double relative_pos, double min_length, doub
         clip->relative_start_time = std::max(rel_offset, 0.0);
 
         // For audio, we also need to adjust the sample starting point
-        /*if (clip->type == ClipType::Audio) {
-            SampleAsset* asset = clip->audio.asset;
-            clip->audio.start_sample_pos = (size_t)beat_to_samples(clip->relative_start_time,
-                                (double)asset->sample_instance.sample_rate, beat_duration);
-        }*/
-
         if (clip->type == ClipType::Audio) {
+            SampleAsset* asset = clip->audio.asset;
+            clip->audio.min_sample_pos =
+                beat_to_samples(clip->relative_start_time,
+                                (double)asset->sample_instance.sample_rate, beat_duration);
+        }
+
+        /*if (clip->type == ClipType::Audio) {
             SampleAsset* asset = clip->audio.asset;
 
             intptr_t new_start_sample = (intptr_t)beat_to_samples(
@@ -96,14 +89,14 @@ void Track::resize_clip(Clip* clip, double relative_pos, double min_length, doub
             Log::info("{}", clip->audio.min_sample_pos);
 
             clip->audio.min_sample_pos = (size_t)sample_offset;
-        }
+        }*/
     } else {
         double new_max = std::max(clip->max_time + relative_pos, 0.0);
         if (new_max <= clip->min_time)
             new_max = clip->min_time + min_length;
         clip->max_time = new_max;
     }
-    update(clip);
+    update(clip, beat_duration);
 }
 
 void Track::delete_clip(uint32_t id) {
@@ -111,10 +104,10 @@ void Track::delete_clip(uint32_t id) {
     (*iter)->~Clip();
     clip_allocator.free(*iter);
     clips.erase(iter);
-    update(nullptr);
+    update(nullptr, 0.0);
 }
 
-void Track::update(Clip* updated_clip) {
+void Track::update(Clip* updated_clip, double beat_duration) {
     std::sort(clips.begin(), clips.end(),
               [](const Clip* a, const Clip* b) { return a->min_time < b->min_time; });
 
@@ -133,7 +126,24 @@ void Track::update(Clip* updated_clip) {
                 }
             } else {
                 if (updated_clip->max_time > clip->min_time) {
+                    double old_min = clip->min_time;
                     clip->min_time = updated_clip->max_time;
+
+                    if (clip->min_time < clip->max_time) {
+                        double rel_offset = clip->relative_start_time;
+                        if (old_min < clip->min_time)
+                            rel_offset -= old_min - clip->min_time;
+                        else
+                            rel_offset += clip->min_time - old_min;
+                        clip->relative_start_time = std::max(rel_offset, 0.0);
+
+                        if (clip->type == ClipType::Audio) {
+                            SampleAsset* asset = clip->audio.asset;
+                            clip->audio.min_sample_pos = beat_to_samples(
+                                clip->relative_start_time,
+                                (double)asset->sample_instance.sample_rate, beat_duration);
+                        }
+                    }
                 }
             }
 

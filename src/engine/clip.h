@@ -18,10 +18,11 @@ enum class ClipType {
 struct AudioClip {
     SampleAsset* asset;
     double min_sample_pos;
-    double start_offset;
 };
 
-struct MidiClip {};
+struct MidiClip {
+    uint32_t msg;
+};
 
 struct Clip {
     uint32_t id;
