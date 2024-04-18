@@ -71,7 +71,7 @@ set(WB_SOURCES
     "src/renderer_opengl.h"
 )
 
-set(WB_LINK_LIBARIES
+set(WB_LINK_LIBRARIES
     SDL2-static
     spdlog::spdlog
     imgui-sdl2
@@ -82,19 +82,20 @@ set(WB_LINK_LIBARIES
 
 if (MSVC)
     set(WB_LINK_LIBRARIES
-        ${WB_LINK_LIBARIES}
+        ${WB_LINK_LIBRARIES}
         imgui-d3d11)
 endif()
 
 add_library(whitebox-lib STATIC ${WB_SOURCES})
 set_target_properties(whitebox-lib PROPERTIES CXX_STANDARD 20)
-target_link_libraries(whitebox-lib PUBLIC ${WB_LINK_LIBARIES})
+target_link_libraries(whitebox-lib PUBLIC ${WB_LINK_LIBRARIES})
 target_include_directories(whitebox-lib PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
 # Add source to this project's executable.
 add_executable(whitebox "src/main.cpp")
 set_target_properties(whitebox PROPERTIES CXX_STANDARD 20)
 target_link_libraries(whitebox whitebox-lib)
-if(WIN32)
+
+if (MSVC)
   add_dependencies(whitebox wb-assets)
 endif()
