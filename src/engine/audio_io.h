@@ -122,6 +122,20 @@ inline static uint32_t get_sample_rate_value(AudioDeviceSampleRate sr_enum) {
     return 0;
 }
 
+static const std::pair<uint32_t, AudioDeviceSampleRate> compatible_sample_rates[] = {
+    {44100, AudioDeviceSampleRate::Hz44100},   {48000, AudioDeviceSampleRate::Hz48000},
+    {88200, AudioDeviceSampleRate::Hz88200},   {96000, AudioDeviceSampleRate::Hz96000},
+    {176400, AudioDeviceSampleRate::Hz176400}, {192000, AudioDeviceSampleRate::Hz192000},
+};
+
+static const AudioFormat compatible_formats[] = {
+    AudioFormat::I16, AudioFormat::I24, AudioFormat::I24_X8, AudioFormat::I32, AudioFormat::F32,
+};
+
+static const uint16_t compatible_channel_count[] = {
+    2,
+};
+
 void init_audio_io(AudioIOType type);
 void shutdown_audio_io();
 
