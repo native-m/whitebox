@@ -16,6 +16,7 @@ enum class AudioIOType {
     CoreAudio, // Soon
     WASAPI,
     ASIO,
+    PulseAudio,
 };
 
 enum class AudioDeviceType {

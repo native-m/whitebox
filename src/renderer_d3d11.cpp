@@ -1,3 +1,5 @@
+#ifdef WIN32
+
 #include "renderer_d3d11.h"
 #include "app_sdl2.h"
 #include "core/debug.h"
@@ -532,3 +534,4 @@ Renderer* RendererD3D11::create(App* app) {
 }
 
 } // namespace wb
+#endif // WIN32

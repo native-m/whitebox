@@ -27,6 +27,7 @@ set(WB_SOURCES
     "src/engine/audio_io.cpp"
     "src/engine/audio_io.h"
     "src/engine/audio_io_wasapi.cpp"
+    "src/engine/audio_io_pulse.cpp"
     "src/engine/clip.h"
     "src/engine/engine.cpp"
     "src/engine/engine.h"
@@ -64,6 +65,8 @@ set(WB_SOURCES
     "src/renderer_d3d11.h"
     "src/settings_data.cpp"
     "src/settings_data.h"
+    "src/renderer_opengl.cpp"
+    "src/renderer_opengl.h"
 )
 
 set(WB_LINK_LIBARIES
