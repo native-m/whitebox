@@ -51,6 +51,7 @@ static ID3D11PixelShader* load_ps(ID3D11Device* device, const char* file) {
 RendererD3D11::RendererD3D11(IDXGISwapChain2* swapchain, ID3D11Device* device,
                              ID3D11DeviceContext* ctx) :
     swapchain_(swapchain), device_(device), ctx_(ctx) {
+    swapchain_->SetMaximumFrameLatency(1);
     frame_latency_waitable_handle_ = swapchain->GetFrameLatencyWaitableObject();
     resize_swapchain();
 }
@@ -516,6 +517,9 @@ Renderer* RendererD3D11::create(App* app) {
     IDXGISwapChain2* swapchain2;
     swapchain->QueryInterface(&swapchain2);
     swapchain->Release();
+
+    IDXGIDevice1* device1;
+    device->QueryInterface(&device1);
 
     RendererD3D11* ret = new (std::nothrow) RendererD3D11(swapchain2, device, ctx);
     if (!ret) {
