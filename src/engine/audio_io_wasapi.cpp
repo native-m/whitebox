@@ -6,13 +6,13 @@
 
 #define WIN32_LEAN_AND_MEAN
 #include <Audioclient.h>
+#include <atomic>
 #include <ks.h>
 #include <ksmedia.h>
 #include <memory>
 #include <string_view>
 #include <unordered_set>
 #include <vector>
-#include <atomic>
 #include <wrl.h>
 
 #ifndef __mmdeviceapi_h__
@@ -213,7 +213,6 @@ struct ActiveDeviceWASAPI {
                 // Use low-latency mode
 
             } else {
-
             }
         }
 
@@ -429,6 +428,14 @@ AudioIO* create_audio_io_wasapi() {
     if (!audio_io->init())
         return nullptr;
     return audio_io;
+}
+} // namespace wb
+
+#else
+
+namespace wb {
+AudioIO* create_audio_io_wasapi() {
+    return nullptr;
 }
 } // namespace wb
 
