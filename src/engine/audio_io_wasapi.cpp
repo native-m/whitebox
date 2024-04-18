@@ -433,6 +433,8 @@ AudioIO* create_audio_io_wasapi() {
 
 #else
 
+#include "audio_io.h"
+
 namespace wb {
 AudioIO* create_audio_io_wasapi() {
     return nullptr;
