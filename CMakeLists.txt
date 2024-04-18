@@ -75,11 +75,16 @@ set(WB_LINK_LIBARIES
     SDL2-static
     spdlog::spdlog
     imgui-sdl2
-    imgui-d3d11
     imgui-cpp
     imgui-freetype
     sndfile
     nfd)
+
+if (MSVC)
+    set(WB_LINK_LIBRARIES
+        ${WB_LINK_LIBARIES}
+        imgui-d3d11)
+endif()
 
 add_library(whitebox-lib STATIC ${WB_SOURCES})
 set_target_properties(whitebox-lib PROPERTIES CXX_STANDARD 20)
