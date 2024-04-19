@@ -22,6 +22,7 @@ set(WB_SOURCES
     "src/core/common.h"
     "src/core/debug.cpp"
     "src/core/debug.h"
+    "src/core/defer.h"
     "src/core/memory.h"
     "src/core/queue.h"
     "src/core/thread.h"
@@ -69,13 +70,17 @@ set(WB_SOURCES
     "src/renderer_vulkan.h"
     "src/settings_data.cpp"
     "src/settings_data.h"
+    "src/vk_stub.cpp"
+    "src/vk_stub.h"
 )
 
 set(WB_LINK_LIBRARIES
     SDL2-static
     spdlog::spdlog
     Vulkan::Headers
-    volk
+    VulkanMemoryAllocator
+    volk_headers
+    vk-bootstrap
     imgui-sdl2
     imgui-cpp
     imgui-freetype

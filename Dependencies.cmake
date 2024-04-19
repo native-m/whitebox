@@ -179,3 +179,8 @@ CPMAddPackage(
     GITHUB_REPOSITORY   charles-lunarg/vk-bootstrap
     VERSION             1.3.282
 )
+
+if (VulkanMemoryAllocator_ADDED)
+    add_library(VulkanMemoryAllocator INTERFACE)
+    target_include_directories(VulkanMemoryAllocator INTERFACE "${VulkanMemoryAllocator_SOURCE_DIR}/include")
+endif()

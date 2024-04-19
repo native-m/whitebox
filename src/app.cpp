@@ -35,7 +35,7 @@ void App::init() {
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+    //io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
     io.ConfigViewportsNoTaskBarIcon = false;
 
     io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
@@ -112,8 +112,8 @@ void App::run() {
         g_renderer->set_framebuffer(nullptr);
         g_renderer->clear(0.0f, 0.0f, 0.0f, 1.0f);
         g_renderer->render_draw_data(ImGui::GetDrawData());
-        ImGui::UpdatePlatformWindows();
-        ImGui::RenderPlatformWindowsDefault();
+        //ImGui::UpdatePlatformWindows();
+        //ImGui::RenderPlatformWindowsDefault();
         g_renderer->present();
     }
 }

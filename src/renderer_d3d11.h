@@ -83,6 +83,8 @@ struct RendererD3D11 : public Renderer {
     void new_frame() override;
     void resize_swapchain() override;
     void set_framebuffer(const std::shared_ptr<Framebuffer>& framebuffer) override;
+    void begin_draw(const std::shared_ptr<Framebuffer>& framebuffer) override;
+    void finish_draw() override;
     void clear(float r, float g, float b, float a) override;
     void draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) override;
     void render_draw_data(ImDrawData* draw_data) override;

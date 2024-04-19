@@ -24,6 +24,7 @@ struct ClipContentDrawCmd {
 struct Framebuffer {
     uint32_t width;
     uint32_t height;
+    bool window_framebuffer = false;
 
     virtual ~Framebuffer() {}
     virtual ImTextureID as_imgui_texture_id() const = 0;
@@ -40,6 +41,8 @@ struct Renderer {
     virtual void resize_swapchain() = 0;
     virtual void new_frame() = 0;
     virtual void set_framebuffer(const std::shared_ptr<Framebuffer>& framebuffer) = 0;
+    virtual void begin_draw(const std::shared_ptr<Framebuffer>& framebuffer) = 0;
+    virtual void finish_draw() = 0;
     virtual void clear(float r, float g, float b, float a) = 0;
     virtual void draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) = 0;
     virtual void render_draw_data(ImDrawData* draw_data) = 0;

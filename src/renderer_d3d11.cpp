@@ -371,6 +371,12 @@ void RendererD3D11::set_framebuffer(const std::shared_ptr<Framebuffer>& framebuf
     // vmask_target_ = impl->rtv;
 }
 
+void RendererD3D11::begin_draw(const std::shared_ptr<Framebuffer>& framebuffer) {
+}
+
+void RendererD3D11::finish_draw() {
+}
+
 void RendererD3D11::clear(float r, float g, float b, float a) {
     const float clear_color[4] = {r, g, b, a};
     ctx_->ClearRenderTargetView(current_rtv_, clear_color);
