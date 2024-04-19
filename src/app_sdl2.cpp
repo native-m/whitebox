@@ -17,7 +17,7 @@ void AppSDL2::init() {
 
     SDL_Window* new_window =
         SDL_CreateWindow("whitebox", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720,
-                         SDL_WINDOW_RESIZABLE);
+                         0);
 
     if (!new_window) {
         SDL_Quit();
@@ -37,8 +37,8 @@ void AppSDL2::new_frame() {
     while (SDL_PollEvent(&event))
         handle_events(event);
 
-    ImGui_ImplSDL2_NewFrame();
-    ImGui::NewFrame();
+    //ImGui_ImplSDL2_NewFrame();
+    //ImGui::NewFrame();
 }
 
 void AppSDL2::handle_events(SDL_Event& event) {
@@ -56,7 +56,7 @@ void AppSDL2::handle_events(SDL_Event& event) {
             break;
     }
 
-    ImGui_ImplSDL2_ProcessEvent(&event);
+    //ImGui_ImplSDL2_ProcessEvent(&event);
 }
 
 } // namespace wb

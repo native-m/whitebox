@@ -40,8 +40,10 @@ struct Renderer {
                                                              SamplePeaksPrecision precision) = 0;
     virtual void resize_swapchain() = 0;
     virtual void new_frame() = 0;
+    virtual void end_frame() = 0;
     virtual void set_framebuffer(const std::shared_ptr<Framebuffer>& framebuffer) = 0;
-    virtual void begin_draw(const std::shared_ptr<Framebuffer>& framebuffer) = 0;
+    virtual void begin_draw(const std::shared_ptr<Framebuffer>& framebuffer,
+                            const ImVec4& clear_color) = 0;
     virtual void finish_draw() = 0;
     virtual void clear(float r, float g, float b, float a) = 0;
     virtual void draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) = 0;

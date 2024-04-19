@@ -81,9 +81,11 @@ struct RendererD3D11 : public Renderer {
     std::shared_ptr<SamplePeaks> create_sample_peaks(const Sample& sample,
                                                      SamplePeaksPrecision precision) override;
     void new_frame() override;
+    void end_frame() override;
     void resize_swapchain() override;
     void set_framebuffer(const std::shared_ptr<Framebuffer>& framebuffer) override;
-    void begin_draw(const std::shared_ptr<Framebuffer>& framebuffer) override;
+    void begin_draw(const std::shared_ptr<Framebuffer>& framebuffer,
+                    const ImVec4& clear_color) override;
     void finish_draw() override;
     void clear(float r, float g, float b, float a) override;
     void draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) override;

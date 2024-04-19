@@ -304,6 +304,9 @@ void RendererD3D11::new_frame() {
     ImGui_ImplDX11_NewFrame();
 }
 
+void RendererD3D11::end_frame() {
+}
+
 void RendererD3D11::resize_swapchain() {
     constexpr UINT swapchain_flags =
         DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH | DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
@@ -371,7 +374,8 @@ void RendererD3D11::set_framebuffer(const std::shared_ptr<Framebuffer>& framebuf
     // vmask_target_ = impl->rtv;
 }
 
-void RendererD3D11::begin_draw(const std::shared_ptr<Framebuffer>& framebuffer) {
+void RendererD3D11::begin_draw(const std::shared_ptr<Framebuffer>& framebuffer,
+                               const ImVec4& clear_color) {
 }
 
 void RendererD3D11::finish_draw() {

@@ -65,7 +65,12 @@ void App::run() {
     while (running) {
         new_frame();
 
-        ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(),
+        g_renderer->begin_draw(nullptr, {1.0f, 0.0f, 0.0f, 1.0f});
+        g_renderer->finish_draw();
+        g_renderer->end_frame();
+        g_renderer->present();
+
+        /*ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(),
                                      ImGuiDockNodeFlags_PassthruCentralNode);
 
         if (ImGui::BeginMainMenuBar()) {
@@ -112,9 +117,11 @@ void App::run() {
         g_renderer->set_framebuffer(nullptr);
         g_renderer->clear(0.0f, 0.0f, 0.0f, 1.0f);
         g_renderer->render_draw_data(ImGui::GetDrawData());
-        //ImGui::UpdatePlatformWindows();
-        //ImGui::RenderPlatformWindowsDefault();
-        g_renderer->present();
+        
+        g_renderer->present();*/
+
+        // ImGui::UpdatePlatformWindows();
+        // ImGui::RenderPlatformWindowsDefault();
     }
 }
 
