@@ -149,3 +149,33 @@ CPMAddPackage(
     GITHUB_REPOSITORY   btzy/nativefiledialog-extended
     VERSION             1.1.0
 )
+
+CPMAddPackage(
+    NAME                Vulkan-Headers
+    GITHUB_REPOSITORY   KhronosGroup/Vulkan-Headers
+    VERSION             vulkan-sdk-1.3.268.0
+    GIT_TAG             vulkan-sdk-1.3.268.0
+)
+
+CPMAddPackage(
+    NAME                VulkanMemoryAllocator
+    GITHUB_REPOSITORY   GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
+    VERSION             3.0.1
+    DOWNLOAD_ONLY       YES
+)
+
+CPMAddPackage(
+    NAME                volk
+    GITHUB_REPOSITORY   zeux/volk
+    VERSION             1.3.268.0
+    GIT_TAG             vulkan-sdk-1.3.268.0
+    OPTIONS             "VOLK_PULL_IN_VULKAN OFF"
+                        "VOLK_HEADERS_ONLY ON"
+                        "VOLK_INSTALL OFF"
+)
+
+CPMAddPackage(
+    NAME                vk-bootstrap
+    GITHUB_REPOSITORY   charles-lunarg/vk-bootstrap
+    VERSION             1.3.282
+)
