@@ -7,10 +7,17 @@
 #include <SDL_vulkan.h>
 #include <VkBootstrap.h>
 
+#define IMGUI_IMPL_VULKAN_NO_PROTOTYPES
+
+#include <imgui_impl_sdl2.h>
+#include <imgui_impl_vulkan.h>
+
 namespace wb {
 
-RendererVK::RendererVK(VkPhysicalDevice physical_device, VkDevice device, VkSurfaceKHR surface,
-                       uint32_t graphics_queue_index, uint32_t present_queue_index) :
+RendererVK::RendererVK(VkInstance instance, VkPhysicalDevice physical_device, VkDevice device,
+                       VkSurfaceKHR surface, uint32_t graphics_queue_index,
+                       uint32_t present_queue_index) :
+    instance_(instance),
     physical_device_(physical_device),
     device_(device),
     surface_(surface),
@@ -22,7 +29,21 @@ RendererVK::RendererVK(VkPhysicalDevice physical_device, VkDevice device, VkSurf
 
 RendererVK::~RendererVK() {
     vkDeviceWaitIdle(device_);
+
+    for (int i = 0; i < VULKAN_BUFFER_SIZE; i++) {
+        vkDestroyCommandPool(device_, cmd_buf_[i].cmd_pool, nullptr);
+        vkDestroyFence(device_, frame_sync_[i].fence, nullptr);
+        vkDestroySemaphore(device_, frame_sync_[i].image_acquire_semaphore, nullptr);
+        vkDestroySemaphore(device_, frame_sync_[i].render_finished_semaphore, nullptr);
+        vkDestroyFramebuffer(device_, main_framebuffer_.framebuffer[i], nullptr);
+        vkDestroyImageView(device_, main_framebuffer_.view[i], nullptr);
+    }
+
+    vkDestroyDescriptorPool(device_, imgui_descriptor_pool_, nullptr);
+    vkDestroyRenderPass(device_, fb_render_pass_, nullptr);
+    vkDestroySwapchainKHR(device_, swapchain_, nullptr);
     vkDestroyDevice(device_, nullptr);
+    vkDestroyInstance(instance_, nullptr);
 }
 
 bool RendererVK::init() {
@@ -80,6 +101,19 @@ bool RendererVK::init() {
         VK_CHECK(vkAllocateCommandBuffers(device_, &cmd_buf_info, &cmd.cmd_buffer));
     }
 
+    VkDescriptorPoolSize pool_sizes[] = {
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1},
+    };
+
+    VkDescriptorPoolCreateInfo pool_info = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
+        .maxSets = 1,
+        .poolSizeCount = (uint32_t)IM_ARRAYSIZE(pool_sizes),
+        .pPoolSizes = pool_sizes,
+    };
+    VK_CHECK(vkCreateDescriptorPool(device_, &pool_info, nullptr, &imgui_descriptor_pool_));
+
     return true;
 }
 
@@ -93,6 +127,8 @@ std::shared_ptr<SamplePeaks> RendererVK::create_sample_peaks(const Sample& sampl
 }
 
 void RendererVK::resize_swapchain() {
+    vkDeviceWaitIdle(device_);
+    init_swapchain_();
 }
 
 void RendererVK::new_frame() {
@@ -234,13 +270,27 @@ bool RendererVK::init_swapchain_() {
     vkb::SwapchainBuilder swapchain_builder(physical_device_, device_, surface_,
                                             graphics_queue_index_, present_queue_index_);
 
-    auto swapchain_result = swapchain_builder.set_required_min_image_count(2)
+    auto swapchain_result = swapchain_builder.set_old_swapchain(swapchain_)
+                                .set_required_min_image_count(2)
                                 .set_desired_format({VK_FORMAT_B8G8R8A8_UNORM})
                                 .build();
 
     if (!swapchain_result) {
         Log::error("Failed to find suitable Vulkan device");
         return false;
+    }
+
+    if (swapchain_) {
+        for (int i = 0; i < VULKAN_BUFFER_SIZE; i++) {
+            FrameSync& frame_sync = frame_sync_[i];
+            vkDestroyFramebuffer(device_, main_framebuffer_.framebuffer[i], nullptr);
+            vkDestroyImageView(device_, main_framebuffer_.view[i], nullptr);
+            vkDestroyFence(device_, frame_sync.fence, nullptr);
+            vkDestroySemaphore(device_, frame_sync.image_acquire_semaphore, nullptr);
+            vkDestroySemaphore(device_, frame_sync.render_finished_semaphore, nullptr);
+        }
+        vkDestroySwapchainKHR(device_, swapchain_, nullptr);
+        frame_id_ = 0;
     }
 
     vkb::Swapchain new_swapchain = swapchain_result.value();
@@ -279,8 +329,10 @@ bool RendererVK::init_swapchain_() {
 
         FrameSync& frame_sync = frame_sync_[i];
         VK_CHECK(vkCreateFence(device_, &fence_info, nullptr, &frame_sync.fence));
-        VK_CHECK(vkCreateSemaphore(device_, &semaphore_info, nullptr, &frame_sync.image_acquire_semaphore));
-        VK_CHECK(vkCreateSemaphore(device_, &semaphore_info, nullptr, &frame_sync.render_finished_semaphore));
+        VK_CHECK(vkCreateSemaphore(device_, &semaphore_info, nullptr,
+                                   &frame_sync.image_acquire_semaphore));
+        VK_CHECK(vkCreateSemaphore(device_, &semaphore_info, nullptr,
+                                   &frame_sync.render_finished_semaphore));
     }
 
     return true;
@@ -348,8 +400,20 @@ Renderer* RendererVK::create(App* app) {
 
     volkLoadDevice(vulkan_device);
 
-    RendererVK* renderer = new (std::nothrow)
-        RendererVK(physical_device, device, surface, graphics_queue_index, present_queue_index);
+    if (!ImGui_ImplSDL2_InitForVulkan(window)) {
+        vkb::destroy_device(device);
+        vkb::destroy_instance(instance);
+        return nullptr;
+    }
+
+    ImGui_ImplVulkan_LoadFunctions(
+        [](const char* name, void* userdata) {
+            return vkGetDeviceProcAddr((VkDevice)userdata, name);
+        },
+        vulkan_device);
+
+    RendererVK* renderer = new (std::nothrow) RendererVK(instance, physical_device, device, surface,
+                                                         graphics_queue_index, present_queue_index);
 
     if (!renderer) {
         vkb::destroy_device(device);

@@ -84,6 +84,7 @@ set(WB_LINK_LIBRARIES
     imgui-sdl2
     imgui-cpp
     imgui-freetype
+    imgui-vulkan
     sndfile
     nfd)
 

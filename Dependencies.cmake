@@ -12,6 +12,36 @@ CPMAddPackage(
 )
 
 CPMAddPackage(
+    NAME                Vulkan-Headers
+    GITHUB_REPOSITORY   KhronosGroup/Vulkan-Headers
+    VERSION             vulkan-sdk-1.3.268.0
+    GIT_TAG             vulkan-sdk-1.3.268.0
+)
+
+CPMAddPackage(
+    NAME                VulkanMemoryAllocator
+    GITHUB_REPOSITORY   GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
+    VERSION             3.0.1
+    DOWNLOAD_ONLY       YES
+)
+
+CPMAddPackage(
+    NAME                volk
+    GITHUB_REPOSITORY   zeux/volk
+    VERSION             1.3.268.0
+    GIT_TAG             vulkan-sdk-1.3.268.0
+    OPTIONS             "VOLK_PULL_IN_VULKAN OFF"
+                        "VOLK_HEADERS_ONLY ON"
+                        "VOLK_INSTALL OFF"
+)
+
+CPMAddPackage(
+    NAME                vk-bootstrap
+    GITHUB_REPOSITORY   charles-lunarg/vk-bootstrap
+    VERSION             1.3.282
+)
+
+CPMAddPackage(
     NAME                imgui
     VERSION             1.90.4-docking
     GITHUB_REPOSITORY   ocornut/imgui
@@ -70,6 +100,13 @@ if (imgui_ADDED)
         target_include_directories(imgui-d3d11 PUBLIC $<BUILD_INTERFACE:${imgui_SOURCE_DIR}/backends>)
         target_link_libraries(imgui-d3d11 PUBLIC imgui dxguid)
     endif()
+
+    set(IMGUI_BACKEND_VULKAN_SOURCES
+        "${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp"
+        "${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.h")
+    add_library(imgui-vulkan STATIC ${IMGUI_BACKEND_VULKAN_SOURCES})
+    target_include_directories(imgui-vulkan PUBLIC $<BUILD_INTERFACE:${imgui_SOURCE_DIR}/backends>)
+    target_link_libraries(imgui-vulkan PUBLIC imgui Vulkan-Headers)
 
     # set(IMGUI_GL3_SRC_FILES
     #     "${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp"
@@ -148,36 +185,6 @@ CPMAddPackage(
     NAME                nativefiledialog-extended
     GITHUB_REPOSITORY   btzy/nativefiledialog-extended
     VERSION             1.1.0
-)
-
-CPMAddPackage(
-    NAME                Vulkan-Headers
-    GITHUB_REPOSITORY   KhronosGroup/Vulkan-Headers
-    VERSION             vulkan-sdk-1.3.268.0
-    GIT_TAG             vulkan-sdk-1.3.268.0
-)
-
-CPMAddPackage(
-    NAME                VulkanMemoryAllocator
-    GITHUB_REPOSITORY   GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
-    VERSION             3.0.1
-    DOWNLOAD_ONLY       YES
-)
-
-CPMAddPackage(
-    NAME                volk
-    GITHUB_REPOSITORY   zeux/volk
-    VERSION             1.3.268.0
-    GIT_TAG             vulkan-sdk-1.3.268.0
-    OPTIONS             "VOLK_PULL_IN_VULKAN OFF"
-                        "VOLK_HEADERS_ONLY ON"
-                        "VOLK_INSTALL OFF"
-)
-
-CPMAddPackage(
-    NAME                vk-bootstrap
-    GITHUB_REPOSITORY   charles-lunarg/vk-bootstrap
-    VERSION             1.3.282
 )
 
 if (VulkanMemoryAllocator_ADDED)

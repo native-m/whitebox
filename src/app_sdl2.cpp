@@ -17,7 +17,7 @@ void AppSDL2::init() {
 
     SDL_Window* new_window =
         SDL_CreateWindow("whitebox", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720,
-                         0);
+                         SDL_WINDOW_RESIZABLE);
 
     if (!new_window) {
         SDL_Quit();
@@ -31,11 +31,11 @@ void AppSDL2::init() {
 }
 
 void AppSDL2::new_frame() {
-    g_renderer->new_frame();
-
     SDL_Event event;
     while (SDL_PollEvent(&event))
         handle_events(event);
+
+    g_renderer->new_frame();
 
     //ImGui_ImplSDL2_NewFrame();
     //ImGui::NewFrame();

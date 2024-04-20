@@ -35,6 +35,7 @@ struct FrameSync {
 };
 
 struct RendererVK : public Renderer {
+    VkInstance instance_;
     VkPhysicalDevice physical_device_;
     VkDevice device_;
     VkSurfaceKHR surface_;
@@ -57,8 +58,10 @@ struct RendererVK : public Renderer {
     VkCommandBuffer current_cb_ {};
     FramebufferVK* current_framebuffer_ {};
 
-    RendererVK(VkPhysicalDevice physical_device, VkDevice device, VkSurfaceKHR surface,
-               uint32_t graphics_queue_index, uint32_t present_queue_index);
+    VkDescriptorPool imgui_descriptor_pool_;
+
+    RendererVK(VkInstance instance, VkPhysicalDevice physical_device, VkDevice device,
+               VkSurfaceKHR surface, uint32_t graphics_queue_index, uint32_t present_queue_index);
     ~RendererVK();
     bool init();
     std::shared_ptr<Framebuffer> create_framebuffer(uint32_t width, uint32_t height) override;
@@ -68,7 +71,8 @@ struct RendererVK : public Renderer {
     void new_frame() override;
     void end_frame() override;
     void set_framebuffer(const std::shared_ptr<Framebuffer>& framebuffer) override;
-    void begin_draw(const std::shared_ptr<Framebuffer>& framebuffer, const ImVec4& clear_color) override;
+    void begin_draw(const std::shared_ptr<Framebuffer>& framebuffer,
+                    const ImVec4& clear_color) override;
     void finish_draw() override;
     void clear(float r, float g, float b, float a) override;
     void draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) override;
