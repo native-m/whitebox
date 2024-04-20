@@ -43,6 +43,7 @@ RendererVK::~RendererVK() {
     vkDestroyRenderPass(device_, fb_render_pass_, nullptr);
     vkDestroySwapchainKHR(device_, swapchain_, nullptr);
     vkDestroyDevice(device_, nullptr);
+    vkDestroySurfaceKHR(instance_, surface_, nullptr);
     vkDestroyInstance(instance_, nullptr);
 }
 
@@ -249,6 +250,7 @@ void RendererVK::draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) {
 }
 
 void RendererVK::render_draw_data(ImDrawData* draw_data) {
+
 }
 
 void RendererVK::present() {
@@ -345,7 +347,6 @@ Renderer* RendererVK::create(App* app) {
     auto inst_ret = vkb::InstanceBuilder()
                         .set_app_name("wb_vulkan")
                         .request_validation_layers()
-                        .use_default_debug_messenger()
                         .build();
 
     if (!inst_ret) {

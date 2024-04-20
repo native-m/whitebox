@@ -107,6 +107,7 @@ if (imgui_ADDED)
     add_library(imgui-vulkan STATIC ${IMGUI_BACKEND_VULKAN_SOURCES})
     target_include_directories(imgui-vulkan PUBLIC $<BUILD_INTERFACE:${imgui_SOURCE_DIR}/backends>)
     target_link_libraries(imgui-vulkan PUBLIC imgui Vulkan-Headers)
+    target_compile_definitions(imgui-vulkan PRIVATE VK_NO_PROTOTYPES)
 
     # set(IMGUI_GL3_SRC_FILES
     #     "${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp"
