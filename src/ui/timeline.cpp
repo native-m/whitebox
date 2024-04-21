@@ -52,7 +52,7 @@ inline static void draw_clip(ImDrawList* draw_list, ImVector<ClipContentDrawCmd>
 
     SampleAsset* asset = clip->audio.asset;
     static double log_base4 = 1.0 / 1.3862943611198906; // 1.0 / log(4.0)
-    if (asset) {
+    if (asset && false) {
         SamplePeaks* sample_peaks = asset->peaks.get();
 
         // This kinda bad
@@ -138,7 +138,7 @@ inline void draw_clip2(ImDrawList* draw_list, ImVector<ClipContentDrawCmd>& clip
 
     SampleAsset* asset = clip->audio.asset;
     static constexpr double log_base4 = 1.0 / 1.3862943611198906; // 1.0 / log(4.0)
-    if (asset) {
+    if (asset && false) {
         SamplePeaks* sample_peaks = asset->peaks.get();
 
         // This kinda bad
@@ -1059,9 +1059,10 @@ void GuiTimeline::render_tracks() {
         priv_draw_data.DisplaySize = timeline_area;
 
         g_renderer->set_framebuffer(timeline_fb);
-        g_renderer->clear(ImGui::GetStyleColorVec4(ImGuiCol_WindowBg));
+        g_renderer->begin_draw(timeline_fb, ImGui::GetStyleColorVec4(ImGuiCol_WindowBg));
         g_renderer->render_draw_data(&priv_draw_data);
         g_renderer->draw_clip_content(clip_content_cmds);
+        g_renderer->finish_draw();
     }
 
     // Release edit action
@@ -1122,7 +1123,7 @@ void GuiTimeline::render_tracks() {
 
     clip_context_menu();
 
-    ImTextureID tex_id = timeline_fb->as_imgui_texture_id();
+    ImTextureID tex_id = g_renderer->prepare_as_imgui_texture(timeline_fb);
     win_draw_list->AddImage(tex_id, ImVec2(timeline_view_pos.x, offset_y),
                             ImVec2(timeline_view_pos.x + timeline_width, offset_y + area_size.y));
 

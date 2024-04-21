@@ -16,12 +16,7 @@ namespace wb {
 void apply_theme(ImGuiStyle& style);
 
 App::~App() {
-    Log::info("Closing application...");
-    g_audio_io->close_device();
-    g_timeline.shutdown();
-    shutdown_audio_io();
-    shutdown_renderer();
-    ImGui::DestroyContext();
+    
 }
 
 void App::init() {
@@ -65,12 +60,7 @@ void App::run() {
     while (running) {
         new_frame();
 
-        g_renderer->begin_draw(nullptr, {1.0f, 0.0f, 0.0f, 1.0f});
-        g_renderer->finish_draw();
-        g_renderer->end_frame();
-        g_renderer->present();
-
-        /*ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(),
+        ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(),
                                      ImGuiDockNodeFlags_PassthruCentralNode);
 
         if (ImGui::BeginMainMenuBar()) {
@@ -114,15 +104,25 @@ void App::run() {
         g_timeline.render();
 
         ImGui::Render();
-        g_renderer->set_framebuffer(nullptr);
-        g_renderer->clear(0.0f, 0.0f, 0.0f, 1.0f);
+
+        g_renderer->begin_draw(nullptr, {0.0f, 0.0f, 0.0f, 1.0f});
         g_renderer->render_draw_data(ImGui::GetDrawData());
-        
-        g_renderer->present();*/
+        g_renderer->finish_draw();
+        g_renderer->end_frame();
+        g_renderer->present();
 
         // ImGui::UpdatePlatformWindows();
         // ImGui::RenderPlatformWindowsDefault();
     }
+}
+
+void App::shutdown() {
+    g_audio_io->close_device();
+
+    Log::info("Closing application...");
+    g_timeline.shutdown();
+    shutdown_audio_io();
+    shutdown_renderer();
 }
 
 void App::options_window() {

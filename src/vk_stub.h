@@ -6,4 +6,9 @@
 #include <vk_mem_alloc.h>
 
 #define VK_FAILED(x) (x < VK_SUCCESS)
+
+#ifndef NDEBUG
 #define VK_CHECK(x) assert((x) >= VK_SUCCESS)
+#else
+#define VK_CHECK(X) x
+#endif

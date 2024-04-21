@@ -17,6 +17,7 @@ struct App {
 
     virtual ~App();
     void run();
+    void shutdown();
     void options_window();
     virtual void init();
     virtual void new_frame() = 0;

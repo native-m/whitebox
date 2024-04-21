@@ -6,7 +6,9 @@
 namespace wb {
 
 AppSDL2::~AppSDL2() {
+    shutdown();
     ImGui_ImplSDL2_Shutdown();
+    ImGui::DestroyContext();
     if (!window)
         SDL_DestroyWindow(window);
     SDL_Quit();
@@ -36,9 +38,8 @@ void AppSDL2::new_frame() {
         handle_events(event);
 
     g_renderer->new_frame();
-
-    //ImGui_ImplSDL2_NewFrame();
-    //ImGui::NewFrame();
+    ImGui_ImplSDL2_NewFrame();
+    ImGui::NewFrame();
 }
 
 void AppSDL2::handle_events(SDL_Event& event) {
@@ -56,7 +57,7 @@ void AppSDL2::handle_events(SDL_Event& event) {
             break;
     }
 
-    //ImGui_ImplSDL2_ProcessEvent(&event);
+    ImGui_ImplSDL2_ProcessEvent(&event);
 }
 
 } // namespace wb
