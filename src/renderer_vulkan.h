@@ -12,6 +12,7 @@ namespace wb {
 struct ResourceDisposalVK;
 
 struct ImageAccessVK {
+    VkPipelineStageFlags stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
     VkAccessFlags access = 0;
     VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
 };
@@ -24,7 +25,7 @@ struct FramebufferVK : public Framebuffer {
     VkFramebuffer framebuffer[VULKAN_BUFFER_SIZE];
     VkDescriptorSet descriptor_set[VULKAN_BUFFER_SIZE] {};
     ImageAccessVK current_access[VULKAN_BUFFER_SIZE] {};
-    uint32_t image_id = 0;
+    uint32_t image_id = 1;
 
     ~FramebufferVK();
     ImTextureID as_imgui_texture_id() const override;

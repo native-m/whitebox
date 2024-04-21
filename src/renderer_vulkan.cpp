@@ -84,6 +84,7 @@ RendererVK::~RendererVK() {
 
     vmaDestroyAllocator(allocator_);
 
+    vkDestroySampler(device_, imgui_sampler_, nullptr);
     vkDestroyDescriptorPool(device_, imgui_descriptor_pool_, nullptr);
     vkDestroyRenderPass(device_, fb_render_pass_, nullptr);
     vkDestroySwapchainKHR(device_, swapchain_, nullptr);
@@ -270,9 +271,18 @@ std::shared_ptr<Framebuffer> RendererVK::create_framebuffer(uint32_t width, uint
         .layers = 1,
     };
 
+    VkDebugUtilsObjectNameInfoEXT debug_info {
+        .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+        .objectType = VK_OBJECT_TYPE_IMAGE,
+        .pObjectName = "Framebuffer",
+    };
+
     for (uint32_t i = 0; i < VULKAN_BUFFER_SIZE; i++) {
         VK_CHECK(vmaCreateImage(allocator_, &image_info, &alloc_info, &fb->image[i],
                                 &fb->allocations[i], nullptr));
+
+        debug_info.objectHandle = (uint64_t)fb->image[i];
+        vkSetDebugUtilsObjectNameEXT(device_, &debug_info);
 
         view_info.image = fb->image[i];
         VK_CHECK(vkCreateImageView(device_, &view_info, nullptr, &fb->view[i]));
@@ -322,7 +332,7 @@ void RendererVK::new_frame() {
     current_frame_sync_ = &frame_sync;
     current_cb_ = cmd_buf.cmd_buffer;
 
-    Log::debug("Begin frame: {}", frame_id_);
+    //Log::debug("Begin frame: {}", frame_id_);
 }
 
 void RendererVK::end_frame() {
@@ -356,6 +366,7 @@ void RendererVK::begin_draw(const std::shared_ptr<Framebuffer>& framebuffer,
         (!framebuffer) ? &main_framebuffer_ : static_cast<FramebufferVK*>(framebuffer.get());
 
     fb->image_id = (fb->image_id + 1) % VULKAN_BUFFER_SIZE;
+    uint32_t image_id = fb->image_id;
 
     VkClearValue vk_clear_color {
         .color = {clear_color.x, clear_color.y, clear_color.z, clear_color.w},
@@ -364,7 +375,7 @@ void RendererVK::begin_draw(const std::shared_ptr<Framebuffer>& framebuffer,
     VkRenderPassBeginInfo rp_begin {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
         .renderPass = fb_render_pass_,
-        .framebuffer = fb->framebuffer[frame_id_],
+        .framebuffer = fb->framebuffer[image_id],
         .renderArea = {0, 0, fb->width, fb->height},
         .clearValueCount = 1,
         .pClearValues = &vk_clear_color,
@@ -373,20 +384,20 @@ void RendererVK::begin_draw(const std::shared_ptr<Framebuffer>& framebuffer,
     VkImageMemoryBarrier barrier {};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     barrier.pNext = nullptr;
-    barrier.srcAccessMask = fb->current_access[frame_id_].access;
+    barrier.srcAccessMask = fb->current_access[image_id].access;
     barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    barrier.oldLayout = fb->current_access[frame_id_].layout;
+    barrier.oldLayout = fb->current_access[image_id].layout;
     barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     barrier.srcQueueFamilyIndex = graphics_queue_index_;
     barrier.dstQueueFamilyIndex = graphics_queue_index_;
-    barrier.image = fb->image[frame_id_];
+    barrier.image = fb->image[image_id];
     barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     barrier.subresourceRange.baseMipLevel = 0;
     barrier.subresourceRange.levelCount = 1;
     barrier.subresourceRange.baseArrayLayer = 0;
     barrier.subresourceRange.layerCount = 1;
 
-    vkCmdPipelineBarrier(current_cb_, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+    vkCmdPipelineBarrier(current_cb_, fb->current_access[image_id].stages,
                          VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr,
                          1, &barrier);
 
@@ -421,6 +432,12 @@ void RendererVK::finish_draw() {
 
         vkCmdPipelineBarrier(current_cb_, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, dst_stage,
                              0, 0, nullptr, 0, nullptr, 1, &barrier);
+    } else {
+        uint32_t image_id = current_framebuffer_->image_id;
+        auto& img_access = current_framebuffer_->current_access[image_id];
+        img_access.stages = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        img_access.access = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        img_access.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     }
 
     current_framebuffer_ = nullptr;
@@ -431,6 +448,8 @@ void RendererVK::clear(float r, float g, float b, float a) {
 
 ImTextureID RendererVK::prepare_as_imgui_texture(const std::shared_ptr<Framebuffer>& framebuffer) {
     FramebufferVK* fb = static_cast<FramebufferVK*>(framebuffer.get());
+    uint32_t image_id = fb->image_id;
+    auto& img_access = fb->current_access[image_id];
     VkPipelineStageFlags dst_stage;
     VkAccessFlags dst_access;
     VkImageLayout new_layout;
@@ -439,34 +458,32 @@ ImTextureID RendererVK::prepare_as_imgui_texture(const std::shared_ptr<Framebuff
     dst_access = VK_ACCESS_SHADER_READ_BIT;
     new_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    VkImageMemoryBarrier barrier {};
-    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrier.pNext = nullptr;
-    barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    barrier.dstAccessMask = dst_access;
-    barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    barrier.newLayout = new_layout;
-    barrier.srcQueueFamilyIndex = graphics_queue_index_;
-    barrier.dstQueueFamilyIndex = graphics_queue_index_;
-    barrier.image = fb->image[frame_id_];
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    barrier.subresourceRange.baseMipLevel = 0;
-    barrier.subresourceRange.levelCount = 1;
-    barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = 1;
+    if (img_access.layout != new_layout) {
+        VkImageMemoryBarrier barrier {};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.pNext = nullptr;
+        barrier.srcAccessMask = img_access.access;
+        barrier.dstAccessMask = dst_access;
+        barrier.oldLayout = img_access.layout;
+        barrier.newLayout = new_layout;
+        barrier.srcQueueFamilyIndex = graphics_queue_index_;
+        barrier.dstQueueFamilyIndex = graphics_queue_index_;
+        barrier.image = fb->image[image_id];
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        barrier.subresourceRange.baseMipLevel = 0;
+        barrier.subresourceRange.levelCount = 1;
+        barrier.subresourceRange.baseArrayLayer = 0;
+        barrier.subresourceRange.layerCount = 1;
 
-    vkCmdPipelineBarrier(current_cb_, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, dst_stage, 0,
-                         0, nullptr, 0, nullptr, 1, &barrier);
+        vkCmdPipelineBarrier(current_cb_, img_access.stages, dst_stage, 0, 0, nullptr, 0, nullptr,
+                             1, &barrier);
 
-    // auto& img_access = fb->current_access[frame_id_];
-    // img_access.access = dst_access;
-    // img_access.layout = new_layout;
+        img_access.stages = dst_stage;
+        img_access.access = dst_access;
+        img_access.layout = new_layout;
+    }
 
-    // if (fb->current_access[frame_id_].layout != new_layout) {
-    //
-    // }
-
-    return (ImTextureID)fb->descriptor_set[frame_id_];
+    return (ImTextureID)fb->descriptor_set[fb->image_id];
 }
 
 void RendererVK::draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) {
@@ -568,8 +585,12 @@ Renderer* RendererVK::create(App* app) {
     if (VK_FAILED(volkInitialize()))
         return nullptr;
 
-    auto inst_ret =
-        vkb::InstanceBuilder().set_app_name("wb_vulkan").request_validation_layers().build();
+    auto inst_ret = vkb::InstanceBuilder()
+                        .set_app_name("wb_vulkan")
+                        .enable_extension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)
+                        .request_validation_layers()
+                        .desire_api_version(VKB_VK_API_VERSION_1_1)
+                        .build();
 
     if (!inst_ret) {
         Log::error("Failed to create vulkan instance. Error: {}", inst_ret.error().message());

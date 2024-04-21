@@ -1053,14 +1053,19 @@ void GuiTimeline::render_tracks() {
         priv_draw_list->PopClipRect();
         priv_draw_list->PopTextureID();
 
+        ImGuiViewport* owner_viewport = ImGui::GetWindowViewport();
         priv_draw_data.Clear();
         priv_draw_data.AddDrawList(priv_draw_list);
         priv_draw_data.DisplayPos = view_min;
         priv_draw_data.DisplaySize = timeline_area;
+        priv_draw_data.FramebufferScale.x = 1.0f;
+        priv_draw_data.FramebufferScale.y = 1.0f;
+        priv_draw_data.OwnerViewport = owner_viewport;
 
         g_renderer->set_framebuffer(timeline_fb);
         g_renderer->begin_draw(timeline_fb, ImGui::GetStyleColorVec4(ImGuiCol_WindowBg));
-        g_renderer->render_draw_data(&priv_draw_data);
+        // TODO: Render timeline view correctly 
+        //g_renderer->render_draw_data(&priv_draw_data);
         g_renderer->draw_clip_content(clip_content_cmds);
         g_renderer->finish_draw();
     }
