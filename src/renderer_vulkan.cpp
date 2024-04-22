@@ -5,8 +5,11 @@
 #include <SDL.h>
 #include <SDL_syswm.h>
 #include <SDL_vulkan.h>
-#include <X11/Xlib-xcb.h>
 #include <VkBootstrap.h>
+
+#ifdef VK_USE_PLATFORM_XCB_KHR
+#include <X11/Xlib-xcb.h>
+#endif
 
 #define IMGUI_IMPL_VULKAN_NO_PROTOTYPES
 
