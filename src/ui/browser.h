@@ -48,8 +48,7 @@ struct BrowserItem {
     std::optional<std::vector<BrowserItem>> dir_items;
     std::optional<std::vector<BrowserItem>> file_items;
 
-    std::filesystem::path get_file_path(const std::filesystem::path& root) const
-    {
+    std::filesystem::path get_file_path(const std::filesystem::path& root) const {
         std::filesystem::path ret;
         const BrowserItem* item = this;
         while (item != nullptr) {
@@ -61,8 +60,7 @@ struct BrowserItem {
     }
 };
 
-struct BrowserDir
-{
+struct BrowserDir {
     std::filesystem::path path;
     BrowserItem item;
 };
@@ -79,7 +77,7 @@ struct GuiBrowser {
     std::vector<DirectoryRefItem> directories;
     bool open = true;
 
-    GuiBrowser(); 
+    GuiBrowser();
     void add_directory(const std::filesystem::path& path);
     void sort_directory();
     void glob_path(const std::filesystem::path& path, BrowserItem& item);

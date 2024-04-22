@@ -6,7 +6,7 @@
 
 #include "vk_stub.h"
 
-#define VULKAN_BUFFER_SIZE 2
+#define VULKAN_BUFFER_SIZE 3
 
 // Reusable buffers used for rendering 1 current in-flight frame, for
 // ImGui_ImplVulkan_RenderDrawData() [Please zero-clear before use!]

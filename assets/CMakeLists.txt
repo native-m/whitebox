@@ -20,9 +20,12 @@ macro(wb_add_asset_file _FILE)
     set(WB_ASSET_DEPENDENCIES "${WB_ASSET_DEPENDENCIES};${CMAKE_CURRENT_BINARY_DIR}/${_FILE}")
 endmacro()
 
-wb_add_shader_d3d11(vs_5_0 waveform2_aa_vs.hlsl)
-wb_add_shader_d3d11(vs_5_0 waveform2_vs.hlsl)
-wb_add_shader_d3d11(ps_5_0 waveform_aa_ps.hlsl)
+if (MSVC)
+    wb_add_shader_d3d11(vs_5_0 waveform2_aa_vs.hlsl)
+    wb_add_shader_d3d11(vs_5_0 waveform2_vs.hlsl)
+    wb_add_shader_d3d11(ps_5_0 waveform_aa_ps.hlsl)
+endif()
+
 wb_add_asset_file("Inter-Medium.otf")
 
 add_custom_target(wb-assets DEPENDS ${WB_ASSET_DEPENDENCIES})

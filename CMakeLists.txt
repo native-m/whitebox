@@ -12,8 +12,11 @@ endif()
 project("whitebox")
 
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED 20)
 
 include(Dependencies.cmake)
+
+message("${CPM_DOWNLOAD_LOCATION}")
 
 add_subdirectory(assets)
 
@@ -103,9 +106,6 @@ target_include_directories(whitebox-lib PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src"
 
 add_executable(whitebox "src/main.cpp")
 target_link_libraries(whitebox whitebox-lib)
+add_dependencies(whitebox wb-assets)
 
 set_target_properties(whitebox whitebox-lib PROPERTIES CXX_STANDARD 20)
-
-if (MSVC)
-  add_dependencies(whitebox wb-assets)
-endif()

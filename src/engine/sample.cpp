@@ -1,5 +1,6 @@
 #include "sample.h"
 #include <memory>
+#include <utility>
 #include <sndfile.h>
 
 namespace wb {

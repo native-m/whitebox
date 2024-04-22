@@ -788,13 +788,14 @@ bool RendererVK::init_swapchain_() {
                                             graphics_queue_index_, present_queue_index_);
 
     auto swapchain_result = swapchain_builder.set_old_swapchain(swapchain_)
-                                .set_required_min_image_count(2)
+                                .set_desired_min_image_count(VULKAN_BUFFER_SIZE)
+                                .set_required_min_image_count(VULKAN_BUFFER_SIZE)
                                 .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
-                                .set_desired_format({VK_FORMAT_R8G8B8A8_UNORM})
+                                .set_desired_format({VK_FORMAT_B8G8R8A8_UNORM})
                                 .build();
 
     if (!swapchain_result) {
-        Log::error("Failed to find suitable Vulkan device");
+        Log::error("Failed to initialize swapchain");
         return false;
     }
 
@@ -946,6 +947,7 @@ Renderer* RendererVK::create(App* app) {
                         .enable_extension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)
                         .enable_extension(VK_KHR_XCB_SURFACE_EXTENSION_NAME)
                         .request_validation_layers()
+                        .use_default_debug_messenger()
                         .desire_api_version(VKB_VK_API_VERSION_1_1)
                         .build();
 
@@ -964,8 +966,7 @@ Renderer* RendererVK::create(App* app) {
 
     VkSurfaceKHR surface;
 
-    #ifdef WIN32
-
+#ifdef WIN32
     VkWin32SurfaceCreateInfoKHR surface_info {
         .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
         .hinstance = GetModuleHandle(nullptr),
@@ -977,9 +978,7 @@ Renderer* RendererVK::create(App* app) {
         vkb::destroy_instance(instance);
         return nullptr;
     }
-
-    #else
-
+#else
     VkXcbSurfaceCreateInfoKHR surface_info {
         .sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
         .connection = XGetXCBConnection(wm_info.info.x11.display),
@@ -991,11 +990,11 @@ Renderer* RendererVK::create(App* app) {
         vkb::destroy_instance(instance);
         return nullptr;
     }
-
-    #endif
+#endif
 
     auto selected_physical_device = vkb::PhysicalDeviceSelector(instance)
                                         .prefer_gpu_device_type(vkb::PreferredDeviceType::discrete)
+                                        .allow_any_gpu_device_type(true)
                                         .set_surface(surface)
                                         .require_present()
                                         .select();
