@@ -8,6 +8,17 @@
 
 #define VULKAN_BUFFER_SIZE 2
 
+// Reusable buffers used for rendering 1 current in-flight frame, for
+// ImGui_ImplVulkan_RenderDrawData() [Please zero-clear before use!]
+struct ImGui_ImplVulkan_FrameRenderBuffers {
+    VkDeviceMemory VertexBufferMemory;
+    VkDeviceMemory IndexBufferMemory;
+    VkDeviceSize VertexBufferSize;
+    VkDeviceSize IndexBufferSize;
+    VkBuffer VertexBuffer;
+    VkBuffer IndexBuffer;
+};
+
 namespace wb {
 struct ResourceDisposalVK;
 
@@ -33,6 +44,7 @@ struct FramebufferVK : public Framebuffer {
 
 struct SamplePeaksMipVK {
     VkBuffer buffer;
+    VmaAllocation allocation;
 };
 
 struct SamplePeaksVK : public SamplePeaks {};
@@ -40,6 +52,12 @@ struct SamplePeaksVK : public SamplePeaks {};
 struct CommandBufferVK {
     VkCommandPool cmd_pool;
     VkCommandBuffer cmd_buffer;
+    ImDrawVert* immediate_vtx;
+    ImDrawIdx* immediate_idx;
+    uint32_t immediate_vtx_offset;
+    uint32_t immediate_idx_offset;
+    uint32_t total_vtx_count;
+    uint32_t total_idx_count;
 };
 
 struct FrameSync {
@@ -56,10 +74,20 @@ struct FramebufferDisposalVK {
     VkFramebuffer framebuffer;
 };
 
+struct ImmediateBufferDisposalVK {
+    uint32_t frame_id;
+    VkDeviceMemory memory;
+    VkBuffer buffer;
+};
+
+// GPU resource disposal collector. Vulkan does not allow you to destroy resources while they are
+// being used by the GPU. The solution is to collect them and delete them at the end of use.
 struct ResourceDisposalVK {
     uint32_t current_frame_id {};
     std::deque<FramebufferDisposalVK> fb;
+    std::deque<ImmediateBufferDisposalVK> imm_buffer;
     void dispose_framebuffer(FramebufferVK* obj);
+    void dispose_immediate_buffer(VkDeviceMemory buffer_memory, VkBuffer buffer);
     void flush(VkDevice device, VmaAllocator allocator, uint32_t frame_id_dispose);
 };
 
@@ -78,18 +106,19 @@ struct RendererVK : public Renderer {
 
     VkRenderPass fb_render_pass_ {};
     FramebufferVK main_framebuffer_ {};
+    VkDescriptorPool imgui_descriptor_pool_ {};
+    VkSampler imgui_sampler_ {};
     VkFence fences_[VULKAN_BUFFER_SIZE] {};
     CommandBufferVK cmd_buf_[VULKAN_BUFFER_SIZE] {};
     FrameSync frame_sync_[VULKAN_BUFFER_SIZE] {};
-    VkDescriptorPool imgui_descriptor_pool_ {};
-    VkSampler imgui_sampler_ {};
+    ImGui_ImplVulkan_FrameRenderBuffers render_buffers_[VULKAN_BUFFER_SIZE] {};
     uint32_t frame_id_ = 0;
     uint32_t sc_image_index_ = 0;
 
     FrameSync* current_frame_sync_ {};
     VkCommandBuffer current_cb_ {};
     FramebufferVK* current_framebuffer_ {};
-
+    
     ResourceDisposalVK resource_disposal_;
 
     RendererVK(VkInstance instance, VkPhysicalDevice physical_device, VkDevice device,
@@ -113,6 +142,16 @@ struct RendererVK : public Renderer {
     void present() override;
 
     bool init_swapchain_();
+
+    void create_or_resize_buffer(VkBuffer& buffer, VkDeviceMemory& buffer_memory,
+                                 VkDeviceSize& buffer_size, size_t new_size,
+                                 VkBufferUsageFlagBits usage);
+
+    void setup_imgui_render_state(ImDrawData* draw_data, VkPipeline pipeline,
+                                  VkCommandBuffer command_buffer,
+                                  ImGui_ImplVulkan_FrameRenderBuffers* rb, int fb_width,
+                                  int fb_height);
+
     void dispose_framebuffer_(FramebufferVK* obj);
 
     static Renderer* create(App* app);

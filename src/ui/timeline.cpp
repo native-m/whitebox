@@ -1065,7 +1065,7 @@ void GuiTimeline::render_tracks() {
         g_renderer->set_framebuffer(timeline_fb);
         g_renderer->begin_draw(timeline_fb, ImGui::GetStyleColorVec4(ImGuiCol_WindowBg));
         // TODO: Render timeline view correctly 
-        //g_renderer->render_draw_data(&priv_draw_data);
+        g_renderer->render_draw_data(&priv_draw_data);
         g_renderer->draw_clip_content(clip_content_cmds);
         g_renderer->finish_draw();
     }
