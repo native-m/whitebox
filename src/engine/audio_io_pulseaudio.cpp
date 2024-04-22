@@ -16,7 +16,7 @@ struct AudioIOPulseAudio : public AudioIO {
         // do nothing
     }
 
-    bool init() override { return false; }
+    bool init() { return false; }
 
     bool rescan_devices() override { return false; }
     
