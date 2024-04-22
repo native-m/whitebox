@@ -66,6 +66,12 @@ struct FrameSync {
     VkSemaphore render_finished_semaphore;
 };
 
+struct BufferDisposalVK {
+    uint32_t frame_id;
+    VmaAllocation allocation;
+    VkBuffer buffer;
+};
+
 struct FramebufferDisposalVK {
     uint32_t frame_id;
     VmaAllocation allocation;
@@ -84,8 +90,10 @@ struct ImmediateBufferDisposalVK {
 // being used by the GPU. The solution is to collect them and delete them at the end of use.
 struct ResourceDisposalVK {
     uint32_t current_frame_id {};
+    std::deque<BufferDisposalVK> buffer;
     std::deque<FramebufferDisposalVK> fb;
     std::deque<ImmediateBufferDisposalVK> imm_buffer;
+    void dispose_buffer(VmaAllocation allocation, VkBuffer buf);
     void dispose_framebuffer(FramebufferVK* obj);
     void dispose_immediate_buffer(VkDeviceMemory buffer_memory, VkBuffer buffer);
     void flush(VkDevice device, VmaAllocator allocator, uint32_t frame_id_dispose);
