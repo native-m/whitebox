@@ -5,6 +5,7 @@
 #include <SDL.h>
 #include <SDL_syswm.h>
 #include <SDL_vulkan.h>
+#include <X11/Xlib-xcb.h>
 #include <VkBootstrap.h>
 
 #define IMGUI_IMPL_VULKAN_NO_PROTOTYPES
@@ -928,6 +929,9 @@ Renderer* RendererVK::create(App* app) {
     volkLoadInstanceOnly(instance);
 
     VkSurfaceKHR surface;
+
+    #ifdef WIN32
+
     VkWin32SurfaceCreateInfoKHR surface_info {
         .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
         .hinstance = GetModuleHandle(nullptr),
@@ -939,6 +943,22 @@ Renderer* RendererVK::create(App* app) {
         vkb::destroy_instance(instance);
         return nullptr;
     }
+
+    #else
+
+    VkXcbSurfaceCreateInfoKHR surface_info {
+        .sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
+        .connection = XGetXCBConnection(wm_info.info.x11.display),
+        .window = wm_info.info.x11.window,
+    };
+
+    if (VK_FAILED(vkCreateXcbSurfaceKHR(instance, &surface_info, nullptr, &surface))) {
+        Log::error("Failed to create window surface");
+        vkb::destroy_instance(instance);
+        return nullptr;
+    }
+
+    #endif
 
     auto selected_physical_device = vkb::PhysicalDeviceSelector(instance)
                                         .prefer_gpu_device_type(vkb::PreferredDeviceType::discrete)
