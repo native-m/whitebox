@@ -11,7 +11,7 @@ void init_renderer(App* app) {
 #ifdef WIN32
     g_renderer = RendererVK::create(app);
 #else
-    g_renderer = nullptr;
+    g_renderer = RendererVK::create(app);
 #endif
 
     if (!g_renderer)

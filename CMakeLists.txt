@@ -86,6 +86,9 @@ set(WB_LINK_LIBRARIES
     imgui-freetype
     imgui-vulkan
     sndfile
+    xcb
+    X11
+    X11-xcb
     nfd)
 
 if (MSVC)

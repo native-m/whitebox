@@ -790,7 +790,7 @@ bool RendererVK::init_swapchain_() {
     auto swapchain_result = swapchain_builder.set_old_swapchain(swapchain_)
                                 .set_required_min_image_count(2)
                                 .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
-                                .set_desired_format({VK_FORMAT_B8G8R8A8_UNORM})
+                                .set_desired_format({VK_FORMAT_R8G8B8A8_UNORM})
                                 .build();
 
     if (!swapchain_result) {
@@ -944,6 +944,7 @@ Renderer* RendererVK::create(App* app) {
     auto inst_ret = vkb::InstanceBuilder()
                         .set_app_name("wb_vulkan")
                         .enable_extension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)
+                        .enable_extension(VK_KHR_XCB_SURFACE_EXTENSION_NAME)
                         .request_validation_layers()
                         .desire_api_version(VKB_VK_API_VERSION_1_1)
                         .build();
@@ -957,6 +958,7 @@ Renderer* RendererVK::create(App* app) {
 
     SDL_Window* window = ((AppSDL2*)app)->window;
     SDL_SysWMinfo wm_info {};
+    SDL_VERSION(&wm_info.version);
     SDL_GetWindowWMInfo(window, &wm_info);
     volkLoadInstanceOnly(instance);
 
@@ -981,7 +983,7 @@ Renderer* RendererVK::create(App* app) {
     VkXcbSurfaceCreateInfoKHR surface_info {
         .sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
         .connection = XGetXCBConnection(wm_info.info.x11.display),
-        .window = wm_info.info.x11.window,
+        .window = static_cast<xcb_window_t>(wm_info.info.x11.window),
     };
 
     if (VK_FAILED(vkCreateXcbSurfaceKHR(instance, &surface_info, nullptr, &surface))) {
