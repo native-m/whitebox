@@ -26,6 +26,7 @@ struct SampleTable {
     std::unordered_map<uint64_t, SampleAsset> samples;
     SampleAsset* load_sample_from_file(const std::filesystem::path& path);
     void destroy_sample(size_t hash);
+    void shutdown();
 };
 
 extern SampleTable g_sample_table;

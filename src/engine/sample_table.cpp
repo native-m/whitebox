@@ -40,6 +40,10 @@ void SampleTable::destroy_sample(size_t hash) {
     samples.erase(item);
 }
 
+void SampleTable::shutdown() {
+    samples.clear();
+}
+
 SampleTable g_sample_table;
 
 } // namespace wb

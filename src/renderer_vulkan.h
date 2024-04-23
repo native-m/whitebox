@@ -29,7 +29,6 @@ struct ImageAccessVK {
 };
 
 struct FramebufferVK : public Framebuffer {
-    ResourceDisposalVK* resource_disposal {};
     VmaAllocation allocations[VULKAN_BUFFER_SIZE] {};
     VkImage image[VULKAN_BUFFER_SIZE];
     VkImageView view[VULKAN_BUFFER_SIZE];
@@ -37,6 +36,8 @@ struct FramebufferVK : public Framebuffer {
     VkDescriptorSet descriptor_set[VULKAN_BUFFER_SIZE] {};
     ImageAccessVK current_access[VULKAN_BUFFER_SIZE] {};
     uint32_t image_id = 1;
+
+    ResourceDisposalVK* resource_disposal {};
 
     ~FramebufferVK();
     ImTextureID as_imgui_texture_id() const override;
@@ -47,7 +48,12 @@ struct SamplePeaksMipVK {
     VmaAllocation allocation;
 };
 
-struct SamplePeaksVK : public SamplePeaks {};
+struct SamplePeaksVK : public SamplePeaks {
+    std::vector<SamplePeaksMipVK> mipmap;
+    ResourceDisposalVK* resource_disposal {};
+
+    ~SamplePeaksVK();
+};
 
 struct CommandBufferVK {
     VkCommandPool cmd_pool;
@@ -126,6 +132,9 @@ struct RendererVK : public Renderer {
     uint32_t frame_id_ = 0;
     uint64_t present_id_ = 0;
     uint32_t sc_image_index_ = 0;
+
+    VkCommandPool imm_cmd_pool_;
+    VkCommandBuffer imm_cmd_buf_;
 
     FrameSync* current_frame_sync_ {};
     VkCommandBuffer current_cb_ {};

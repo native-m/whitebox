@@ -101,6 +101,13 @@ ImTextureID FramebufferVK::as_imgui_texture_id() const {
 
 //
 
+SamplePeaksVK::~SamplePeaksVK() {
+    for (auto [buffer, allocation] : mipmap)
+        resource_disposal->dispose_buffer(allocation, buffer);
+}
+
+//
+
 void ResourceDisposalVK::dispose_buffer(VmaAllocation allocation, VkBuffer buf) {
     buffer.emplace_back(current_frame_id, allocation, buf);
 #ifdef VULKAN_LOG_RESOURCE_DISPOSAL
@@ -162,6 +169,7 @@ void ResourceDisposalVK::flush(VkDevice device, VmaAllocator allocator, uint32_t
         if (frame_id != frame_id_dispose && frame_id_dispose != FRAME_ID_DISPOSE_ALL)
             break;
         vmaDestroyBuffer(allocator, buf, allocation);
+        buffer.pop_front();
 #ifdef VULKAN_LOG_RESOURCE_DISPOSAL
         Log::debug("Buffer disposed: {:x}, frame_id {}", (uint64_t)buf, frame_id);
 #endif
@@ -205,6 +213,7 @@ RendererVK::~RendererVK() {
     resource_disposal_.flush(device_, allocator_, FRAME_ID_DISPOSE_ALL);
     vmaDestroyAllocator(allocator_);
 
+    vkDestroyCommandPool(device_, imm_cmd_pool_, nullptr);
     vkDestroySampler(device_, imgui_sampler_, nullptr);
     vkDestroyDescriptorPool(device_, imgui_descriptor_pool_, nullptr);
     vkDestroyRenderPass(device_, fb_render_pass_, nullptr);
@@ -300,6 +309,10 @@ bool RendererVK::init() {
         cmd_buf_info.commandPool = cmd.cmd_pool;
         VK_CHECK(vkAllocateCommandBuffers(device_, &cmd_buf_info, &cmd.cmd_buffer));
     }
+
+    VK_CHECK(vkCreateCommandPool(device_, &cmd_pool, nullptr, &imm_cmd_pool_));
+    cmd_buf_info.commandPool = imm_cmd_pool_;
+    VK_CHECK(vkAllocateCommandBuffers(device_, &cmd_buf_info, &imm_cmd_buf_));
 
     VkDescriptorPoolSize pool_sizes[] = {
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4096},
@@ -427,7 +440,164 @@ std::shared_ptr<Framebuffer> RendererVK::create_framebuffer(uint32_t width, uint
 
 std::shared_ptr<SamplePeaks> RendererVK::create_sample_peaks(const Sample& sample,
                                                              SamplePeaksPrecision precision) {
-    return std::make_shared<SamplePeaksVK>();
+    size_t sample_count = sample.count;
+    uint32_t current_mip = 1;
+    uint32_t max_mip = 0;
+    uint32_t elem_size = 0;
+
+    switch (precision) {
+        case SamplePeaksPrecision::Low:
+            elem_size = sizeof(int8_t);
+            break;
+        case SamplePeaksPrecision::High:
+            elem_size = sizeof(int16_t);
+            break;
+        default:
+            WB_UNREACHABLE();
+    }
+
+    struct BufferCopy {
+        VkBuffer staging_buffer {};
+        VmaAllocation staging_allocation {};
+        VkBuffer dst_buffer {};
+        VkDeviceSize size {};
+    };
+
+    std::vector<BufferCopy> buffer_copies;
+    std::vector<SamplePeaksMipVK> mipmap;
+    bool failed = false;
+    auto destroy_all = [&] {
+        for (auto& buffer_copy : buffer_copies)
+            vmaDestroyBuffer(allocator_, buffer_copy.staging_buffer,
+                             buffer_copy.staging_allocation);
+        if (failed) {
+            for (auto& mip : mipmap)
+                vmaDestroyBuffer(allocator_, mip.buffer, mip.allocation);
+        }
+    };
+
+    defer(destroy_all());
+
+    VkBufferCreateInfo buffer_info {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+    };
+
+    VkBufferCreateInfo staging_buffer_info {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+    };
+
+    VmaAllocationCreateInfo alloc_info {
+        .usage = VMA_MEMORY_USAGE_UNKNOWN,
+        .requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        .preferredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+    };
+
+    VmaAllocationCreateInfo staging_alloc_info {
+        .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+        .usage = VMA_MEMORY_USAGE_AUTO,
+        .requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+        .preferredFlags =
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+    };
+
+    VkCommandBufferBeginInfo cmd_begin_info {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+    };
+
+    while (sample_count > 64) {
+        Log::info("Generating mip-map {} ({})", current_mip, sample_count);
+
+        BufferCopy& buffer_copy = buffer_copies.emplace_back();
+        SamplePeaksMipVK& mip = mipmap.emplace_back();
+
+        size_t required_length;
+        sample.summarize_for_mipmaps(precision, 0, current_mip, 0, &required_length, nullptr);
+
+        size_t total_length = required_length * sample.channels;
+        buffer_info.size = total_length * elem_size;
+        staging_buffer_info.size = buffer_info.size;
+        buffer_copy.size = buffer_info.size;
+
+        if (VK_FAILED(vmaCreateBuffer(allocator_, &staging_buffer_info, &staging_alloc_info,
+                                      &buffer_copy.staging_buffer, &buffer_copy.staging_allocation,
+                                      nullptr))) {
+            failed = true;
+            return {};
+        }
+
+        void* ptr;
+        VK_CHECK(vmaMapMemory(allocator_, buffer_copy.staging_allocation, &ptr));
+        for (uint32_t i = 0; i < sample.channels; i++) {
+            sample.summarize_for_mipmaps(precision, i, current_mip, required_length * i,
+                                         &required_length, ptr);
+        }
+        VK_CHECK(vmaFlushAllocation(allocator_, buffer_copy.staging_allocation, 0, VK_WHOLE_SIZE));
+        vmaUnmapMemory(allocator_, buffer_copy.staging_allocation);
+
+        if (VK_FAILED(vmaCreateBuffer(allocator_, &buffer_info, &alloc_info, &mip.buffer,
+                                      &mip.allocation, nullptr))) {
+            failed = true;
+            return {};
+        }
+
+        buffer_copy.dst_buffer = mip.buffer;
+
+        sample_count /= 4;
+        current_mip += 2;
+        max_mip = current_mip - 1;
+    }
+
+    VkBufferMemoryBarrier buffer_barrier {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+        .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+        .srcQueueFamilyIndex = graphics_queue_index_,
+        .dstQueueFamilyIndex = graphics_queue_index_,
+    };
+
+    vkDeviceWaitIdle(device_);
+    vkResetCommandPool(device_, imm_cmd_pool_, 0);
+    vkBeginCommandBuffer(imm_cmd_buf_, &cmd_begin_info);
+
+    for (auto& buffer_copy : buffer_copies) {
+        VkBufferCopy region {
+            .size = buffer_copy.size,
+        };
+
+        buffer_barrier.buffer = buffer_copy.dst_buffer;
+        buffer_barrier.size = buffer_copy.size;
+
+        vkCmdCopyBuffer(imm_cmd_buf_, buffer_copy.staging_buffer, buffer_copy.dst_buffer, 1,
+                        &region);
+        vkCmdPipelineBarrier(imm_cmd_buf_, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                             VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, 0, 0, nullptr, 1, &buffer_barrier,
+                             0, nullptr);
+    }
+
+    vkEndCommandBuffer(imm_cmd_buf_);
+
+    VkSubmitInfo submit {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &imm_cmd_buf_,
+    };
+
+    vkQueueSubmit(graphics_queue_, 1, &submit, nullptr);
+    vkDeviceWaitIdle(device_);
+
+    std::shared_ptr<SamplePeaksVK> ret {std::make_shared<SamplePeaksVK>()};
+    ret->sample_count = sample.count;
+    ret->mipmap_count = (uint32_t)mipmap.size();
+    ret->channels = sample.channels;
+    ret->precision = precision;
+    ret->cpu_accessible = false;
+    ret->mipmap = std::move(mipmap);
+    ret->resource_disposal = &resource_disposal_;
+
+    return ret;
 }
 
 void RendererVK::resize_swapchain() {
@@ -532,9 +702,8 @@ void RendererVK::begin_draw(const std::shared_ptr<Framebuffer>& framebuffer,
         barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     }
 
-    vkCmdPipelineBarrier(current_cb_, src_stages,
-                         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr,
-                         1, &barrier);
+    vkCmdPipelineBarrier(current_cb_, src_stages, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0,
+                         0, nullptr, 0, nullptr, 1, &barrier);
 
     vkCmdBeginRenderPass(current_cb_, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
 
@@ -874,7 +1043,7 @@ bool RendererVK::init_swapchain_() {
         .objectType = VK_OBJECT_TYPE_IMAGE,
     };
 
-    char obj_name[64]{};
+    char obj_name[64] {};
     for (int i = 0; i < VULKAN_BUFFER_SIZE; i++) {
         fmt::format_to(obj_name, "Swapchain Image {}", i);
         debug_info.pObjectName = obj_name;
@@ -1140,4 +1309,5 @@ Renderer* RendererVK::create(App* app) {
 
     return renderer;
 }
+
 } // namespace wb

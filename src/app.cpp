@@ -122,6 +122,7 @@ void App::shutdown() {
     Log::info("Closing application...");
     g_timeline.shutdown();
     shutdown_audio_io();
+    g_sample_table.shutdown();
     shutdown_renderer();
 }
 
