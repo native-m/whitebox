@@ -141,7 +141,7 @@ void ResourceDisposalVK::flush(VkDevice device, VmaAllocator allocator, uint32_t
         vmaDestroyImage(allocator, image, allocation);
         fb.pop_front();
 #ifdef VULKAN_LOG_RESOURCE_DISPOSAL
-        Log::debug("Framebuffer disposed: {}, frame_id: {}", (uint64_t)framebuffer, frame_id);
+        Log::debug("Framebuffer disposed: {:x}, frame_id: {}", (uint64_t)framebuffer, frame_id);
 #endif
     }
 
@@ -153,7 +153,7 @@ void ResourceDisposalVK::flush(VkDevice device, VmaAllocator allocator, uint32_t
         vkFreeMemory(device, memory, nullptr);
         imm_buffer.pop_front();
 #ifdef VULKAN_LOG_RESOURCE_DISPOSAL
-        Log::debug("Immediate buffer disposed: {}, frame_id: {}", (uint64_t)buffer, frame_id);
+        Log::debug("Immediate buffer disposed: {:x}, frame_id: {}", (uint64_t)buffer, frame_id);
 #endif
     }
 
@@ -163,17 +163,18 @@ void ResourceDisposalVK::flush(VkDevice device, VmaAllocator allocator, uint32_t
             break;
         vmaDestroyBuffer(allocator, buf, allocation);
 #ifdef VULKAN_LOG_RESOURCE_DISPOSAL
-        Log::debug("Buffer disposed: {}, frame_id {}", (uint64_t)buf, frame_id);
+        Log::debug("Buffer disposed: {:x}, frame_id {}", (uint64_t)buf, frame_id);
 #endif
     }
 }
 
 //
 
-RendererVK::RendererVK(VkInstance instance, VkPhysicalDevice physical_device, VkDevice device,
-                       VkSurfaceKHR surface, uint32_t graphics_queue_index,
-                       uint32_t present_queue_index) :
+RendererVK::RendererVK(VkInstance instance, VkDebugUtilsMessengerEXT debug_messenger,
+                       VkPhysicalDevice physical_device, VkDevice device, VkSurfaceKHR surface,
+                       uint32_t graphics_queue_index, uint32_t present_queue_index) :
     instance_(instance),
+    debug_messenger_(debug_messenger),
     physical_device_(physical_device),
     device_(device),
     surface_(surface),
@@ -210,6 +211,8 @@ RendererVK::~RendererVK() {
     vkDestroySwapchainKHR(device_, swapchain_, nullptr);
     vkDestroyDevice(device_, nullptr);
     vkDestroySurfaceKHR(instance_, surface_, nullptr);
+    if (debug_messenger_)
+        vkDestroyDebugUtilsMessengerEXT(instance_, debug_messenger_, nullptr);
     vkDestroyInstance(instance_, nullptr);
 }
 
@@ -417,6 +420,7 @@ std::shared_ptr<Framebuffer> RendererVK::create_framebuffer(uint32_t width, uint
     fb->width = width;
     fb->height = height;
     fb->resource_disposal = &resource_disposal_;
+    fb->image_id = 1;
 
     return framebuffer;
 }
@@ -506,9 +510,7 @@ void RendererVK::begin_draw(const std::shared_ptr<Framebuffer>& framebuffer,
     VkImageMemoryBarrier barrier;
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     barrier.pNext = nullptr;
-    barrier.srcAccessMask = fb->current_access[image_id].access;
     barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    barrier.oldLayout = fb->current_access[image_id].layout;
     barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     barrier.srcQueueFamilyIndex = graphics_queue_index_;
     barrier.dstQueueFamilyIndex = graphics_queue_index_;
@@ -519,7 +521,18 @@ void RendererVK::begin_draw(const std::shared_ptr<Framebuffer>& framebuffer,
     barrier.subresourceRange.baseArrayLayer = 0;
     barrier.subresourceRange.layerCount = 1;
 
-    vkCmdPipelineBarrier(current_cb_, fb->current_access[image_id].stages,
+    VkPipelineStageFlags src_stages;
+    if (!fb->window_framebuffer) {
+        src_stages = fb->current_access[image_id].stages;
+        barrier.srcAccessMask = fb->current_access[image_id].access;
+        barrier.oldLayout = fb->current_access[image_id].layout;
+    } else {
+        src_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        barrier.srcAccessMask = 0;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    }
+
+    vkCmdPipelineBarrier(current_cb_, src_stages,
                          VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr,
                          1, &barrier);
 
@@ -667,6 +680,7 @@ void RendererVK::render_draw_data(ImDrawData* draw_data) {
         idx_dst += cmd_list->IdxBuffer.Size;
     }
 
+    // Just flush, don't unmap
     VkMappedMemoryRange range[2] = {};
     range[0].sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
     range[0].memory = rb->VertexBufferMemory;
@@ -674,7 +688,7 @@ void RendererVK::render_draw_data(ImDrawData* draw_data) {
     range[1].sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
     range[1].memory = rb->IndexBufferMemory;
     range[1].size = VK_WHOLE_SIZE;
-    VK_CHECK(vkFlushMappedMemoryRanges(v->Device, 2, range));
+    VK_CHECK(vkFlushMappedMemoryRanges(device_, 2, range));
 
     // Setup desired Vulkan state
     setup_imgui_render_state(draw_data, pipeline, current_cb_, rb, fb_width, fb_height);
@@ -778,9 +792,24 @@ void RendererVK::present() {
         .pImageIndices = &sc_image_index_,
     };
 
+    // VkPresentIdKHR present_id {
+    //     .sType = VK_STRUCTURE_TYPE_PRESENT_ID_KHR,
+    //     .swapchainCount = 1,
+    // };
+
+    // if (has_present_id) {
+    //     present_id.pPresentIds = &present_id_;
+    //     present_info.pNext = &present_id;
+    //     present_id_ += 1;
+    // }
+
     VkResult result = vkQueuePresentKHR(graphics_queue_, &present_info);
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
         assert(false);
+
+    // if (has_present_wait && has_present_id) {
+    //     VK_CHECK(vkWaitForPresentKHR(device_, swapchain_, present_id_, UINT64_MAX));
+    // }
 }
 
 bool RendererVK::init_swapchain_() {
@@ -820,6 +849,7 @@ bool RendererVK::init_swapchain_() {
     main_framebuffer_.width = new_swapchain.extent.width;
     main_framebuffer_.height = new_swapchain.extent.height;
     main_framebuffer_.window_framebuffer = true;
+    main_framebuffer_.image_id = 1;
 
     VkFramebufferCreateInfo fb_info {
         .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
@@ -839,7 +869,18 @@ bool RendererVK::init_swapchain_() {
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
     };
 
+    VkDebugUtilsObjectNameInfoEXT debug_info {
+        .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+        .objectType = VK_OBJECT_TYPE_IMAGE,
+    };
+
+    char obj_name[64]{};
     for (int i = 0; i < VULKAN_BUFFER_SIZE; i++) {
+        fmt::format_to(obj_name, "Swapchain Image {}", i);
+        debug_info.pObjectName = obj_name;
+        debug_info.objectHandle = (uint64_t)swapchain_images[i];
+        vkSetDebugUtilsObjectNameEXT(device_, &debug_info);
+
         main_framebuffer_.image[i] = swapchain_images[i];
         main_framebuffer_.view[i] = swapchain_image_views[i];
         fb_info.pAttachments = &swapchain_image_views[i];
@@ -942,13 +983,14 @@ Renderer* RendererVK::create(App* app) {
     if (VK_FAILED(volkInitialize()))
         return nullptr;
 
+    uint32_t vulkan_api_version = VKB_VK_API_VERSION_1_1;
     auto inst_ret = vkb::InstanceBuilder()
                         .set_app_name("wb_vulkan")
                         .enable_extension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)
-                        .enable_extension(VK_KHR_XCB_SURFACE_EXTENSION_NAME)
                         .request_validation_layers()
                         .use_default_debug_messenger()
-                        .desire_api_version(VKB_VK_API_VERSION_1_1)
+                        .require_api_version(vulkan_api_version)
+                        .set_minimum_instance_version(vulkan_api_version)
                         .build();
 
     if (!inst_ret) {
@@ -994,7 +1036,7 @@ Renderer* RendererVK::create(App* app) {
 
     auto selected_physical_device = vkb::PhysicalDeviceSelector(instance)
                                         .prefer_gpu_device_type(vkb::PreferredDeviceType::discrete)
-                                        .allow_any_gpu_device_type(true)
+                                        .allow_any_gpu_device_type(false)
                                         .set_surface(surface)
                                         .require_present()
                                         .select();
@@ -1005,7 +1047,41 @@ Renderer* RendererVK::create(App* app) {
         return nullptr;
     }
 
-    auto device_result = vkb::DeviceBuilder(selected_physical_device.value()).build();
+    auto physical_device = selected_physical_device.value();
+    vkGetPhysicalDeviceFeatures(physical_device, &physical_device.features);
+
+    VkPhysicalDeviceFeatures2 features {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+        .features = physical_device.features,
+    };
+
+    VkPhysicalDevicePresentIdFeaturesKHR present_id_features {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_FEATURES_KHR,
+        .presentId = true,
+    };
+
+    VkPhysicalDevicePresentWaitFeaturesKHR present_wait_features {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_WAIT_FEATURES_KHR,
+        .presentWait = true,
+    };
+
+    void* pNext = nullptr;
+    bool has_present_id = false;
+    if (physical_device.enable_extension_if_present(VK_KHR_PRESENT_ID_EXTENSION_NAME)) {
+        has_present_id = true;
+        features.pNext = &present_id_features;
+    }
+
+    bool has_present_wait = false;
+    if (physical_device.enable_extension_if_present(VK_KHR_PRESENT_WAIT_EXTENSION_NAME)) {
+        has_present_wait = true;
+        present_id_features.pNext = &present_wait_features;
+    }
+
+    vkGetPhysicalDeviceFeatures2(physical_device, &features);
+
+    auto device_builder = vkb::DeviceBuilder(physical_device).add_pNext(&features);
+    auto device_result = device_builder.build();
     if (!device_result) {
         Log::error("Failed to create Vulkan device. Error: {}", device_result.error().message());
         vkb::destroy_instance(instance);
@@ -1013,7 +1089,7 @@ Renderer* RendererVK::create(App* app) {
     }
 
     vkb::Device device = device_result.value();
-    VkPhysicalDevice physical_device = selected_physical_device.value();
+    VkPhysicalDevice vulkan_physical_device = physical_device;
     VkDevice vulkan_device = device.device;
     uint32_t graphics_queue_index = device.get_queue_index(vkb::QueueType::graphics).value();
     uint32_t present_queue_index = device.get_queue_index(vkb::QueueType::present).value();
@@ -1043,14 +1119,18 @@ Renderer* RendererVK::create(App* app) {
         },
         &userdata);
 
-    RendererVK* renderer = new (std::nothrow) RendererVK(instance, physical_device, device, surface,
-                                                         graphics_queue_index, present_queue_index);
+    RendererVK* renderer =
+        new (std::nothrow) RendererVK(instance, instance.debug_messenger, vulkan_physical_device,
+                                      device, surface, graphics_queue_index, present_queue_index);
 
     if (!renderer) {
         vkb::destroy_device(device);
         vkb::destroy_instance(instance);
         return nullptr;
     }
+
+    renderer->has_present_id = has_present_id;
+    renderer->has_present_wait = has_present_wait;
 
     if (!renderer->init()) {
         vkb::destroy_device(device);

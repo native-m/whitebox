@@ -1,7 +1,7 @@
 #pragma once
 
 #include <atomic>
-#include "core/common.h"
+#include "common.h"
 
 namespace wb {
 

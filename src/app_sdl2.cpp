@@ -47,10 +47,14 @@ void AppSDL2::handle_events(SDL_Event& event) {
         case SDL_WINDOWEVENT:
             if (event.window.windowID != window_id)
                 break;
-            if (event.window.event == SDL_WINDOWEVENT_RESIZED)
+            if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
                 g_renderer->resize_swapchain();
-            if (event.window.event == SDL_WINDOWEVENT_CLOSE)
+                break;
+            }
+            if (event.window.event == SDL_WINDOWEVENT_CLOSE) {
                 running = false;
+                break;
+            }
             break;
         case SDL_QUIT:
             running = false;

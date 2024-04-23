@@ -89,15 +89,14 @@ set(WB_LINK_LIBRARIES
     imgui-freetype
     imgui-vulkan
     sndfile
-    xcb
-    X11
-    X11-xcb
     nfd)
 
 if (MSVC)
     set(WB_LINK_LIBRARIES
         ${WB_LINK_LIBRARIES}
         imgui-d3d11)
+else ()
+    set(WB_LINK_LIBRARIES ${WB_LINK_LIBRARIES} xcb X11 X11-xcb)
 endif()
 
 add_library(whitebox-lib STATIC ${WB_SOURCES})

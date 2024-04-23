@@ -827,7 +827,7 @@ void GuiTimeline::render_tracks() {
         }
 
         //Log::info("{}")
-        Log::info("{} {} {}", view_max.y, view_max.y, vscroll + timeline_view_pos.y);
+        //Log::info("{} {} {}", view_max.y, view_max.y, vscroll + timeline_view_pos.y);
     }
 
     for (auto track : g_engine.tracks) {
