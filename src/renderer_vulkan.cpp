@@ -467,12 +467,16 @@ std::shared_ptr<SamplePeaks> RendererVK::create_sample_peaks(const Sample& sampl
     std::vector<SamplePeaksMipVK> mipmap;
     bool failed = false;
     auto destroy_all = [&] {
-        for (auto& buffer_copy : buffer_copies)
-            vmaDestroyBuffer(allocator_, buffer_copy.staging_buffer,
-                             buffer_copy.staging_allocation);
+        for (auto& buffer_copy : buffer_copies) {
+            if (buffer_copy.staging_buffer && buffer_copy.staging_allocation)
+                vmaDestroyBuffer(allocator_, buffer_copy.staging_buffer,
+                                 buffer_copy.staging_allocation);
+        }
         if (failed) {
-            for (auto& mip : mipmap)
-                vmaDestroyBuffer(allocator_, mip.buffer, mip.allocation);
+            for (auto& mip : mipmap) {
+                if (mip.buffer && mip.allocation)
+                    vmaDestroyBuffer(allocator_, mip.buffer, mip.allocation);
+            }
         }
     };
 
