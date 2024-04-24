@@ -11,6 +11,15 @@
 #include <X11/Xlib-xcb.h>
 #endif
 
+#ifdef VK_USE_PLATFORM_XLIB_KHR
+
+extern "C" {
+    #include <X11/Xlib.h>
+    #include <X11/Xutil.h>
+}
+
+#endif
+
 #define IMGUI_IMPL_VULKAN_NO_PROTOTYPES
 
 #include <imgui_impl_sdl2.h>
@@ -435,7 +444,7 @@ std::shared_ptr<Framebuffer> RendererVK::create_framebuffer(uint32_t width, uint
     fb->width = width;
     fb->height = height;
     fb->resource_disposal = &resource_disposal_;
-    fb->image_id = 1;
+    fb->image_id = 2;
 
     return framebuffer;
 }
@@ -1054,7 +1063,7 @@ bool RendererVK::init_swapchain_() {
     main_framebuffer_.width = new_swapchain.extent.width;
     main_framebuffer_.height = new_swapchain.extent.height;
     main_framebuffer_.window_framebuffer = true;
-    main_framebuffer_.image_id = 1;
+    main_framebuffer_.image_id = 2;
 
     VkFramebufferCreateInfo fb_info {
         .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
@@ -1375,21 +1384,39 @@ Renderer* RendererVK::create(App* app) {
         return nullptr;
     }
 #else
+
+#ifdef VK_USE_PLATFORM_XLIB_KHR
+    Display* display = wm_info.info.x11.display;
+
+    VkXlibSurfaceCreateInfoKHR surface_info {
+        .sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
+        .dpy = display,
+        .window = wm_info.info.x11.window,
+    };
+
+    if (VK_FAILED(vkCreateXlibSurfaceKHR(instance, &surface_info, nullptr, &surface))) {
+        Log::error("Failed to create window surface");
+        vkb::destroy_instance(instance);
+        return nullptr;
+    }
+
+#else
     VkXcbSurfaceCreateInfoKHR surface_info {
         .sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
         .connection = XGetXCBConnection(wm_info.info.x11.display),
         .window = static_cast<xcb_window_t>(wm_info.info.x11.window),
     };
 
-    if (VK_FAILED(vkCreateXcbSurfaceKHR(instance, &surface_info, nullptr, &surface))) {
-        Log::error("Failed to create window surface");
-        vkb::destroy_instance(instance);
-        return nullptr;
-    }
+        if (VK_FAILED(vkCreateXcbSurfaceKHR(instance, &surface_info, nullptr, &surface))) {
+                Log::error("Failed to create window surface");
+                vkb::destroy_instance(instance);
+                return nullptr;
+        }
+#endif
 #endif
 
     auto selected_physical_device = vkb::PhysicalDeviceSelector(instance)
-                                        .prefer_gpu_device_type(vkb::PreferredDeviceType::discrete)
+                                        .prefer_gpu_device_type(vkb::PreferredDeviceType::integrated)
                                         .allow_any_gpu_device_type(false)
                                         .set_surface(surface)
                                         .require_present()

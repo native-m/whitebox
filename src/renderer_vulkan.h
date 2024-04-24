@@ -6,7 +6,7 @@
 
 #include "vk_stub.h"
 
-#define VULKAN_BUFFER_SIZE 2
+#define VULKAN_BUFFER_SIZE 3
 
 // Reusable buffers used for rendering 1 current in-flight frame, for
 // ImGui_ImplVulkan_RenderDrawData() [Please zero-clear before use!]
@@ -35,7 +35,7 @@ struct FramebufferVK : public Framebuffer {
     VkFramebuffer framebuffer[VULKAN_BUFFER_SIZE];
     VkDescriptorSet descriptor_set[VULKAN_BUFFER_SIZE] {};
     ImageAccessVK current_access[VULKAN_BUFFER_SIZE] {};
-    uint32_t image_id = 1;
+    uint32_t image_id = 2;
 
     ResourceDisposalVK* resource_disposal {};
 
