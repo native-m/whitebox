@@ -105,14 +105,14 @@ ImTextureID FramebufferVK::as_imgui_texture_id() const {
     return ImTextureID(descriptor_set[resource_disposal->current_frame_id]);
 }
 
-//
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 SamplePeaksVK::~SamplePeaksVK() {
     for (auto [buffer, allocation] : mipmap)
         resource_disposal->dispose_buffer(allocation, buffer);
 }
 
-//
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 void ResourceDisposalVK::dispose_buffer(VmaAllocation allocation, VkBuffer buf) {
     buffer.emplace_back(current_frame_id, allocation, buf);
@@ -182,7 +182,25 @@ void ResourceDisposalVK::flush(VkDevice device, VmaAllocator allocator, uint32_t
     }
 }
 
-//
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+VkDescriptorSet DescriptorStreamVK::allocate_descriptor_set(VkDevice device,
+                                                            VkDescriptorSetLayout layout) {
+}
+
+void DescriptorStreamVK::reset(VkDevice device, uint32_t frame_id) {
+    current_frame_id = frame_id;
+    DescriptorStreamChunkVK* chunk = chunk_list[current_frame_id];
+    while (chunk != nullptr) {
+        vkResetDescriptorPool(device, chunk->pool, 0);
+        chunk = chunk->next;
+    }
+}
+
+void DescriptorStreamVK::destroy(VkDevice device) {
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 RendererVK::RendererVK(VkInstance instance, VkDebugUtilsMessengerEXT debug_messenger,
                        VkPhysicalDevice physical_device, VkDevice device, VkSurfaceKHR surface,
@@ -613,8 +631,8 @@ std::shared_ptr<SamplePeaks> RendererVK::create_sample_peaks(const Sample& sampl
 }
 
 void RendererVK::resize_swapchain() {
-    //vkDeviceWaitIdle(device_);
-    //init_swapchain_();
+    // vkDeviceWaitIdle(device_);
+    // init_swapchain_();
 }
 
 void RendererVK::new_frame() {
@@ -1414,13 +1432,12 @@ Renderer* RendererVK::create(App* app) {
 #endif
 #endif
 
-    auto selected_physical_device =
-        vkb::PhysicalDeviceSelector(instance)
-            .prefer_gpu_device_type(vkb::PreferredDeviceType::discrete)
-            .allow_any_gpu_device_type(false)
-            .set_surface(surface)
-            .require_present()
-            .select();
+    auto selected_physical_device = vkb::PhysicalDeviceSelector(instance)
+                                        .prefer_gpu_device_type(vkb::PreferredDeviceType::discrete)
+                                        .allow_any_gpu_device_type(false)
+                                        .set_surface(surface)
+                                        .require_present()
+                                        .select();
 
     if (!selected_physical_device) {
         Log::error("Failed to find suitable Vulkan device");

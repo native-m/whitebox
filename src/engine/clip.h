@@ -5,7 +5,7 @@
 #include <imgui.h>
 #include <string>
 
-#define WB_INVALID_TRACK_ID (~0UL)
+#define WB_INVALID_TRACK_ID (~0U)
 
 namespace wb {
 
