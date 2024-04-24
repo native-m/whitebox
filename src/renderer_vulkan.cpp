@@ -7,20 +7,17 @@
 #include <SDL_vulkan.h>
 #include <VkBootstrap.h>
 
+#define IMGUI_IMPL_VULKAN_NO_PROTOTYPES
+
 #ifdef VK_USE_PLATFORM_XCB_KHR
 #include <X11/Xlib-xcb.h>
 #endif
 
 #ifdef VK_USE_PLATFORM_XLIB_KHR
-
 extern "C" {
-    #include <X11/Xlib.h>
-    #include <X11/Xutil.h>
+#include <X11/Xutil.h>
 }
-
 #endif
-
-#define IMGUI_IMPL_VULKAN_NO_PROTOTYPES
 
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_vulkan.h>
@@ -1407,20 +1404,21 @@ Renderer* RendererVK::create(App* app) {
         .window = static_cast<xcb_window_t>(wm_info.info.x11.window),
     };
 
-        if (VK_FAILED(vkCreateXcbSurfaceKHR(instance, &surface_info, nullptr, &surface))) {
-                Log::error("Failed to create window surface");
-                vkb::destroy_instance(instance);
-                return nullptr;
-        }
+    if (VK_FAILED(vkCreateXcbSurfaceKHR(instance, &surface_info, nullptr, &surface))) {
+        Log::error("Failed to create window surface");
+        vkb::destroy_instance(instance);
+        return nullptr;
+    }
 #endif
 #endif
 
-    auto selected_physical_device = vkb::PhysicalDeviceSelector(instance)
-                                        .prefer_gpu_device_type(vkb::PreferredDeviceType::integrated)
-                                        .allow_any_gpu_device_type(false)
-                                        .set_surface(surface)
-                                        .require_present()
-                                        .select();
+    auto selected_physical_device =
+        vkb::PhysicalDeviceSelector(instance)
+            .prefer_gpu_device_type(vkb::PreferredDeviceType::integrated)
+            .allow_any_gpu_device_type(false)
+            .set_surface(surface)
+            .require_present()
+            .select();
 
     if (!selected_physical_device) {
         Log::error("Failed to find suitable Vulkan device");

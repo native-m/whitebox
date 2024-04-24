@@ -12,7 +12,7 @@ using AudioDeviceID = uint64_t;
 using AudioDevicePeriod = int64_t;
 
 enum class AudioIOType {
-    None,
+    AudioNone,
     CoreAudio, // Soon
     WASAPI,
     ASIO,
