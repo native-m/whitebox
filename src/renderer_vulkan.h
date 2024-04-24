@@ -105,6 +105,13 @@ struct ResourceDisposalVK {
     void flush(VkDevice device, VmaAllocator allocator, uint32_t frame_id_dispose);
 };
 
+struct DescriptorStreamVK {};
+
+struct ClipContentDescriptorWrite {
+    VkWriteDescriptorSet write;
+    VkDescriptorBufferInfo info;
+};
+
 struct RendererVK : public Renderer {
     VkInstance instance_;
     VkDebugUtilsMessengerEXT debug_messenger_;
@@ -141,40 +148,46 @@ struct RendererVK : public Renderer {
     FramebufferVK* current_framebuffer_ {};
 
     ResourceDisposalVK resource_disposal_;
+    ImVector<VkDescriptorBufferInfo> descriptor_buffer_writes_;
+    ImVector<VkWriteDescriptorSet> write_descriptor_sets_;
+
+    VkPipelineLayout waveform_layout;
+    VkPipeline waveform_fill;
+    VkPipeline waveform_aa;
 
     RendererVK(VkInstance instance, VkDebugUtilsMessengerEXT debug_messenger,
                VkPhysicalDevice physical_device, VkDevice device, VkSurfaceKHR surface,
                uint32_t graphics_queue_index, uint32_t present_queue_index);
 
     ~RendererVK();
-    
+
     bool init();
-    
+
     std::shared_ptr<Framebuffer> create_framebuffer(uint32_t width, uint32_t height) override;
-    
+
     std::shared_ptr<SamplePeaks> create_sample_peaks(const Sample& sample,
                                                      SamplePeaksPrecision precision) override;
     void resize_swapchain() override;
 
     void new_frame() override;
-    
+
     void end_frame() override;
-    
+
     void set_framebuffer(const std::shared_ptr<Framebuffer>& framebuffer) override;
-    
+
     void begin_draw(const std::shared_ptr<Framebuffer>& framebuffer,
                     const ImVec4& clear_color) override;
-    
+
     void finish_draw() override;
-    
+
     void clear(float r, float g, float b, float a) override;
-    
+
     ImTextureID prepare_as_imgui_texture(const std::shared_ptr<Framebuffer>& framebuffer) override;
-    
+
     void draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) override;
-    
+
     void render_draw_data(ImDrawData* draw_data) override;
-    
+
     void present() override;
 
     bool init_swapchain_();
@@ -188,7 +201,11 @@ struct RendererVK : public Renderer {
                                   ImGui_ImplVulkan_FrameRenderBuffers* rb, int fb_width,
                                   int fb_height);
 
-    void dispose_framebuffer_(FramebufferVK* obj);
+    void init_pipelines();
+
+    VkPipeline create_pipeline(const char* vs, const char* fs, VkPipelineLayout layout,
+                               const VkPipelineVertexInputStateCreateInfo* vertex_input,
+                               VkPrimitiveTopology primitive_topology, bool enable_blending);
 
     static Renderer* create(App* app);
 };

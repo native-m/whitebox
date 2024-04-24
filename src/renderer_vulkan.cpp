@@ -341,6 +341,8 @@ bool RendererVK::init() {
     };
     VK_CHECK(vkCreateSampler(device_, &sampler_info, nullptr, &imgui_sampler_));
 
+    init_pipelines();
+
     ImGui_ImplVulkan_InitInfo init_info {
         .Instance = instance_,
         .PhysicalDevice = physical_device_,
@@ -631,12 +633,16 @@ void RendererVK::new_frame() {
     current_cb_ = cmd_buf.cmd_buffer;
     cmd_buf.immediate_vtx_offset = 0;
     cmd_buf.immediate_idx_offset = 0;
+    descriptor_buffer_writes_.resize(0);
+    write_descriptor_sets_.resize(0);
 
     // Log::debug("Begin frame: {}", frame_id_);
 }
 
 void RendererVK::end_frame() {
     vkEndCommandBuffer(current_cb_);
+    vkUpdateDescriptorSets(device_, write_descriptor_sets_.size(), write_descriptor_sets_.Data, 0,
+                           {});
 
     VkPipelineStageFlags wait_dst_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
@@ -795,6 +801,32 @@ ImTextureID RendererVK::prepare_as_imgui_texture(const std::shared_ptr<Framebuff
 }
 
 void RendererVK::draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) {
+    VkBuffer current_buffer {};
+    for (auto& clip : clips) {
+        SamplePeaksVK* peaks = static_cast<SamplePeaksVK*>(clip.peaks);
+        const SamplePeaksMipVK& mip = peaks->mipmap[clip.mip_index];
+        VkBuffer buffer = mip.buffer;
+
+        if (current_buffer != buffer) {
+            VkDescriptorBufferInfo buffer_descriptor {
+                .buffer = buffer,
+                .offset = 0,
+            };
+
+            VkWriteDescriptorSet write_descriptor {
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .dstSet = VK_NULL_HANDLE,
+                .dstBinding = 0,
+                .descriptorCount = 1,
+                .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                .pBufferInfo = &buffer_descriptor,
+            };
+
+            current_buffer = buffer;
+        }
+    }
+
+    // vkUpdateDescriptorSets(device_, write_descriptor_sets_.size())
 }
 
 // We slightly modified ImGui_ImplVulkan_RenderDrawData function to fit our vulkan backend
@@ -1150,6 +1182,155 @@ void RendererVK::setup_imgui_render_state(ImDrawData* draw_data, VkPipeline pipe
         vkCmdPushConstants(command_buffer, bd->PipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
                            sizeof(float) * 2, sizeof(float) * 2, translate);
     }
+}
+
+void RendererVK::init_pipelines() {
+    VkDescriptorSetLayoutCreateInfo set_layout_info {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+    };
+
+    VkPipelineLayoutCreateInfo pipeline_layout {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+    };
+}
+
+VkPipeline RendererVK::create_pipeline(const char* vs, const char* fs, VkPipelineLayout layout,
+                                       const VkPipelineVertexInputStateCreateInfo* vertex_input,
+                                       VkPrimitiveTopology primitive_topology,
+                                       bool enable_blending) {
+    size_t vs_size;
+    void* vs_bytecode = SDL_LoadFile(vs, &vs_size);
+    if (!vs_bytecode)
+        return {};
+    defer(SDL_free(vs_bytecode));
+
+    size_t fs_size;
+    void* fs_bytecode = SDL_LoadFile(fs, &fs_size);
+    if (!fs_bytecode)
+        return {};
+    defer(SDL_free(fs_bytecode));
+
+    VkShaderModuleCreateInfo module_info {
+        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+    };
+
+    VkShaderModule vs_module;
+    module_info.codeSize = vs_size;
+    module_info.pCode = (const uint32_t*)vs_bytecode;
+    if (VK_FAILED(vkCreateShaderModule(device_, &module_info, nullptr, &vs_module)))
+        return {};
+    defer(vkDestroyShaderModule(device_, vs_module, nullptr));
+
+    VkShaderModule fs_module;
+    module_info.codeSize = fs_size;
+    module_info.pCode = (const uint32_t*)fs_bytecode;
+    if (VK_FAILED(vkCreateShaderModule(device_, &module_info, nullptr, &fs_module)))
+        return {};
+    defer(vkDestroyShaderModule(device_, fs_module, nullptr));
+
+    static const VkDynamicState dynamic_states[] = {
+        VK_DYNAMIC_STATE_VIEWPORT,
+        VK_DYNAMIC_STATE_SCISSOR,
+        VK_DYNAMIC_STATE_BLEND_CONSTANTS,
+        VK_DYNAMIC_STATE_STENCIL_REFERENCE,
+    };
+
+    VkPipelineShaderStageCreateInfo shader_stages[2] = {
+        {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .stage = VK_SHADER_STAGE_VERTEX_BIT,
+            .module = vs_module,
+            .pName = "main",
+        },
+        {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+            .module = fs_module,
+            .pName = "main",
+        }};
+
+    VkPipelineVertexInputStateCreateInfo empty_vertex_input {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+        .vertexBindingDescriptionCount = 0,
+        .pVertexAttributeDescriptions = 0,
+    };
+
+    VkPipelineInputAssemblyStateCreateInfo input_assembly {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+        .topology = primitive_topology,
+    };
+
+    VkPipelineViewportStateCreateInfo viewport {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        .viewportCount = 1,
+        .scissorCount = 1,
+    };
+
+    VkPipelineRasterizationStateCreateInfo rasterization {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+        .depthClampEnable = VK_FALSE,
+        .rasterizerDiscardEnable = VK_FALSE,
+        .polygonMode = VK_POLYGON_MODE_FILL,
+        .cullMode = VK_CULL_MODE_NONE,
+        .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+        .lineWidth = 1.0f,
+    };
+
+    VkPipelineMultisampleStateCreateInfo multisample {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+    };
+
+    VkPipelineColorBlendAttachmentState color_attachment {
+        .blendEnable = enable_blending,
+        .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
+        .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+        .colorBlendOp = VK_BLEND_OP_ADD,
+        .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+        .dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+        .alphaBlendOp = VK_BLEND_OP_ADD,
+        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+                          VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+    };
+
+    VkPipelineColorBlendStateCreateInfo blend {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+        .attachmentCount = 1,
+        .pAttachments = &color_attachment,
+    };
+
+    VkPipelineDynamicStateCreateInfo dynamic_state {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+        .dynamicStateCount = IM_ARRAYSIZE(dynamic_states),
+        .pDynamicStates = dynamic_states,
+    };
+
+    VkGraphicsPipelineCreateInfo pipeline_info {
+        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+        .stageCount = 2,
+        .pStages = shader_stages,
+        .pVertexInputState = vertex_input ? vertex_input : &empty_vertex_input,
+        .pInputAssemblyState = &input_assembly,
+        .pTessellationState = {},
+        .pViewportState = &viewport,
+        .pRasterizationState = &rasterization,
+        .pMultisampleState = &multisample,
+        .pDepthStencilState = {},
+        .pColorBlendState = &blend,
+        .pDynamicState = &dynamic_state,
+        .layout = layout,
+        .renderPass = fb_render_pass_,
+        .subpass = 0,
+        .basePipelineHandle = {},
+        .basePipelineIndex = {},
+    };
+
+    VkPipeline pipeline;
+    if (VK_FAILED(
+            vkCreateGraphicsPipelines(device_, nullptr, 1, &pipeline_info, nullptr, &pipeline)))
+        return {};
+
+    return pipeline;
 }
 
 Renderer* RendererVK::create(App* app) {
