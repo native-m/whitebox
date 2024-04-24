@@ -613,8 +613,8 @@ std::shared_ptr<SamplePeaks> RendererVK::create_sample_peaks(const Sample& sampl
 }
 
 void RendererVK::resize_swapchain() {
-    vkDeviceWaitIdle(device_);
-    init_swapchain_();
+    //vkDeviceWaitIdle(device_);
+    //init_swapchain_();
 }
 
 void RendererVK::new_frame() {
@@ -1015,8 +1015,10 @@ void RendererVK::present() {
     // }
 
     VkResult result = vkQueuePresentKHR(graphics_queue_, &present_info);
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
-        assert(false);
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+        vkDeviceWaitIdle(device_);
+        init_swapchain_();
+    }
 
     // if (has_present_wait && has_present_id) {
     //     VK_CHECK(vkWaitForPresentKHR(device_, swapchain_, present_id_, UINT64_MAX));
@@ -1414,7 +1416,7 @@ Renderer* RendererVK::create(App* app) {
 
     auto selected_physical_device =
         vkb::PhysicalDeviceSelector(instance)
-            .prefer_gpu_device_type(vkb::PreferredDeviceType::integrated)
+            .prefer_gpu_device_type(vkb::PreferredDeviceType::discrete)
             .allow_any_gpu_device_type(false)
             .set_surface(surface)
             .require_present()
