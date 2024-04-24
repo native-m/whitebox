@@ -264,15 +264,15 @@ struct AudioIOWASAPI : public AudioIO {
                         AUDCLNT_SHAREMODE_EXCLUSIVE, (WAVEFORMATEX*)&format, nullptr));
 
                     if (output_format_supported) {
-                        exclusive_output_format_mask |= format_bit_mask;
-                        exclusive_output_sample_rate_mask |= sample_rate_bit_mask;
-                        exclusive_sample_rate_mask |= sample_rate_bit_mask;
+                        exclusive_output_format_bit_flags |= format_bit_mask;
+                        exclusive_output_sample_rate_bit_flags |= sample_rate_bit_mask;
+                        exclusive_sample_rate_bit_flags |= sample_rate_bit_mask;
                     }
 
                     if (input_format_supported) {
-                        exclusive_input_format_mask |= format_bit_mask;
-                        exclusive_input_sample_rate_mask |= sample_rate_bit_mask;
-                        exclusive_sample_rate_mask |= sample_rate_bit_mask;
+                        exclusive_input_format_bit_flags |= format_bit_mask;
+                        exclusive_input_sample_rate_bit_flags |= sample_rate_bit_mask;
+                        exclusive_sample_rate_bit_flags |= sample_rate_bit_mask;
                     }
                 }
             }

@@ -53,7 +53,7 @@ struct AudioIO {
     AudioDeviceProperties default_output_device;
     uint32_t input_device_count = 0;
     uint32_t output_device_count = 0;
-    uint32_t exclusive_sample_rate_bit_mask = 0;
+    uint32_t exclusive_sample_rate_bit_flags = 0;
     uint32_t exclusive_input_format_bit_flags = 0;
     uint32_t exclusive_output_format_bit_flags = 0;
     AudioDevicePeriod min_period = 0;
@@ -65,7 +65,7 @@ struct AudioIO {
     bool is_open() const { return open; }
 
     bool is_sample_rate_supported(AudioDeviceSampleRate sample_rate) const {
-        return has_bit_enum(exclusive_sample_rate_bit_mask, sample_rate);
+        return has_bit_enum(exclusive_sample_rate_bit_flags, sample_rate);
     }
 
     bool is_input_format_supported(AudioFormat format) const {
