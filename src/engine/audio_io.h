@@ -53,9 +53,9 @@ struct AudioIO {
     AudioDeviceProperties default_output_device;
     uint32_t input_device_count = 0;
     uint32_t output_device_count = 0;
-    uint32_t exclusive_sample_rate_mask = 0;
-    uint32_t exclusive_input_format_mask = 0;
-    uint32_t exclusive_output_format_mask = 0;
+    uint32_t exclusive_sample_rate_bit_mask = 0;
+    uint32_t exclusive_input_format_bit_flags = 0;
+    uint32_t exclusive_output_format_bit_flags = 0;
     AudioDevicePeriod min_period = 0;
     uint32_t buffer_alignment = 0;
     bool open = false;
@@ -65,25 +65,48 @@ struct AudioIO {
     bool is_open() const { return open; }
 
     bool is_sample_rate_supported(AudioDeviceSampleRate sample_rate) const {
-        return has_bit_enum(exclusive_sample_rate_mask, sample_rate);
+        return has_bit_enum(exclusive_sample_rate_bit_mask, sample_rate);
     }
 
     bool is_input_format_supported(AudioFormat format) const {
-        return has_bit_enum(exclusive_input_format_mask, format);
+        return has_bit_enum(exclusive_input_format_bit_flags, format);
     }
 
     bool is_output_format_supported(AudioFormat format) const {
-        return has_bit_enum(exclusive_output_format_mask, format);
+        return has_bit_enum(exclusive_output_format_bit_flags, format);
     }
 
     virtual ~AudioIO() {}
+
+    /*
+        Rescan available device that can be used by whitebox.
+    */
     virtual bool rescan_devices() = 0;
+
     virtual const AudioDeviceProperties& get_input_device_properties(uint32_t idx) const = 0;
     virtual const AudioDeviceProperties& get_output_device_properties(uint32_t idx) const = 0;
+
+    /*
+        Open input and output devices to ensure they are ready for use.
+        Usually, the implementation gets the hardware capabilities in here.
+    */
     virtual bool open_device(AudioDeviceID output_device_id, AudioDeviceID input_device_idx) = 0;
+
+    /*
+        Closes input and output devices after being used by the application.
+    */
     virtual void close_device() = 0;
+
+    /*
+        Starts the audio engine.
+        Audio thread will be launched here.
+    */
     virtual bool start(bool exclusive_mode, AudioDevicePeriod period, AudioFormat input_format,
                        AudioFormat output_format, AudioDeviceSampleRate sample_rate) = 0;
+    
+    /*
+        Stop the audio engine.
+    */
     virtual void end() = 0;
 };
 

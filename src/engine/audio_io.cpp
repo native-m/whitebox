@@ -25,6 +25,7 @@ void init_audio_io(AudioIOType type) {
 void shutdown_audio_io() {
     if (!g_audio_io)
         return;
+    g_audio_io->close_device();
     delete g_audio_io;
 }
 
