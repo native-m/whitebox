@@ -108,6 +108,12 @@ struct ResourceDisposalVK {
 
 struct DescriptorStreamChunkVK {
     VkDescriptorPool pool;
+    uint32_t max_descriptors;
+    uint32_t num_uniform_buffers;
+    uint32_t num_storage_buffers;
+    uint32_t num_sampled_images;
+    uint32_t max_descriptor_sets;
+    uint32_t num_descriptor_sets;
     DescriptorStreamChunkVK* next;
 };
 
@@ -117,7 +123,12 @@ struct DescriptorStreamVK {
     DescriptorStreamChunkVK* current_chunk;
     uint32_t current_frame_id = 1;
 
-    VkDescriptorSet allocate_descriptor_set(VkDevice device, VkDescriptorSetLayout layout);
+    VkDescriptorSet allocate_descriptor_set(VkDevice device, VkDescriptorSetLayout layout,
+                                            uint32_t num_uniform_buffers,
+                                            uint32_t num_storage_buffers,
+                                            uint32_t num_sampled_images);
+    DescriptorStreamChunkVK* create_chunk(VkDevice device, uint32_t max_descriptor_sets,
+                                          uint32_t max_descriptors);
     void reset(VkDevice device, uint32_t frame_id);
     void destroy(VkDevice device);
 };
@@ -157,6 +168,7 @@ struct RendererVK : public Renderer {
 
     VkCommandPool imm_cmd_pool_;
     VkCommandBuffer imm_cmd_buf_;
+    DescriptorStreamVK descriptor_stream_;
 
     FrameSync* current_frame_sync_ {};
     VkCommandBuffer current_cb_ {};
@@ -166,6 +178,7 @@ struct RendererVK : public Renderer {
     ImVector<VkDescriptorBufferInfo> buffer_descriptor_writes_;
     ImVector<VkWriteDescriptorSet> write_descriptor_sets_;
 
+    VkDescriptorSetLayout waveform_set_layout;
     VkPipelineLayout waveform_layout;
     VkPipeline waveform_fill;
     VkPipeline waveform_aa;
@@ -217,6 +230,7 @@ struct RendererVK : public Renderer {
                                   int fb_height);
 
     void init_pipelines();
+    void destroy_pipelines();
 
     VkPipeline create_pipeline(const char* vs, const char* fs, VkPipelineLayout layout,
                                const VkPipelineVertexInputStateCreateInfo* vertex_input,
