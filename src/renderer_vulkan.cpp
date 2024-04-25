@@ -666,9 +666,8 @@ void RendererVK::new_frame() {
 
 void RendererVK::end_frame() {
     vkEndCommandBuffer(current_cb_);
-    // vkUpdateDescriptorSets(device_, write_descriptor_sets_.size(), write_descriptor_sets_.Data,
-    // 0,
-    //                        {});
+    //vkUpdateDescriptorSets(device_, write_descriptor_sets_.size(), write_descriptor_sets_.Data, 0,
+    //                       {});
 
     VkPipelineStageFlags wait_dst_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
@@ -835,7 +834,7 @@ void RendererVK::draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) {
         VkBuffer buffer = mip.buffer;
 
         if (current_buffer != buffer) {
-            VkDescriptorBufferInfo buffer_descriptor {buffer, 0, VK_WHOLE_SIZE};
+            VkDescriptorBufferInfo buffer_descriptor { buffer, 0, VK_WHOLE_SIZE };
 
             VkWriteDescriptorSet write_descriptor {
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,

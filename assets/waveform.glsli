@@ -1,0 +1,10 @@
+layout(push_constant) uniform DrawCmd {
+    vec2 origin;
+    float scale_x;
+    float scale_y;
+    vec4 color;
+    float vp_width;
+    float vp_height;
+    int is_min;
+    uint start_idx;
+} draw_cmd;

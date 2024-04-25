@@ -163,7 +163,7 @@ struct RendererVK : public Renderer {
     FramebufferVK* current_framebuffer_ {};
 
     ResourceDisposalVK resource_disposal_;
-    ImVector<VkDescriptorBufferInfo> descriptor_buffer_writes_;
+    ImVector<VkDescriptorBufferInfo> buffer_descriptor_writes_;
     ImVector<VkWriteDescriptorSet> write_descriptor_sets_;
 
     VkPipelineLayout waveform_layout;
