@@ -117,8 +117,6 @@ void App::run() {
 }
 
 void App::shutdown() {
-    g_audio_io->close_device();
-
     Log::info("Closing application...");
     g_timeline.shutdown();
     shutdown_audio_io();

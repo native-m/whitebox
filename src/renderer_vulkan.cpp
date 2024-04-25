@@ -7,11 +7,17 @@
 #include <SDL_vulkan.h>
 #include <VkBootstrap.h>
 
+#define IMGUI_IMPL_VULKAN_NO_PROTOTYPES
+
 #ifdef VK_USE_PLATFORM_XCB_KHR
 #include <X11/Xlib-xcb.h>
 #endif
 
-#define IMGUI_IMPL_VULKAN_NO_PROTOTYPES
+#ifdef VK_USE_PLATFORM_XLIB_KHR
+extern "C" {
+#include <X11/Xutil.h>
+}
+#endif
 
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_vulkan.h>
@@ -99,14 +105,14 @@ ImTextureID FramebufferVK::as_imgui_texture_id() const {
     return ImTextureID(descriptor_set[resource_disposal->current_frame_id]);
 }
 
-//
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 SamplePeaksVK::~SamplePeaksVK() {
     for (auto [buffer, allocation] : mipmap)
         resource_disposal->dispose_buffer(allocation, buffer);
 }
 
-//
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 void ResourceDisposalVK::dispose_buffer(VmaAllocation allocation, VkBuffer buf) {
     buffer.emplace_back(current_frame_id, allocation, buf);
@@ -176,7 +182,25 @@ void ResourceDisposalVK::flush(VkDevice device, VmaAllocator allocator, uint32_t
     }
 }
 
-//
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+VkDescriptorSet DescriptorStreamVK::allocate_descriptor_set(VkDevice device,
+                                                            VkDescriptorSetLayout layout) {
+}
+
+void DescriptorStreamVK::reset(VkDevice device, uint32_t frame_id) {
+    current_frame_id = frame_id;
+    DescriptorStreamChunkVK* chunk = chunk_list[current_frame_id];
+    while (chunk != nullptr) {
+        vkResetDescriptorPool(device, chunk->pool, 0);
+        chunk = chunk->next;
+    }
+}
+
+void DescriptorStreamVK::destroy(VkDevice device) {
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 RendererVK::RendererVK(VkInstance instance, VkDebugUtilsMessengerEXT debug_messenger,
                        VkPhysicalDevice physical_device, VkDevice device, VkSurfaceKHR surface,
@@ -435,7 +459,7 @@ std::shared_ptr<Framebuffer> RendererVK::create_framebuffer(uint32_t width, uint
     fb->width = width;
     fb->height = height;
     fb->resource_disposal = &resource_disposal_;
-    fb->image_id = 1;
+    fb->image_id = 2;
 
     return framebuffer;
 }
@@ -607,8 +631,8 @@ std::shared_ptr<SamplePeaks> RendererVK::create_sample_peaks(const Sample& sampl
 }
 
 void RendererVK::resize_swapchain() {
-    vkDeviceWaitIdle(device_);
-    init_swapchain_();
+    // vkDeviceWaitIdle(device_);
+    // init_swapchain_();
 }
 
 void RendererVK::new_frame() {
@@ -1009,8 +1033,10 @@ void RendererVK::present() {
     // }
 
     VkResult result = vkQueuePresentKHR(graphics_queue_, &present_info);
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
-        assert(false);
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+        vkDeviceWaitIdle(device_);
+        init_swapchain_();
+    }
 
     // if (has_present_wait && has_present_id) {
     //     VK_CHECK(vkWaitForPresentKHR(device_, swapchain_, present_id_, UINT64_MAX));
@@ -1054,7 +1080,7 @@ bool RendererVK::init_swapchain_() {
     main_framebuffer_.width = new_swapchain.extent.width;
     main_framebuffer_.height = new_swapchain.extent.height;
     main_framebuffer_.window_framebuffer = true;
-    main_framebuffer_.image_id = 1;
+    main_framebuffer_.image_id = 2;
 
     VkFramebufferCreateInfo fb_info {
         .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
@@ -1375,6 +1401,23 @@ Renderer* RendererVK::create(App* app) {
         return nullptr;
     }
 #else
+
+#ifdef VK_USE_PLATFORM_XLIB_KHR
+    Display* display = wm_info.info.x11.display;
+
+    VkXlibSurfaceCreateInfoKHR surface_info {
+        .sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
+        .dpy = display,
+        .window = wm_info.info.x11.window,
+    };
+
+    if (VK_FAILED(vkCreateXlibSurfaceKHR(instance, &surface_info, nullptr, &surface))) {
+        Log::error("Failed to create window surface");
+        vkb::destroy_instance(instance);
+        return nullptr;
+    }
+
+#else
     VkXcbSurfaceCreateInfoKHR surface_info {
         .sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
         .connection = XGetXCBConnection(wm_info.info.x11.display),
@@ -1386,6 +1429,7 @@ Renderer* RendererVK::create(App* app) {
         vkb::destroy_instance(instance);
         return nullptr;
     }
+#endif
 #endif
 
     auto selected_physical_device = vkb::PhysicalDeviceSelector(instance)

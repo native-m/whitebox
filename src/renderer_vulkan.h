@@ -6,7 +6,7 @@
 
 #include "vk_stub.h"
 
-#define VULKAN_BUFFER_SIZE 2
+#define VULKAN_BUFFER_SIZE 3
 
 // Reusable buffers used for rendering 1 current in-flight frame, for
 // ImGui_ImplVulkan_RenderDrawData() [Please zero-clear before use!]
@@ -35,7 +35,7 @@ struct FramebufferVK : public Framebuffer {
     VkFramebuffer framebuffer[VULKAN_BUFFER_SIZE];
     VkDescriptorSet descriptor_set[VULKAN_BUFFER_SIZE] {};
     ImageAccessVK current_access[VULKAN_BUFFER_SIZE] {};
-    uint32_t image_id = 1;
+    uint32_t image_id = 2;
 
     ResourceDisposalVK* resource_disposal {};
 
@@ -93,19 +93,34 @@ struct ImmediateBufferDisposalVK {
 };
 
 // GPU resource disposal collector. Vulkan does not allow you to destroy resources while they are
-// being used by the GPU. The solution is to collect them and delete them at the end of use.
+// being used by the GPU. The solution is to collect first and delete them later at the end of use.
 struct ResourceDisposalVK {
     uint32_t current_frame_id {};
     std::deque<BufferDisposalVK> buffer;
     std::deque<FramebufferDisposalVK> fb;
     std::deque<ImmediateBufferDisposalVK> imm_buffer;
+
     void dispose_buffer(VmaAllocation allocation, VkBuffer buf);
     void dispose_framebuffer(FramebufferVK* obj);
     void dispose_immediate_buffer(VkDeviceMemory buffer_memory, VkBuffer buffer);
     void flush(VkDevice device, VmaAllocator allocator, uint32_t frame_id_dispose);
 };
 
-struct DescriptorStreamVK {};
+struct DescriptorStreamChunkVK {
+    VkDescriptorPool pool;
+    DescriptorStreamChunkVK* next;
+};
+
+// Handles stream of descriptors across the frame.
+struct DescriptorStreamVK {
+    DescriptorStreamChunkVK* chunk_list[VULKAN_BUFFER_SIZE];
+    DescriptorStreamChunkVK* current_chunk;
+    uint32_t current_frame_id = 1;
+
+    VkDescriptorSet allocate_descriptor_set(VkDevice device, VkDescriptorSetLayout layout);
+    void reset(VkDevice device, uint32_t frame_id);
+    void destroy(VkDevice device);
+};
 
 struct ClipContentDescriptorWrite {
     VkWriteDescriptorSet write;
