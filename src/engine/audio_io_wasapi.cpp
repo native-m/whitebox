@@ -201,8 +201,8 @@ struct AudioIOWASAPI : public AudioIO {
     std::vector<AudioDeviceWASAPI> input_devices;
     ActiveDeviceWASAPI output;
     ActiveDeviceWASAPI input;
-    uint32_t exclusive_output_sample_rate_mask = 0;
-    uint32_t exclusive_input_sample_rate_mask = 0;
+    uint32_t exclusive_output_sample_rate_bit_flags = 0;
+    uint32_t exclusive_input_sample_rate_bit_flags = 0;
 
     virtual ~AudioIOWASAPI() { close_device(); }
 

@@ -186,6 +186,7 @@ void ResourceDisposalVK::flush(VkDevice device, VmaAllocator allocator, uint32_t
 
 VkDescriptorSet DescriptorStreamVK::allocate_descriptor_set(VkDevice device,
                                                             VkDescriptorSetLayout layout) {
+    return {};
 }
 
 void DescriptorStreamVK::reset(VkDevice device, uint32_t frame_id) {
@@ -657,7 +658,7 @@ void RendererVK::new_frame() {
     current_cb_ = cmd_buf.cmd_buffer;
     cmd_buf.immediate_vtx_offset = 0;
     cmd_buf.immediate_idx_offset = 0;
-    descriptor_buffer_writes_.resize(0);
+    buffer_descriptor_writes_.resize(0);
     write_descriptor_sets_.resize(0);
 
     // Log::debug("Begin frame: {}", frame_id_);
@@ -665,8 +666,9 @@ void RendererVK::new_frame() {
 
 void RendererVK::end_frame() {
     vkEndCommandBuffer(current_cb_);
-    vkUpdateDescriptorSets(device_, write_descriptor_sets_.size(), write_descriptor_sets_.Data, 0,
-                           {});
+    // vkUpdateDescriptorSets(device_, write_descriptor_sets_.size(), write_descriptor_sets_.Data,
+    // 0,
+    //                        {});
 
     VkPipelineStageFlags wait_dst_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
@@ -826,16 +828,14 @@ ImTextureID RendererVK::prepare_as_imgui_texture(const std::shared_ptr<Framebuff
 
 void RendererVK::draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) {
     VkBuffer current_buffer {};
+
     for (auto& clip : clips) {
         SamplePeaksVK* peaks = static_cast<SamplePeaksVK*>(clip.peaks);
         const SamplePeaksMipVK& mip = peaks->mipmap[clip.mip_index];
         VkBuffer buffer = mip.buffer;
 
         if (current_buffer != buffer) {
-            VkDescriptorBufferInfo buffer_descriptor {
-                .buffer = buffer,
-                .offset = 0,
-            };
+            VkDescriptorBufferInfo buffer_descriptor {buffer, 0, VK_WHOLE_SIZE};
 
             VkWriteDescriptorSet write_descriptor {
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -846,6 +846,8 @@ void RendererVK::draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) {
                 .pBufferInfo = &buffer_descriptor,
             };
 
+            buffer_descriptor_writes_.push_back(buffer_descriptor);
+            write_descriptor_sets_.push_back(write_descriptor);
             current_buffer = buffer;
         }
     }
