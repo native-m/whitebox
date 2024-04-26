@@ -9,32 +9,26 @@ layout(set = 0, binding = 0) readonly buffer WaveformBuffer {
     uint minmax[];
 } vertex_input;
 
+float lookup_value(uint pos) {
+    uint pos_aligned = pos / 2;
+    vec2 values = unpackSnorm2x16(vertex_input.minmax[pos_aligned]);
+    return (pos % 2) == 0 ? values.x : values.y;
+}
+
 vec2 get_minmax_value(uint pos) {
-    const float norm_scale = 1.0 / 32767.0;
     float scale_x = draw_cmd.scale_x;
     float sample_pos = float(pos) * scale_x;
     uint scan_len = uint(ceil(scale_x + fract(sample_pos)));
-    float min_val = 1.0f;
-    float max_val = -1.0f;
-    uint scan_len_aligned = scan_len / 2;
+    float min_val = 1.0;
+    float max_val = -1.0;
     
-    uint i = 0;
-    for (; i < scan_len_aligned; i++) {
-        uint minmax = vertex_input.minmax[i];
-        float s0 = float(minmax & 0xFFFF);
-        float s1 = float(minmax >> 16);
-        min_val = min(min_val, min(s0, s1));
-        max_val = max(max_val, max(s0, s1));
-    }
-
-    if (scan_len % 2 == 1) {
-        uint minmax = vertex_input.minmax[i];
-        float s = float(minmax & 0xFFFF);
+    for (int i = 0; i < scan_len; i++) {
+        float s = lookup_value(uint(sample_pos) + i);
         min_val = min(min_val, s);
         max_val = max(max_val, s);
     }
     
-    return vec2(min_val, max_val) * norm_scale;
+    return vec2(min_val, max_val);
 }
 
 void main() {
@@ -53,7 +47,7 @@ void main() {
     pos.y = draw_cmd.origin.y + offset_y + -y * offset_y;
     
     gl_Position.x = pos.x * draw_cmd.vp_width - 1.0f;
-    gl_Position.y = pos.y * draw_cmd.vp_height;
+    gl_Position.y = -(1.0 - pos.y * draw_cmd.vp_height);
     gl_Position.zw = vec2(0.5f, 1.0f);
     width = 1.0f;
 }

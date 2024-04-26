@@ -52,7 +52,7 @@ inline static void draw_clip(ImDrawList* draw_list, ImVector<ClipContentDrawCmd>
 
     SampleAsset* asset = clip->audio.asset;
     static double log_base4 = 1.0 / 1.3862943611198906; // 1.0 / log(4.0)
-    if (asset && false) {
+    if (asset) {
         SamplePeaks* sample_peaks = asset->peaks.get();
 
         // This kinda bad
@@ -138,7 +138,7 @@ inline void draw_clip2(ImDrawList* draw_list, ImVector<ClipContentDrawCmd>& clip
 
     SampleAsset* asset = clip->audio.asset;
     static constexpr double log_base4 = 1.0 / 1.3862943611198906; // 1.0 / log(4.0)
-    if (asset && false) {
+    if (asset) {
         SamplePeaks* sample_peaks = asset->peaks.get();
 
         // This kinda bad

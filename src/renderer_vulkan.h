@@ -119,8 +119,8 @@ struct DescriptorStreamChunkVK {
 
 // Handles stream of descriptors across the frame.
 struct DescriptorStreamVK {
-    DescriptorStreamChunkVK* chunk_list[VULKAN_BUFFER_SIZE];
-    DescriptorStreamChunkVK* current_chunk;
+    DescriptorStreamChunkVK* chunk_list[VULKAN_BUFFER_SIZE] {};
+    DescriptorStreamChunkVK* current_chunk {};
     uint32_t current_frame_id = 1;
 
     VkDescriptorSet allocate_descriptor_set(VkDevice device, VkDescriptorSetLayout layout,
@@ -182,6 +182,11 @@ struct RendererVK : public Renderer {
     VkPipelineLayout waveform_layout;
     VkPipeline waveform_fill;
     VkPipeline waveform_aa;
+
+    float vp_width = 0.0f;
+    float vp_height = 0.0f;
+    int32_t fb_width = 0;
+    int32_t fb_height = 0;
 
     RendererVK(VkInstance instance, VkDebugUtilsMessengerEXT debug_messenger,
                VkPhysicalDevice physical_device, VkDevice device, VkSurfaceKHR surface,

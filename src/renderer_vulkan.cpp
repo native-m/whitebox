@@ -357,6 +357,7 @@ RendererVK::~RendererVK() {
         resource_disposal_.dispose_immediate_buffer(rb.IndexBufferMemory, rb.IndexBuffer);
     }
 
+    descriptor_stream_.destroy(device_);
     resource_disposal_.flush(device_, allocator_, FRAME_ID_DISPOSE_ALL);
     vmaDestroyAllocator(allocator_);
 
@@ -771,6 +772,9 @@ void RendererVK::new_frame() {
 
     vkWaitForFences(device_, 1, &frame_sync.fence, VK_TRUE, UINT64_MAX);
     resource_disposal_.flush(device_, allocator_, frame_id_);
+    descriptor_stream_.reset(device_, frame_id_);
+    buffer_descriptor_writes_.resize(0);
+    write_descriptor_sets_.resize(0);
     vkResetCommandPool(device_, cmd_buf.cmd_pool, 0);
     vkBeginCommandBuffer(cmd_buf.cmd_buffer, &begin_info);
 
@@ -780,17 +784,12 @@ void RendererVK::new_frame() {
     current_cb_ = cmd_buf.cmd_buffer;
     cmd_buf.immediate_vtx_offset = 0;
     cmd_buf.immediate_idx_offset = 0;
-    buffer_descriptor_writes_.resize(0);
-    write_descriptor_sets_.resize(0);
 
-    // Log::debug("Begin frame: {}", frame_id_);
+    //Log::debug("Begin frame: {}", frame_id_);
 }
 
 void RendererVK::end_frame() {
     vkEndCommandBuffer(current_cb_);
-    // vkUpdateDescriptorSets(device_, write_descriptor_sets_.size(), write_descriptor_sets_.Data,
-    // 0,
-    //                        {});
 
     VkPipelineStageFlags wait_dst_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
@@ -864,6 +863,25 @@ void RendererVK::begin_draw(const std::shared_ptr<Framebuffer>& framebuffer,
                          0, nullptr, 0, nullptr, 1, &barrier);
 
     vkCmdBeginRenderPass(current_cb_, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
+
+    VkRect2D rect {
+        .offset = {0, 0},
+        .extent = {(uint32_t)fb_width, (uint32_t)fb_height},
+    };
+    vkCmdSetScissor(current_cb_, 0, 1, &rect);
+
+    VkViewport vp {
+        .width = (float)fb->width,
+        .height = (float)fb->height,
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f,
+    };
+    vkCmdSetViewport(current_cb_, 0, 1, &vp);
+
+    fb_width = fb->width;
+    fb_height = fb->height;
+    vp_width = 2.0f / vp.width;
+    vp_height = 2.0f / vp.height;
 
     current_framebuffer_ = fb;
 }
@@ -957,23 +975,72 @@ void RendererVK::draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) {
         VkBuffer buffer = mip.buffer;
 
         if (current_buffer != buffer) {
-            // descriptor_stream_.allocate_descriptor_set(device_, )
+            VkDescriptorSet descriptor_set =
+                descriptor_stream_.allocate_descriptor_set(device_, waveform_set_layout, 0, 1, 0);
             VkDescriptorBufferInfo buffer_descriptor {buffer, 0, VK_WHOLE_SIZE};
 
             VkWriteDescriptorSet write_descriptor {
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                .dstSet = VK_NULL_HANDLE,
+                .dstSet = descriptor_set,
                 .dstBinding = 0,
                 .descriptorCount = 1,
                 .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                 .pBufferInfo = &buffer_descriptor,
             };
 
-            buffer_descriptor_writes_.push_back(buffer_descriptor);
-            write_descriptor_sets_.push_back(write_descriptor);
             current_buffer = buffer;
+            vkUpdateDescriptorSets(device_, 1, &write_descriptor, 0, {});
+
+            vkCmdBindDescriptorSets(current_cb_, VK_PIPELINE_BIND_POINT_GRAPHICS, waveform_layout,
+                                    0, 1, &descriptor_set, 0, nullptr);
         }
+
+        int32_t x0 = std::max((int32_t)clip.min_bb.x, 0);
+        int32_t y0 = std::max((int32_t)clip.min_bb.y, 0);
+        int32_t x1 = std::min((int32_t)clip.max_bb.x, fb_width);
+        int32_t y1 = std::min((int32_t)clip.max_bb.y, fb_height);
+
+        VkRect2D rect {
+            .offset = {x0, y0},
+            .extent = {uint32_t(x1 - x0), uint32_t(y1 - y0)},
+        };
+        vkCmdSetScissor(current_cb_, 0, 1, &rect);
+
+        vkCmdBindPipeline(current_cb_, VK_PIPELINE_BIND_POINT_GRAPHICS, waveform_fill);
+
+        ClipContentDrawCmdVK draw_cmd {
+            .origin_x = clip.min_bb.x + 0.5f,
+            .origin_y = clip.min_bb.y,
+            .scale_x = clip.scale_x,
+            .scale_y = clip.max_bb.y - clip.min_bb.y,
+            .color = clip.color,
+            .vp_width = vp_width,
+            .vp_height = vp_height,
+            .is_min = 0,
+            .start_idx = clip.start_idx,
+        };
+
+        vkCmdPushConstants(current_cb_, waveform_layout,
+                           VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                           sizeof(ClipContentDrawCmdVK), &draw_cmd);
+
+        vkCmdDraw(current_cb_, clip.draw_count, 1, 0, 0);
+
+        vkCmdBindPipeline(current_cb_, VK_PIPELINE_BIND_POINT_GRAPHICS, waveform_aa);
+
+        vkCmdDraw(current_cb_, clip.draw_count * 3, 1, 0, 0);
+
+        draw_cmd.is_min = 1;
+        vkCmdPushConstants(current_cb_, waveform_layout,
+                           VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                           sizeof(ClipContentDrawCmdVK), &draw_cmd);
+
+        vkCmdDraw(current_cb_, clip.draw_count * 3, 1, 0, 0);
     }
+
+    VkRect2D scissor = {
+        {0, 0}, {(uint32_t)current_framebuffer_->width, (uint32_t)current_framebuffer_->height}};
+    vkCmdSetScissor(current_cb_, 0, 1, &scissor);
 
     // vkUpdateDescriptorSets(device_, write_descriptor_sets_.size())
 }
@@ -1132,8 +1199,17 @@ void RendererVK::render_draw_data(ImDrawData* draw_data) {
     // backup/restore those values but I am not sure this is possible. We perform a call to
     // vkCmdSetScissor() to set back a full viewport which is likely to fix things for 99% users but
     // technically this is not perfect. (See github #4644)
-    VkRect2D scissor = {{0, 0}, {(uint32_t)fb_width, (uint32_t)fb_height}};
+    VkRect2D scissor = {
+        {0, 0}, {(uint32_t)current_framebuffer_->width, (uint32_t)current_framebuffer_->height}};
     vkCmdSetScissor(current_cb_, 0, 1, &scissor);
+
+    VkViewport vp {
+        .width = (float)current_framebuffer_->width,
+        .height = (float)current_framebuffer_->height,
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f,
+    };
+    vkCmdSetViewport(current_cb_, 0, 1, &vp);
 }
 
 void RendererVK::present() {
@@ -1347,7 +1423,6 @@ void RendererVK::init_pipelines() {
         .bindingCount = 1,
         .pBindings = &binding,
     };
-
     VK_CHECK(vkCreateDescriptorSetLayout(device_, &set_layout_info, nullptr, &waveform_set_layout));
 
     VkPushConstantRange constant_range {
@@ -1365,6 +1440,10 @@ void RendererVK::init_pipelines() {
 
     VK_CHECK(vkCreatePipelineLayout(device_, &pipeline_layout, nullptr, &waveform_layout));
 
+    waveform_aa =
+        create_pipeline("assets/waveform_aa.vs.spv", "assets/waveform_aa.fs.spv", waveform_layout,
+                        nullptr, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, true);
+
     waveform_fill =
         create_pipeline("assets/waveform_fill.vs.spv", "assets/waveform_aa.fs.spv", waveform_layout,
                         nullptr, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP, false);
@@ -1372,7 +1451,7 @@ void RendererVK::init_pipelines() {
 
 void RendererVK::destroy_pipelines() {
     vkDestroyPipeline(device_, waveform_fill, nullptr);
-    // vkDestroyPipeline(device_, waveform_aa, nullptr);
+    vkDestroyPipeline(device_, waveform_aa, nullptr);
     vkDestroyPipelineLayout(device_, waveform_layout, nullptr);
     vkDestroyDescriptorSetLayout(device_, waveform_set_layout, nullptr);
 }
