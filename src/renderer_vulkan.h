@@ -7,6 +7,7 @@
 #include "vk_stub.h"
 
 #define VULKAN_BUFFER_SIZE 3
+#define VULKAN_SYNC_COUNT 4
 
 // Reusable buffers used for rendering 1 current in-flight frame, for
 // ImGui_ImplVulkan_RenderDrawData() [Please zero-clear before use!]
@@ -67,7 +68,6 @@ struct CommandBufferVK {
 };
 
 struct FrameSync {
-    VkFence fence;
     VkSemaphore image_acquire_semaphore;
     VkSemaphore render_finished_semaphore;
 };
@@ -160,9 +160,10 @@ struct RendererVK : public Renderer {
     VkSampler imgui_sampler_ {};
     VkFence fences_[VULKAN_BUFFER_SIZE] {};
     CommandBufferVK cmd_buf_[VULKAN_BUFFER_SIZE] {};
-    FrameSync frame_sync_[VULKAN_BUFFER_SIZE] {};
+    FrameSync frame_sync_[VULKAN_SYNC_COUNT] {};
     ImGui_ImplVulkan_FrameRenderBuffers render_buffers_[VULKAN_BUFFER_SIZE] {};
     uint32_t frame_id_ = 0;
+    uint32_t sync_id_ = 0;
     uint64_t present_id_ = 0;
     uint32_t sc_image_index_ = 0;
 

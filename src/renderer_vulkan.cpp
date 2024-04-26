@@ -346,15 +346,18 @@ RendererVK::~RendererVK() {
 
     for (int i = 0; i < VULKAN_BUFFER_SIZE; i++) {
         vkDestroyCommandPool(device_, cmd_buf_[i].cmd_pool, nullptr);
-        vkDestroyFence(device_, frame_sync_[i].fence, nullptr);
-        vkDestroySemaphore(device_, frame_sync_[i].image_acquire_semaphore, nullptr);
-        vkDestroySemaphore(device_, frame_sync_[i].render_finished_semaphore, nullptr);
+        vkDestroyFence(device_, fences_[i], nullptr);
         vkDestroyFramebuffer(device_, main_framebuffer_.framebuffer[i], nullptr);
         vkDestroyImageView(device_, main_framebuffer_.view[i], nullptr);
 
         ImGui_ImplVulkan_FrameRenderBuffers& rb = render_buffers_[i];
         resource_disposal_.dispose_immediate_buffer(rb.VertexBufferMemory, rb.VertexBuffer);
         resource_disposal_.dispose_immediate_buffer(rb.IndexBufferMemory, rb.IndexBuffer);
+    }
+
+    for (auto& sync : frame_sync_) {
+        vkDestroySemaphore(device_, sync.image_acquire_semaphore, nullptr);
+        vkDestroySemaphore(device_, sync.render_finished_semaphore, nullptr);
     }
 
     descriptor_stream_.destroy(device_);
@@ -760,7 +763,7 @@ void RendererVK::resize_swapchain() {
 }
 
 void RendererVK::new_frame() {
-    FrameSync& frame_sync = frame_sync_[frame_id_];
+    FrameSync& frame_sync = frame_sync_[sync_id_];
     vkAcquireNextImageKHR(device_, swapchain_, UINT64_MAX, frame_sync.image_acquire_semaphore,
                           nullptr, &sc_image_index_);
 
@@ -770,7 +773,7 @@ void RendererVK::new_frame() {
         .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
     };
 
-    vkWaitForFences(device_, 1, &frame_sync.fence, VK_TRUE, UINT64_MAX);
+    vkWaitForFences(device_, 1, &fences_[frame_id_], VK_TRUE, UINT64_MAX);
     resource_disposal_.flush(device_, allocator_, frame_id_);
     descriptor_stream_.reset(device_, frame_id_);
     buffer_descriptor_writes_.resize(0);
@@ -785,7 +788,7 @@ void RendererVK::new_frame() {
     cmd_buf.immediate_vtx_offset = 0;
     cmd_buf.immediate_idx_offset = 0;
 
-    //Log::debug("Begin frame: {}", frame_id_);
+    Log::debug("Begin frame: {}", frame_id_);
 }
 
 void RendererVK::end_frame() {
@@ -804,9 +807,10 @@ void RendererVK::end_frame() {
         .pSignalSemaphores = &current_frame_sync_->render_finished_semaphore,
     };
 
-    vkResetFences(device_, 1, &current_frame_sync_->fence);
-    vkQueueSubmit(graphics_queue_, 1, &submit, current_frame_sync_->fence);
+    vkResetFences(device_, 1, &fences_[frame_id_]);
+    vkQueueSubmit(graphics_queue_, 1, &submit, fences_[frame_id_]);
     frame_id_ = (frame_id_ + 1) % VULKAN_BUFFER_SIZE;
+    sync_id_ = (sync_id_ + 1) % VULKAN_SYNC_COUNT;
     resource_disposal_.current_frame_id = frame_id_;
 }
 
@@ -876,7 +880,7 @@ void RendererVK::begin_draw(const std::shared_ptr<Framebuffer>& framebuffer,
         .minDepth = 0.0f,
         .maxDepth = 1.0f,
     };
-    vkCmdSetViewport(current_cb_, 0, 1, &vp);
+    vkCmdSetViewport(current_cb_, 0, 1, &vp); 
 
     fb_width = fb->width;
     fb_height = fb->height;
@@ -1262,13 +1266,16 @@ bool RendererVK::init_swapchain_() {
 
     if (swapchain_) {
         for (int i = 0; i < VULKAN_BUFFER_SIZE; i++) {
-            FrameSync& frame_sync = frame_sync_[i];
+            vkDestroyFence(device_, fences_[i], nullptr);
             vkDestroyFramebuffer(device_, main_framebuffer_.framebuffer[i], nullptr);
             vkDestroyImageView(device_, main_framebuffer_.view[i], nullptr);
-            vkDestroyFence(device_, frame_sync.fence, nullptr);
-            vkDestroySemaphore(device_, frame_sync.image_acquire_semaphore, nullptr);
-            vkDestroySemaphore(device_, frame_sync.render_finished_semaphore, nullptr);
         }
+
+        for (auto& sync : frame_sync_) {
+            vkDestroySemaphore(device_, sync.image_acquire_semaphore, nullptr);
+            vkDestroySemaphore(device_, sync.render_finished_semaphore, nullptr);
+        }
+
         vkDestroySwapchainKHR(device_, swapchain_, nullptr);
         frame_id_ = 0;
     }
@@ -1319,8 +1326,11 @@ bool RendererVK::init_swapchain_() {
         VK_CHECK(
             vkCreateFramebuffer(device_, &fb_info, nullptr, &main_framebuffer_.framebuffer[i]));
 
+        VK_CHECK(vkCreateFence(device_, &fence_info, nullptr, &fences_[i]));
+    }
+
+    for (int i = 0; i < VULKAN_SYNC_COUNT; i++) {
         FrameSync& frame_sync = frame_sync_[i];
-        VK_CHECK(vkCreateFence(device_, &fence_info, nullptr, &frame_sync.fence));
         VK_CHECK(vkCreateSemaphore(device_, &semaphore_info, nullptr,
                                    &frame_sync.image_acquire_semaphore));
         VK_CHECK(vkCreateSemaphore(device_, &semaphore_info, nullptr,
