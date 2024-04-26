@@ -957,7 +957,7 @@ void RendererVK::draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) {
         VkBuffer buffer = mip.buffer;
 
         if (current_buffer != buffer) {
-            //descriptor_stream_.allocate_descriptor_set(device_, )
+            // descriptor_stream_.allocate_descriptor_set(device_, )
             VkDescriptorBufferInfo buffer_descriptor {buffer, 0, VK_WHOLE_SIZE};
 
             VkWriteDescriptorSet write_descriptor {
@@ -1365,12 +1365,14 @@ void RendererVK::init_pipelines() {
 
     VK_CHECK(vkCreatePipelineLayout(device_, &pipeline_layout, nullptr, &waveform_layout));
 
-    //waveform_fill = create_pipeline("asset/waveform_aa.vs.spv")
+    waveform_fill =
+        create_pipeline("assets/waveform_fill.vs.spv", "assets/waveform_aa.fs.spv", waveform_layout,
+                        nullptr, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP, false);
 }
 
 void RendererVK::destroy_pipelines() {
-    //vkDestroyPipeline(device_, waveform_fill, nullptr);
-    //vkDestroyPipeline(device_, waveform_aa, nullptr);
+    vkDestroyPipeline(device_, waveform_fill, nullptr);
+    // vkDestroyPipeline(device_, waveform_aa, nullptr);
     vkDestroyPipelineLayout(device_, waveform_layout, nullptr);
     vkDestroyDescriptorSetLayout(device_, waveform_set_layout, nullptr);
 }

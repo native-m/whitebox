@@ -3,6 +3,10 @@
 
 #include "waveform.glsli"
 
+layout(set = 0, binding = 0) readonly buffer WaveformBuffer {
+    uint minmax;
+} vertex_input;
+
 void main() {
     
 }

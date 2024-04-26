@@ -14,6 +14,7 @@ endmacro()
 macro(wb_add_shader_glsl _TARGET _FILE)
     add_custom_command(
         OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${_FILE}.spv"
+        COMMENT "Compiling GLSL Shader: ${_FILE}"
         COMMAND glslc
         ARGS
             --target-env=vulkan1.0
@@ -41,6 +42,7 @@ if (MSVC)
     wb_add_shader_d3d11(ps_5_0 waveform_aa_ps.hlsl)
 endif()
 
+wb_add_shader_glsl(vertex waveform_fill.vs)
 wb_add_shader_glsl(fragment waveform_aa.fs)
 wb_add_asset_file("Inter-Medium.otf")
 
