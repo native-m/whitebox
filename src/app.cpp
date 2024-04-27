@@ -45,7 +45,7 @@ void App::init() {
 
     AudioDeviceProperties& out_properties = g_audio_io->default_output_device;
     AudioDeviceProperties& in_properties = g_audio_io->default_input_device;
-    //g_audio_io->open_device(out_properties.id, in_properties.id);
+    g_audio_io->open_device(out_properties.id, in_properties.id);
 
     Track* track = g_timeline.add_track();
     g_engine.add_audio_clip_from_file(
