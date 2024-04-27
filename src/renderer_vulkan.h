@@ -6,8 +6,8 @@
 
 #include "vk_stub.h"
 
-#define VULKAN_BUFFER_SIZE 3
-#define VULKAN_SYNC_COUNT 4
+#define VULKAN_MAX_BUFFER_SIZE 2
+#define VULKAN_MAX_SYNC_COUNT 3
 
 // Reusable buffers used for rendering 1 current in-flight frame, for
 // ImGui_ImplVulkan_RenderDrawData() [Please zero-clear before use!]
@@ -30,13 +30,14 @@ struct ImageAccessVK {
 };
 
 struct FramebufferVK : public Framebuffer {
-    VmaAllocation allocations[VULKAN_BUFFER_SIZE] {};
-    VkImage image[VULKAN_BUFFER_SIZE];
-    VkImageView view[VULKAN_BUFFER_SIZE];
-    VkFramebuffer framebuffer[VULKAN_BUFFER_SIZE];
-    VkDescriptorSet descriptor_set[VULKAN_BUFFER_SIZE] {};
-    ImageAccessVK current_access[VULKAN_BUFFER_SIZE] {};
-    uint32_t image_id = 2;
+    VmaAllocation allocations[VULKAN_MAX_BUFFER_SIZE] {};
+    VkImage image[VULKAN_MAX_BUFFER_SIZE];
+    VkImageView view[VULKAN_MAX_BUFFER_SIZE];
+    VkFramebuffer framebuffer[VULKAN_MAX_BUFFER_SIZE];
+    VkDescriptorSet descriptor_set[VULKAN_MAX_BUFFER_SIZE] {};
+    ImageAccessVK current_access[VULKAN_MAX_BUFFER_SIZE] {};
+    uint32_t num_buffers {};
+    uint32_t image_id {};
 
     ResourceDisposalVK* resource_disposal {};
 
@@ -119,9 +120,9 @@ struct DescriptorStreamChunkVK {
 
 // Handles stream of descriptors across the frame.
 struct DescriptorStreamVK {
-    DescriptorStreamChunkVK* chunk_list[VULKAN_BUFFER_SIZE] {};
+    DescriptorStreamChunkVK* chunk_list[VULKAN_MAX_BUFFER_SIZE] {};
     DescriptorStreamChunkVK* current_chunk {};
-    uint32_t current_frame_id = 1;
+    uint32_t current_frame_id {};
 
     VkDescriptorSet allocate_descriptor_set(VkDevice device, VkDescriptorSetLayout layout,
                                             uint32_t num_uniform_buffers,
@@ -146,6 +147,8 @@ struct RendererVK : public Renderer {
     VkSurfaceKHR surface_;
     VkSwapchainKHR swapchain_ {};
     VmaAllocator allocator_ {};
+    uint32_t frame_latency_ {};
+    uint32_t sync_count_ {};
 
     bool has_present_id = false;
     bool has_present_wait = false;
@@ -158,10 +161,10 @@ struct RendererVK : public Renderer {
     FramebufferVK main_framebuffer_ {};
     VkDescriptorPool imgui_descriptor_pool_ {};
     VkSampler imgui_sampler_ {};
-    VkFence fences_[VULKAN_BUFFER_SIZE] {};
-    CommandBufferVK cmd_buf_[VULKAN_BUFFER_SIZE] {};
-    FrameSync frame_sync_[VULKAN_SYNC_COUNT] {};
-    ImGui_ImplVulkan_FrameRenderBuffers render_buffers_[VULKAN_BUFFER_SIZE] {};
+    VkFence fences_[VULKAN_MAX_BUFFER_SIZE] {};
+    CommandBufferVK cmd_buf_[VULKAN_MAX_BUFFER_SIZE] {};
+    FrameSync frame_sync_[VULKAN_MAX_SYNC_COUNT] {};
+    ImGui_ImplVulkan_FrameRenderBuffers render_buffers_[VULKAN_MAX_BUFFER_SIZE] {};
     uint32_t frame_id_ = 0;
     uint32_t sync_id_ = 0;
     uint64_t present_id_ = 0;
