@@ -77,6 +77,12 @@ void App::run() {
                 ImGui::EndMenu();
             }
 
+            if (ImGui::BeginMenu("Edit")) {
+                ImGui::MenuItem("Undo");
+                ImGui::MenuItem("Redo");
+                ImGui::End();
+            }
+
             if (ImGui::BeginMenu("View")) {
                 ImGui::MenuItem("Windows", nullptr, false, false);
                 ImGui::Separator();
