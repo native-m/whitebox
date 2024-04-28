@@ -1631,7 +1631,7 @@ Renderer* RendererVK::create(App* app) {
 
     VkSurfaceKHR surface;
 
-#ifdef WIN32
+#ifdef WB_PLATFORM_WINDOWS
     VkWin32SurfaceCreateInfoKHR surface_info {
         .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
         .hinstance = GetModuleHandle(nullptr),
@@ -1643,8 +1643,9 @@ Renderer* RendererVK::create(App* app) {
         vkb::destroy_instance(instance);
         return nullptr;
     }
-#else
+#endif
 
+#ifdef WB_PLATFORM_LINUX
 #ifdef VK_USE_PLATFORM_XLIB_KHR
     Display* display = wm_info.info.x11.display;
 

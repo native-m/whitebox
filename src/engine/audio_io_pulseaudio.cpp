@@ -1,6 +1,6 @@
 #include "audio_io.h"
 
-#ifdef __linux__
+#ifdef WB_PLATFORM_LINUX
 
 extern "C" {
 #include <pulse/error.h>

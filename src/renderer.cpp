@@ -8,12 +8,7 @@ namespace wb {
 Renderer* g_renderer = nullptr;
 
 void init_renderer(App* app) {
-#ifdef WIN32
     g_renderer = RendererVK::create(app);
-#else
-    g_renderer = RendererVK::create(app);
-#endif
-
     if (!g_renderer)
         Log::error("Failed to create renderer");
 }

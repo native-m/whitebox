@@ -1,8 +1,8 @@
-#ifdef WIN32
-
 #pragma once
 
 #include "core/common.h"
+
+#ifdef WB_PLATFORM_WINDOWS
 #include "renderer.h"
 #include <d3d11.h>
 #include <dxgi1_3.h>
@@ -96,4 +96,4 @@ struct RendererD3D11 : public Renderer {
 };
 
 } // namespace wb
-#endif // WIN32
+#endif

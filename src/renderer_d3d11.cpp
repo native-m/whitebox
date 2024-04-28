@@ -1,4 +1,6 @@
-#ifdef WIN32
+#include "core/platform.h"
+
+#ifdef WB_PLATFORM_WINDOWS
 
 #include "renderer_d3d11.h"
 #include "app_sdl2.h"
@@ -548,4 +550,4 @@ Renderer* RendererD3D11::create(App* app) {
 }
 
 } // namespace wb
-#endif // WIN32
+#endif

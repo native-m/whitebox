@@ -1,6 +1,6 @@
-#ifdef WIN32
-
 #include "audio_io.h"
+
+#ifdef WB_PLATFORM_WINDOWS
 #include "core/debug.h"
 #include "core/math.h"
 
@@ -432,4 +432,4 @@ AudioIO* create_audio_io_wasapi() {
 }
 } // namespace wb
 
-#endif // WIN32
+#endif
