@@ -56,6 +56,7 @@ struct AudioIO {
     uint32_t exclusive_sample_rate_bit_flags = 0;
     uint32_t exclusive_input_format_bit_flags = 0;
     uint32_t exclusive_output_format_bit_flags = 0;
+    AudioDeviceSampleRate shared_mode_sample_rate = {};
     AudioDevicePeriod min_period = 0;
     uint32_t buffer_alignment = 0;
     bool open = false;

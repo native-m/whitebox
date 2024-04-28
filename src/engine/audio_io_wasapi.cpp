@@ -170,6 +170,7 @@ struct ActiveDeviceWASAPI {
         device->Release();
         device = nullptr;
         client = nullptr;
+        shared_buffer_sizes.clear();
     }
 
     bool init_stream(bool exclusive_mode, AudioDevicePeriod period, AudioFormat sample_format,
@@ -247,8 +248,10 @@ struct AudioIOWASAPI : public AudioIO {
         }
 
         min_period = std::max(output.absolute_min_period, input.absolute_min_period);
-        buffer_alignment =
-            std::max(output.low_latency_buffer_alignment, input.low_latency_buffer_alignment);
+
+        // Maximum buffer alignment for low latency stream is 32
+        buffer_alignment = std::min(
+            32u, std::max(output.low_latency_buffer_alignment, input.low_latency_buffer_alignment));
 
         // Check all possible exclusive mode formats
         for (auto smp_format : compatible_formats) {
@@ -273,6 +276,10 @@ struct AudioIOWASAPI : public AudioIO {
                         exclusive_input_format_bit_flags |= format_bit_mask;
                         exclusive_input_sample_rate_bit_flags |= sample_rate_bit_mask;
                         exclusive_sample_rate_bit_flags |= sample_rate_bit_mask;
+                    }
+
+                    if (sample_rate.first == output.shared_format.Format.nSamplesPerSec) {
+                        shared_mode_sample_rate = sample_rate.second;
                     }
                 }
             }
