@@ -165,12 +165,6 @@ CPMAddPackage(
 )
 
 CPMAddPackage(
-    NAME                simdjson
-    GITHUB_REPOSITORY   simdjson/simdjson
-    VERSION             3.3.0
-)
-
-CPMAddPackage(
     NAME                libsndfile
     GITHUB_REPOSITORY   libsndfile/libsndfile
     GIT_TAG             1.1.0

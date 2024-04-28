@@ -26,7 +26,10 @@ set(WB_SOURCES
     "src/core/debug.cpp"
     "src/core/debug.h"
     "src/core/defer.h"
+    "src/core/json.hpp"
+    "src/core/math.h"
     "src/core/memory.h"
+    "src/core/platform.h"
     "src/core/queue.h"
     "src/core/thread.h"
     
@@ -92,9 +95,7 @@ set(WB_LINK_LIBRARIES
     nfd)
 
 if (MSVC)
-    set(WB_LINK_LIBRARIES
-        ${WB_LINK_LIBRARIES}
-        imgui-d3d11)
+    set(WB_LINK_LIBRARIES ${WB_LINK_LIBRARIES} imgui-d3d11)
 else ()
     set(WB_LINK_LIBRARIES ${WB_LINK_LIBRARIES} xcb X11 X11-xcb)
 endif()

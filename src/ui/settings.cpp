@@ -4,6 +4,21 @@
 #include <fmt/format.h>
 #include <imgui.h>
 
+static const char* io_types[] = {
+    "Windows Core Audio (WASAPI)",
+    "ASIO",
+    "CoreAudio",
+    "PulseAudio",
+};
+
+static const char* sample_rates[] = {
+    "44100 Hz", "48000 Hz", "88200 Hz", "96000 Hz", "176400 Hz", "192000 Hz",
+};
+
+static const char* buffer_sizes[] = {
+    "32", "64", "128", "256", "512", "1024", "2048", "4096",
+};
+
 namespace wb {
 void GuiSettings::render() {
     if (!open)
@@ -21,32 +36,31 @@ void GuiSettings::render() {
         }
 
         if (ImGui::BeginTabItem("Audio")) {
-            static const char* io_types[] = {
-                "Windows Core Audio",
-            };
-
-            static const char* sample_rates[] = {
-                "44100 Hz", "48000 Hz", "88200 Hz", "96000 Hz", "176400 Hz", "192000 Hz",
-            };
-
-            static const char* buffer_sizes[] = {
-                "32", "64", "128", "256", "512", "1024", "2048", "4096",
-            };
-
-            const char* io_type_preview = io_types[g_settings_data.audio_io_type];
+            uint32_t io_type_index = static_cast<uint32_t>(g_settings_data.audio_io_type);
+            const char* io_type_preview = io_types[io_type_index];
             uint32_t output_count = g_audio_io->get_output_device_count();
             const AudioDeviceProperties& current_output_devprop =
-                g_audio_io->get_output_device_properties(g_settings_data.audio_output_device_idx);
+                g_settings_data.output_device_properties;
 
             bool audio_io_type_changed = false;
             bool audio_device_changed = false;
 
             if (ImGui::BeginCombo("Type", io_type_preview)) {
                 for (uint32_t i = 0; i < IM_ARRAYSIZE(io_types); i++) {
-                    const bool is_selected = i == g_settings_data.audio_io_type;
-                    if (ImGui::Selectable(io_type_preview, is_selected)) {
+                    AudioIOType type = static_cast<AudioIOType>(i);
+
+                    // Skip unsupported platform audio I/O
+#if defined(WB_PLATFORM_WINDOWS)
+                    if (type != AudioIOType::WASAPI)
+                        continue;
+#elif defined(WB_PLATFORM_LINUX)
+                    if (type != AudioIOType::PulseAudio)
+                        continue;
+#endif
+                    const bool is_selected = i == io_type_index;
+                    if (ImGui::Selectable(io_types[i], is_selected)) {
                         audio_io_type_changed = true;
-                        g_settings_data.audio_io_type = i;
+                        g_settings_data.audio_io_type = static_cast<AudioIOType>(i);
                     }
                     if (is_selected)
                         ImGui::SetItemDefaultFocus();
@@ -56,13 +70,14 @@ void GuiSettings::render() {
 
             if (ImGui::BeginCombo("Output", current_output_devprop.name)) {
                 for (uint32_t i = 0; i < output_count; i++) {
-                    const bool is_selected = i == g_settings_data.audio_output_device_idx;
-                    const AudioDeviceProperties& output_devprop =
+                    const AudioDeviceProperties& device_properties =
                         g_audio_io->get_output_device_properties(i);
+                    const bool is_selected =
+                        device_properties.id == g_settings_data.output_device_properties.id;
 
-                    if (ImGui::Selectable(output_devprop.name, is_selected)) {
+                    if (ImGui::Selectable(device_properties.name, is_selected)) {
                         audio_device_changed = true;
-                        g_settings_data.audio_output_device_idx = i;
+                        g_settings_data.output_device_properties = device_properties;
                     }
 
                     if (is_selected)

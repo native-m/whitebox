@@ -3,11 +3,12 @@
 #include "engine/audio_io.h"
 #include "engine/engine.h"
 #include "renderer.h"
+#include "settings_data.h"
 #include "ui/browser.h"
 #include "ui/controls.h"
 #include "ui/mixer.h"
-#include "ui/timeline.h"
 #include "ui/settings.h"
+#include "ui/timeline.h"
 #include <imgui.h>
 #include <imgui_freetype.h>
 
@@ -16,7 +17,6 @@ namespace wb {
 void apply_theme(ImGuiStyle& style);
 
 App::~App() {
-    
 }
 
 void App::init() {
@@ -30,22 +30,20 @@ void App::init() {
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-    //io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+    // io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
     io.ConfigViewportsNoTaskBarIcon = false;
 
     io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
     io.Fonts->AddFontFromFileTTF("assets/Inter-Medium.otf", 0.0f, &config);
-
     apply_theme(ImGui::GetStyle());
 
+    g_settings_data.load_settings_data();
     init_renderer(this);
     init_audio_io(AudioIOType::WASAPI);
     g_engine.set_bpm(150.0f);
     g_timeline.init();
-
-    AudioDeviceProperties& out_properties = g_audio_io->default_output_device;
-    AudioDeviceProperties& in_properties = g_audio_io->default_input_device;
-    g_audio_io->open_device(out_properties.id, in_properties.id);
+    g_audio_io->open_device(g_settings_data.output_device_properties.id,
+                            g_settings_data.input_device_properties.id);
 
     Track* track = g_timeline.add_track();
     g_engine.add_audio_clip_from_file(
@@ -131,7 +129,6 @@ void App::shutdown() {
 }
 
 void App::options_window() {
-    
 }
 
 void apply_theme(ImGuiStyle& style) {

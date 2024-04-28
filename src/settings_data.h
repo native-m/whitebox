@@ -5,15 +5,17 @@
 
 namespace wb {
 struct SettingsData {
-    uint32_t audio_io_type = 0;
-    uint32_t audio_input_device_idx = 0;
-    uint32_t audio_output_device_idx = 0;
+    AudioIOType audio_io_type {};
+    AudioDeviceProperties output_device_properties {};
+    AudioDeviceProperties input_device_properties {};
     AudioDeviceSampleRate audio_sample_rate {};
     AudioFormat audio_output_format {};
     AudioFormat audio_input_format {};
     uint32_t audio_buffer_size = 128;
     bool audio_exclusive_mode = false;
 
+    void load_settings_data();
+    void load_default_settings();
     void save_settings_data();
     void apply_audio_device();
     void apply_audio_buffer_size();

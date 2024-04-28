@@ -226,7 +226,7 @@ struct AudioIOWASAPI : public AudioIO {
         Log::info("Opening audio devices...");
 
         if (output_device_id != 0) {
-            uint32_t device_index = find_device_index_(output_devices, output_device_id);
+            uint32_t device_index = find_device_index(output_devices, output_device_id);
             if (device_index == WB_INVALID_INDEX)
                 return false;
             AudioDeviceWASAPI& output_device = output_devices[device_index];
@@ -235,7 +235,7 @@ struct AudioIOWASAPI : public AudioIO {
         }
 
         if (input_device_id != 0) {
-            uint32_t device_index = find_device_index_(input_devices, input_device_id);
+            uint32_t device_index = find_device_index(input_devices, input_device_id);
             if (device_index == WB_INVALID_INDEX) {
                 output.close();
                 return false;
@@ -253,7 +253,7 @@ struct AudioIOWASAPI : public AudioIO {
         buffer_alignment = std::min(
             32u, std::max(output.low_latency_buffer_alignment, input.low_latency_buffer_alignment));
 
-        // Check all possible exclusive mode formats
+        // Check all possible formats
         for (auto smp_format : compatible_formats) {
             for (auto sample_rate : compatible_sample_rates) {
                 for (auto channels : compatible_channel_count) {
@@ -280,6 +280,14 @@ struct AudioIOWASAPI : public AudioIO {
 
                     if (sample_rate.first == output.shared_format.Format.nSamplesPerSec) {
                         shared_mode_sample_rate = sample_rate.second;
+                    }
+
+                    if (format.SubFormat == output.shared_format.SubFormat) {
+                        shared_mode_output_format = smp_format;
+                    }
+
+                    if (format.SubFormat == input.shared_format.SubFormat) {
+                        shared_mode_input_format = smp_format;
                     }
                 }
             }
@@ -386,7 +394,7 @@ struct AudioIOWASAPI : public AudioIO {
         return true;
     }
 
-    uint32_t find_device_index_(const std::vector<AudioDeviceWASAPI>& devices, AudioDeviceID id) {
+    uint32_t find_device_index(const std::vector<AudioDeviceWASAPI>& devices, AudioDeviceID id) {
         uint32_t idx = 0;
         bool found = false;
         for (const auto& device : devices) {

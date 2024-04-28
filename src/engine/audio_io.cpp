@@ -17,8 +17,8 @@ void init_audio_io(AudioIOType type) {
         case AudioIOType::PulseAudio:
             g_audio_io = create_audio_io_pulseaudio();
             break;
-        case AudioIOType::ASIO:
-            break;
+        default:
+            assert(false && "Unimplemented Audio IO");
     }
 }
 

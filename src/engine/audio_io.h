@@ -12,11 +12,10 @@ using AudioDeviceID = uint64_t;
 using AudioDevicePeriod = int64_t;
 
 enum class AudioIOType {
-    AudioNone,
-    CoreAudio, // Soon
     WASAPI,
-    ASIO,
-    PulseAudio,
+    ASIO,       // Unimplemented
+    CoreAudio,  // Unimplemented
+    PulseAudio, // Unimplemented
 };
 
 enum class AudioDeviceType {
@@ -56,6 +55,8 @@ struct AudioIO {
     uint32_t exclusive_sample_rate_bit_flags = 0;
     uint32_t exclusive_input_format_bit_flags = 0;
     uint32_t exclusive_output_format_bit_flags = 0;
+    AudioFormat shared_mode_output_format {};
+    AudioFormat shared_mode_input_format {};
     AudioDeviceSampleRate shared_mode_sample_rate = {};
     AudioDevicePeriod min_period = 0;
     uint32_t buffer_alignment = 0;
@@ -104,7 +105,7 @@ struct AudioIO {
     */
     virtual bool start(bool exclusive_mode, AudioDevicePeriod period, AudioFormat input_format,
                        AudioFormat output_format, AudioDeviceSampleRate sample_rate) = 0;
-    
+
     /*
         Stop the audio engine.
     */
