@@ -1,7 +1,8 @@
 #pragma once
 
-#include <atomic>
 #include "common.h"
+#include <atomic>
+#include <chrono>
 
 namespace wb {
 
@@ -24,5 +25,13 @@ struct Spinlock {
 
     void unlock() noexcept { lock_.store(false, std::memory_order_release); }
 };
+
+void accurate_sleep_ns(int64_t timeout_ns);
+
+template <typename T, typename Period>
+inline void accurate_sleep(const std::chrono::duration<T, Period>& duration) {
+    auto nano = std::chrono::duration_cast<std::chrono::nanoseconds>(duration);
+    accurate_sleep_ns(nano.count());
+}
 
 } // namespace wb

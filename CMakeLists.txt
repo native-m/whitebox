@@ -31,6 +31,7 @@ set(WB_SOURCES
     "src/core/memory.h"
     "src/core/platform.h"
     "src/core/queue.h"
+    "src/core/thread.cpp"
     "src/core/thread.h"
     
     "src/engine/audio_io.cpp"
@@ -95,7 +96,7 @@ set(WB_LINK_LIBRARIES
     nfd)
 
 if (MSVC)
-    set(WB_LINK_LIBRARIES ${WB_LINK_LIBRARIES} imgui-d3d11)
+    set(WB_LINK_LIBRARIES ${WB_LINK_LIBRARIES} imgui-d3d11 Avrt)
 else ()
     set(WB_LINK_LIBRARIES ${WB_LINK_LIBRARIES} xcb X11 X11-xcb)
 endif()

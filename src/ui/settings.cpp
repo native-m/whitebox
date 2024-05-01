@@ -76,7 +76,8 @@ void GuiSettings::render() {
                         device_properties.id == g_settings_data.output_device_properties.id;
 
                     if (ImGui::Selectable(device_properties.name, is_selected)) {
-                        audio_device_changed = true;
+                        if (!is_selected)
+                            audio_device_changed = true;
                         g_settings_data.output_device_properties = device_properties;
                     }
 
@@ -98,7 +99,9 @@ void GuiSettings::render() {
                 const char* output_format_str =
                     get_audio_format_string(g_settings_data.audio_output_format);
 
+                ImGui::BeginDisabled();
                 ImGui::Checkbox("Exclusive mode", &g_settings_data.audio_exclusive_mode);
+                ImGui::EndDisabled();
 
                 if (g_settings_data.audio_exclusive_mode) {
                     if (ImGui::BeginCombo("Input format", input_format_str)) {
@@ -167,6 +170,7 @@ void GuiSettings::render() {
                         if (is_selected)
                             ImGui::SetItemDefaultFocus();
 
+                        // Align next size
                         uint32_t size_rem = min_buffer_size % g_audio_io->buffer_alignment;
                         if (size_rem == 0) {
                             min_buffer_size += g_audio_io->buffer_alignment;
