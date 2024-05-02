@@ -33,6 +33,14 @@ enum class AudioDeviceSampleRate {
     Max,
 };
 
+enum class AudioThreadPriority {
+    Lowest,
+    Low,
+    Normal,
+    High,
+    Highest,
+};
+
 struct AudioDeviceProperties {
     char name[128] {};
     AudioDeviceID id;
@@ -90,7 +98,7 @@ struct AudioIO {
 
     /*
         Open input and output devices to ensure they are ready for use.
-        Usually, the implementation gets the hardware capabilities in here.
+        Usually, the implementation gets the hardware information in here.
     */
     virtual bool open_device(AudioDeviceID output_device_id, AudioDeviceID input_device_idx) = 0;
 
@@ -103,13 +111,14 @@ struct AudioIO {
         Starts the audio engine.
         Audio thread will be launched here.
     */
-    virtual bool start(bool exclusive_mode, AudioDevicePeriod period, AudioFormat input_format,
-                       AudioFormat output_format, AudioDeviceSampleRate sample_rate) = 0;
+    virtual bool start(bool exclusive_mode, uint32_t buffer_size, AudioFormat input_format,
+                       AudioFormat output_format, AudioDeviceSampleRate sample_rate,
+                       AudioThreadPriority priority) = 0;
 
     /*
         Stop the audio engine.
     */
-    virtual void end() = 0;
+    virtual void stop() = 0;
 };
 
 inline static uint32_t period_to_buffer_size(AudioDevicePeriod period, uint32_t sample_rate) {

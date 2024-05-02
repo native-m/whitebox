@@ -138,11 +138,11 @@ struct AudioIOPulseAudio : public AudioIO {
     const AudioDeviceProperties& get_input_device_properties(uint32_t idx) const override {
         return input_devices[idx].properties;
     }
-    
+
     const AudioDeviceProperties& get_output_device_properties(uint32_t idx) const override {
         return output_devices[idx].properties;
     }
-    
+
     bool open_device(AudioDeviceID output_device_id, AudioDeviceID input_device_idx) override {
         auto output_device = device_list.get_sink_device_by_index(output_device_id);
         auto input_device = device_list.get_record_device_by_index(input_device_idx);
@@ -159,7 +159,7 @@ struct AudioIOPulseAudio : public AudioIO {
 
         return true;
     }
-    
+
     void close_device() override {
         pa_stream_disconnect(stream);
         pa_stream_unref(stream);
@@ -167,18 +167,19 @@ struct AudioIOPulseAudio : public AudioIO {
         pa_context_unref(context);
         pa_mainloop_free(mainloop);
     }
-    
-    bool start(bool exclusive_mode, AudioDevicePeriod period, AudioFormat input_format,
-               AudioFormat output_format, AudioDeviceSampleRate sample_rate) override {
+
+    bool start(bool exclusive_mode, uint32_t buffer_size, AudioFormat input_format,
+               AudioFormat output_format, AudioDeviceSampleRate sample_rate,
+               AudioThreadPriority priority) override {
         return false;
     }
 
-    void end() override {
+    void stop() override {
         // do nothing
     }
 };
 
-wb::AudioIO* create_audio_io_pulseaudio() {
+AudioIO* create_audio_io_pulseaudio() {
     AudioIOPulseAudio* audio_io = new (std::nothrow) AudioIOPulseAudio();
     if (!audio_io)
         return nullptr;

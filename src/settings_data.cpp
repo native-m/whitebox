@@ -53,10 +53,10 @@ void SettingsData::load_default_settings() {
     audio_output_format = g_audio_io->shared_mode_output_format;
     
     uint32_t sample_rate_value = get_sample_rate_value(audio_sample_rate);
-    if (g_audio_io->min_period > buffer_size_to_period(512, sample_rate_value)) {
+    if (g_audio_io->min_period > buffer_size_to_period(448, sample_rate_value)) {
         audio_buffer_size = period_to_buffer_size(g_audio_io->min_period, sample_rate_value);
     } else {
-        audio_buffer_size = 512;
+        audio_buffer_size = 448;
     }
 
     g_audio_io->close_device();
@@ -96,8 +96,12 @@ void SettingsData::apply_audio_device() {
     g_audio_io->close_device();
 
     g_audio_io->open_device(output_device_properties.id, input_device_properties.id);
-    if (!audio_exclusive_mode)
+
+    if (!audio_exclusive_mode) {
+        audio_output_format = g_audio_io->shared_mode_output_format;
+        audio_input_format = g_audio_io->shared_mode_input_format;
         audio_sample_rate = g_audio_io->shared_mode_sample_rate;
+    }
 
     apply_audio_buffer_size();
 }
@@ -107,6 +111,8 @@ void SettingsData::apply_audio_buffer_size() {
     AudioDevicePeriod period = buffer_size_to_period(audio_buffer_size, sample_rate_value);
     if (period < g_audio_io->min_period)
         audio_buffer_size = period_to_buffer_size(g_audio_io->min_period, sample_rate_value);
+    // Realign buffer size
+    audio_buffer_size += audio_buffer_size % g_audio_io->buffer_alignment;
 }
 
 SettingsData g_settings_data;

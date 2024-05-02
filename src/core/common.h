@@ -2,6 +2,7 @@
 
 #define NOMINMAX
 
+#include <cstdlib>
 #include <cstdint>
 #include <cassert>
 

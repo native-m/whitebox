@@ -16,11 +16,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED 20)
 
 include(Dependencies.cmake)
 
-message("${CPM_DOWNLOAD_LOCATION}")
-
+enable_testing()
 add_subdirectory(assets)
 
 set(WB_SOURCES
+    "src/core/audio_buffer.h"
+    "src/core/audio_format.h"
     "src/core/color.h"
     "src/core/common.h"
     "src/core/debug.cpp"
@@ -31,7 +32,9 @@ set(WB_SOURCES
     "src/core/memory.h"
     "src/core/platform.h"
     "src/core/queue.h"
+    "src/core/thread.cpp"
     "src/core/thread.h"
+    "src/core/types.h"
     
     "src/engine/audio_io.cpp"
     "src/engine/audio_io.h"
@@ -97,7 +100,7 @@ set(WB_LINK_LIBRARIES
     nfd)
 
 if (MSVC)
-    set(WB_LINK_LIBRARIES ${WB_LINK_LIBRARIES} imgui-d3d11)
+    set(WB_LINK_LIBRARIES ${WB_LINK_LIBRARIES} imgui-d3d11 Avrt)
 else ()
     set(WB_LINK_LIBRARIES ${WB_LINK_LIBRARIES} xcb X11 X11-xcb)
 endif()
@@ -105,9 +108,11 @@ endif()
 add_library(whitebox-lib STATIC ${WB_SOURCES})
 target_link_libraries(whitebox-lib PUBLIC ${WB_LINK_LIBRARIES})
 target_include_directories(whitebox-lib PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
+set_target_properties(whitebox-lib PROPERTIES CXX_STANDARD 20)
 
 add_executable(whitebox "src/main.cpp")
 target_link_libraries(whitebox whitebox-lib)
 add_dependencies(whitebox wb-assets)
+set_target_properties(whitebox PROPERTIES CXX_STANDARD 20)
 
-set_target_properties(whitebox whitebox-lib PROPERTIES CXX_STANDARD 20)
+add_subdirectory(test)
