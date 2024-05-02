@@ -16,8 +16,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED 20)
 
 include(Dependencies.cmake)
 
-message("${CPM_DOWNLOAD_LOCATION}")
-
+enable_testing()
 add_subdirectory(assets)
 
 set(WB_SOURCES
@@ -107,9 +106,11 @@ endif()
 add_library(whitebox-lib STATIC ${WB_SOURCES})
 target_link_libraries(whitebox-lib PUBLIC ${WB_LINK_LIBRARIES})
 target_include_directories(whitebox-lib PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
+set_target_properties(whitebox-lib PROPERTIES CXX_STANDARD 20)
 
 add_executable(whitebox "src/main.cpp")
 target_link_libraries(whitebox whitebox-lib)
 add_dependencies(whitebox wb-assets)
+set_target_properties(whitebox PROPERTIES CXX_STANDARD 20)
 
-set_target_properties(whitebox whitebox-lib PROPERTIES CXX_STANDARD 20)
+add_subdirectory(test)

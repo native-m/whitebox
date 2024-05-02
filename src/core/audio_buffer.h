@@ -18,7 +18,8 @@ struct AudioBuffer {
     uint32_t channel_capacity = internal_buffer_capacity;
     T* internal_channel_buffers[internal_buffer_capacity] {};
     T** channel_buffers {};
-    bool managed;
+
+    AudioBuffer() {}
 
     AudioBuffer(uint32_t sample_count, uint32_t channel_count) :
         n_samples(sample_count),
@@ -27,7 +28,7 @@ struct AudioBuffer {
         resize_channel_array_(n_channels);
         for (uint32_t i = 0; i < n_channels; i++) {
             channel_buffers[i] =
-                allocate_aligned(sample_count * sizeof(T), WB_AUDIO_BUFFER_ALIGNEMNT);
+                (T*)allocate_aligned(sample_count * sizeof(T), WB_AUDIO_BUFFER_ALIGNEMNT);
             assert(channel_buffers[i] && "Cannot allocate memory for audio buffer");
             std::memset(channel_buffers[i], 0, sample_count * sizeof(T));
         }
@@ -38,7 +39,7 @@ struct AudioBuffer {
             free_aligned(channel_buffers[i]);
             channel_buffers[i] = nullptr;
         }
-        if (channel_buffers != internal_buffer_capacity)
+        if (channel_buffers != internal_channel_buffers)
             std::free(channel_buffers);
     }
 
@@ -60,17 +61,20 @@ struct AudioBuffer {
         if (clear) {
             for (uint32_t i = 0; i < n_channels; i++) {
                 free_aligned(channel_buffers[i]);
-                channel_buffers[i] = allocate_aligned(new_size, WB_AUDIO_BUFFER_ALIGNEMNT);
+                channel_buffers[i] = (T*)allocate_aligned(new_size, WB_AUDIO_BUFFER_ALIGNEMNT);
                 assert(channel_buffers[i] && "Cannot allocate memory for audio buffer");
                 std::memset(channel_buffers[i], 0, new_size);
             }
         } else {
             for (uint32_t i = 0; i < n_channels; i++) {
                 T* old_buffer = channel_buffers[i];
-                channel_buffers[i] = allocate_aligned(new_size, WB_AUDIO_BUFFER_ALIGNEMNT);
+                channel_buffers[i] = (T*)allocate_aligned(new_size, WB_AUDIO_BUFFER_ALIGNEMNT);
                 assert(channel_buffers[i] && "Cannot allocate memory for audio buffer");
-                std::memcpy(channel_buffers[i], old_buffer, n_samples * sizeof(T));
-                std::memset(channel_buffers[i] + n_samples, 0, (samples - n_samples) * sizeof(T));
+                size_t count = std::min(n_samples, samples);
+                std::memcpy(channel_buffers[i], old_buffer, count * sizeof(T));
+                if (samples > n_samples)
+                    std::memset(channel_buffers[i] + n_samples, 0,
+                                (samples - n_samples) * sizeof(T));
                 free_aligned(old_buffer);
             }
         }
@@ -78,8 +82,23 @@ struct AudioBuffer {
         n_samples = samples;
     }
 
+    void resize_channel(uint32_t channel_count) {
+        uint32_t old_channel_count = channel_count;
+        resize_channel_array_(channel_count);
+        if (channel_count > old_channel_count) {
+            // Allocate new buffer for new channels
+            for (uint32_t i = old_channel_count; i < channel_count; i++) {
+                channel_buffers[i] =
+                    (T*)allocate_aligned(n_samples * sizeof(T), WB_AUDIO_BUFFER_ALIGNEMNT);
+                assert(channel_buffers[i] && "Cannot allocate memory for audio buffer");
+                std::memset(channel_buffers[i], 0, n_samples * sizeof(T));
+            }
+        } else {
+        }
+    }
+
     void resize_channel_array_(uint32_t channel_count) {
-        if (channel_count > channel_capacity) {
+        if (channel_count < channel_capacity) {
             n_channels = channel_count;
             return;
         }
