@@ -345,7 +345,7 @@ struct AudioIOWASAPI : public AudioIO {
         stream_period = period;
         running = true;
 
-        audio_thread = std::thread(audio_thread_runner, this);
+        audio_thread = std::thread(audio_thread_runner, this, priority);
 
         return true;
     }
@@ -452,14 +452,33 @@ struct AudioIOWASAPI : public AudioIO {
         return idx;
     }
 
-    static void audio_thread_runner(AudioIOWASAPI* instance) {
+    static void audio_thread_runner(AudioIOWASAPI* instance, AudioThreadPriority priority) {
         IAudioRenderClient* render = instance->render_client;
         IAudioClient* output_client = instance->output.client;
 
         DWORD task_index = 0;
         HANDLE task = AvSetMmThreadCharacteristics("Pro Audio", &task_index);
-        if (task)
-            AvSetMmThreadPriority(task, AVRT_PRIORITY_NORMAL);
+        if (task) {
+            AVRT_PRIORITY avrt_priority;
+            switch (priority) {
+                case AudioThreadPriority::Lowest:
+                    avrt_priority = AVRT_PRIORITY_VERYLOW;
+                    break;
+                case AudioThreadPriority::Low:
+                    avrt_priority = AVRT_PRIORITY_LOW;
+                    break;
+                case AudioThreadPriority::Normal:
+                    avrt_priority = AVRT_PRIORITY_NORMAL;
+                    break;
+                case AudioThreadPriority::High:
+                    avrt_priority = AVRT_PRIORITY_HIGH;
+                    break;
+                case AudioThreadPriority::Highest:
+                    avrt_priority = AVRT_PRIORITY_CRITICAL;
+                    break;
+            }
+            AvSetMmThreadPriority(task, avrt_priority);
+        }
 
         double sample_rate = instance->stream_sample_rate;
         double inc_rate = 440.0 / sample_rate * std::numbers::pi;
