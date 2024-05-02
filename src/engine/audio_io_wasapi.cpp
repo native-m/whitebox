@@ -1,6 +1,7 @@
 #include "audio_io.h"
 
 #ifdef WB_PLATFORM_WINDOWS
+#include "core/audio_buffer.h"
 #include "core/debug.h"
 #include "core/math.h"
 #include "core/thread.h"
@@ -481,7 +482,7 @@ struct AudioIOWASAPI : public AudioIO {
             output_client->GetCurrentPadding(&padding);
             uint32_t framesAvailable = maximum_buffer_size - padding;
 
-            //Log::info("Frames available {} {}", framesAvailable, padding);
+            // Log::info("Frames available {} {}", framesAvailable, padding);
 
             if (buffer_size > framesAvailable) {
                 continue;

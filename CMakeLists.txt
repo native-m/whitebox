@@ -21,6 +21,8 @@ message("${CPM_DOWNLOAD_LOCATION}")
 add_subdirectory(assets)
 
 set(WB_SOURCES
+    "src/core/audio_buffer.h"
+    "src/core/audio_format.h"
     "src/core/color.h"
     "src/core/common.h"
     "src/core/debug.cpp"
@@ -33,6 +35,7 @@ set(WB_SOURCES
     "src/core/queue.h"
     "src/core/thread.cpp"
     "src/core/thread.h"
+    "src/core/types.h"
     
     "src/engine/audio_io.cpp"
     "src/engine/audio_io.h"
