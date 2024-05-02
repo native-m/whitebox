@@ -2,27 +2,26 @@
 
 #include "common.h"
 #include <algorithm>
-#include <memory>
+#include <cstdlib>
 #include <cstring>
+#include <memory>
 
 namespace wb {
-inline void* allocate(size_t size) noexcept {
-    return std::malloc(size);
-}
 
 inline void* allocate_aligned(size_t size, size_t alignment = 16) noexcept {
-    void* mem = std::malloc(size + (alignment - 1) + sizeof(uint16_t));
-    if (mem == nullptr)
-        return nullptr;
-    size_t mem_addr = (size_t)mem;
-    size_t aligned_addr = mem_addr + (alignment - (mem_addr % alignment));
-    *((uint16_t*)aligned_addr - 1) = (uint16_t)(aligned_addr - mem_addr);
-    return (void*)aligned_addr;
+#ifdef WB_PLATFORM_WINDOWS
+    return _aligned_malloc(size, alignment);
+#else
+    return std::aligned_alloc(size, alignment);
+#endif
 }
 
 inline void free_aligned(void* ptr) noexcept {
-    uint16_t offset = *((uint16_t*)ptr - 1);
-    std::free((std::byte*)ptr - offset);
+#ifdef WB_PLATFORM_WINDOWS
+    _aligned_free(ptr);
+#else
+    std::free(ptr);
+#endif
 }
 
 struct PoolHeader {
@@ -118,4 +117,20 @@ struct Pool {
         return true;
     }
 };
+
+// inline void* allocate_aligned(size_t size, size_t alignment = 16) noexcept {
+//     void* mem = std::malloc(size + (alignment - 1) + sizeof(uint16_t));
+//     if (mem == nullptr)
+//         return nullptr;
+//     size_t mem_addr = (size_t)mem;
+//     size_t aligned_addr = mem_addr + (alignment - (mem_addr % alignment));
+//     *((uint16_t*)aligned_addr - 1) = (uint16_t)(aligned_addr - mem_addr);
+//     return (void*)aligned_addr;
+// }
+
+// inline void free_aligned(void* ptr) noexcept {
+//     uint16_t offset = *((uint16_t*)ptr - 1);
+//     std::free((std::byte*)ptr - offset);
+// }
+
 } // namespace wb
