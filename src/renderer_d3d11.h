@@ -1,6 +1,8 @@
 #pragma once
 
 #include "core/common.h"
+
+#ifdef WB_PLATFORM_WINDOWS
 #include "renderer.h"
 #include <d3d11.h>
 #include <dxgi1_3.h>
@@ -79,9 +81,14 @@ struct RendererD3D11 : public Renderer {
     std::shared_ptr<SamplePeaks> create_sample_peaks(const Sample& sample,
                                                      SamplePeaksPrecision precision) override;
     void new_frame() override;
+    void end_frame() override;
     void resize_swapchain() override;
     void set_framebuffer(const std::shared_ptr<Framebuffer>& framebuffer) override;
+    void begin_draw(const std::shared_ptr<Framebuffer>& framebuffer,
+                    const ImVec4& clear_color) override;
+    void finish_draw() override;
     void clear(float r, float g, float b, float a) override;
+    ImTextureID prepare_as_imgui_texture(const std::shared_ptr<Framebuffer>& framebuffer) override;
     void draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) override;
     void render_draw_data(ImDrawData* draw_data) override;
     void present() override;
@@ -89,3 +96,4 @@ struct RendererD3D11 : public Renderer {
 };
 
 } // namespace wb
+#endif

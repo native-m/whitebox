@@ -1,3 +1,7 @@
+#include "core/platform.h"
+
+#ifdef WB_PLATFORM_WINDOWS
+
 #include "renderer_d3d11.h"
 #include "app_sdl2.h"
 #include "core/debug.h"
@@ -49,6 +53,7 @@ static ID3D11PixelShader* load_ps(ID3D11Device* device, const char* file) {
 RendererD3D11::RendererD3D11(IDXGISwapChain2* swapchain, ID3D11Device* device,
                              ID3D11DeviceContext* ctx) :
     swapchain_(swapchain), device_(device), ctx_(ctx) {
+    swapchain_->SetMaximumFrameLatency(1);
     frame_latency_waitable_handle_ = swapchain->GetFrameLatencyWaitableObject();
     resize_swapchain();
 }
@@ -301,6 +306,9 @@ void RendererD3D11::new_frame() {
     ImGui_ImplDX11_NewFrame();
 }
 
+void RendererD3D11::end_frame() {
+}
+
 void RendererD3D11::resize_swapchain() {
     constexpr UINT swapchain_flags =
         DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH | DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
@@ -366,6 +374,13 @@ void RendererD3D11::set_framebuffer(const std::shared_ptr<Framebuffer>& framebuf
     vp_height = 2.0f / vp.Height;
     current_rtv_ = impl->rtv;
     // vmask_target_ = impl->rtv;
+}
+
+void RendererD3D11::begin_draw(const std::shared_ptr<Framebuffer>& framebuffer,
+                               const ImVec4& clear_color) {
+}
+
+void RendererD3D11::finish_draw() {
 }
 
 void RendererD3D11::clear(float r, float g, float b, float a) {
@@ -515,6 +530,9 @@ Renderer* RendererD3D11::create(App* app) {
     swapchain->QueryInterface(&swapchain2);
     swapchain->Release();
 
+    IDXGIDevice1* device1;
+    device->QueryInterface(&device1);
+
     RendererD3D11* ret = new (std::nothrow) RendererD3D11(swapchain2, device, ctx);
     if (!ret) {
         swapchain2->Release();
@@ -532,3 +550,4 @@ Renderer* RendererD3D11::create(App* app) {
 }
 
 } // namespace wb
+#endif

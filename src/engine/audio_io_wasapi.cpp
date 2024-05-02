@@ -1,16 +1,20 @@
 #include "audio_io.h"
+
+#ifdef WB_PLATFORM_WINDOWS
 #include "core/debug.h"
 #include "core/math.h"
+#include "core/thread.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <Audioclient.h>
+#include <atomic>
 #include <ks.h>
 #include <ksmedia.h>
 #include <memory>
 #include <string_view>
+#include <thread>
 #include <unordered_set>
 #include <vector>
-#include <atomic>
 #include <wrl.h>
 
 #ifndef __mmdeviceapi_h__
@@ -19,26 +23,15 @@
 #endif
 
 #include <Functiondiscoverykeys_devpkey.h>
+#include <avrt.h>
+
+#include <numbers>
 
 #define WB_INVALID_INDEX (~0U)
 
 using namespace Microsoft::WRL;
 
 namespace wb {
-
-static const std::pair<uint32_t, AudioDeviceSampleRate> compatible_sample_rates[] = {
-    {44100, AudioDeviceSampleRate::Hz44100},   {48000, AudioDeviceSampleRate::Hz48000},
-    {88200, AudioDeviceSampleRate::Hz88200},   {96000, AudioDeviceSampleRate::Hz96000},
-    {176400, AudioDeviceSampleRate::Hz176400}, {192000, AudioDeviceSampleRate::Hz192000},
-};
-
-static const AudioFormat compatible_formats[] = {
-    AudioFormat::I16, AudioFormat::I24, AudioFormat::I24_X8, AudioFormat::I32, AudioFormat::F32,
-};
-
-static const uint16_t compatible_channel_count[] = {
-    2,
-};
 
 struct FormatBitSizes {
     GUID subtype;
@@ -91,16 +84,6 @@ inline static WAVEFORMATEXTENSIBLE to_waveformatex(AudioFormat sample_format, ui
     return waveformat;
 }
 
-inline uint32_t to_sample_count(REFERENCE_TIME ref_time, uint32_t sample_rate) {
-    constexpr double sec_in_100_ns_units = 10000000.0;
-    return (uint32_t)std::round(sample_rate * ref_time / sec_in_100_ns_units);
-}
-
-inline REFERENCE_TIME to_period(uint32_t buffer_size, uint32_t sample_rate) {
-    constexpr double sec_in_100_ns_units = 10000000.0;
-    return (REFERENCE_TIME)std::round(sec_in_100_ns_units * (buffer_size / (double)sample_rate));
-}
-
 struct AudioDeviceWASAPI {
     AudioDeviceProperties properties;
     ComPtr<IMMDevice> device;
@@ -110,7 +93,6 @@ struct ActiveDeviceWASAPI {
     IMMDevice* device {};
     IAudioClient3* client {};
     WAVEFORMATEXTENSIBLE shared_format {};
-    std::vector<uint32_t> shared_buffer_sizes {};
 
     UINT default_low_latency_buffer_size;
     UINT min_low_latency_buffer_size;
@@ -124,8 +106,8 @@ struct ActiveDeviceWASAPI {
 
     REFERENCE_TIME default_device_period;
     REFERENCE_TIME min_device_period;
-
-    std::atomic<uint32_t> ato;
+    HANDLE stream_event;
+    bool use_polling = false;
 
     bool open(ComPtr<IMMDevice>& new_device) {
         ComPtr<IMMDevice> active_device(new_device);
@@ -140,9 +122,8 @@ struct ActiveDeviceWASAPI {
         AudioClientProperties properties {};
         properties.cbSize = sizeof(AudioClientProperties);
         properties.eCategory = AudioCategory_Media;
-        properties.Options |= AUDCLNT_STREAMOPTIONS_MATCH_FORMAT;
         properties.Options |= AUDCLNT_STREAMOPTIONS_RAW;
-
+        properties.Options |= AUDCLNT_STREAMOPTIONS_MATCH_FORMAT;
         new_client->SetClientProperties(&properties);
 
         WAVEFORMATEXTENSIBLE* mix_format;
@@ -161,24 +142,6 @@ struct ActiveDeviceWASAPI {
             buffer_size_to_period(max_low_latency_buffer_size, mix_format->Format.nSamplesPerSec);
 
         absolute_min_period = std::min(min_low_latency_period, min_device_period);
-
-        uint32_t buffer_size = min_low_latency_buffer_size;
-        shared_buffer_sizes.push_back(buffer_size);
-        buffer_size += low_latency_buffer_alignment;
-        while (buffer_size <= max_low_latency_buffer_size) {
-            shared_buffer_sizes.push_back(buffer_size);
-            buffer_size += low_latency_buffer_alignment;
-        }
-
-        while (buffer_size <= 8192) {
-            if (!is_pow_2(buffer_size)) {
-                buffer_size += low_latency_buffer_alignment;
-                continue;
-            }
-            shared_buffer_sizes.push_back(buffer_size);
-            buffer_size += low_latency_buffer_alignment;
-        }
-
         device = active_device.Detach();
         client = new_client.Detach();
         shared_format = *mix_format;
@@ -196,6 +159,8 @@ struct ActiveDeviceWASAPI {
 
     bool init_stream(bool exclusive_mode, AudioDevicePeriod period, AudioFormat sample_format,
                      AudioDeviceSampleRate sample_rate) {
+        assert(device && client);
+
         DWORD stream_flags = AUDCLNT_STREAMFLAGS_EVENTCALLBACK;
         auto sample_rate_value = compatible_sample_rates[(uint32_t)sample_rate];
         AUDCLNT_SHAREMODE share_mode =
@@ -204,18 +169,39 @@ struct ActiveDeviceWASAPI {
         if (exclusive_mode) {
             WAVEFORMATEXTENSIBLE waveformat =
                 to_waveformatex(sample_format, sample_rate_value.first, 2);
+            HRESULT result = client->Initialize(share_mode, stream_flags, period, period,
+                                                (const WAVEFORMATEX*)&shared_format, nullptr);
+            if (FAILED(result)) {
+                return false;
+            }
         } else {
             uint32_t buffer_size = period_to_buffer_size(period, sample_rate_value.first);
             if (in_range(buffer_size, min_low_latency_buffer_size, max_low_latency_buffer_size) &&
                 is_multiple_of(buffer_size, low_latency_buffer_alignment)) {
-                // Use low-latency mode
-
+                // Use low-latency shared mode
+                HRESULT result = client->InitializeSharedAudioStream(
+                    stream_flags, buffer_size, (const WAVEFORMATEX*)&shared_format, nullptr);
+                if (FAILED(result)) {
+                    return false;
+                }
             } else {
-
+                HRESULT result = client->Initialize(share_mode, stream_flags, period, 0,
+                                                    (const WAVEFORMATEX*)&shared_format, nullptr);
+                if (FAILED(result)) {
+                    return false;
+                }
             }
         }
 
+        stream_event = CreateEvent(nullptr, FALSE, FALSE, "WB_OUTPUT_STREAM_EVENT");
+        client->SetEventHandle(stream_event);
+
         return true;
+    }
+
+    void stop_stream() {
+        CloseHandle(stream_event);
+        use_polling = false;
     }
 };
 
@@ -224,8 +210,16 @@ struct AudioIOWASAPI : public AudioIO {
     std::vector<AudioDeviceWASAPI> input_devices;
     ActiveDeviceWASAPI output;
     ActiveDeviceWASAPI input;
-    uint32_t exclusive_output_sample_rate_mask = 0;
-    uint32_t exclusive_input_sample_rate_mask = 0;
+    IAudioRenderClient* render_client {};
+    IAudioCaptureClient* capture_client {};
+    uint32_t exclusive_output_sample_rate_bit_flags = 0;
+    uint32_t exclusive_input_sample_rate_bit_flags = 0;
+    AudioDevicePeriod stream_period {};
+    uint32_t stream_buffer_size {};
+    uint32_t maximum_buffer_size {};
+    double stream_sample_rate {};
+    std::atomic_bool running;
+    std::thread audio_thread;
 
     virtual ~AudioIOWASAPI() { close_device(); }
 
@@ -248,7 +242,7 @@ struct AudioIOWASAPI : public AudioIO {
         Log::info("Opening audio devices...");
 
         if (output_device_id != 0) {
-            uint32_t device_index = find_device_index_(output_devices, output_device_id);
+            uint32_t device_index = find_device_index(output_devices, output_device_id);
             if (device_index == WB_INVALID_INDEX)
                 return false;
             AudioDeviceWASAPI& output_device = output_devices[device_index];
@@ -257,7 +251,7 @@ struct AudioIOWASAPI : public AudioIO {
         }
 
         if (input_device_id != 0) {
-            uint32_t device_index = find_device_index_(input_devices, input_device_id);
+            uint32_t device_index = find_device_index(input_devices, input_device_id);
             if (device_index == WB_INVALID_INDEX) {
                 output.close();
                 return false;
@@ -270,10 +264,12 @@ struct AudioIOWASAPI : public AudioIO {
         }
 
         min_period = std::max(output.absolute_min_period, input.absolute_min_period);
-        buffer_alignment =
-            std::max(output.low_latency_buffer_alignment, input.low_latency_buffer_alignment);
 
-        // Check all possible exclusive mode formats
+        // Maximum buffer alignment for low latency stream is 32
+        buffer_alignment = std::min(
+            32u, std::max(output.low_latency_buffer_alignment, input.low_latency_buffer_alignment));
+
+        // Check all possible formats
         for (auto smp_format : compatible_formats) {
             for (auto sample_rate : compatible_sample_rates) {
                 for (auto channels : compatible_channel_count) {
@@ -287,15 +283,27 @@ struct AudioIOWASAPI : public AudioIO {
                         AUDCLNT_SHAREMODE_EXCLUSIVE, (WAVEFORMATEX*)&format, nullptr));
 
                     if (output_format_supported) {
-                        exclusive_output_format_mask |= format_bit_mask;
-                        exclusive_output_sample_rate_mask |= sample_rate_bit_mask;
-                        exclusive_sample_rate_mask |= sample_rate_bit_mask;
+                        exclusive_output_format_bit_flags |= format_bit_mask;
+                        exclusive_output_sample_rate_bit_flags |= sample_rate_bit_mask;
+                        exclusive_sample_rate_bit_flags |= sample_rate_bit_mask;
                     }
 
                     if (input_format_supported) {
-                        exclusive_input_format_mask |= format_bit_mask;
-                        exclusive_input_sample_rate_mask |= sample_rate_bit_mask;
-                        exclusive_sample_rate_mask |= sample_rate_bit_mask;
+                        exclusive_input_format_bit_flags |= format_bit_mask;
+                        exclusive_input_sample_rate_bit_flags |= sample_rate_bit_mask;
+                        exclusive_sample_rate_bit_flags |= sample_rate_bit_mask;
+                    }
+
+                    if (sample_rate.first == output.shared_format.Format.nSamplesPerSec) {
+                        shared_mode_sample_rate = sample_rate.second;
+                    }
+
+                    if (format.SubFormat == output.shared_format.SubFormat) {
+                        shared_mode_output_format = smp_format;
+                    }
+
+                    if (format.SubFormat == input.shared_format.SubFormat) {
+                        shared_mode_input_format = smp_format;
                     }
                 }
             }
@@ -309,6 +317,8 @@ struct AudioIOWASAPI : public AudioIO {
         if (!open)
             return;
         Log::info("Closing audio devices...");
+        if (running)
+            stop();
         output.close();
         input.close();
         open = false;
@@ -316,13 +326,37 @@ struct AudioIOWASAPI : public AudioIO {
         buffer_alignment = 0;
     }
 
-    bool start(bool exclusive_mode, AudioDevicePeriod buffer_size, AudioFormat input_format,
-               AudioFormat output_format, AudioDeviceSampleRate sample_rate) override {
+    bool start(bool exclusive_mode, uint32_t buffer_size, AudioFormat input_format,
+               AudioFormat output_format, AudioDeviceSampleRate sample_rate,
+               AudioThreadPriority priority) override {
+        if (running)
+            return false;
+
+        uint32_t sample_rate_value = get_sample_rate_value(sample_rate);
+        AudioDevicePeriod period = buffer_size_to_period(buffer_size, sample_rate_value);
+        if (!output.init_stream(exclusive_mode, period, output_format, sample_rate))
+            return false;
+
+        output.client->GetBufferSize(&maximum_buffer_size);
+        output.client->GetService(IID_PPV_ARGS(&render_client));
+        stream_sample_rate = (double)get_sample_rate_value(sample_rate);
+        stream_buffer_size = buffer_size;
+        stream_period = period;
+        running = true;
+
+        audio_thread = std::thread(audio_thread_runner, this);
 
         return true;
     }
 
-    void end() override {}
+    void stop() override {
+        running = false;
+        if (audio_thread.joinable()) {
+            audio_thread.join();
+        }
+        render_client->Release();
+        output.stop_stream();
+    }
 
     bool scan_audio_endpoints(EDataFlow type, std::vector<AudioDeviceWASAPI>& endpoints) {
         ComPtr<IMMDeviceEnumerator> enumerator;
@@ -402,7 +436,7 @@ struct AudioIOWASAPI : public AudioIO {
         return true;
     }
 
-    uint32_t find_device_index_(const std::vector<AudioDeviceWASAPI>& devices, AudioDeviceID id) {
+    uint32_t find_device_index(const std::vector<AudioDeviceWASAPI>& devices, AudioDeviceID id) {
         uint32_t idx = 0;
         bool found = false;
         for (const auto& device : devices) {
@@ -417,7 +451,112 @@ struct AudioIOWASAPI : public AudioIO {
         return idx;
     }
 
-    static void audio_thread_runner(AudioIOWASAPI* instance) {}
+    static void audio_thread_runner(AudioIOWASAPI* instance) {
+        IAudioRenderClient* render = instance->render_client;
+        IAudioClient* output_client = instance->output.client;
+
+        DWORD task_index = 0;
+        HANDLE task = AvSetMmThreadCharacteristics("Pro Audio", &task_index);
+        if (task)
+            AvSetMmThreadPriority(task, AVRT_PRIORITY_NORMAL);
+
+        double sample_rate = instance->stream_sample_rate;
+        double inc_rate = 440.0 / sample_rate * std::numbers::pi;
+        double phase = 0.0;
+
+        output_client->Start();
+
+        // Pre-roll buffer
+        BYTE* dummy;
+        uint32_t maximum_buffer_size = instance->maximum_buffer_size;
+        render->GetBuffer(maximum_buffer_size, &dummy);
+        render->ReleaseBuffer(maximum_buffer_size, AUDCLNT_BUFFERFLAGS_SILENT);
+
+        HANDLE output_stream_event = instance->output.stream_event;
+        uint32_t buffer_size = instance->stream_buffer_size;
+        while (instance->running.load(std::memory_order_relaxed)) {
+            WaitForSingleObject(output_stream_event, INFINITE);
+
+            uint32_t padding;
+            output_client->GetCurrentPadding(&padding);
+            uint32_t framesAvailable = maximum_buffer_size - padding;
+
+            //Log::info("Frames available {} {}", framesAvailable, padding);
+
+            if (buffer_size > framesAvailable) {
+                continue;
+            }
+
+            float* buffer;
+            HRESULT hr = render->GetBuffer(buffer_size, (BYTE**)&buffer);
+            assert(SUCCEEDED(hr));
+            for (uint32_t i = 0; i < buffer_size; i++) {
+                float s = (float)std::sin(phase) * 0.5f;
+                buffer[i * 2 + 0] = s;
+                buffer[i * 2 + 1] = s;
+                phase += inc_rate;
+                if (phase >= 2.0 * std::numbers::pi)
+                    phase -= 2.0 * std::numbers::pi;
+            }
+            render->ReleaseBuffer(buffer_size, 0);
+        }
+
+        output_client->Stop();
+    }
+
+    static void audio_thread_poll(AudioIOWASAPI* instance) {
+        IAudioRenderClient* render = instance->render_client;
+        IAudioClient* output_client = instance->output.client;
+
+        DWORD task_index = 0;
+        HANDLE task = AvSetMmThreadCharacteristics("Pro Audio", &task_index);
+        if (task)
+            AvSetMmThreadPriority(task, AVRT_PRIORITY_NORMAL);
+
+        uint32_t timer_flags = CREATE_WAITABLE_TIMER_HIGH_RESOLUTION;
+        LARGE_INTEGER timeout {.QuadPart = -(instance->stream_period / 2)};
+        HANDLE timer = CreateWaitableTimerEx(nullptr, nullptr, timer_flags, TIMER_ALL_ACCESS);
+
+        double sample_rate = instance->stream_sample_rate;
+        double inc_rate = 440.0 / sample_rate * std::numbers::pi;
+        double phase = 0.0;
+
+        SetWaitableTimer(timer, &timeout, 0, nullptr, nullptr, FALSE);
+        output_client->Start();
+
+        // Pre-roll buffer
+        BYTE* dummy;
+        render->GetBuffer(instance->maximum_buffer_size, &dummy);
+        render->ReleaseBuffer(instance->maximum_buffer_size, AUDCLNT_BUFFERFLAGS_SILENT);
+
+        uint32_t maximum_buffer_size = instance->maximum_buffer_size;
+        uint32_t buffer_size = instance->stream_buffer_size;
+        while (instance->running.load(std::memory_order_relaxed)) {
+            WaitForSingleObject(timer, INFINITE);
+            SetWaitableTimer(timer, &timeout, 0, nullptr, nullptr, FALSE);
+
+            uint32_t padding;
+            output_client->GetCurrentPadding(&padding);
+            uint32_t frame_available = maximum_buffer_size - padding;
+
+            float* buffer;
+            HRESULT hr = render->GetBuffer(frame_available, (BYTE**)&buffer);
+            assert(SUCCEEDED(hr));
+            for (uint32_t i = 0; i < frame_available; i++) {
+                float s = (float)std::sin(phase) * 0.5f;
+                buffer[i * 2 + 0] = s;
+                buffer[i * 2 + 1] = s;
+                phase += inc_rate;
+                if (phase > 2.0 * std::numbers::pi)
+                    phase = 0.0;
+            }
+            render->ReleaseBuffer(frame_available, 0);
+        }
+
+        WaitForSingleObject(timer, INFINITE);
+        output_client->Stop();
+        CloseHandle(timer);
+    }
 };
 
 AudioIO* create_audio_io_wasapi() {
@@ -429,3 +568,15 @@ AudioIO* create_audio_io_wasapi() {
     return audio_io;
 }
 } // namespace wb
+
+#else
+
+#include "audio_io.h"
+
+namespace wb {
+AudioIO* create_audio_io_wasapi() {
+    return nullptr;
+}
+} // namespace wb
+
+#endif

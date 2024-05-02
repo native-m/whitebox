@@ -827,7 +827,7 @@ void GuiTimeline::render_tracks() {
         }
 
         //Log::info("{}")
-        Log::info("{} {} {}", view_max.y, view_max.y, vscroll + timeline_view_pos.y);
+        //Log::info("{} {} {}", view_max.y, view_max.y, vscroll + timeline_view_pos.y);
     }
 
     for (auto track : g_engine.tracks) {
@@ -1053,15 +1053,20 @@ void GuiTimeline::render_tracks() {
         priv_draw_list->PopClipRect();
         priv_draw_list->PopTextureID();
 
+        ImGuiViewport* owner_viewport = ImGui::GetWindowViewport();
         priv_draw_data.Clear();
         priv_draw_data.AddDrawList(priv_draw_list);
         priv_draw_data.DisplayPos = view_min;
         priv_draw_data.DisplaySize = timeline_area;
+        priv_draw_data.FramebufferScale.x = 1.0f;
+        priv_draw_data.FramebufferScale.y = 1.0f;
+        priv_draw_data.OwnerViewport = owner_viewport;
 
         g_renderer->set_framebuffer(timeline_fb);
-        g_renderer->clear(ImGui::GetStyleColorVec4(ImGuiCol_WindowBg));
+        g_renderer->begin_draw(timeline_fb, ImGui::GetStyleColorVec4(ImGuiCol_WindowBg));
         g_renderer->render_draw_data(&priv_draw_data);
         g_renderer->draw_clip_content(clip_content_cmds);
+        g_renderer->finish_draw();
     }
 
     // Release edit action
@@ -1122,7 +1127,7 @@ void GuiTimeline::render_tracks() {
 
     clip_context_menu();
 
-    ImTextureID tex_id = timeline_fb->as_imgui_texture_id();
+    ImTextureID tex_id = g_renderer->prepare_as_imgui_texture(timeline_fb);
     win_draw_list->AddImage(tex_id, ImVec2(timeline_view_pos.x, offset_y),
                             ImVec2(timeline_view_pos.x + timeline_width, offset_y + area_size.y));
 

@@ -1,5 +1,6 @@
 #include "renderer.h"
 #include "renderer_d3d11.h"
+#include "renderer_vulkan.h"
 #include "core/debug.h"
 
 namespace wb {
@@ -7,7 +8,7 @@ namespace wb {
 Renderer* g_renderer = nullptr;
 
 void init_renderer(App* app) {
-    g_renderer = RendererD3D11::create(app);
+    g_renderer = RendererVK::create(app);
     if (!g_renderer)
         Log::error("Failed to create renderer");
 }

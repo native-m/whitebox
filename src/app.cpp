@@ -1,27 +1,25 @@
 #include "app.h"
 #include "core/debug.h"
+#include "core/thread.h"
 #include "engine/audio_io.h"
 #include "engine/engine.h"
 #include "renderer.h"
+#include "settings_data.h"
 #include "ui/browser.h"
 #include "ui/controls.h"
 #include "ui/mixer.h"
-#include "ui/timeline.h"
 #include "ui/settings.h"
+#include "ui/timeline.h"
 #include <imgui.h>
 #include <imgui_freetype.h>
+
+using namespace std::literals::chrono_literals;
 
 namespace wb {
 
 void apply_theme(ImGuiStyle& style);
 
 App::~App() {
-    Log::info("Closing application...");
-    g_audio_io->close_device();
-    g_timeline.shutdown();
-    shutdown_audio_io();
-    shutdown_renderer();
-    ImGui::DestroyContext();
 }
 
 void App::init() {
@@ -35,22 +33,24 @@ void App::init() {
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+    // io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
     io.ConfigViewportsNoTaskBarIcon = false;
 
     io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
-    io.Fonts->AddFontFromFileTTF("../../../assets/Inter-Medium.otf", 0.0f, &config);
-
+    io.Fonts->AddFontFromFileTTF("assets/Inter-Medium.otf", 0.0f, &config);
     apply_theme(ImGui::GetStyle());
 
+    g_settings_data.load_settings_data();
     init_renderer(this);
     init_audio_io(AudioIOType::WASAPI);
     g_engine.set_bpm(150.0f);
     g_timeline.init();
 
-    AudioDeviceProperties& out_properties = g_audio_io->default_output_device;
-    AudioDeviceProperties& in_properties = g_audio_io->default_input_device;
-    g_audio_io->open_device(out_properties.id, in_properties.id);
+    g_audio_io->open_device(g_settings_data.output_device_properties.id,
+                            g_settings_data.input_device_properties.id);
+    g_audio_io->start(g_settings_data.audio_exclusive_mode, g_settings_data.audio_buffer_size,
+                      g_settings_data.audio_input_format, g_settings_data.audio_output_format,
+                      g_settings_data.audio_sample_rate, AudioThreadPriority::Normal);
 
     Track* track = g_timeline.add_track();
     g_engine.add_audio_clip_from_file(
@@ -82,6 +82,12 @@ void App::run() {
                 ImGui::EndMenu();
             }
 
+            if (ImGui::BeginMenu("Edit")) {
+                ImGui::MenuItem("Undo");
+                ImGui::MenuItem("Redo");
+                ImGui::End();
+            }
+
             if (ImGui::BeginMenu("View")) {
                 ImGui::MenuItem("Windows", nullptr, false, false);
                 ImGui::Separator();
@@ -109,17 +115,27 @@ void App::run() {
         g_timeline.render();
 
         ImGui::Render();
-        g_renderer->set_framebuffer(nullptr);
-        g_renderer->clear(0.0f, 0.0f, 0.0f, 1.0f);
+
+        g_renderer->begin_draw(nullptr, {0.0f, 0.0f, 0.0f, 1.0f});
         g_renderer->render_draw_data(ImGui::GetDrawData());
-        ImGui::UpdatePlatformWindows();
-        ImGui::RenderPlatformWindowsDefault();
+        g_renderer->finish_draw();
+        g_renderer->end_frame();
         g_renderer->present();
+
+        // ImGui::UpdatePlatformWindows();
+        // ImGui::RenderPlatformWindowsDefault();
     }
 }
 
+void App::shutdown() {
+    Log::info("Closing application...");
+    g_timeline.shutdown();
+    shutdown_audio_io();
+    g_sample_table.shutdown();
+    shutdown_renderer();
+}
+
 void App::options_window() {
-    
 }
 
 void apply_theme(ImGuiStyle& style) {

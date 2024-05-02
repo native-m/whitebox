@@ -16,6 +16,7 @@ void GuiMixer::render() {
 
     if (!controls::begin_dockable_window(
             "Mixer", &open, ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_HorizontalScrollbar)) {
+        ImGui::PopStyleVar();
         ImGui::End();
         return;
     }

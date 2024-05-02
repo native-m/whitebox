@@ -1,13 +1,14 @@
 #include "app_sdl2.h"
 #include "renderer.h"
 #include <SDL.h>
-#include <combaseapi.h>
 #include <imgui_impl_sdl2.h>
 
 namespace wb {
 
 AppSDL2::~AppSDL2() {
+    shutdown();
     ImGui_ImplSDL2_Shutdown();
+    ImGui::DestroyContext();
     if (!window)
         SDL_DestroyWindow(window);
     SDL_Quit();
@@ -32,12 +33,11 @@ void AppSDL2::init() {
 }
 
 void AppSDL2::new_frame() {
-    g_renderer->new_frame();
-
     SDL_Event event;
     while (SDL_PollEvent(&event))
         handle_events(event);
 
+    g_renderer->new_frame();
     ImGui_ImplSDL2_NewFrame();
     ImGui::NewFrame();
 }
@@ -47,10 +47,14 @@ void AppSDL2::handle_events(SDL_Event& event) {
         case SDL_WINDOWEVENT:
             if (event.window.windowID != window_id)
                 break;
-            if (event.window.event == SDL_WINDOWEVENT_RESIZED)
+            if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
                 g_renderer->resize_swapchain();
-            if (event.window.event == SDL_WINDOWEVENT_CLOSE)
+                break;
+            }
+            if (event.window.event == SDL_WINDOWEVENT_CLOSE) {
                 running = false;
+                break;
+            }
             break;
         case SDL_QUIT:
             running = false;

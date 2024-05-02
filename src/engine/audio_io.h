@@ -12,10 +12,10 @@ using AudioDeviceID = uint64_t;
 using AudioDevicePeriod = int64_t;
 
 enum class AudioIOType {
-    None,
-    CoreAudio, // Soon
     WASAPI,
-    ASIO,
+    ASIO,       // Unimplemented
+    CoreAudio,  // Unimplemented
+    PulseAudio, // Unimplemented
 };
 
 enum class AudioDeviceType {
@@ -31,6 +31,14 @@ enum class AudioDeviceSampleRate {
     Hz176400,
     Hz192000,
     Max,
+};
+
+enum class AudioThreadPriority {
+    Lowest,
+    Low,
+    Normal,
+    High,
+    Highest,
 };
 
 struct AudioDeviceProperties {
@@ -52,9 +60,12 @@ struct AudioIO {
     AudioDeviceProperties default_output_device;
     uint32_t input_device_count = 0;
     uint32_t output_device_count = 0;
-    uint32_t exclusive_sample_rate_mask = 0;
-    uint32_t exclusive_input_format_mask = 0;
-    uint32_t exclusive_output_format_mask = 0;
+    uint32_t exclusive_sample_rate_bit_flags = 0;
+    uint32_t exclusive_input_format_bit_flags = 0;
+    uint32_t exclusive_output_format_bit_flags = 0;
+    AudioFormat shared_mode_output_format {};
+    AudioFormat shared_mode_input_format {};
+    AudioDeviceSampleRate shared_mode_sample_rate = {};
     AudioDevicePeriod min_period = 0;
     uint32_t buffer_alignment = 0;
     bool open = false;
@@ -64,26 +75,50 @@ struct AudioIO {
     bool is_open() const { return open; }
 
     bool is_sample_rate_supported(AudioDeviceSampleRate sample_rate) const {
-        return has_bit_enum(exclusive_sample_rate_mask, sample_rate);
+        return has_bit_enum(exclusive_sample_rate_bit_flags, sample_rate);
     }
 
     bool is_input_format_supported(AudioFormat format) const {
-        return has_bit_enum(exclusive_input_format_mask, format);
+        return has_bit_enum(exclusive_input_format_bit_flags, format);
     }
 
     bool is_output_format_supported(AudioFormat format) const {
-        return has_bit_enum(exclusive_output_format_mask, format);
+        return has_bit_enum(exclusive_output_format_bit_flags, format);
     }
 
     virtual ~AudioIO() {}
+
+    /*
+        Rescan available device that can be used by whitebox.
+    */
     virtual bool rescan_devices() = 0;
+
     virtual const AudioDeviceProperties& get_input_device_properties(uint32_t idx) const = 0;
     virtual const AudioDeviceProperties& get_output_device_properties(uint32_t idx) const = 0;
+
+    /*
+        Open input and output devices to ensure they are ready for use.
+        Usually, the implementation gets the hardware information in here.
+    */
     virtual bool open_device(AudioDeviceID output_device_id, AudioDeviceID input_device_idx) = 0;
+
+    /*
+        Closes input and output devices after being used by the application.
+    */
     virtual void close_device() = 0;
-    virtual bool start(bool exclusive_mode, AudioDevicePeriod period, AudioFormat input_format,
-                       AudioFormat output_format, AudioDeviceSampleRate sample_rate) = 0;
-    virtual void end() = 0;
+
+    /*
+        Starts the audio engine.
+        Audio thread will be launched here.
+    */
+    virtual bool start(bool exclusive_mode, uint32_t buffer_size, AudioFormat input_format,
+                       AudioFormat output_format, AudioDeviceSampleRate sample_rate,
+                       AudioThreadPriority priority) = 0;
+
+    /*
+        Stop the audio engine.
+    */
+    virtual void stop() = 0;
 };
 
 inline static uint32_t period_to_buffer_size(AudioDevicePeriod period, uint32_t sample_rate) {
@@ -120,6 +155,20 @@ inline static uint32_t get_sample_rate_value(AudioDeviceSampleRate sr_enum) {
     }
     return 0;
 }
+
+static const std::pair<uint32_t, AudioDeviceSampleRate> compatible_sample_rates[] = {
+    {44100, AudioDeviceSampleRate::Hz44100},   {48000, AudioDeviceSampleRate::Hz48000},
+    {88200, AudioDeviceSampleRate::Hz88200},   {96000, AudioDeviceSampleRate::Hz96000},
+    {176400, AudioDeviceSampleRate::Hz176400}, {192000, AudioDeviceSampleRate::Hz192000},
+};
+
+static const AudioFormat compatible_formats[] = {
+    AudioFormat::I16, AudioFormat::I24, AudioFormat::I24_X8, AudioFormat::I32, AudioFormat::F32,
+};
+
+static const uint16_t compatible_channel_count[] = {
+    2,
+};
 
 void init_audio_io(AudioIOType type);
 void shutdown_audio_io();
