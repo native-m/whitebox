@@ -46,6 +46,8 @@ set(WB_SOURCES
     "src/engine/sample_table.h"
     "src/engine/track.cpp"
     "src/engine/track.h"
+    "src/engine/pulseaudio_devicelist_wrapper.cpp"
+    "src/engine/pulseaudio_devicelist_wrapper.h"
 
     "src/ui/browser.cpp"
     "src/ui/browser.h"
