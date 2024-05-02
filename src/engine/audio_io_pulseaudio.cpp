@@ -26,9 +26,9 @@ inline static pa_sample_format_t get_bit_sizes(AudioFormat audio_format) {
         case AudioFormat::I16:
             return PA_SAMPLE_S16LE;
         case AudioFormat::I24:
-            return PA_SAMPLE_S24_32LE;
-        case AudioFormat::I24_X8:
             return PA_SAMPLE_S24LE;
+        case AudioFormat::I24_X8:
+            return PA_SAMPLE_S24_32LE;
         case AudioFormat::I32:
             return PA_SAMPLE_S32LE;
         case AudioFormat::F32:
