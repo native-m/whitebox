@@ -1,6 +1,7 @@
 #pragma once
 
 #include "clip.h"
+#include "core/audio_buffer.h"
 #include "core/common.h"
 #include "core/thread.h"
 #include "track.h"
@@ -19,6 +20,7 @@ struct Engine {
     Spinlock editor_lock;
 
     std::vector<OnBpmChangeFn> on_bpm_change_listener;
+    double phase = 0.0;
 
     ~Engine();
 
@@ -39,7 +41,7 @@ struct Engine {
         on_bpm_change_listener.push_back(fn);
     }
 
-    void process(double sample_rate);
+    void process(AudioBuffer<float>& output_buffer, double sample_rate);
 };
 
 extern Engine g_engine;

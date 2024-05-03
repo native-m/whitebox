@@ -6,6 +6,7 @@
 #include "core/debug.h"
 #include "core/math.h"
 #include "core/thread.h"
+#include "engine/engine.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <Audioclient.h>
@@ -26,8 +27,6 @@
 
 #include <Functiondiscoverykeys_devpkey.h>
 #include <avrt.h>
-
-#include <numbers>
 
 #define LOG_BUFFERING 0
 #define WB_INVALID_INDEX (~0U)
@@ -230,6 +229,7 @@ struct AudioIOWASAPI : public AudioIO {
     uint32_t maximum_buffer_size {};
     double stream_sample_rate {};
     AudioFormat output_stream_format {};
+    Engine* current_engine;
     std::atomic_bool running;
     std::thread audio_thread;
 
@@ -338,7 +338,7 @@ struct AudioIOWASAPI : public AudioIO {
         buffer_alignment = 0;
     }
 
-    bool start(bool exclusive_mode, uint32_t buffer_size, AudioFormat input_format,
+    bool start(Engine* engine, bool exclusive_mode, uint32_t buffer_size, AudioFormat input_format,
                AudioFormat output_format, AudioDeviceSampleRate sample_rate,
                AudioThreadPriority priority) override {
         if (running)
@@ -355,6 +355,7 @@ struct AudioIOWASAPI : public AudioIO {
         stream_buffer_size = buffer_size;
         stream_period = period;
         output_stream_format = output_format;
+        current_engine = engine;
         running = true;
 
         audio_thread = std::thread(audio_thread_runner, this, priority);
@@ -467,6 +468,7 @@ struct AudioIOWASAPI : public AudioIO {
     static void audio_thread_runner(AudioIOWASAPI* instance, AudioThreadPriority priority) {
         IAudioRenderClient* render = instance->render_client;
         IAudioClient* output_client = instance->output.client;
+        Engine* engine = instance->current_engine;
 
         DWORD task_index = 0;
         HANDLE task = AvSetMmThreadCharacteristics("Pro Audio", &task_index);
@@ -492,10 +494,6 @@ struct AudioIOWASAPI : public AudioIO {
             AvSetMmThreadPriority(task, avrt_priority);
         }
 
-        double sample_rate = instance->stream_sample_rate;
-        double inc_rate = 440.0 / sample_rate * std::numbers::pi;
-        double phase = 0.0;
-
         output_client->Start();
 
         // Pre-roll buffer
@@ -504,21 +502,14 @@ struct AudioIOWASAPI : public AudioIO {
         render->GetBuffer(maximum_buffer_size, &dummy);
         render->ReleaseBuffer(maximum_buffer_size, AUDCLNT_BUFFERFLAGS_SILENT);
 
+        double sample_rate = instance->stream_sample_rate;
         uint32_t buffer_size = instance->stream_buffer_size;
         HANDLE output_stream_event = instance->output.stream_event;
         AudioBuffer<float> output_buffer(buffer_size, instance->output.channel_count);
         uint32_t output_channels = output_buffer.n_channels;
 
         while (instance->running.load(std::memory_order_relaxed)) {
-            for (uint32_t i = 0; i < buffer_size; i++) {
-                float s = (float)std::sin(phase) * 0.5f;
-                for (uint32_t c = 0; c < output_channels; c++) {
-                    output_buffer.get_write_pointer(c)[i] = s;
-                }
-                phase += inc_rate;
-                if (phase >= 2.0 * std::numbers::pi)
-                    phase -= 2.0 * std::numbers::pi;
-            }
+            engine->process(output_buffer, sample_rate);
 
 #if LOG_BUFFERING
             Log::debug("Splitting buffer");
@@ -546,6 +537,10 @@ struct AudioIOWASAPI : public AudioIO {
                                                        output_buffer.channel_buffers, offset,
                                                        frames_available, output_channels);
                         break;
+                    case AudioFormat::I24_X8:
+                        convert_f32_to_interleaved_i24_x8((int32_t*)buffer,
+                                                          output_buffer.channel_buffers, offset,
+                                                          frames_available, output_channels);
                     case AudioFormat::I32:
                         convert_f32_to_interleaved_i32((int32_t*)buffer,
                                                        output_buffer.channel_buffers, offset,
@@ -565,60 +560,6 @@ struct AudioIOWASAPI : public AudioIO {
         }
 
         output_client->Stop();
-    }
-
-    static void audio_thread_poll(AudioIOWASAPI* instance) {
-        IAudioRenderClient* render = instance->render_client;
-        IAudioClient* output_client = instance->output.client;
-
-        DWORD task_index = 0;
-        HANDLE task = AvSetMmThreadCharacteristics("Pro Audio", &task_index);
-        if (task)
-            AvSetMmThreadPriority(task, AVRT_PRIORITY_NORMAL);
-
-        uint32_t timer_flags = CREATE_WAITABLE_TIMER_HIGH_RESOLUTION;
-        LARGE_INTEGER timeout {.QuadPart = -(instance->stream_period / 2)};
-        HANDLE timer = CreateWaitableTimerEx(nullptr, nullptr, timer_flags, TIMER_ALL_ACCESS);
-
-        double sample_rate = instance->stream_sample_rate;
-        double inc_rate = 440.0 / sample_rate * std::numbers::pi;
-        double phase = 0.0;
-
-        SetWaitableTimer(timer, &timeout, 0, nullptr, nullptr, FALSE);
-        output_client->Start();
-
-        // Pre-roll buffer
-        BYTE* dummy;
-        render->GetBuffer(instance->maximum_buffer_size, &dummy);
-        render->ReleaseBuffer(instance->maximum_buffer_size, AUDCLNT_BUFFERFLAGS_SILENT);
-
-        uint32_t maximum_buffer_size = instance->maximum_buffer_size;
-        uint32_t buffer_size = instance->stream_buffer_size;
-        while (instance->running.load(std::memory_order_relaxed)) {
-            WaitForSingleObject(timer, INFINITE);
-            SetWaitableTimer(timer, &timeout, 0, nullptr, nullptr, FALSE);
-
-            uint32_t padding;
-            output_client->GetCurrentPadding(&padding);
-            uint32_t frame_available = maximum_buffer_size - padding;
-
-            float* buffer;
-            HRESULT hr = render->GetBuffer(frame_available, (BYTE**)&buffer);
-            assert(SUCCEEDED(hr));
-            for (uint32_t i = 0; i < frame_available; i++) {
-                float s = (float)std::sin(phase) * 0.5f;
-                buffer[i * 2 + 0] = s;
-                buffer[i * 2 + 1] = s;
-                phase += inc_rate;
-                if (phase > 2.0 * std::numbers::pi)
-                    phase = 0.0;
-            }
-            render->ReleaseBuffer(frame_available, 0);
-        }
-
-        WaitForSingleObject(timer, INFINITE);
-        output_client->Stop();
-        CloseHandle(timer);
     }
 };
 

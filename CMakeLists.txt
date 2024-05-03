@@ -44,6 +44,7 @@ set(WB_SOURCES
     "src/engine/clip.h"
     "src/engine/engine.cpp"
     "src/engine/engine.h"
+    "src/engine/event.h"
     "src/engine/sample.cpp"
     "src/engine/sample.h"
     "src/engine/sample_table.cpp"

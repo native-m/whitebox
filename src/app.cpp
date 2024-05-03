@@ -48,9 +48,10 @@ void App::init() {
 
     g_audio_io->open_device(g_settings_data.output_device_properties.id,
                             g_settings_data.input_device_properties.id);
-    g_audio_io->start(g_settings_data.audio_exclusive_mode, g_settings_data.audio_buffer_size,
-                      g_settings_data.audio_input_format, g_settings_data.audio_output_format,
-                      g_settings_data.audio_sample_rate, AudioThreadPriority::Normal);
+    g_audio_io->start(&g_engine, g_settings_data.audio_exclusive_mode,
+                      g_settings_data.audio_buffer_size, g_settings_data.audio_input_format,
+                      g_settings_data.audio_output_format, g_settings_data.audio_sample_rate,
+                      AudioThreadPriority::Normal);
 
     Track* track = g_timeline.add_track();
     g_engine.add_audio_clip_from_file(

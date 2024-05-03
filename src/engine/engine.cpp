@@ -1,5 +1,6 @@
 #include "engine.h"
 #include "core/math.h"
+#include <numbers>
 
 namespace wb {
 
@@ -64,7 +65,18 @@ Clip* Engine::add_audio_clip_from_file(Track* track, const std::filesystem::path
     return clip;
 }
 
-void Engine::process(double sample_rate) {
+void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
+    double inc_rate = 440.0 / sample_rate * std::numbers::pi;
+
+    for (uint32_t i = 0; i < output_buffer.n_samples; i++) {
+        float s = (float)std::sin(phase) * 0.5f;
+        for (uint32_t c = 0; c < output_buffer.n_channels; c++) {
+            output_buffer.get_write_pointer(c)[i] = s;
+        }
+        phase += inc_rate;
+        if (phase >= 2.0 * std::numbers::pi)
+            phase -= 2.0 * std::numbers::pi;
+    }
 }
 
 Engine g_engine;
