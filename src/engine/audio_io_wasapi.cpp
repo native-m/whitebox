@@ -104,10 +104,11 @@ struct ActiveDeviceWASAPI {
     AudioDevicePeriod min_low_latency_period;
     AudioDevicePeriod max_low_latency_period;
     AudioDevicePeriod absolute_min_period;
-
     REFERENCE_TIME default_device_period;
     REFERENCE_TIME min_device_period;
-    HANDLE stream_event;
+
+    WAVEFORMATEXTENSIBLE stream_format {};
+    HANDLE stream_event {};
     bool use_polling = false;
 
     bool open(ComPtr<IMMDevice>& new_device) {
@@ -192,6 +193,8 @@ struct ActiveDeviceWASAPI {
                     return false;
                 }
             }
+
+            stream_format = shared_format;
         }
 
         stream_event = CreateEvent(nullptr, FALSE, FALSE, "WB_OUTPUT_STREAM_EVENT");
@@ -492,33 +495,52 @@ struct AudioIOWASAPI : public AudioIO {
         render->GetBuffer(maximum_buffer_size, &dummy);
         render->ReleaseBuffer(maximum_buffer_size, AUDCLNT_BUFFERFLAGS_SILENT);
 
-        HANDLE output_stream_event = instance->output.stream_event;
         uint32_t buffer_size = instance->stream_buffer_size;
+        HANDLE output_stream_event = instance->output.stream_event;
+        WAVEFORMATEXTENSIBLE output_stream_format = instance->output.stream_format;
+        AudioBuffer<float> output_buffer(buffer_size, output_stream_format.Format.nChannels);
+        uint32_t output_channels = output_buffer.n_channels;
+
         while (instance->running.load(std::memory_order_relaxed)) {
-            WaitForSingleObject(output_stream_event, INFINITE);
-
-            uint32_t padding;
-            output_client->GetCurrentPadding(&padding);
-            uint32_t framesAvailable = maximum_buffer_size - padding;
-
-            // Log::info("Frames available {} {}", framesAvailable, padding);
-
-            if (buffer_size > framesAvailable) {
-                continue;
-            }
-
-            float* buffer;
-            HRESULT hr = render->GetBuffer(buffer_size, (BYTE**)&buffer);
-            assert(SUCCEEDED(hr));
             for (uint32_t i = 0; i < buffer_size; i++) {
                 float s = (float)std::sin(phase) * 0.5f;
-                buffer[i * 2 + 0] = s;
-                buffer[i * 2 + 1] = s;
+                for (uint32_t c = 0; c < output_channels; c++) {
+                    output_buffer.get_write_pointer(c)[i] = s;
+                }
                 phase += inc_rate;
                 if (phase >= 2.0 * std::numbers::pi)
                     phase -= 2.0 * std::numbers::pi;
             }
-            render->ReleaseBuffer(buffer_size, 0);
+
+            Log::info("Buffering");
+
+            uint32_t offset = 0;
+            while (offset < output_buffer.n_samples) {
+                WaitForSingleObject(output_stream_event, INFINITE);
+
+                uint32_t padding;
+                output_client->GetCurrentPadding(&padding);
+                uint32_t frames_available = maximum_buffer_size - padding;
+                if (frames_available > (output_buffer.n_samples - offset))
+                    frames_available = output_buffer.n_samples - offset;
+
+                //Log::info("{} {}", frames_available, offset);
+
+                float* buffer;
+                HRESULT hr = render->GetBuffer(frames_available, (BYTE**)&buffer);
+                assert(SUCCEEDED(hr));
+                
+                for (uint32_t i = 0; i < frames_available; i++) {
+                    for (uint32_t c = 0; c < output_channels; c++) {
+                        buffer[i * output_channels + c] = output_buffer.get_read_pointer(c, offset)[i];
+                    }
+                }
+
+                render->ReleaseBuffer(frames_available, 0);
+                offset += frames_available;
+            }
+
+            // Log::info("Frames available {} {}", framesAvailable, padding);
         }
 
         output_client->Stop();

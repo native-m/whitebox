@@ -65,8 +65,9 @@ struct AudioIO {
     uint32_t exclusive_output_format_bit_flags = 0;
     AudioFormat shared_mode_output_format {};
     AudioFormat shared_mode_input_format {};
-    AudioDeviceSampleRate shared_mode_sample_rate = {};
+    AudioDeviceSampleRate shared_mode_sample_rate {};
     AudioDevicePeriod min_period = 0;
+    bool low_latency_shared_mode {};
     uint32_t buffer_alignment = 0;
     bool open = false;
 

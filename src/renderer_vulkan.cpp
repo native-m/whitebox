@@ -129,7 +129,7 @@ SamplePeaksVK::~SamplePeaksVK() {
 void ResourceDisposalVK::dispose_buffer(VmaAllocation allocation, VkBuffer buf) {
     buffer.emplace_back(current_frame_id, allocation, buf);
 #ifdef VULKAN_LOG_RESOURCE_DISPOSAL
-    Log::debug("Enqueued buffer disposal: frame_id {}", current_frame_id);
+    Log::debug("Enqueuing buffer disposal: frame_id {}", current_frame_id);
 #endif
 }
 
@@ -145,14 +145,14 @@ void ResourceDisposalVK::dispose_framebuffer(FramebufferVK* obj) {
         });
     }
 #ifdef VULKAN_LOG_RESOURCE_DISPOSAL
-    Log::debug("Enqueued framebuffer disposal: frame_id {}", current_frame_id);
+    Log::debug("Enqueuing framebuffer disposal: frame_id {}", current_frame_id);
 #endif
 }
 
 void ResourceDisposalVK::dispose_immediate_buffer(VkDeviceMemory buffer_memory, VkBuffer buffer) {
     imm_buffer.push_back({current_frame_id, buffer_memory, buffer});
 #ifdef VULKAN_LOG_RESOURCE_DISPOSAL
-    Log::debug("Enqueued immediate buffer disposal: frame_id {}", current_frame_id);
+    Log::debug("Enqueuing immediate buffer disposal: frame_id {}", current_frame_id);
 #endif
 }
 
