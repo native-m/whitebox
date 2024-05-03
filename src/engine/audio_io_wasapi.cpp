@@ -2,6 +2,7 @@
 
 #ifdef WB_PLATFORM_WINDOWS
 #include "core/audio_buffer.h"
+#include "core/audio_format_conv.h"
 #include "core/debug.h"
 #include "core/math.h"
 #include "core/thread.h"
@@ -28,7 +29,12 @@
 
 #include <numbers>
 
+#define LOG_BUFFERING 0
 #define WB_INVALID_INDEX (~0U)
+
+#ifdef NDEBUG
+#undef LOG_BUFFERING
+#endif
 
 using namespace Microsoft::WRL;
 
@@ -107,7 +113,7 @@ struct ActiveDeviceWASAPI {
     REFERENCE_TIME default_device_period;
     REFERENCE_TIME min_device_period;
 
-    WAVEFORMATEXTENSIBLE stream_format {};
+    uint32_t channel_count = 0;
     HANDLE stream_event {};
     bool use_polling = false;
 
@@ -194,7 +200,7 @@ struct ActiveDeviceWASAPI {
                 }
             }
 
-            stream_format = shared_format;
+            channel_count = shared_format.Format.nChannels;
         }
 
         stream_event = CreateEvent(nullptr, FALSE, FALSE, "WB_OUTPUT_STREAM_EVENT");
@@ -218,10 +224,12 @@ struct AudioIOWASAPI : public AudioIO {
     IAudioCaptureClient* capture_client {};
     uint32_t exclusive_output_sample_rate_bit_flags = 0;
     uint32_t exclusive_input_sample_rate_bit_flags = 0;
+
     AudioDevicePeriod stream_period {};
     uint32_t stream_buffer_size {};
     uint32_t maximum_buffer_size {};
     double stream_sample_rate {};
+    AudioFormat output_stream_format {};
     std::atomic_bool running;
     std::thread audio_thread;
 
@@ -346,6 +354,7 @@ struct AudioIOWASAPI : public AudioIO {
         stream_sample_rate = (double)get_sample_rate_value(sample_rate);
         stream_buffer_size = buffer_size;
         stream_period = period;
+        output_stream_format = output_format;
         running = true;
 
         audio_thread = std::thread(audio_thread_runner, this, priority);
@@ -497,8 +506,7 @@ struct AudioIOWASAPI : public AudioIO {
 
         uint32_t buffer_size = instance->stream_buffer_size;
         HANDLE output_stream_event = instance->output.stream_event;
-        WAVEFORMATEXTENSIBLE output_stream_format = instance->output.stream_format;
-        AudioBuffer<float> output_buffer(buffer_size, output_stream_format.Format.nChannels);
+        AudioBuffer<float> output_buffer(buffer_size, instance->output.channel_count);
         uint32_t output_channels = output_buffer.n_channels;
 
         while (instance->running.load(std::memory_order_relaxed)) {
@@ -512,8 +520,9 @@ struct AudioIOWASAPI : public AudioIO {
                     phase -= 2.0 * std::numbers::pi;
             }
 
-            Log::info("Buffering");
-
+#if LOG_BUFFERING
+            Log::debug("Splitting buffer");
+#endif
             uint32_t offset = 0;
             while (offset < output_buffer.n_samples) {
                 WaitForSingleObject(output_stream_event, INFINITE);
@@ -524,23 +533,35 @@ struct AudioIOWASAPI : public AudioIO {
                 if (frames_available > (output_buffer.n_samples - offset))
                     frames_available = output_buffer.n_samples - offset;
 
-                //Log::info("{} {}", frames_available, offset);
-
-                float* buffer;
+#if LOG_BUFFERING
+                Log::info("{} {}", frames_available, offset);
+#endif
+                void* buffer;
                 HRESULT hr = render->GetBuffer(frames_available, (BYTE**)&buffer);
                 assert(SUCCEEDED(hr));
-                
-                for (uint32_t i = 0; i < frames_available; i++) {
-                    for (uint32_t c = 0; c < output_channels; c++) {
-                        buffer[i * output_channels + c] = output_buffer.get_read_pointer(c, offset)[i];
-                    }
+
+                switch (instance->output_stream_format) {
+                    case AudioFormat::I16:
+                        convert_f32_to_interleaved_i16((int16_t*)buffer,
+                                                       output_buffer.channel_buffers, offset,
+                                                       frames_available, output_channels);
+                        break;
+                    case AudioFormat::I32:
+                        convert_f32_to_interleaved_i32((int32_t*)buffer,
+                                                       output_buffer.channel_buffers, offset,
+                                                       frames_available, output_channels);
+                        break;
+                    case AudioFormat::F32:
+                        convert_to_interleaved_f32((float*)buffer, output_buffer.channel_buffers,
+                                                   offset, frames_available, output_channels);
+                        break;
+                    default:
+                        assert(false);
                 }
 
                 render->ReleaseBuffer(frames_available, 0);
                 offset += frames_available;
             }
-
-            // Log::info("Frames available {} {}", framesAvailable, padding);
         }
 
         output_client->Stop();

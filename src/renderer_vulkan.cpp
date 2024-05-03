@@ -22,8 +22,10 @@ extern "C" {
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_vulkan.h>
 
-#ifndef NDEBUG
-#define VULKAN_LOG_RESOURCE_DISPOSAL
+#define VULKAN_LOG_RESOURCE_DISPOSAL 1
+
+#ifdef NDEBUG
+#undef VULKAN_LOG_RESOURCE_DISPOSAL
 #endif
 
 #define FRAME_ID_DISPOSE_ALL ~0U
@@ -128,7 +130,7 @@ SamplePeaksVK::~SamplePeaksVK() {
 
 void ResourceDisposalVK::dispose_buffer(VmaAllocation allocation, VkBuffer buf) {
     buffer.emplace_back(current_frame_id, allocation, buf);
-#ifdef VULKAN_LOG_RESOURCE_DISPOSAL
+#if VULKAN_LOG_RESOURCE_DISPOSAL
     Log::debug("Enqueuing buffer disposal: frame_id {}", current_frame_id);
 #endif
 }
@@ -144,14 +146,14 @@ void ResourceDisposalVK::dispose_framebuffer(FramebufferVK* obj) {
             .framebuffer = obj->framebuffer[i],
         });
     }
-#ifdef VULKAN_LOG_RESOURCE_DISPOSAL
+#if VULKAN_LOG_RESOURCE_DISPOSAL
     Log::debug("Enqueuing framebuffer disposal: frame_id {}", current_frame_id);
 #endif
 }
 
 void ResourceDisposalVK::dispose_immediate_buffer(VkDeviceMemory buffer_memory, VkBuffer buffer) {
     imm_buffer.push_back({current_frame_id, buffer_memory, buffer});
-#ifdef VULKAN_LOG_RESOURCE_DISPOSAL
+#if VULKAN_LOG_RESOURCE_DISPOSAL
     Log::debug("Enqueuing immediate buffer disposal: frame_id {}", current_frame_id);
 #endif
 }
@@ -165,7 +167,7 @@ void ResourceDisposalVK::flush(VkDevice device, VmaAllocator allocator, uint32_t
         vkDestroyImageView(device, view, nullptr);
         vmaDestroyImage(allocator, image, allocation);
         fb.pop_front();
-#ifdef VULKAN_LOG_RESOURCE_DISPOSAL
+#if VULKAN_LOG_RESOURCE_DISPOSAL
         Log::debug("Framebuffer disposed: {:x}, frame_id: {}", (uint64_t)framebuffer, frame_id);
 #endif
     }
@@ -177,7 +179,7 @@ void ResourceDisposalVK::flush(VkDevice device, VmaAllocator allocator, uint32_t
         vkDestroyBuffer(device, buffer, nullptr);
         vkFreeMemory(device, memory, nullptr);
         imm_buffer.pop_front();
-#ifdef VULKAN_LOG_RESOURCE_DISPOSAL
+#if VULKAN_LOG_RESOURCE_DISPOSAL
         Log::debug("Immediate buffer disposed: {:x}, frame_id: {}", (uint64_t)buffer, frame_id);
 #endif
     }
@@ -188,7 +190,7 @@ void ResourceDisposalVK::flush(VkDevice device, VmaAllocator allocator, uint32_t
             break;
         vmaDestroyBuffer(allocator, buf, allocation);
         buffer.pop_front();
-#ifdef VULKAN_LOG_RESOURCE_DISPOSAL
+#if VULKAN_LOG_RESOURCE_DISPOSAL
         Log::debug("Buffer disposed: {:x}, frame_id {}", (uint64_t)buf, frame_id);
 #endif
     }

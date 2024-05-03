@@ -20,6 +20,12 @@ inline bool is_multiple_of(T x, T mult) {
     return (x % mult) == 0;
 }
 
+template <typename T>
+inline T clamp(T x, T min_val, T max_val) {
+    T max_part = x < max_val ? x : max_val;
+    return max_part > min_val ? max_part : min_val;
+}
+
 inline static double samples_to_beat(size_t samples, double sample_rate, double beat_duration) {
     double sec = (double)samples / sample_rate;
     return sec / beat_duration;
