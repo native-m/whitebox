@@ -8,8 +8,9 @@
 #endif
 
 namespace wb {
-
+#ifdef WB_PLATFORM_WINDOWS
 thread_local HANDLE global_waitable_timer {};
+#endif
 
 void accurate_sleep_ns(int64_t timeout_ns) {
 #ifdef WB_PLATFORM_WINDOWS

@@ -110,6 +110,12 @@ target_link_libraries(whitebox-lib PUBLIC ${WB_LINK_LIBRARIES})
 target_include_directories(whitebox-lib PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 set_target_properties(whitebox-lib PROPERTIES CXX_STANDARD 20)
 
+if (UNIX AND NOT APPLE)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(LIBPULSE REQUIRED IMPORTED_TARGET libpulse)
+    target_link_libraries(whitebox-lib PRIVATE PkgConfig::LIBPULSE)
+endif()
+
 add_executable(whitebox "src/main.cpp")
 target_link_libraries(whitebox whitebox-lib)
 add_dependencies(whitebox wb-assets)

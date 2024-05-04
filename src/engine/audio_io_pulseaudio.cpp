@@ -85,6 +85,8 @@ struct AudioIOPulseAudio : public AudioIO {
 
         pa_mainloop_run(mainloop, NULL);
 
+        device_list.set_context(context);
+
         return rescan_devices();
     }
 
