@@ -157,8 +157,8 @@ struct AudioIOPulseAudio : public AudioIO {
             return false;
         }
 
-        selected_output_device = output_device;
-        selected_input_device = input_device;
+        selected_output_device = output_device.value();
+        selected_input_device = input_device.value();
 
         return true;
     }
