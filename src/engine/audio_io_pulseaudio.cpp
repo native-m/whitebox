@@ -40,7 +40,7 @@ inline static pa_sample_format_t get_bit_sizes(AudioFormat audio_format) {
 }
 
 inline static pa_sample_spec get_sample_spec(AudioFormat sample_format, uint32_t sample_rate,
-                                                   uint16_t channels) {
+                                             uint16_t channels) {
     pa_sample_spec sample_spec;
 
     pa_sample_format_t bit_size = get_bit_sizes(sample_format);
@@ -58,8 +58,8 @@ struct AudioIOPulseAudio : public AudioIO {
 
     pa_mainloop* mainloop = nullptr;
     pa_mainloop_api* mainloop_api = nullptr;
-    pa_context *context = nullptr;
-    pa_stream *stream = nullptr;
+    pa_context* context = nullptr;
+    pa_stream* stream = nullptr;
     pa_sample_spec sample_spec;
     pa_device selected_output_device;
     pa_device selected_input_device;
@@ -82,8 +82,6 @@ struct AudioIOPulseAudio : public AudioIO {
         context = pa_context_new(mainloop_api, "audio-device-manager");
 
         pa_context_connect(context, NULL, PA_CONTEXT_NOFLAGS, NULL);
-
-        pa_mainloop_run(mainloop, NULL);
 
         device_list.set_context(context);
 
@@ -133,9 +131,19 @@ struct AudioIOPulseAudio : public AudioIO {
             output_devices.push_back(audio_device);
         }
 
+        input_device_count = input_devices.size();
+        output_device_count = output_devices.size();
+
         return true;
     }
-    
+
+    uint32_t get_input_device_count() const {
+        return input_device_count;
+    }
+    uint32_t get_output_device_count() const {
+        return output_device_count;
+    }
+
     const AudioDeviceProperties& get_input_device_properties(uint32_t idx) const override {
         return input_devices[idx].properties;
     }
@@ -194,13 +202,13 @@ struct AudioIOPulseAudio : public AudioIO {
 
         pa_buffer_attr buffer_attr;
 
-        buffer_attr.maxlength = (uint32_t) -1;
+        buffer_attr.maxlength = (uint32_t)-1;
 
         buffer_attr.tlength = buffer_size;
 
-        buffer_attr.prebuf = (uint32_t) -1;
+        buffer_attr.prebuf = (uint32_t)-1;
 
-        buffer_attr.minreq = (uint32_t) -1;
+        buffer_attr.minreq = (uint32_t)-1;
 
         pa_stream_flags_t flags = PA_STREAM_START_CORKED;
 
@@ -211,9 +219,8 @@ struct AudioIOPulseAudio : public AudioIO {
             return false;
         }
 
-        pa_stream_connect_playback(stream, selected_output_device.id.c_str(), nullptr, PA_STREAM_NOFLAGS, nullptr, nullptr);
-
-
+        pa_stream_connect_playback(stream, selected_output_device.id.c_str(), nullptr,
+                                   PA_STREAM_NOFLAGS, nullptr, nullptr);
 
         return true;
     }
@@ -227,11 +234,12 @@ AudioIO* create_audio_io_pulseaudio() {
     AudioIOPulseAudio* audio_io = new AudioIOPulseAudio();
 
     if (!audio_io->init()) {
-            delete audio_io;
-            return nullptr;
+        delete audio_io;
+        return nullptr;
     }
 
     return audio_io;
+}
 }
 
 #else
@@ -243,4 +251,3 @@ AudioIO* create_audio_io_pulseaudio() {
 } // namespace wb
 
 #endif
-}

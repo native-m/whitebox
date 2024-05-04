@@ -173,6 +173,8 @@ static const uint16_t compatible_channel_count[] = {
 void init_audio_io(AudioIOType type);
 void shutdown_audio_io();
 
+AudioIO* create_audio_io_pulseaudio();
+
 extern AudioIO* g_audio_io;
 
 } // namespace wb

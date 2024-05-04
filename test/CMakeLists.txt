@@ -7,4 +7,5 @@ macro(wb_add_test _NAME _SOURCE)
 endmacro(wb_add_test)
 
 wb_add_test(test_audio_buffer test_audio_buffer.cpp)
+wb_add_test(test_pulseaudio_devicelist test_pulseaudio_devicelist.cpp)
 # wb_add_test(<test name> <source file>)
