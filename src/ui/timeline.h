@@ -70,6 +70,8 @@ struct GuiTimeline {
     ImColor tmp_color;
     std::string tmp_name;
 
+    static constexpr uint32_t playhead_color = 0xE553A3F9;
+
     void init();
     void shutdown();
     Track* add_track();

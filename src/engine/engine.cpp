@@ -18,11 +18,23 @@ void Engine::set_bpm(double bpm) {
     }
 }
 
+void Engine::set_playhead_position(double beat_position) {
+    // TODO: Allow playhead dragging.
+    assert(!playing);
+    playhead_start = beat_position;
+    playhead = playhead_start;
+    playhead_ui = playhead_start;
+    playhead_updated.store(true, std::memory_order_release);
+}
+
 void Engine::play() {
     playing = true;
+    playhead_updated.store(false, std::memory_order_release);
 }
 
 void Engine::stop() {
+    playhead = playhead_start;
+    playhead_ui = playhead_start;
     playing = false;
 }
 
@@ -88,7 +100,10 @@ void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
         do {
             double position = std::round(playhead * ppq) * inv_ppq;
             current_beat_duration = beat_duration.load(std::memory_order_relaxed);
-            playhead += ppq;
+            for (auto track : tracks) {
+                track->process_event(position, current_beat_duration, sample_rate);
+            }
+            playhead += inv_ppq;
         } while (playhead < old_playhead + (buffer_duration / current_beat_duration));
         playhead_ui.store(playhead, std::memory_order_release);
     }

@@ -17,11 +17,13 @@ struct Engine {
     std::vector<Track*> tracks;
     Spinlock editor_lock;
     
-    std::atomic_bool playing;
     std::atomic<double> beat_duration;
     double ppq = 96.0;
     double playhead {};
+    double playhead_start {};
     std::atomic<double> playhead_ui;
+    std::atomic_bool playing;
+    std::atomic_bool playhead_updated;
 
     std::vector<OnBpmChangeFn> on_bpm_change_listener;
     double phase = 0.0;
@@ -29,6 +31,7 @@ struct Engine {
     ~Engine();
 
     void set_bpm(double bpm);
+    void set_playhead_position(double beat_position);
     void play();
     void stop();
     bool is_playing() const { return playing.load(std::memory_order_relaxed); }

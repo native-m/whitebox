@@ -182,7 +182,23 @@ void Track::update(Clip* updated_clip, double beat_duration) {
 #endif
 }
 
-void Track::process_event(double beat_pos, double beat_duration, double sample_rate) {
+uint32_t Track::find_next_clip(double time_pos, uint32_t hint = WB_INVALID_CLIP_ID) {
+    for (auto clip : clips) {
+        if (time_pos < clip->min_time) {
+            return clip->id;
+        }
+    }
+    return WB_INVALID_CLIP_ID;
+}
+
+void Track::reset_playback_state(double time_pos) {
+    uint32_t clip = find_next_clip(time_pos);
+    playback_state.current_clip = WB_INVALID_CLIP_ID;
+    playback_state.next_clip = clip;
+    // TODO: Implement update_playback_state
+}
+
+void Track::process_event(double time_pos, double beat_duration, double sample_rate) {
     if (clips.size() == 0)
         return;
 }

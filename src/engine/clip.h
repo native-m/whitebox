@@ -5,7 +5,7 @@
 #include <imgui.h>
 #include <string>
 
-#define WB_INVALID_TRACK_ID (~0U)
+#define WB_INVALID_CLIP_ID (~0U)
 
 namespace wb {
 
@@ -43,7 +43,7 @@ struct Clip {
     };
 
     Clip(const std::string& name, const ImColor& color, double min_time, double max_time) noexcept :
-        id(WB_INVALID_TRACK_ID),
+        id(WB_INVALID_CLIP_ID),
         type(ClipType::Unknown),
         name(name),
         color(color),
@@ -52,7 +52,7 @@ struct Clip {
         audio() {}
 
     Clip(const Clip& clip) noexcept :
-        id(WB_INVALID_TRACK_ID),
+        id(WB_INVALID_CLIP_ID),
         type(clip.type),
         name(clip.name),
         color(clip.color),

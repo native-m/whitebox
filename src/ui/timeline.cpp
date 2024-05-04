@@ -39,7 +39,8 @@ inline static void draw_clip(ImDrawList* draw_list, ImVector<ClipContentDrawCmd>
     ImDrawListFlags tmp_flags = draw_list->Flags;
     draw_list->Flags = draw_list->Flags & ~draw_list_aa_flags;
     draw_list->AddRectFilled(min_bb, clip_title_max_bb, clip->color);
-    draw_list->AddRectFilled(clip_content_min, max_bb, track->color); // color_adjust_alpha(track->color, 0.35f)
+    draw_list->AddRectFilled(clip_content_min, max_bb,
+                             track->color); // color_adjust_alpha(track->color, 0.35f)
     draw_list->AddRect(min_bb, clip_title_max_bb, border_color);
     draw_list->Flags = tmp_flags;
 
@@ -74,7 +75,7 @@ inline static void draw_clip(ImDrawList* draw_list, ImVector<ClipContentDrawCmd>
         uint32_t start_idx =
             (uint32_t)std::round(std::max(-fb_min.x, 0.0f) + (float)waveform_start);
 
-        //Log::info("{} {} {} {} {}", min_x, max_x, min_rem, start_idx, waveform_start);
+        // Log::info("{} {} {} {} {}", min_x, max_x, min_rem, start_idx, waveform_start);
 
         if (draw_count) {
             clip_content_cmds.push_back({
@@ -124,7 +125,7 @@ inline void draw_clip2(ImDrawList* draw_list, ImVector<ClipContentDrawCmd>& clip
     draw_list->Flags = draw_list->Flags & ~draw_list_aa_flags;
     draw_list->AddRectFilled(clip_title_min_bb, clip_title_max_bb, clip->color);
     draw_list->AddRectFilled(clip_content_min, clip_content_max,
-        color_adjust_alpha(track_color, 0.35f));
+                             color_adjust_alpha(track_color, 0.35f));
     draw_list->AddRect(clip_title_min_bb, clip_title_max_bb, border_color);
     draw_list->Flags = tmp_flags;
 
@@ -158,7 +159,7 @@ inline void draw_clip2(ImDrawList* draw_list, ImVector<ClipContentDrawCmd>& clip
         double draw_count = std::max(max_pos_x - min_pos_x, 0.0);
         double start_idx = std::max(-rel_min_x, 0.0) + waveform_start;
 
-        //Log::info("{} {} {}", min_pos_x - waveform_start, draw_count, start_idx);
+        // Log::info("{} {} {}", min_pos_x - waveform_start, draw_count, start_idx);
 
         if (draw_count) {
             clip_content_cmds.push_back({
@@ -399,7 +400,7 @@ inline void GuiTimeline::render_time_ruler() {
         double mouse_time_pos = mapped_x_pos * song_length * inv_ppq;
         double mouse_time_pos_grid =
             std::max(std::round(mouse_time_pos * grid_scale) / grid_scale, 0.0);
-        // g_engine.set_play_position(mouse_time_pos_grid);
+        g_engine.set_playhead_position(mouse_time_pos_grid);
         ImGui::ResetMouseDragDelta();
     }
 
@@ -428,6 +429,7 @@ inline void GuiTimeline::render_time_ruler() {
     }
 
     ImFont* font = ImGui::GetFont();
+    double inv_view_scale = 1.0 / view_scale;
     float grid_inc_x = (float)g_engine.ppq * 4.0f / (float)view_scale;
     float inv_grid_inc_x = 1.0f / grid_inc_x;
     float scroll_pos_x = (float)(min_hscroll * song_length) / (float)view_scale;
@@ -438,16 +440,15 @@ inline void GuiTimeline::render_time_ruler() {
 
     draw_list->PushClipRect(cursor_pos, ImVec2(cursor_pos.x + size.x, cursor_pos.y + size.y));
 
-    /*bool is_playing = g_engine.is_playing();
+    bool is_playing = g_engine.is_playing();
     if (is_playing) {
-        float play_position = std::round(scroll_offset + map_playhead_to_screen_position(
-                                                             view_scale, g_engine.play_time)) -
-                              size.y * 0.5f;
+        double playhead_start = g_engine.playhead_start * g_engine.ppq * inv_view_scale;
+        float position = (float)std::round(scroll_offset + playhead_start) - size.y * 0.5f;
         draw_list->AddTriangleFilled(
-            ImVec2(play_position, cursor_pos.y + 2.5f),
-            ImVec2(play_position + size.y, cursor_pos.y + 2.5f),
-            ImVec2(play_position + size.y * 0.5f, cursor_pos.y + size.y - 2.5f), col);
-    }*/
+            ImVec2(position, cursor_pos.y + 2.5f),
+            ImVec2(position + size.y, cursor_pos.y + 2.5f),
+            ImVec2(position + size.y * 0.5f, cursor_pos.y + size.y - 2.5f), col);
+    }
 
     for (int i = 0; i <= line_count; i++) {
         char digits[24] {};
@@ -461,14 +462,13 @@ inline void GuiTimeline::render_time_ruler() {
         gridline_pos_x += grid_inc_x;
     }
 
-    /*float playhead_screen_position =
-        std::round(scroll_offset + map_playhead_to_screen_position(view_scale, playhead_position)) -
-        size.y * 0.5f;
+    float playhead_screen_position =
+        (float)std::round(scroll_offset + playhead * g_engine.ppq * inv_view_scale) - size.y * 0.5f;
     draw_list->AddTriangleFilled(
         ImVec2(playhead_screen_position, cursor_pos.y + 2.5f),
         ImVec2(playhead_screen_position + size.y, cursor_pos.y + 2.5f),
         ImVec2(playhead_screen_position + size.y * 0.5f, cursor_pos.y + size.y - 2.5f),
-        playhead_color);*/
+        playhead_color);
 
     draw_list->PopClipRect();
 }
@@ -597,7 +597,7 @@ inline void GuiTimeline::render_track_controls() {
 
     // ImGui::InvisibleButton("##test", ImVec2(10.0f, 1000.0f));
 
-    //Log::info("{} {}", screen_pos.x, screen_pos.y + area_size.y + vscroll);
+    // Log::info("{} {}", screen_pos.x, screen_pos.y + area_size.y + vscroll);
 
     ImGui::PopClipRect();
 }
@@ -827,8 +827,8 @@ void GuiTimeline::render_tracks() {
                                     grid_color, (i + count_offset + 1) % 4 ? 1.0f : 2.0f);
         }
 
-        //Log::info("{}")
-        //Log::info("{} {} {}", view_max.y, view_max.y, vscroll + timeline_view_pos.y);
+        // Log::info("{}")
+        // Log::info("{} {} {}", view_max.y, view_max.y, vscroll + timeline_view_pos.y);
     }
 
     for (auto track : g_engine.tracks) {
@@ -1131,6 +1131,14 @@ void GuiTimeline::render_tracks() {
     ImTextureID tex_id = g_renderer->prepare_as_imgui_texture(timeline_fb);
     win_draw_list->AddImage(tex_id, ImVec2(timeline_view_pos.x, offset_y),
                             ImVec2(timeline_view_pos.x + timeline_width, offset_y + area_size.y));
+
+    if (g_engine.is_playing()) {
+        double playhead_offset = playhead * ppq * inv_view_scale;
+        float playhead_pos =
+            (float)std::round(timeline_view_pos.x - scroll_pos_x + playhead_offset);
+        win_draw_list->AddLine(ImVec2(playhead_pos, offset_y),
+                               ImVec2(playhead_pos, offset_y + timeline_area.y), playhead_color);
+    }
 
     if (timeline_hovered && ImGui::IsKeyDown(ImGuiKey_LeftCtrl) && mouse_wheel != 0.0f) {
         zoom(mouse_pos.x, timeline_view_pos.x, view_scale, mouse_wheel);
