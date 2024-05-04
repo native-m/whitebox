@@ -61,8 +61,16 @@ struct AudioIOPulseAudio : public AudioIO {
     pa_context *context = nullptr;
     pa_stream *stream = nullptr;
     pa_sample_spec sample_spec;
+    pa_device selected_output_device;
+    pa_device selected_input_device;
+
+    bool running = false;
 
     PulseAudioDeviceList device_list;
+
+    AudioIOPulseAudio() {
+        // do nothing
+    }
 
     ~AudioIOPulseAudio() {
         // do nothing
@@ -77,20 +85,11 @@ struct AudioIOPulseAudio : public AudioIO {
 
         pa_mainloop_run(mainloop, NULL);
 
-        sample_spec = get_sample_spec(shared_mode_output_format, static_cast<uint32_t>(shared_mode_sample_rate), 2);
-
-        stream = pa_stream_new(context, "audio-stream", &sample_spec, NULL);
-
-        if (!stream) {
-            std::cerr << "pa_stream_new failed" << std::endl;
-            return false;
-        }
-
         return rescan_devices();
     }
 
     bool rescan_devices() override {
-        auto devices = device_list.update_device_lists(mainloop, mainloop_api, context);
+        auto devices = device_list.update_device_lists(mainloop, mainloop_api);
 
         if (!devices) {
             return false;
@@ -143,19 +142,23 @@ struct AudioIOPulseAudio : public AudioIO {
         return output_devices[idx].properties;
     }
 
-    bool open_device(AudioDeviceID output_device_id, AudioDeviceID input_device_idx) override {
+    bool open_device(AudioDeviceID output_device_id, AudioDeviceID input_device_id) override {
+        if (!context || !stream) {
+            std::cerr << "Context or stream is not initialized." << std::endl;
+            return false;
+        }
+
+        // Get the sink and source devices by their IDs
         auto output_device = device_list.get_sink_device_by_index(output_device_id);
-        auto input_device = device_list.get_record_device_by_index(input_device_idx);
+        auto input_device = device_list.get_sink_device_by_index(input_device_id);
 
-        if (pa_stream_connect_playback(stream, output_device.id.c_str(), NULL, PA_STREAM_NOFLAGS, NULL, NULL) != 0) {
-            std::cerr << "pa_stream_connect_playback failed" << std::endl;
+        if (!output_device.has_value() || !input_device.has_value()) {
+            std::cerr << "Invalid output or input device ID." << std::endl;
             return false;
         }
 
-        if (pa_stream_connect_record(stream, input_device.id.c_str(), NULL, PA_STREAM_NOFLAGS) != 0) {
-            std::cerr << "pa_stream_connect_record failed" << std::endl;
-            return false;
-        }
+        selected_output_device = output_device;
+        selected_input_device = input_device;
 
         return true;
     }
@@ -171,7 +174,46 @@ struct AudioIOPulseAudio : public AudioIO {
     bool start(bool exclusive_mode, uint32_t buffer_size, AudioFormat input_format,
                AudioFormat output_format, AudioDeviceSampleRate sample_rate,
                AudioThreadPriority priority) override {
-        return false;
+
+        if (running) {
+            return false;
+        }
+
+        if (!context || !stream) {
+            std::cerr << "Context or stream is not initialized." << std::endl;
+            return false;
+        }
+
+        uint32_t sample_rate_value = get_sample_rate_value(sample_rate);
+
+        AudioDevicePeriod period = buffer_size_to_period(buffer_size, sample_rate_value);
+
+        sample_spec = get_sample_spec(output_format, sample_rate_value, 2);
+
+        pa_buffer_attr buffer_attr;
+
+        buffer_attr.maxlength = (uint32_t) -1;
+
+        buffer_attr.tlength = buffer_size;
+
+        buffer_attr.prebuf = (uint32_t) -1;
+
+        buffer_attr.minreq = (uint32_t) -1;
+
+        pa_stream_flags_t flags = PA_STREAM_START_CORKED;
+
+        stream = pa_stream_new(context, "audio-stream", &sample_spec, nullptr);
+
+        if (!stream) {
+            std::cerr << "Failed to create stream." << std::endl;
+            return false;
+        }
+
+        pa_stream_connect_playback(stream, selected_output_device.id.c_str(), nullptr, PA_STREAM_NOFLAGS, nullptr, nullptr);
+
+
+
+        return true;
     }
 
     void stop() override {
@@ -180,14 +222,15 @@ struct AudioIOPulseAudio : public AudioIO {
 };
 
 AudioIO* create_audio_io_pulseaudio() {
-    AudioIOPulseAudio* audio_io = new (std::nothrow) AudioIOPulseAudio();
-    if (!audio_io)
-        return nullptr;
-    if (!audio_io->init())
-        return nullptr;
+    AudioIOPulseAudio* audio_io = new AudioIOPulseAudio();
+
+    if (!audio_io->init()) {
+            delete audio_io;
+            return nullptr;
+    }
+
     return audio_io;
 }
-} // namespace wb
 
 #else
 
@@ -198,3 +241,4 @@ AudioIO* create_audio_io_pulseaudio() {
 } // namespace wb
 
 #endif
+}
