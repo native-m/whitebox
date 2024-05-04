@@ -111,7 +111,7 @@ void Track::update(Clip* updated_clip, double beat_duration) {
     std::sort(clips.begin(), clips.end(),
               [](const Clip* a, const Clip* b) { return a->min_time < b->min_time; });
 
-    // Truncate overlapping clips or delete if completely overlapped
+    // Trim overlapping clips or delete if completely overlapped
     if (updated_clip) {
         std::vector<Clip*> deleted_clips;
         for (uint32_t i = 0; i < (uint32_t)clips.size(); i++) {
@@ -180,6 +180,11 @@ void Track::update(Clip* updated_clip, double beat_duration) {
                   clip->relative_start_time, clip->min_time, clip->max_time);
     }
 #endif
+}
+
+void Track::process_event(double beat_pos, double beat_duration, double sample_rate) {
+    if (clips.size() == 0)
+        return;
 }
 
 } // namespace wb

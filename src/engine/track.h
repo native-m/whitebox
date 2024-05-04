@@ -2,6 +2,8 @@
 
 #include "clip.h"
 #include "core/memory.h"
+#include "core/queue.h"
+#include "event.h"
 #include "sample_table.h"
 #include <imgui.h>
 #include <string>
@@ -14,10 +16,11 @@ struct Track {
     ImColor color {0.3f, 0.3f, 0.3f, 1.0f};
     float height = 60.0f;
     float volume = 0.0f;
+    bool shown = true;
 
     Pool<Clip> clip_allocator;
     std::vector<Clip*> clips;
-    bool shown = true;
+    LocalQueue<Event, 64> events;
 
     Clip* add_audio_clip(const std::string& name, double min_time, double max_time,
                          const AudioClip& clip_info, double beat_duration);
@@ -28,6 +31,8 @@ struct Track {
                      bool right_side);
     void delete_clip(uint32_t id);
     void update(Clip* clip, double beat_duration);
+
+    void process_event(double beat_pos, double beat_duration, double sample_rate);
 };
 
 } // namespace wb

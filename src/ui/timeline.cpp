@@ -203,6 +203,7 @@ void GuiTimeline::render() {
     if (!open)
         return;
 
+    playhead = g_engine.playhead_ui.load(std::memory_order_relaxed);
     inv_ppq = 1.0 / g_engine.ppq;
 
     ImGui::SetNextWindowSize(ImVec2(640.0f, 480.0f), ImGuiCond_FirstUseEver);
@@ -694,7 +695,7 @@ inline void GuiTimeline::clip_context_menu() {
 
 void GuiTimeline::render_tracks() {
     double ppq = g_engine.ppq;
-    double beat_duration = g_engine.beat_duration;
+    double beat_duration = g_engine.beat_duration.load(std::memory_order_relaxed);
     float offset_y = vscroll + timeline_view_pos.y;
     ImGui::SetCursorScreenPos(ImVec2(timeline_view_pos.x, timeline_view_pos.y));
 

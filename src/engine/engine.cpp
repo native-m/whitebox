@@ -11,10 +11,19 @@ Engine::~Engine() {
 }
 
 void Engine::set_bpm(double bpm) {
-    beat_duration = 60.0 / bpm;
+    double new_beat_duration = 60.0 / bpm;
+    beat_duration.store(new_beat_duration, std::memory_order_release);
     for (auto& listener : on_bpm_change_listener) {
-        listener(beat_duration, bpm);
+        listener(new_beat_duration, bpm);
     }
+}
+
+void Engine::play() {
+    playing = true;
+}
+
+void Engine::stop() {
+    playing = false;
 }
 
 Track* Engine::add_track(const std::string& name) {
@@ -66,16 +75,22 @@ Clip* Engine::add_audio_clip_from_file(Track* track, const std::filesystem::path
 }
 
 void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
-    double inc_rate = 440.0 / sample_rate * std::numbers::pi;
-
-    for (uint32_t i = 0; i < output_buffer.n_samples; i++) {
-        float s = (float)std::sin(phase) * 0.5f;
-        for (uint32_t c = 0; c < output_buffer.n_channels; c++) {
-            output_buffer.get_write_pointer(c)[i] = s;
+    double buffer_duration = (double)output_buffer.n_samples / sample_rate;
+    if (playing.load(std::memory_order_relaxed)) {
+        for (auto track : tracks) {
+            track->events.clear();
         }
-        phase += inc_rate;
-        if (phase >= 2.0 * std::numbers::pi)
-            phase -= 2.0 * std::numbers::pi;
+
+        // Record a sequence of events from track clips.
+        double inv_ppq = 1.0 / ppq;
+        double current_beat_duration = 0.0;
+        double old_playhead = playhead;
+        do {
+            double position = std::round(playhead * ppq) * inv_ppq;
+            current_beat_duration = beat_duration.load(std::memory_order_relaxed);
+            playhead += ppq;
+        } while (playhead < old_playhead + (buffer_duration / current_beat_duration));
+        playhead_ui.store(playhead, std::memory_order_release);
     }
 }
 

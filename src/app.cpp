@@ -110,6 +110,23 @@ void App::run() {
 
         ImGui::ShowDemoWindow();
 
+        static float tempo = 120.0;
+        bool is_playing = g_engine.is_playing();
+        ImGui::Begin("Player");
+        ImGui::DragFloat("Tempo", &tempo, 1.0f, 0.0f, 0.0f, "%.2f BPM");
+        if (!ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Space)) {
+            if (is_playing) {
+                g_engine.stop();
+            } else {
+                g_engine.play();
+            }
+        }
+        if (is_playing)
+            ImGui::Text("Playing");
+        float playhead_pos = g_engine.playhead_ui.load(std::memory_order_relaxed);
+        ImGui::Text("Playhead: %f", playhead_pos);
+        ImGui::End();
+
         g_settings.render();
         g_browser.render();
         g_mixer.render();

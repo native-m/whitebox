@@ -39,6 +39,7 @@ struct GuiTimeline {
     float separator_pos = 150.0f;
 
     double inv_ppq = 0.0;
+    double playhead = 0.0;
     double song_length = 10000.0;
     double last_hscroll = 0.0;
     double min_hscroll = 0.0;

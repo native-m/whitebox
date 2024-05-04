@@ -14,10 +14,14 @@ namespace wb {
 struct Engine {
     using OnBpmChangeFn = std::function<void(double, double)>;
 
-    double ppq = 96.0;
-    double beat_duration = 0.0;
     std::vector<Track*> tracks;
     Spinlock editor_lock;
+    
+    std::atomic_bool playing;
+    std::atomic<double> beat_duration;
+    double ppq = 96.0;
+    double playhead {};
+    std::atomic<double> playhead_ui;
 
     std::vector<OnBpmChangeFn> on_bpm_change_listener;
     double phase = 0.0;
@@ -25,6 +29,9 @@ struct Engine {
     ~Engine();
 
     void set_bpm(double bpm);
+    void play();
+    void stop();
+    bool is_playing() const { return playing.load(std::memory_order_relaxed); }
 
     void edit_lock() { editor_lock.lock(); }
     void edit_unlock() { editor_lock.unlock(); }
@@ -36,12 +43,18 @@ struct Engine {
     Clip* add_audio_clip_from_file(Track* track, const std::filesystem::path& path,
                                    double min_time);
 
+    
+    /*
+        Process the whole thing.
+        This runs in the audio thread.
+    */
+    void process(AudioBuffer<float>& output_buffer, double sample_rate);
+
     template <typename Fn>
     void add_on_bpm_change_listener(Fn&& fn) {
         on_bpm_change_listener.push_back(fn);
     }
 
-    void process(AudioBuffer<float>& output_buffer, double sample_rate);
 };
 
 extern Engine g_engine;
