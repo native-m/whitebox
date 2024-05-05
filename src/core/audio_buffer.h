@@ -53,6 +53,12 @@ struct AudioBuffer {
         return channel_buffers[channel] + sample_offset;
     }
 
+    void clear() {
+        for (uint32_t i = 0; i < n_channels; i++) {
+            std::memset(channel_buffers[i], 0, n_samples * sizeof(T));
+        }
+    }
+
     void resize(uint32_t samples, bool clear = false) {
         if (samples == n_samples)
             return;

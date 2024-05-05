@@ -17,6 +17,7 @@ struct TrackPlaybackState {
     double last_start_clip_position;
 };
 
+
 struct Track {
     std::string name;
     ImColor color {0.3f, 0.3f, 0.3f, 1.0f};
@@ -27,8 +28,11 @@ struct Track {
     Pool<Clip> clip_allocator;
     std::vector<Clip*> clips;
 
-    LocalQueue<Event, 64> event_queue;
+    ImVector<Event> event_buffer;
     TrackPlaybackState playback_state;
+    Event last_event;
+    Event current_event;
+    size_t samples_processed;
 
     /**
      * @brief Add audio clip into the track.
@@ -108,16 +112,30 @@ struct Track {
     void prepare_play(double time_pos);
 
     /**
+     * @brief Stop playback.
+     */
+    void stop();
+
+    /**
      * @brief Process events.
      *
      * @param time_pos Position in beats.
      * @param beat_duration Duration of beat in seconds.
      * @param sample_rate Sample rate.
+     * @param ppq Pulses per quarter note (PPQN).
+     * @param inv_ppq Inverse of PPQN.
      */
     void process_event(uint32_t buffer_offset, double time_pos, double beat_duration,
-                       double sample_rate);
+                       double sample_rate, double ppq, double inv_ppq);
 
     void process(AudioBuffer<float>& output_buffer, double sample_rate, bool playing);
+    void render_sample(AudioBuffer<float>& output_buffer, uint32_t buffer_offset, uint32_t num_samples, double sample_rate);
+    void update_playback_state(Event& event);
+
+    void play_sample(AudioBuffer<float>& output_buffer, Event& event, size_t sample_offset);
+    void stop_sample(AudioBuffer<float>& output_buffer, Event& event, size_t sample_offset);
+    void stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uint32_t buffer_offset,
+                       uint32_t num_samples, size_t sample_offset);
 };
 
 } // namespace wb

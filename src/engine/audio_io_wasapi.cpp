@@ -509,6 +509,8 @@ struct AudioIOWASAPI : public AudioIO {
         uint32_t output_channels = output_buffer.n_channels;
 
         while (instance->running.load(std::memory_order_relaxed)) {
+            output_buffer.clear();
+
             engine->process(output_buffer, sample_rate);
 
 #if LOG_BUFFERING

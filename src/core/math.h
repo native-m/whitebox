@@ -5,6 +5,15 @@
 
 namespace wb {
 
+namespace math {
+
+inline double uround(double x) {
+    double v = x + 0.5;
+    return (double)((uint64_t)(v));
+}
+
+} // namespace math
+
 template <typename T>
 inline bool is_pow_2(T x) {
     return (x != 0) && ((x & (x - 1)) == 0);

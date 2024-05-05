@@ -6,15 +6,16 @@
 namespace wb {
 
 enum class EventType {
-    AudioStart,
-    AudioStop,
+    None,
+    StopSample,
+    PlaySample,
 };
 
 struct AudioEvent {
     double time;
     size_t sample_offset;
     uint32_t buffer_offset;
-    Clip* clip;
+    Sample* sample;
 };
 
 struct MidiEvent {
