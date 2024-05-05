@@ -7,7 +7,7 @@ namespace wb {
 
 enum class EventType {
     AudioStart,
-    AudioEnd,
+    AudioStop,
 };
 
 struct AudioEvent {

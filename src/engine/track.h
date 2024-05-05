@@ -1,6 +1,7 @@
 #pragma once
 
 #include "clip.h"
+#include "core/audio_buffer.h"
 #include "core/memory.h"
 #include "core/queue.h"
 #include "event.h"
@@ -11,8 +12,8 @@
 namespace wb {
 
 struct TrackPlaybackState {
-    uint32_t current_clip;
-    uint32_t next_clip;
+    Clip* current_clip;
+    Clip* next_clip;
     double last_start_clip_position;
 };
 
@@ -31,7 +32,7 @@ struct Track {
 
     /**
      * @brief Add audio clip into the track.
-     * 
+     *
      * @param name Name of the clip.
      * @param min_time Start time in beats.
      * @param max_time End time in beats.
@@ -44,7 +45,7 @@ struct Track {
 
     /**
      * @brief Create a new clip from existing clip.
-     * 
+     *
      * @param clip_to_duplicate Clip to duplicate.
      * @param min_time Start time in beats.
      * @param max_time End time in beats.
@@ -56,7 +57,7 @@ struct Track {
 
     /**
      * @brief Move the clip relative to its position.
-     * 
+     *
      * @param clip Clip to move.
      * @param relative_pos Relative position measured in beats.
      * @param beat_duration Duration of the beat in seconds.
@@ -65,7 +66,7 @@ struct Track {
 
     /**
      * @brief Resize the length of the clip.
-     * 
+     *
      * @param clip Clip to resize.
      * @param relative_pos Relative position to the original position measured in beats.
      * @param min_length Minimum clip length measured in beats.
@@ -84,7 +85,7 @@ struct Track {
 
     /**
      * @brief Update clip ordering and possibly trim or delete overlapping clip.
-     * 
+     *
      * @param clip The updated clip
      * @param beat_duration Beat duration in seconds.
      */
@@ -92,7 +93,7 @@ struct Track {
 
     /**
      * @brief Find next clip at a certain time.
-     * 
+     *
      * @param time_pos Search starting position in beats.
      * @param hint Hint Clip ID to speed up search.
      * @return A pointer to clip.
@@ -101,19 +102,22 @@ struct Track {
 
     /**
      * @brief Prepare track for playback.
-     * 
+     *
      * @param time_pos Starting point of the playback.
      */
     void prepare_play(double time_pos);
 
     /**
      * @brief Process events.
-     * 
+     *
      * @param time_pos Position in beats.
      * @param beat_duration Duration of beat in seconds.
      * @param sample_rate Sample rate.
      */
-    void process_event(uint32_t buffer_offset, double time_pos, double beat_duration, double sample_rate);
+    void process_event(uint32_t buffer_offset, double time_pos, double beat_duration,
+                       double sample_rate);
+
+    void process(AudioBuffer<float>& output_buffer, double sample_rate, bool playing);
 };
 
 } // namespace wb

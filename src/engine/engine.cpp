@@ -93,7 +93,9 @@ Clip* Engine::add_audio_clip_from_file(Track* track, const std::filesystem::path
 
 void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
     double buffer_duration = (double)output_buffer.n_samples / sample_rate;
-    if (playing.load(std::memory_order_relaxed)) {
+    bool currently_playing = playing.load(std::memory_order_relaxed);
+
+    if (currently_playing) {
         for (auto track : tracks) {
             track->event_queue.clear();
         }
@@ -111,9 +113,13 @@ void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
                 track->process_event(buffer_offset, position, current_beat_duration, sample_rate);
             }
             playhead += inv_ppq;
-            sample_position += inv_ppq * current_beat_duration * sample_rate;
+            sample_position += beat_to_samples(inv_ppq, sample_rate, current_beat_duration);
         } while (playhead < old_playhead + (buffer_duration / current_beat_duration));
         playhead_ui.store(playhead, std::memory_order_release);
+    }
+
+    for (auto track : tracks) {
+        track->process(output_buffer, sample_rate, currently_playing);
     }
 }
 

@@ -192,9 +192,9 @@ Clip* Track::find_next_clip(double time_pos, uint32_t hint) {
 }
 
 void Track::prepare_play(double time_pos) {
-    uint32_t next_clip_id = find_next_clip(time_pos)->id;
-    playback_state.current_clip = WB_INVALID_CLIP_ID;
-    playback_state.next_clip = next_clip_id;
+    Clip* next_clip = find_next_clip(time_pos);
+    playback_state.current_clip = nullptr;
+    playback_state.next_clip = next_clip;
 }
 
 void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_duration,
@@ -202,10 +202,27 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
     if (clips.size() == 0)
         return;
 
-    if (playback_state.next_clip != WB_INVALID_CLIP_ID) {
-        Clip* next_clip = clips[playback_state.next_clip];
+    Clip* current_clip = playback_state.current_clip;
+    Clip* next_clip = playback_state.next_clip;
+
+    if (current_clip) {
+        if (time_pos >= current_clip->max_time) {
+            event_queue.push({
+                .type = EventType::AudioEnd,
+                .audio =
+                    {
+                        .time = time_pos,
+                        .buffer_offset = buffer_offset,
+                        .clip = current_clip,
+                    },
+            });
+            playback_state.current_clip = nullptr;
+        }
+    }
+
+    if (current_clip == nullptr && next_clip) {
         assert(next_clip->type == ClipType::Audio);
-        if (time_pos >= next_clip->min_time && time_pos <= next_clip->max_time) {
+        if (time_pos >= next_clip->min_time && time_pos < next_clip->max_time) {
             double relative_start_time = time_pos - next_clip->min_time;
             uint64_t sample_offset =
                 (uint64_t)(beat_to_samples(relative_start_time, sample_rate, beat_duration));
@@ -220,7 +237,15 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
                         .clip = next_clip,
                     },
             });
-            playback_state.current_clip = playback_state.next_clip;
+
+            auto new_next_clip = clips.begin() + (next_clip->id + 1);
+            if (new_next_clip != clips.end()) {
+                playback_state.next_clip = *new_next_clip;
+            } else {
+                playback_state.next_clip = nullptr;
+            }
+
+            playback_state.current_clip = next_clip;
         }
     }
 }
