@@ -2,6 +2,7 @@
 #include "core/debug.h"
 #include "core/math.h"
 #include "core/queue.h"
+#include "sample_table.h"
 #include <algorithm>
 
 #ifndef _NDEBUG
@@ -182,25 +183,46 @@ void Track::update(Clip* updated_clip, double beat_duration) {
 #endif
 }
 
-uint32_t Track::find_next_clip(double time_pos, uint32_t hint = WB_INVALID_CLIP_ID) {
-    for (auto clip : clips) {
-        if (time_pos < clip->min_time) {
-            return clip->id;
-        }
-    }
-    return WB_INVALID_CLIP_ID;
+Clip* Track::find_next_clip(double time_pos, uint32_t hint) {
+    auto begin = clips.begin();
+    auto end = clips.end();
+    while (begin != end && time_pos > (*begin)->min_time)
+        begin++;
+    return *begin;
 }
 
-void Track::reset_playback_state(double time_pos) {
-    uint32_t clip = find_next_clip(time_pos);
+void Track::prepare_play(double time_pos) {
+    uint32_t next_clip_id = find_next_clip(time_pos)->id;
     playback_state.current_clip = WB_INVALID_CLIP_ID;
-    playback_state.next_clip = clip;
-    // TODO: Implement update_playback_state
+    playback_state.next_clip = next_clip_id;
 }
 
-void Track::process_event(double time_pos, double beat_duration, double sample_rate) {
+void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_duration,
+                          double sample_rate) {
     if (clips.size() == 0)
         return;
+
+    if (playback_state.next_clip != WB_INVALID_CLIP_ID) {
+        Clip* next_clip = clips[playback_state.next_clip];
+        assert(next_clip->type == ClipType::Audio);
+        if (time_pos >= next_clip->min_time && time_pos <= next_clip->max_time) {
+            double relative_start_time = time_pos - next_clip->min_time;
+            uint64_t sample_offset =
+                (uint64_t)(beat_to_samples(relative_start_time, sample_rate, beat_duration));
+
+            event_queue.push({
+                .type = EventType::AudioStart,
+                .audio =
+                    {
+                        .time = time_pos,
+                        .sample_offset = sample_offset,
+                        .buffer_offset = buffer_offset,
+                        .clip = next_clip,
+                    },
+            });
+            playback_state.current_clip = playback_state.next_clip;
+        }
+    }
 }
 
 } // namespace wb

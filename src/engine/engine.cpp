@@ -20,7 +20,7 @@ void Engine::set_bpm(double bpm) {
 
 void Engine::set_playhead_position(double beat_position) {
     // TODO: Allow playhead dragging.
-    assert(!playing);
+    assert(!playing && "Dragging playhead while playing is not allowed yet!");
     playhead_start = beat_position;
     playhead = playhead_start;
     playhead_ui = playhead_start;
@@ -28,14 +28,19 @@ void Engine::set_playhead_position(double beat_position) {
 }
 
 void Engine::play() {
-    playing = true;
+    for (auto track : tracks) {
+        track->prepare_play(playhead_start);
+    }
+
     playhead_updated.store(false, std::memory_order_release);
+    sample_position = 0;
+    playing = true;
 }
 
 void Engine::stop() {
+    playing = false;
     playhead = playhead_start;
     playhead_ui = playhead_start;
-    playing = false;
 }
 
 Track* Engine::add_track(const std::string& name) {
@@ -90,7 +95,7 @@ void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
     double buffer_duration = (double)output_buffer.n_samples / sample_rate;
     if (playing.load(std::memory_order_relaxed)) {
         for (auto track : tracks) {
-            track->events.clear();
+            track->event_queue.clear();
         }
 
         // Record a sequence of events from track clips.
@@ -99,11 +104,14 @@ void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
         double old_playhead = playhead;
         do {
             double position = std::round(playhead * ppq) * inv_ppq;
+            uint32_t buffer_offset =
+                (uint32_t)((uint64_t)sample_position % output_buffer.n_samples);
             current_beat_duration = beat_duration.load(std::memory_order_relaxed);
             for (auto track : tracks) {
-                track->process_event(position, current_beat_duration, sample_rate);
+                track->process_event(buffer_offset, position, current_beat_duration, sample_rate);
             }
             playhead += inv_ppq;
+            sample_position += inv_ppq * current_beat_duration * sample_rate;
         } while (playhead < old_playhead + (buffer_duration / current_beat_duration));
         playhead_ui.store(playhead, std::memory_order_release);
     }

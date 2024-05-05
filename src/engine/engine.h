@@ -21,6 +21,7 @@ struct Engine {
     double ppq = 96.0;
     double playhead {};
     double playhead_start {};
+    double sample_position {};
     std::atomic<double> playhead_ui;
     std::atomic_bool playing;
     std::atomic_bool playhead_updated;
@@ -45,7 +46,6 @@ struct Engine {
 
     Clip* add_audio_clip_from_file(Track* track, const std::filesystem::path& path,
                                    double min_time);
-
     
     /*
         Process the whole thing.

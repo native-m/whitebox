@@ -4,7 +4,6 @@
 #include "core/memory.h"
 #include "core/queue.h"
 #include "event.h"
-#include "sample_table.h"
 #include <imgui.h>
 #include <string>
 #include <vector>
@@ -26,8 +25,8 @@ struct Track {
 
     Pool<Clip> clip_allocator;
     std::vector<Clip*> clips;
-    LocalQueue<Event, 64> events;
 
+    LocalQueue<Event, 64> event_queue;
     TrackPlaybackState playback_state;
 
     /**
@@ -59,13 +58,36 @@ struct Track {
      * @brief Move the clip relative to its position.
      * 
      * @param clip Clip to move.
-     * @param relative_pos Relative position.
+     * @param relative_pos Relative position measured in beats.
      * @param beat_duration Duration of the beat in seconds.
      */
     void move_clip(Clip* clip, double relative_pos, double beat_duration);
+
+    /**
+     * @brief Resize the length of the clip.
+     * 
+     * @param clip Clip to resize.
+     * @param relative_pos Relative position to the original position measured in beats.
+     * @param min_length Minimum clip length measured in beats.
+     * @param beat_duration Beat duration in seconds.
+     * @param right_side Which side to resize (false: left side, true: right side).
+     */
     void resize_clip(Clip* clip, double relative_pos, double min_length, double beat_duration,
                      bool right_side);
+
+    /**
+     * @brief Delete clip by ID. Deleting clip directly is not possible due to the reordering.
+     *
+     * @param id Clip ID.
+     */
     void delete_clip(uint32_t id);
+
+    /**
+     * @brief Update clip ordering and possibly trim or delete overlapping clip.
+     * 
+     * @param clip The updated clip
+     * @param beat_duration Beat duration in seconds.
+     */
     void update(Clip* clip, double beat_duration);
 
     /**
@@ -73,11 +95,16 @@ struct Track {
      * 
      * @param time_pos Search starting position in beats.
      * @param hint Hint Clip ID to speed up search.
-     * @return Clip ID
+     * @return A pointer to clip.
      */
-    uint32_t find_next_clip(double time_pos, uint32_t hint = WB_INVALID_CLIP_ID);
+    Clip* find_next_clip(double time_pos, uint32_t hint = WB_INVALID_CLIP_ID);
 
-    void reset_playback_state(double time_pos);
+    /**
+     * @brief Prepare track for playback.
+     * 
+     * @param time_pos Starting point of the playback.
+     */
+    void prepare_play(double time_pos);
 
     /**
      * @brief Process events.
@@ -86,7 +113,7 @@ struct Track {
      * @param beat_duration Duration of beat in seconds.
      * @param sample_rate Sample rate.
      */
-    void process_event(double time_pos, double beat_duration, double sample_rate);
+    void process_event(uint32_t buffer_offset, double time_pos, double beat_duration, double sample_rate);
 };
 
 } // namespace wb
