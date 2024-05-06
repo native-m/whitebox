@@ -297,12 +297,13 @@ void Track::render_sample(AudioBuffer<float>& output_buffer, uint32_t buffer_off
             break;
         case EventType::PlaySample: {
             Sample* sample = current_event.audio.sample;
-            if (samples_processed >= sample->count)
+            size_t sample_offset = samples_processed + current_event.audio.sample_offset;
+            if (sample_offset >= sample->count)
                 break;
             uint32_t min_num_samples =
                 std::min(num_samples, (uint32_t)(sample->count - samples_processed));
             stream_sample(output_buffer, current_event.audio.sample, buffer_offset, num_samples,
-                          samples_processed);
+                          sample_offset);
             samples_processed += num_samples;
             break;
         }
