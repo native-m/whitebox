@@ -1,6 +1,6 @@
 #include "engine.h"
-#include "core/math.h"
 #include "core/debug.h"
+#include "core/math.h"
 #include <numbers>
 
 namespace wb {
@@ -86,8 +86,8 @@ Clip* Engine::add_audio_clip_from_file(Track* track, const std::filesystem::path
         return nullptr;
 
     double sample_rate = (double)asset->sample_instance.sample_rate;
-    double max_time =
-        min_time + samples_to_beat(asset->sample_instance.count, sample_rate, beat_duration);
+    double clip_length = samples_to_beat(asset->sample_instance.count, sample_rate, beat_duration);
+    double max_time = min_time + math::uround(clip_length * ppq) / ppq;
 
     Clip* clip = track->add_audio_clip(path.filename().string(), min_time, max_time,
                                        {.asset = asset}, beat_duration);
@@ -97,6 +97,11 @@ Clip* Engine::add_audio_clip_from_file(Track* track, const std::filesystem::path
     }
 
     return clip;
+}
+
+void Engine::delete_clip(Track* track, Clip* clip) {
+    has_deleted_clips.store(true, std::memory_order_release);
+    track->delete_clip(clip->id);
 }
 
 void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
@@ -114,6 +119,7 @@ void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
 
         // Record a sequence of events from track clips.
         do {
+            std::scoped_lock lock(editor_lock);
             double position = std::round(playhead * ppq) * inv_ppq;
             uint32_t buffer_offset =
                 (uint32_t)((uint64_t)sample_position % output_buffer.n_samples);
@@ -126,7 +132,6 @@ void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
 
             playhead += inv_ppq;
             sample_position += beat_to_samples(inv_ppq, sample_rate, current_beat_duration);
-
         } while (playhead < playhead_ui + (buffer_duration / current_beat_duration));
 
         playhead_ui.store(playhead_ui + (buffer_duration / current_beat_duration),
@@ -135,6 +140,16 @@ void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
 
     for (auto track : tracks) {
         track->process(output_buffer, sample_rate, currently_playing);
+    }
+
+    if (has_deleted_clips.load(std::memory_order_relaxed)) {
+        for (auto track : tracks) {
+            if (track->deleted_clip_ids.empty())
+                continue;
+            Log::debug("Deleting pending clips for track: {} ...", (uintptr_t)track);
+            track->flush_deleted_clips();
+        }
+        has_deleted_clips.store(false, std::memory_order_relaxed);
     }
 }
 

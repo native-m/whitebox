@@ -3,6 +3,8 @@
 #include "renderer.h"
 #include <deque>
 #include <vector>
+#include <thread>
+#include <mutex>
 
 #include "vk_stub.h"
 
@@ -100,6 +102,7 @@ struct ResourceDisposalVK {
     std::deque<BufferDisposalVK> buffer;
     std::deque<FramebufferDisposalVK> fb;
     std::deque<ImmediateBufferDisposalVK> imm_buffer;
+    std::mutex mtx;
 
     void dispose_buffer(VmaAllocation allocation, VkBuffer buf);
     void dispose_framebuffer(FramebufferVK* obj);

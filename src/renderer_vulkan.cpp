@@ -129,6 +129,7 @@ SamplePeaksVK::~SamplePeaksVK() {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 void ResourceDisposalVK::dispose_buffer(VmaAllocation allocation, VkBuffer buf) {
+    std::scoped_lock lock(mtx);
     buffer.emplace_back(current_frame_id, allocation, buf);
 #if VULKAN_LOG_RESOURCE_DISPOSAL
     Log::debug("Enqueuing buffer disposal: frame_id {}", current_frame_id);
@@ -136,6 +137,7 @@ void ResourceDisposalVK::dispose_buffer(VmaAllocation allocation, VkBuffer buf) 
 }
 
 void ResourceDisposalVK::dispose_framebuffer(FramebufferVK* obj) {
+    std::scoped_lock lock(mtx);
     // I don't know if this will work properly...
     for (uint32_t i = 0; i < obj->num_buffers; i++) {
         fb.push_back(FramebufferDisposalVK {
@@ -152,6 +154,7 @@ void ResourceDisposalVK::dispose_framebuffer(FramebufferVK* obj) {
 }
 
 void ResourceDisposalVK::dispose_immediate_buffer(VkDeviceMemory buffer_memory, VkBuffer buffer) {
+    std::scoped_lock lock(mtx);
     imm_buffer.push_back({current_frame_id, buffer_memory, buffer});
 #if VULKAN_LOG_RESOURCE_DISPOSAL
     Log::debug("Enqueuing immediate buffer disposal: frame_id {}", current_frame_id);
@@ -159,6 +162,8 @@ void ResourceDisposalVK::dispose_immediate_buffer(VkDeviceMemory buffer_memory, 
 }
 
 void ResourceDisposalVK::flush(VkDevice device, VmaAllocator allocator, uint32_t frame_id_dispose) {
+    std::scoped_lock lock(mtx);
+
     while (!fb.empty()) {
         auto [frame_id, allocation, image, view, framebuffer] = fb.front();
         if (frame_id != frame_id_dispose && frame_id_dispose != FRAME_ID_DISPOSE_ALL)
@@ -799,6 +804,7 @@ void RendererVK::new_frame() {
 
     ImGui_ImplVulkan_NewFrame();
 
+    resource_disposal_.current_frame_id = frame_id_;
     current_frame_sync_ = &frame_sync;
     current_cb_ = cmd_buf.cmd_buffer;
     cmd_buf.immediate_vtx_offset = 0;
@@ -827,7 +833,6 @@ void RendererVK::end_frame() {
     vkQueueSubmit(graphics_queue_, 1, &submit, fences_[frame_id_]);
     frame_id_ = (frame_id_ + 1) % frame_latency_;
     sync_id_ = (sync_id_ + 1) % sync_count_;
-    resource_disposal_.current_frame_id = frame_id_;
 }
 
 void RendererVK::set_framebuffer(const std::shared_ptr<Framebuffer>& framebuffer) {

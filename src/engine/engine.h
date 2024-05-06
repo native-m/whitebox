@@ -25,6 +25,7 @@ struct Engine {
     std::atomic<double> playhead_ui;
     std::atomic_bool playing;
     std::atomic_bool playhead_updated;
+    std::atomic_bool has_deleted_clips;
 
     std::vector<OnBpmChangeFn> on_bpm_change_listener;
     double phase = 0.0;
@@ -46,6 +47,7 @@ struct Engine {
 
     Clip* add_audio_clip_from_file(Track* track, const std::filesystem::path& path,
                                    double min_time);
+    void delete_clip(Track* track, Clip* clip);
     
     /*
         Process the whole thing.

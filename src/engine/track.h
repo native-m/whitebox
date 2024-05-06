@@ -8,6 +8,7 @@
 #include <imgui.h>
 #include <string>
 #include <vector>
+#include <unordered_set>
 
 namespace wb {
 
@@ -27,6 +28,7 @@ struct Track {
 
     Pool<Clip> clip_allocator;
     std::vector<Clip*> clips;
+    std::unordered_set<uint32_t> deleted_clip_ids;
 
     ImVector<Event> event_buffer;
     TrackPlaybackState playback_state;
@@ -128,14 +130,21 @@ struct Track {
     void process_event(uint32_t buffer_offset, double time_pos, double beat_duration,
                        double sample_rate, double ppq, double inv_ppq);
 
+    /**
+     * @brief Process audio block.
+     *
+     * @param output_buffer Position in beats.
+     * @param sample_rate Sample rate.
+     * @param playing Should play the track.
+     */
     void process(AudioBuffer<float>& output_buffer, double sample_rate, bool playing);
+
     void render_sample(AudioBuffer<float>& output_buffer, uint32_t buffer_offset, uint32_t num_samples, double sample_rate);
     void update_playback_state(Event& event);
-
-    void play_sample(AudioBuffer<float>& output_buffer, Event& event, size_t sample_offset);
-    void stop_sample(AudioBuffer<float>& output_buffer, Event& event, size_t sample_offset);
     void stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uint32_t buffer_offset,
                        uint32_t num_samples, size_t sample_offset);
+    void flush_deleted_clips();
+
 };
 
 } // namespace wb

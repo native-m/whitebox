@@ -679,7 +679,7 @@ inline void GuiTimeline::clip_context_menu() {
 
         if (ImGui::MenuItem("Delete")) {
             g_engine.edit_lock();
-            context_menu_track->delete_clip(context_menu_clip->id);
+            g_engine.delete_clip(context_menu_track, context_menu_clip);
             g_engine.edit_unlock();
             force_redraw = true;
         }
@@ -831,6 +831,8 @@ void GuiTimeline::render_tracks() {
         // Log::info("{} {} {}", view_max.y, view_max.y, vscroll + timeline_view_pos.y);
     }
 
+    bool has_deleted_clips = g_engine.has_deleted_clips.load(std::memory_order_relaxed); 
+
     for (auto track : g_engine.tracks) {
         float height = track->height;
 
@@ -849,6 +851,10 @@ void GuiTimeline::render_tracks() {
         bool hovering_current_track = timeline_hovered && hovering_track_rect;
 
         for (auto clip : track->clips) {
+            if (has_deleted_clips && track->deleted_clip_ids.contains(clip->id)) {
+                continue;
+            }
+
             double min_time = clip->min_time;
             double max_time = clip->max_time;
 
