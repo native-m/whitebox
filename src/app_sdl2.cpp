@@ -1,5 +1,7 @@
 #include "app_sdl2.h"
+#include "core/debug.h"
 #include "renderer.h"
+#include "ui/file_dropper.h"
 #include <SDL.h>
 #include <imgui_impl_sdl2.h>
 
@@ -29,10 +31,16 @@ void AppSDL2::init() {
     window_id = SDL_GetWindowID(new_window);
     window = new_window;
 
+    SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
+
     App::init();
 }
 
 void AppSDL2::new_frame() {
+    if (!g_file_drop.empty()) {
+        g_file_drop.clear();
+    }
+
     SDL_Event event;
     while (SDL_PollEvent(&event))
         handle_events(event);
@@ -55,6 +63,16 @@ void AppSDL2::handle_events(SDL_Event& event) {
                 running = false;
                 break;
             }
+            break;
+        case SDL_DROPFILE:
+            g_file_drop.push_back(event.drop.file);
+            SDL_free(event.drop.file);
+            break;
+        case SDL_DROPBEGIN:
+            Log::debug("Drop begin");
+            break;
+        case SDL_DROPCOMPLETE:
+            Log::debug("Drop complete");
             break;
         case SDL_QUIT:
             running = false;

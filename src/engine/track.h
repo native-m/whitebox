@@ -4,11 +4,12 @@
 #include "core/audio_buffer.h"
 #include "core/memory.h"
 #include "core/queue.h"
+#include "core/thread.h"
 #include "event.h"
 #include <imgui.h>
 #include <string>
-#include <vector>
 #include <unordered_set>
+#include <vector>
 
 namespace wb {
 
@@ -22,6 +23,7 @@ struct Track {
     ImColor color {0.3f, 0.3f, 0.3f, 1.0f};
     float height = 60.0f;
     float volume = 0.0f;
+    std::atomic_bool mute;
     bool shown = true;
 
     Pool<Clip> clip_allocator;
@@ -137,12 +139,12 @@ struct Track {
      */
     void process(AudioBuffer<float>& output_buffer, double sample_rate, bool playing);
 
-    void render_sample(AudioBuffer<float>& output_buffer, uint32_t buffer_offset, uint32_t num_samples, double sample_rate);
+    void render_sample(AudioBuffer<float>& output_buffer, uint32_t buffer_offset,
+                       uint32_t num_samples, double sample_rate);
     void update_playback_state(Event& event);
     void stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uint32_t buffer_offset,
                        uint32_t num_samples, size_t sample_offset);
     void flush_deleted_clips();
-
 };
 
 } // namespace wb

@@ -529,7 +529,7 @@ inline void GuiTimeline::render_track_controls() {
         ImVec2(screen_pos.x + clamped_separator_pos, screen_pos.y + area_size.y + vscroll), true);
 
     int id = 0;
-    for (auto& track : g_engine.tracks) {
+    for (auto track : g_engine.tracks) {
         ImVec2 tmp_item_spacing = style.ItemSpacing;
         ImVec2 track_color_min = ImGui::GetCursorScreenPos();
         ImVec2 track_color_max =
@@ -560,9 +560,18 @@ inline void GuiTimeline::render_track_controls() {
             ImGui::Text((const char*)track->name.c_str());
             ImGui::DragFloat("Vol.", &track->volume, 0.01f, 0.0f, 0.0f, "%.2f db");
 
-            ImGui::SmallButton("M");
+            if (ImGui::SmallButton("M")) {
+                track->mute.store(!track->mute.load(std::memory_order_acquire), std::memory_order_release);
+            }
+
             ImGui::SameLine(0.0f, 2.0f);
             ImGui::SmallButton("S");
+            ImGui::SameLine(0.0f, 2.0f);
+            
+            bool muted = track->mute.load(std::memory_order_relaxed);
+            if (muted) {
+                ImGui::Text("Muted");
+            }
 
             if (ImGui::IsWindowHovered() &&
                 !(ImGui::IsAnyItemActive() || ImGui::IsAnyItemHovered()) &&

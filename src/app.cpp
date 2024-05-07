@@ -7,6 +7,7 @@
 #include "settings_data.h"
 #include "ui/browser.h"
 #include "ui/controls.h"
+#include "ui/file_dropper.h"
 #include "ui/mixer.h"
 #include "ui/settings.h"
 #include "ui/timeline.h"
@@ -66,6 +67,13 @@ void App::run() {
     while (running) {
         new_frame();
 
+        if (!g_file_drop.empty()) {
+            if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceExtern)) {
+                ImGui::SetDragDropPayload("ExternalFileDrop", nullptr, 0, ImGuiCond_Once);
+                ImGui::EndDragDropSource();
+            }
+        }
+
         ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(),
                                      ImGuiDockNodeFlags_PassthruCentralNode);
 
@@ -110,10 +118,13 @@ void App::run() {
 
         ImGui::ShowDemoWindow();
 
-        static float tempo = 120.0;
+        static float tempo = 150.0;
         bool is_playing = g_engine.is_playing();
         ImGui::Begin("Player");
-        ImGui::DragFloat("Tempo", &tempo, 1.0f, 0.0f, 0.0f, "%.2f BPM");
+        if (ImGui::DragFloat("Tempo", &tempo, 1.0f, 0.0f, 0.0f, "%.2f BPM")) {
+            g_engine.set_bpm((double)tempo);
+        }
+
         if (!ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Space)) {
             if (is_playing) {
                 g_engine.stop();

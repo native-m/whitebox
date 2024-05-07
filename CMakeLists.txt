@@ -58,6 +58,8 @@ set(WB_SOURCES
     "src/ui/controls.h"
     "src/ui/draw.cpp"
     "src/ui/draw.h"
+    "src/ui/file_dropper.cpp"
+    "src/ui/file_dropper.h"
     "src/ui/forms.h"
     "src/ui/layout.h"
     "src/ui/mixer.cpp"
