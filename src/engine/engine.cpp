@@ -118,8 +118,8 @@ void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
         double old_playhead = playhead;
 
         // Record a sequence of events from track clips.
+        editor_lock.lock();
         do {
-            std::scoped_lock lock(editor_lock);
             double position = std::round(playhead * ppq) * inv_ppq;
             uint32_t buffer_offset =
                 (uint32_t)((uint64_t)sample_position % output_buffer.n_samples);
@@ -136,6 +136,7 @@ void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
 
         playhead_ui.store(playhead_ui + (buffer_duration / current_beat_duration),
                           std::memory_order_release);
+        editor_lock.unlock();
     }
 
     for (auto track : tracks) {

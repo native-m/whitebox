@@ -17,11 +17,11 @@ struct Engine {
     std::vector<Track*> tracks;
     Spinlock editor_lock;
     
-    std::atomic<double> beat_duration;
     double ppq = 96.0;
     double playhead {};
     double playhead_start {};
     double sample_position {};
+    std::atomic<double> beat_duration;
     std::atomic<double> playhead_ui;
     std::atomic_bool playing;
     std::atomic_bool playhead_updated;

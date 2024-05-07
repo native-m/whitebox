@@ -17,8 +17,6 @@ struct TrackPlaybackState {
     Clip* next_clip;
     double last_start_clip_position;
 };
-
-
 struct Track {
     std::string name;
     ImColor color {0.3f, 0.3f, 0.3f, 1.0f};

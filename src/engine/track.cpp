@@ -49,6 +49,7 @@ void Track::resize_clip(Clip* clip, double relative_pos, double min_length, doub
                         bool is_min) {
     if (relative_pos == 0.0)
         return;
+        
     if (is_min) {
         // Compute new minimum time
         double old_min = clip->min_time;
@@ -71,32 +72,13 @@ void Track::resize_clip(Clip* clip, double relative_pos, double min_length, doub
                 beat_to_samples(clip->relative_start_time,
                                 (double)asset->sample_instance.sample_rate, beat_duration);
         }
-
-        /*if (clip->type == ClipType::Audio) {
-            SampleAsset* asset = clip->audio.asset;
-
-            intptr_t new_start_sample = (intptr_t)beat_to_samples(
-                new_min, (double)asset->sample_instance.sample_rate, beat_duration);
-            intptr_t old_start_sample = (intptr_t)beat_to_samples(
-                old_min, (double)asset->sample_instance.sample_rate, beat_duration);
-
-            intptr_t sample_offset = clip->audio.min_sample_pos;
-            if (old_min < new_min)
-                sample_offset -= old_start_sample - new_start_sample;
-            else
-                sample_offset += new_start_sample - old_start_sample;
-            sample_offset = std::max(sample_offset, 0ll);
-
-            Log::info("{}", clip->audio.min_sample_pos);
-
-            clip->audio.min_sample_pos = (size_t)sample_offset;
-        }*/
     } else {
         double new_max = std::max(clip->max_time + relative_pos, 0.0);
         if (new_max <= clip->min_time)
             new_max = clip->min_time + min_length;
         clip->max_time = new_max;
     }
+
     update(clip, beat_duration);
 }
 
@@ -148,22 +130,6 @@ void Track::update(Clip* updated_clip, double beat_duration) {
             if (clip->min_time >= clip->max_time)
                 deleted_clip_ids.insert(clip->id);
         }
-
-        // if (!deleted_clips.empty()) {
-        //     std::vector<Clip*> new_clip_list;
-        //     uint32_t i = 0;
-        //     new_clip_list.reserve(clips.size());
-        //     for (auto clip : clips) {
-        //         if (i < deleted_clips.size() && clip == deleted_clips[i]) {
-        //             clip->~Clip();
-        //             clip_allocator.free(clip);
-        //             i++;
-        //             continue;
-        //         }
-        //         new_clip_list.push_back(clip);
-        //     }
-        //     clips = std::move(new_clip_list);
-        // }
     }
 
     for (uint32_t i = 0; i < (uint32_t)clips.size(); i++) {

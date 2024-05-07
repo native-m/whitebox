@@ -146,7 +146,7 @@ inline void draw_clip2(ImDrawList* draw_list, ImVector<ClipContentDrawCmd>& clip
         double scale_x = sample_scale * (double)asset->sample_instance.sample_rate;
         double inv_scale_x = 1.0 / scale_x;
         double mip_index = std::log(scale_x * 0.5) * log_base4; // Scale -> Index
-        uint32_t index = std::clamp((uint32_t)mip_index, 0u, sample_peaks->mipmap_count);
+        uint32_t index = std::clamp((uint32_t)mip_index, 0u, sample_peaks->mipmap_count - 1);
         double mip_scale = std::pow(4.0, (mip_index - (double)index)) * 2.0; // Index -> Mip Scale
 
         double waveform_start = start_sample_pos * inv_scale_x;
