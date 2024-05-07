@@ -103,7 +103,7 @@ inline void draw_clip2(ImDrawList* draw_list, ImVector<ClipContentDrawCmd>& clip
 
     // Color accessibility adjustments...
     static constexpr float border_contrast_ratio = 1.0f / 3.5f;
-    static constexpr float text_contrast_ratio = 1.0f / 2.0f;
+    static constexpr float text_contrast_ratio = 1.0f / 1.57f;
     float bg_contrast_ratio = calc_contrast_ratio(clip->color, text_color);
     ImColor border_color = (bg_contrast_ratio > border_contrast_ratio)
                                ? ImColor(0.0f, 0.0f, 0.0f, 0.3f)
@@ -117,15 +117,15 @@ inline void draw_clip2(ImDrawList* draw_list, ImVector<ClipContentDrawCmd>& clip
     float max_x2 = (float)std::round(max_x);
     float font_size = font->FontSize;
     float clip_title_max_y = track_pos_y + font_size + 4.0f;
-    ImVec2 clip_title_min_bb = ImVec2(min_x2, track_pos_y);
-    ImVec2 clip_title_max_bb = ImVec2(max_x2, clip_title_max_y);
-    ImVec2 clip_content_min = ImVec2(min_x2, clip_title_max_y);
-    ImVec2 clip_content_max = ImVec2(max_x2, track_pos_y + track_height);
+    ImVec2 clip_title_min_bb(min_x2, track_pos_y);
+    ImVec2 clip_title_max_bb(max_x2, clip_title_max_y);
+    ImVec2 clip_content_min(min_x2, clip_title_max_y);
+    ImVec2 clip_content_max(max_x2, track_pos_y + track_height);
     ImDrawListFlags tmp_flags = draw_list->Flags;
     draw_list->Flags = draw_list->Flags & ~draw_list_aa_flags;
     draw_list->AddRectFilled(clip_title_min_bb, clip_title_max_bb, clip->color);
     draw_list->AddRectFilled(clip_content_min, clip_content_max,
-                             color_adjust_alpha(track_color, 0.35f));
+                             color_adjust_alpha(clip->color, 0.35f));
     draw_list->AddRect(clip_title_min_bb, clip_title_max_bb, border_color);
     draw_list->Flags = tmp_flags;
 
@@ -190,7 +190,7 @@ void GuiTimeline::shutdown() {
 Track* GuiTimeline::add_track() {
     g_engine.edit_lock();
     auto track = g_engine.add_track("New Track");
-    track->color = ImColor::HSV((float)color_spin / 15, 0.5f, 0.7f);
+    track->color = ImColor::HSV((float)color_spin / 15, 0.45f, 0.65f);
     color_spin = (color_spin + 1) % 15;
     g_engine.edit_unlock();
     redraw = true;
