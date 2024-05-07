@@ -25,14 +25,14 @@ struct Sample {
 
     template <typename T>
     inline const T* get_read_pointer(uint32_t channel) const noexcept {
-        if (channel < channels - 1)
+        if (channel > channels)
             return nullptr;
         return (T*)sample_data[channel];
     }
 
     template <typename T>
     inline T* get_write_pointer(uint32_t channel) noexcept {
-        if (channel < channels - 1)
+        if (channel > channels)
             return nullptr;
         return (T*)sample_data[channel];
     }

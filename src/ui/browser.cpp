@@ -1,5 +1,6 @@
 #include "browser.h"
 #include "controls.h"
+#include "file_dropper.h"
 #include <nfd.hpp>
 
 namespace fs = std::filesystem;
@@ -148,16 +149,16 @@ void GuiBrowser::render() {
 
         ImGui::EndTable();
 
-        /*if (ImGui::BeginDragDropTarget()) {
+        if (ImGui::BeginDragDropTarget()) {
             static constexpr auto drag_drop_flags = ImGuiDragDropFlags_AcceptBeforeDelivery |
                                                     ImGuiDragDropFlags_AcceptNoDrawDefaultRect;
             if (ImGui::AcceptDragDropPayload("ExternalFileDrop", drag_drop_flags)) {
-                for (const auto& item : g_item_dropped)
+                for (const auto& item : g_file_drop)
                     add_directory(item);
                 sort_directory();
             }
             ImGui::EndDragDropTarget();
-        }*/
+        }
     }
     ImGui::PopStyleVar();
 

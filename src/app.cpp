@@ -7,6 +7,7 @@
 #include "settings_data.h"
 #include "ui/browser.h"
 #include "ui/controls.h"
+#include "ui/file_dropper.h"
 #include "ui/mixer.h"
 #include "ui/settings.h"
 #include "ui/timeline.h"
@@ -48,9 +49,10 @@ void App::init() {
 
     g_audio_io->open_device(g_settings_data.output_device_properties.id,
                             g_settings_data.input_device_properties.id);
-    g_audio_io->start(g_settings_data.audio_exclusive_mode, g_settings_data.audio_buffer_size,
-                      g_settings_data.audio_input_format, g_settings_data.audio_output_format,
-                      g_settings_data.audio_sample_rate, AudioThreadPriority::Normal);
+    g_audio_io->start(&g_engine, g_settings_data.audio_exclusive_mode,
+                      g_settings_data.audio_buffer_size, g_settings_data.audio_input_format,
+                      g_settings_data.audio_output_format, g_settings_data.audio_sample_rate,
+                      AudioThreadPriority::Normal);
 
     Track* track = g_timeline.add_track();
     g_engine.add_audio_clip_from_file(
@@ -64,6 +66,13 @@ void App::init() {
 void App::run() {
     while (running) {
         new_frame();
+
+        if (!g_file_drop.empty()) {
+            if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceExtern)) {
+                ImGui::SetDragDropPayload("ExternalFileDrop", nullptr, 0, ImGuiCond_Once);
+                ImGui::EndDragDropSource();
+            }
+        }
 
         ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(),
                                      ImGuiDockNodeFlags_PassthruCentralNode);
@@ -108,6 +117,26 @@ void App::run() {
         }
 
         ImGui::ShowDemoWindow();
+
+        static float tempo = 150.0;
+        bool is_playing = g_engine.is_playing();
+        ImGui::Begin("Player");
+        if (ImGui::DragFloat("Tempo", &tempo, 1.0f, 0.0f, 0.0f, "%.2f BPM")) {
+            g_engine.set_bpm((double)tempo);
+        }
+
+        if (!ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Space)) {
+            if (is_playing) {
+                g_engine.stop();
+            } else {
+                g_engine.play();
+            }
+        }
+        if (is_playing)
+            ImGui::Text("Playing");
+        float playhead_pos = g_engine.playhead_ui.load(std::memory_order_relaxed);
+        ImGui::Text("Playhead: %f", playhead_pos);
+        ImGui::End();
 
         g_settings.render();
         g_browser.render();

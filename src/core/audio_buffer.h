@@ -43,14 +43,20 @@ struct AudioBuffer {
             std::free(channel_buffers);
     }
 
-    T* get_write_pointer(uint32_t channel) {
+    T* get_write_pointer(uint32_t channel, uint32_t sample_offset = 0) {
         assert(channel < n_channels && "Channel out of range");
-        return channel_buffers[channel];
+        return channel_buffers[channel] + sample_offset;
     }
 
-    const T* get_read_pointer(uint32_t channel) const {
+    const T* get_read_pointer(uint32_t channel, uint32_t sample_offset = 0) const {
         assert(channel < n_channels && "Channel out of range");
-        return channel_buffers[channel];
+        return channel_buffers[channel] + sample_offset;
+    }
+
+    void clear() {
+        for (uint32_t i = 0; i < n_channels; i++) {
+            std::memset(channel_buffers[i], 0, n_samples * sizeof(T));
+        }
     }
 
     void resize(uint32_t samples, bool clear = false) {

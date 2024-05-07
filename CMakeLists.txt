@@ -21,6 +21,7 @@ add_subdirectory(assets)
 
 set(WB_SOURCES
     "src/core/audio_buffer.h"
+    "src/core/audio_format_conv.h"
     "src/core/audio_format.h"
     "src/core/color.h"
     "src/core/common.h"
@@ -43,6 +44,7 @@ set(WB_SOURCES
     "src/engine/clip.h"
     "src/engine/engine.cpp"
     "src/engine/engine.h"
+    "src/engine/event.h"
     "src/engine/sample.cpp"
     "src/engine/sample.h"
     "src/engine/sample_table.cpp"
@@ -58,6 +60,8 @@ set(WB_SOURCES
     "src/ui/controls.h"
     "src/ui/draw.cpp"
     "src/ui/draw.h"
+    "src/ui/file_dropper.cpp"
+    "src/ui/file_dropper.h"
     "src/ui/forms.h"
     "src/ui/layout.h"
     "src/ui/mixer.cpp"

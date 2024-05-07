@@ -181,7 +181,7 @@ struct AudioIOPulseAudio : public AudioIO {
         pa_mainloop_free(mainloop);
     }
 
-    bool start(bool exclusive_mode, uint32_t buffer_size, AudioFormat input_format,
+    bool start(Engine* engine, bool exclusive_mode, uint32_t buffer_size, AudioFormat input_format,
                AudioFormat output_format, AudioDeviceSampleRate sample_rate,
                AudioThreadPriority priority) override {
 

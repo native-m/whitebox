@@ -39,6 +39,7 @@ struct GuiTimeline {
     float separator_pos = 150.0f;
 
     double inv_ppq = 0.0;
+    double playhead = 0.0;
     double song_length = 10000.0;
     double last_hscroll = 0.0;
     double min_hscroll = 0.0;
@@ -68,6 +69,8 @@ struct GuiTimeline {
     Clip* context_menu_clip {};
     ImColor tmp_color;
     std::string tmp_name;
+
+    static constexpr uint32_t playhead_color = 0xE553A3F9;
 
     void init();
     void shutdown();

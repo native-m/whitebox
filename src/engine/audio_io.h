@@ -8,6 +8,8 @@
 
 namespace wb {
 
+struct Engine;
+
 using AudioDeviceID = uint64_t;
 using AudioDevicePeriod = int64_t;
 
@@ -65,8 +67,9 @@ struct AudioIO {
     uint32_t exclusive_output_format_bit_flags = 0;
     AudioFormat shared_mode_output_format {};
     AudioFormat shared_mode_input_format {};
-    AudioDeviceSampleRate shared_mode_sample_rate = {};
+    AudioDeviceSampleRate shared_mode_sample_rate {};
     AudioDevicePeriod min_period = 0;
+    bool low_latency_shared_mode {};
     uint32_t buffer_alignment = 0;
     bool open = false;
 
@@ -111,9 +114,9 @@ struct AudioIO {
         Starts the audio engine.
         Audio thread will be launched here.
     */
-    virtual bool start(bool exclusive_mode, uint32_t buffer_size, AudioFormat input_format,
-                       AudioFormat output_format, AudioDeviceSampleRate sample_rate,
-                       AudioThreadPriority priority) = 0;
+    virtual bool start(Engine* engine, bool exclusive_mode, uint32_t buffer_size,
+                       AudioFormat input_format, AudioFormat output_format,
+                       AudioDeviceSampleRate sample_rate, AudioThreadPriority priority) = 0;
 
     /*
         Stop the audio engine.

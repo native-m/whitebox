@@ -1,0 +1,34 @@
+#pragma once
+
+#include "clip.h"
+#include "core/common.h"
+
+namespace wb {
+
+enum class EventType {
+    None,
+    StopSample,
+    PlaySample,
+};
+
+struct AudioEvent {
+    double time;
+    size_t sample_offset;
+    uint32_t buffer_offset;
+    Sample* sample;
+};
+
+struct MidiEvent {
+
+};
+
+struct Event {
+    EventType type;
+
+    union {
+        AudioEvent audio;
+        MidiEvent midi;
+    };
+};
+
+} // namespace wb
