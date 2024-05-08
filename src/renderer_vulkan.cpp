@@ -996,6 +996,9 @@ void RendererVK::draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) {
     VkBuffer current_buffer {};
 
     for (auto& clip : clips) {
+        if (clip.min_bb.y > (float)fb_height || clip.max_bb.y < 0.0f)
+            continue;
+
         SamplePeaksVK* peaks = static_cast<SamplePeaksVK*>(clip.peaks);
         const SamplePeaksMipVK& mip = peaks->mipmap[clip.mip_index];
         VkBuffer buffer = mip.buffer;

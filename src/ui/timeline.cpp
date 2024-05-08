@@ -837,7 +837,7 @@ void GuiTimeline::render_tracks() {
         }
 
         // Log::info("{}")
-        // Log::info("{} {} {}", view_max.y, view_max.y, vscroll + timeline_view_pos.y);
+        //Log::info("{} {}", view_max.y, timeline_area.y + offset_y);
     }
 
     bool has_deleted_clips = g_engine.has_deleted_clips.load(std::memory_order_relaxed); 
