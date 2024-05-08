@@ -49,7 +49,7 @@ void Track::resize_clip(Clip* clip, double relative_pos, double min_length, doub
                         bool is_min) {
     if (relative_pos == 0.0)
         return;
-        
+
     if (is_min) {
         // Compute new minimum time
         double old_min = clip->min_time;
@@ -166,6 +166,8 @@ void Track::stop() {
     current_event = {
         .type = EventType::None,
     };
+
+    event_buffer.resize(0);
 }
 
 void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_duration,
@@ -269,9 +271,9 @@ void Track::render_sample(AudioBuffer<float>& output_buffer, uint32_t buffer_off
                 break;
             uint32_t min_num_samples =
                 std::min(num_samples, (uint32_t)(sample->count - samples_processed));
-            stream_sample(output_buffer, current_event.audio.sample, buffer_offset, num_samples,
+            stream_sample(output_buffer, current_event.audio.sample, buffer_offset, min_num_samples,
                           sample_offset);
-            samples_processed += num_samples;
+            samples_processed += min_num_samples;
             break;
         }
     }
@@ -295,7 +297,8 @@ void Track::stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uin
                 auto sample_data = sample->get_read_pointer<int16_t>(i % sample->channels);
                 for (uint32_t j = 0; j < num_samples; j++) {
                     float sample = (float)sample_data[sample_offset + j] * i16_pcm_normalizer;
-                    output[j + buffer_offset] += std::clamp(sample, -1.0f, 1.0f);
+                    output[j + buffer_offset] +=
+                        std::clamp(sample, -1.0f, 1.0f) * !mute.load(std::memory_order_relaxed);
                 }
             }
             break;
@@ -305,7 +308,8 @@ void Track::stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uin
                 auto sample_data = sample->get_read_pointer<int32_t>(i % sample->channels);
                 for (uint32_t j = 0; j < num_samples; j++) {
                     double sample = (double)sample_data[sample_offset + j] * i24_pcm_normalizer;
-                    output[j + buffer_offset] += (float)std::clamp(sample, -1.0, 1.0);
+                    output[j + buffer_offset] +=
+                        (float)std::clamp(sample, -1.0, 1.0) * !mute.load(std::memory_order_relaxed);
                 }
             }
             break;
@@ -315,7 +319,8 @@ void Track::stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uin
                 auto sample_data = sample->get_read_pointer<int32_t>(i % sample->channels);
                 for (uint32_t j = 0; j < num_samples; j++) {
                     double sample = (double)sample_data[sample_offset + j] * i32_pcm_normalizer;
-                    output[j + buffer_offset] += (float)std::clamp(sample, -1.0, 1.0);
+                    output[j + buffer_offset] +=
+                        (float)std::clamp(sample, -1.0, 1.0) * !mute.load(std::memory_order_relaxed);
                 }
             }
             break;
@@ -323,8 +328,12 @@ void Track::stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uin
             for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
                 float* output = output_buffer.get_write_pointer(i);
                 auto sample_data = sample->get_read_pointer<float>(i % sample->channels);
-                for (uint32_t j = 0; j < num_samples; j++)
-                    output[j + buffer_offset] += sample_data[sample_offset + j];
+                for (uint32_t j = 0; j < num_samples; j++) {
+                    if (!mute.load(std::memory_order_relaxed)) {
+                        output[j + buffer_offset] +=
+                            sample_data[sample_offset + j] * !mute.load(std::memory_order_relaxed);
+                    }
+                }
             }
             break;
         case AudioFormat::F64:
@@ -332,7 +341,8 @@ void Track::stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uin
                 float* output = output_buffer.get_write_pointer(i);
                 auto sample_data = sample->get_read_pointer<double>(i % sample->channels);
                 for (uint32_t j = 0; j < num_samples; j++)
-                    output[j + buffer_offset] += (float)sample_data[sample_offset + j];
+                    output[j + buffer_offset] += (float)sample_data[sample_offset + j] *
+                                                 !mute.load(std::memory_order_relaxed);
             }
             break;
         default:

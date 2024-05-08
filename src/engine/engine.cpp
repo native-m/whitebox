@@ -30,6 +30,7 @@ void Engine::set_playhead_position(double beat_position) {
 
 void Engine::play() {
     Log::debug("-------------- Playing --------------");
+    editor_lock.lock();
     for (auto track : tracks) {
         track->prepare_play(playhead_start);
     }
@@ -37,9 +38,11 @@ void Engine::play() {
     playhead_updated.store(false, std::memory_order_release);
     sample_position = 0;
     playing = true;
+    editor_lock.unlock();
 }
 
 void Engine::stop() {
+    editor_lock.lock();
     playing = false;
     playhead = playhead_start;
     playhead_ui = playhead_start;
@@ -47,6 +50,8 @@ void Engine::stop() {
     for (auto track : tracks) {
         track->stop();
     }
+
+    editor_lock.unlock();
 
     Log::debug("-------------- Stop --------------");
 }
@@ -109,16 +114,15 @@ void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
     bool currently_playing = playing.load(std::memory_order_relaxed);
 
     if (currently_playing) {
+        double inv_ppq = 1.0 / ppq;
+        double current_beat_duration = 0.0;
+
+        editor_lock.lock();
         for (auto track : tracks) {
             track->event_buffer.resize(0);
         }
 
-        double inv_ppq = 1.0 / ppq;
-        double current_beat_duration = 0.0;
-        double old_playhead = playhead;
-
         // Record a sequence of events from track clips.
-        editor_lock.lock();
         do {
             double position = std::round(playhead * ppq) * inv_ppq;
             uint32_t buffer_offset =
