@@ -19,7 +19,7 @@ struct AudioBuffer {
     T* internal_channel_buffers[internal_buffer_capacity] {};
     T** channel_buffers {};
 
-    AudioBuffer() {}
+    AudioBuffer() : channel_buffers(internal_channel_buffers) {}
 
     AudioBuffer(uint32_t sample_count, uint32_t channel_count) :
         n_samples(sample_count),
@@ -89,7 +89,8 @@ struct AudioBuffer {
     }
 
     void resize_channel(uint32_t channel_count) {
-        uint32_t old_channel_count = channel_count;
+        assert(n_samples != 0);
+        uint32_t old_channel_count = n_channels;
         resize_channel_array_(channel_count);
         if (channel_count > old_channel_count) {
             // Allocate new buffer for new channels
@@ -100,6 +101,11 @@ struct AudioBuffer {
                 std::memset(channel_buffers[i], 0, n_samples * sizeof(T));
             }
         } else {
+            uint32_t shrink_size = old_channel_count - channel_count;
+            for (uint32_t i = channel_count; i < old_channel_count; i++) {
+                free_aligned(channel_buffers[i]);
+                channel_buffers[i] = nullptr;
+            }
         }
     }
 

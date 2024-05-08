@@ -52,3 +52,25 @@ TEST_CASE("AudioBuffer resize buffer") {
         }
     }
 }
+
+TEST_CASE("AudioBuffer resize channel") {
+    SECTION("expand channels") {
+        wb::AudioBuffer<float> buffer(256, 2);
+        buffer.resize_channel(4);
+        REQUIRE(buffer.n_channels == 4);
+
+        for (uint32_t c = 0; c < buffer.n_channels; c++) {
+            REQUIRE(buffer.get_read_pointer(c) != nullptr);
+        }
+    }
+
+    SECTION("shrink channels") {
+        wb::AudioBuffer<float> buffer(256, 4);
+        buffer.resize_channel(2);
+        REQUIRE(buffer.n_channels == 2);
+
+        for (uint32_t c = 0; c < buffer.n_channels; c++) {
+            REQUIRE(buffer.get_read_pointer(c) != nullptr);
+        }
+    }
+}

@@ -28,6 +28,11 @@ void Engine::set_playhead_position(double beat_position) {
     playhead_updated.store(true, std::memory_order_release);
 }
 
+void Engine::set_buffer_size(uint32_t channels, uint32_t size) {
+    mixing_buffer.resize(size);
+    mixing_buffer.resize_channel(channels);
+}
+
 void Engine::play() {
     Log::debug("-------------- Playing --------------");
     editor_lock.lock();

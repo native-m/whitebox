@@ -27,6 +27,7 @@ struct Engine {
     std::atomic_bool playhead_updated;
     std::atomic_bool has_deleted_clips;
 
+    AudioBuffer<float> mixing_buffer;
     std::vector<OnBpmChangeFn> on_bpm_change_listener;
     double phase = 0.0;
 
@@ -34,6 +35,7 @@ struct Engine {
 
     void set_bpm(double bpm);
     void set_playhead_position(double beat_position);
+    void set_buffer_size(uint32_t channels, uint32_t size);
     void play();
     void stop();
     bool is_playing() const { return playing.load(std::memory_order_relaxed); }
@@ -51,7 +53,7 @@ struct Engine {
     
     /*
         Process the whole thing.
-        This runs in the audio thread.
+        This runs on the audio thread.
     */
     void process(AudioBuffer<float>& output_buffer, double sample_rate);
 
