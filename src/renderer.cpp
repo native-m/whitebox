@@ -8,6 +8,7 @@ namespace wb {
 Renderer* g_renderer = nullptr;
 
 void init_renderer(App* app) {
+    Log::info("Initializing renderer...");
     g_renderer = RendererVK::create(app);
     if (!g_renderer)
         Log::error("Failed to create renderer");

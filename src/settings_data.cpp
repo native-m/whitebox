@@ -53,10 +53,10 @@ void SettingsData::load_default_settings() {
     audio_output_format = g_audio_io->shared_mode_output_format;
     
     uint32_t sample_rate_value = get_sample_rate_value(audio_sample_rate);
-    if (g_audio_io->min_period > buffer_size_to_period(1024, sample_rate_value)) {
+    if (g_audio_io->min_period > buffer_size_to_period(512, sample_rate_value)) {
         audio_buffer_size = period_to_buffer_size(g_audio_io->min_period, sample_rate_value);
     } else {
-        audio_buffer_size = 1024;
+        audio_buffer_size = 512;
     }
 
     g_audio_io->close_device();

@@ -517,9 +517,9 @@ struct AudioIOWASAPI : public AudioIO {
             Log::debug("Splitting buffer");
 #endif
 
-            // WASAPI may send a buffer every default device buffer size instead of user-defined
-            // buffer size. If that's the case, we have to roll the buffer manually so that it fits
-            // into default device buffer size.
+            // WASAPI may use the default device buffer size instead of user-defined buffer size. If
+            // that's the case, we have to roll the buffer manually so that it fits into the default
+            // device buffer size.
             uint32_t offset = 0;
             while (offset < output_buffer.n_samples) {
                 WaitForSingleObject(output_stream_event, INFINITE);

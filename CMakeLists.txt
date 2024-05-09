@@ -29,6 +29,7 @@ set(WB_SOURCES
     "src/core/debug.h"
     "src/core/defer.h"
     "src/core/json.hpp"
+    "src/core/json_fwd.hpp"
     "src/core/math.h"
     "src/core/memory.h"
     "src/core/platform.h"
@@ -36,6 +37,7 @@ set(WB_SOURCES
     "src/core/thread.cpp"
     "src/core/thread.h"
     "src/core/types.h"
+    "src/core/vector.h"
     
     "src/engine/audio_io.cpp"
     "src/engine/audio_io.h"

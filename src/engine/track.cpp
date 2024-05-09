@@ -137,9 +137,9 @@ void Track::update(Clip* updated_clip, double beat_duration) {
     }
 
 #if WB_LOG_CLIP_ORDERING
-    Log::info("--- Clip Ordering ---");
+    Log::debug("--- Clip Ordering ---");
     for (auto clip : clips) {
-        Log::info("{:x}: {} ({}, {}, {} -> {})", (uint64_t)clip, clip->name, clip->id,
+        Log::debug("{:x}: {} ({}, {}, {} -> {})", (uint64_t)clip, clip->name, clip->id,
                   clip->relative_start_time, clip->min_time, clip->max_time);
     }
 #endif
@@ -198,13 +198,11 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
         assert(next_clip->type == ClipType::Audio);
         double min_time = math::uround(next_clip->min_time * ppq) * inv_ppq;
         double max_time = math::uround(next_clip->max_time * ppq) * inv_ppq;
-
         if (time_pos >= min_time && time_pos < max_time) {
             double relative_start_time = time_pos - min_time;
             uint64_t sample_offset =
                 (uint64_t)(beat_to_samples(relative_start_time, sample_rate, beat_duration) +
                            next_clip->audio.min_sample_pos);
-
             event_buffer.push_back({
                 .type = EventType::PlaySample,
                 .audio =
@@ -215,14 +213,12 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
                         .sample = &next_clip->audio.asset->sample_instance,
                     },
             });
-
             auto new_next_clip = clips.begin() + (next_clip->id + 1);
             if (new_next_clip != clips.end()) {
                 playback_state.next_clip = *new_next_clip;
             } else {
                 playback_state.next_clip = nullptr;
             }
-
             playback_state.current_clip = next_clip;
         }
     }

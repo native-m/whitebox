@@ -1034,7 +1034,6 @@ void RendererVK::draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) {
             .extent = {uint32_t(x1 - x0), uint32_t(y1 - y0)},
         };
         vkCmdSetScissor(current_cb_, 0, 1, &rect);
-
         vkCmdBindPipeline(current_cb_, VK_PIPELINE_BIND_POINT_GRAPHICS, waveform_fill);
 
         ClipContentDrawCmdVK draw_cmd {
@@ -1052,18 +1051,14 @@ void RendererVK::draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) {
         vkCmdPushConstants(current_cb_, waveform_layout,
                            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                            sizeof(ClipContentDrawCmdVK), &draw_cmd);
-
         vkCmdDraw(current_cb_, clip.draw_count, 1, 0, 0);
 
         vkCmdBindPipeline(current_cb_, VK_PIPELINE_BIND_POINT_GRAPHICS, waveform_aa);
-
         vkCmdDraw(current_cb_, clip.draw_count * 3, 1, 0, 0);
-
         draw_cmd.is_min = 1;
         vkCmdPushConstants(current_cb_, waveform_layout,
                            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                            sizeof(ClipContentDrawCmdVK), &draw_cmd);
-
         vkCmdDraw(current_cb_, clip.draw_count * 3, 1, 0, 0);
     }
 

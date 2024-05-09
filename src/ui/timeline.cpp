@@ -12,11 +12,11 @@
 
 namespace wb {
 
-inline void draw_clip2(ImDrawList* draw_list, ImVector<ClipContentDrawCmd>& clip_content_cmds,
-                       const Clip* clip, float timeline_width, float offset_y, float min_draw_x,
-                       double min_x, double max_x, double clip_scale, double sample_scale,
-                       double start_sample_pos, float track_pos_y, float track_height,
-                       const ImColor& track_color, ImFont* font, const ImColor& text_color) {
+inline void draw_clip(ImDrawList* draw_list, ImVector<ClipContentDrawCmd>& clip_content_cmds,
+                      const Clip* clip, float timeline_width, float offset_y, float min_draw_x,
+                      double min_x, double max_x, double clip_scale, double sample_scale,
+                      double start_sample_pos, float track_pos_y, float track_height,
+                      const ImColor& track_color, ImFont* font, const ImColor& text_color) {
     constexpr ImDrawListFlags draw_list_aa_flags = ImDrawListFlags_AntiAliasedFill |
                                                    ImDrawListFlags_AntiAliasedLinesUseTex |
                                                    ImDrawListFlags_AntiAliasedLines;
@@ -153,7 +153,7 @@ void GuiTimeline::render() {
 
     ImGui::BeginChild("##timeline_content", ImVec2(), 0, timeline_content_area_flags);
 
-    win_draw_list = ImGui::GetWindowDrawList();
+    main_draw_list = ImGui::GetWindowDrawList();
     content_min = ImGui::GetWindowContentRegionMin();
     content_max = ImGui::GetWindowContentRegionMax();
     area_size = ImVec2(content_max.x - content_min.x, content_max.y - content_min.y);
@@ -170,7 +170,7 @@ void GuiTimeline::render() {
 
     render_separator();
     render_track_controls();
-    render_tracks();
+    render_track_lanes();
 
     ImGui::EndChild();
     ImGui::End();
@@ -365,8 +365,7 @@ inline void GuiTimeline::render_time_ruler() {
         double playhead_start = g_engine.playhead_start * g_engine.ppq * inv_view_scale;
         float position = (float)std::round(scroll_offset + playhead_start) - size.y * 0.5f;
         draw_list->AddTriangleFilled(
-            ImVec2(position, cursor_pos.y + 2.5f),
-            ImVec2(position + size.y, cursor_pos.y + 2.5f),
+            ImVec2(position, cursor_pos.y + 2.5f), ImVec2(position + size.y, cursor_pos.y + 2.5f),
             ImVec2(position + size.y * 0.5f, cursor_pos.y + size.y - 2.5f), col);
     }
 
@@ -393,6 +392,7 @@ inline void GuiTimeline::render_time_ruler() {
     draw_list->PopClipRect();
 }
 
+// Render separator (resizer) between the track control and the track lane
 inline void GuiTimeline::render_separator() {
     ImVec2 content_min = ImGui::GetWindowContentRegionMin();
     ImVec2 content_max = ImGui::GetWindowContentRegionMax();
@@ -425,8 +425,8 @@ inline void GuiTimeline::render_separator() {
     /*ImU32 separator_color = (is_separator_hovered || is_separator_active)
                                 ? ImGui::GetColorU32(ImGuiCol_SeparatorHovered)
                                 : ImGui::GetColorU32(ImGuiCol_Separator);*/
-    win_draw_list->AddLine(ImVec2(separator_x, pos.y), ImVec2(separator_x, pos.y + area_size.y),
-                           ImGui::GetColorU32(ImGuiCol_Separator), 2.0f);
+    main_draw_list->AddLine(ImVec2(separator_x, pos.y), ImVec2(separator_x, pos.y + area_size.y),
+                            ImGui::GetColorU32(ImGuiCol_Separator), 2.0f);
 
     layout.end();
 
@@ -457,8 +457,8 @@ inline void GuiTimeline::render_track_controls() {
 
         // Draw track color
         if (ImGui::IsRectVisible(track_color_min, track_color_max)) {
-            win_draw_list->AddRectFilled(track_color_min, track_color_max,
-                                         ImGui::GetColorU32((ImVec4)track->color));
+            main_draw_list->AddRectFilled(track_color_min, track_color_max,
+                                          ImGui::GetColorU32((ImVec4)track->color));
         }
 
         ImGui::Indent(track_color_width);
@@ -481,13 +481,14 @@ inline void GuiTimeline::render_track_controls() {
             ImGui::DragFloat("Vol.", &track->volume, 0.01f, 0.0f, 0.0f, "%.2f db");
 
             if (ImGui::SmallButton("M")) {
-                track->mute.store(!track->mute.load(std::memory_order_acquire), std::memory_order_release);
+                track->mute.store(!track->mute.load(std::memory_order_acquire),
+                                  std::memory_order_release);
             }
 
             ImGui::SameLine(0.0f, 2.0f);
             ImGui::SmallButton("S");
             ImGui::SameLine(0.0f, 2.0f);
-            
+
             bool muted = track->mute.load(std::memory_order_relaxed);
             if (muted) {
                 ImGui::Text("Muted");
@@ -514,19 +515,12 @@ inline void GuiTimeline::render_track_controls() {
             redraw = true;
 
         ImGui::PopStyleVar();
-
         id++;
     }
-
-    // ImGui::Text("%f %f", timeline_width, area_size.y);
 
     if (ImGui::Button("Add Track")) {
         add_track();
     }
-
-    // ImGui::InvisibleButton("##test", ImVec2(10.0f, 1000.0f));
-
-    // Log::info("{} {}", screen_pos.x, screen_pos.y + area_size.y + vscroll);
 
     ImGui::PopClipRect();
 }
@@ -622,7 +616,7 @@ inline void GuiTimeline::clip_context_menu() {
     }
 }
 
-void GuiTimeline::render_tracks() {
+void GuiTimeline::render_track_lanes() {
     double ppq = g_engine.ppq;
     double beat_duration = g_engine.beat_duration.load(std::memory_order_relaxed);
     float offset_y = vscroll + timeline_view_pos.y;
@@ -646,7 +640,7 @@ void GuiTimeline::render_tracks() {
     }
 
     ImGui::InvisibleButton("##timeline",
-                           ImVec2(timeline_width, std::max(timeline_area.y, area_size.y)));
+                           ImVec2(timeline_width, std::max(timeline_area.y, area_size.y + vscroll)));
 
     double view_scale = calc_view_scale();
     double inv_view_scale = 1.0 / view_scale;
@@ -757,10 +751,10 @@ void GuiTimeline::render_tracks() {
         }
 
         // Log::info("{}")
-        //Log::info("{} {}", view_max.y, timeline_area.y + offset_y);
+        // Log::info("{} {}", view_max.y, vscroll);
     }
 
-    bool has_deleted_clips = g_engine.has_deleted_clips.load(std::memory_order_relaxed); 
+    bool has_deleted_clips = g_engine.has_deleted_clips.load(std::memory_order_relaxed);
 
     for (auto track : g_engine.tracks) {
         float height = track->height;
@@ -787,7 +781,7 @@ void GuiTimeline::render_tracks() {
             double min_time = clip->min_time;
             double max_time = clip->max_time;
 
-            // This clip being edited, draw this clip in the front
+            // This clip is being edited, draw this clip on the front
             if (clip == edited_clip || (min_time == max_time))
                 continue;
 
@@ -851,10 +845,10 @@ void GuiTimeline::render_tracks() {
                           offset_y, timeline_width_f64, sample_scale, clip_scale,
                           (double)clip->audio.start_sample_pos, min_bb, max_bb, text_color, font,
                           font_size);*/
-                draw_clip2(priv_draw_list, clip_content_cmds, clip, timeline_width, offset_y,
-                           timeline_view_pos.x, min_pos_x, max_pos_x, clip_scale, sample_scale,
-                           start_sample_pos, track_pos_y, track->height, track->color, font,
-                           text_color);
+                draw_clip(priv_draw_list, clip_content_cmds, clip, timeline_width, offset_y,
+                          timeline_view_pos.x, min_pos_x, max_pos_x, clip_scale, sample_scale,
+                          start_sample_pos, track_pos_y, track->height, track->color, font,
+                          text_color);
             }
         }
 
@@ -967,20 +961,12 @@ void GuiTimeline::render_tracks() {
         double max_pos_x = timeline_scroll_offset_x + max_time * clip_scale;
 
         if (min_pos_x < timeline_end_x && max_pos_x > timeline_view_pos.x) {
-            draw_clip2(priv_draw_list, clip_content_cmds, edited_clip, timeline_width, offset_y,
-                       timeline_view_pos.x, min_pos_x, max_pos_x, clip_scale, sample_scale,
-                       start_sample_pos, edited_track_pos_y, edited_track->height,
-                       edited_track->color, font, text_color);
+            draw_clip(priv_draw_list, clip_content_cmds, edited_clip, timeline_width, offset_y,
+                      timeline_view_pos.x, min_pos_x, max_pos_x, clip_scale, sample_scale,
+                      start_sample_pos, edited_track_pos_y, edited_track->height,
+                      edited_track->color, font, text_color);
         }
-        /*float min_pos_x_in_pixel = (float)std::floor(min_pos_x);
-        float max_pos_x_in_pixel = (float)std::floor(max_pos_x);
-        ImVec2 min_bb(min_pos_x_in_pixel, edited_track_pos_y);
-        ImVec2 max_bb(max_pos_x_in_pixel, edited_track_pos_y + edited_track->height);*/
-
-        /*draw_clip(priv_draw_list, clip_content_cmds, edited_track, edited_clip,
-           timeline_view_pos.x, offset_y, timeline_width_f64, sample_scale, clip_scale,
-           start_sample_pos, min_bb, max_bb, text_color, font, font_size);*/
-
+        
         edited_clip_min_time = min_time;
         edited_clip_max_time = max_time;
     }
@@ -1064,15 +1050,15 @@ void GuiTimeline::render_tracks() {
     clip_context_menu();
 
     ImTextureID tex_id = g_renderer->prepare_as_imgui_texture(timeline_fb);
-    win_draw_list->AddImage(tex_id, ImVec2(timeline_view_pos.x, offset_y),
-                            ImVec2(timeline_view_pos.x + timeline_width, offset_y + area_size.y));
+    main_draw_list->AddImage(tex_id, ImVec2(timeline_view_pos.x, offset_y),
+                             ImVec2(timeline_view_pos.x + timeline_width, offset_y + area_size.y));
 
     if (g_engine.is_playing()) {
         double playhead_offset = playhead * ppq * inv_view_scale;
         float playhead_pos =
             (float)std::round(timeline_view_pos.x - scroll_pos_x + playhead_offset);
-        win_draw_list->AddLine(ImVec2(playhead_pos, offset_y),
-                               ImVec2(playhead_pos, offset_y + timeline_area.y), playhead_color);
+        main_draw_list->AddLine(ImVec2(playhead_pos, offset_y),
+                                ImVec2(playhead_pos, offset_y + timeline_area.y), playhead_color);
     }
 
     if (timeline_hovered && ImGui::IsKeyDown(ImGuiKey_LeftCtrl) && mouse_wheel != 0.0f) {
