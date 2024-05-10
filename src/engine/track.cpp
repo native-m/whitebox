@@ -351,10 +351,9 @@ void Track::flush_deleted_clips() {
     uint32_t i = 0;
     std::vector<Clip*> new_clip_list;
     new_clip_list.reserve(clips.size());
-
     for (auto clip : clips) {
         if (deleted_clip_ids.contains(clip->id)) {
-            // Make sure we dont process this deleted clip
+            // Make sure we don't touch this deleted clip
             if (clip == playback_state.next_clip)
                 playback_state.next_clip = nullptr;
             if (clip == playback_state.current_clip)
@@ -367,7 +366,6 @@ void Track::flush_deleted_clips() {
         new_clip_list.push_back(clip);
         i++;
     }
-
     deleted_clip_ids.clear();
     clips = std::move(new_clip_list);
 }

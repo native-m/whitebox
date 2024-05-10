@@ -5,6 +5,7 @@
 #include "core/memory.h"
 #include "core/queue.h"
 #include "core/thread.h"
+#include "core/vector.h"
 #include "event.h"
 #include <imgui.h>
 #include <string>
@@ -30,7 +31,7 @@ struct Track {
     std::vector<Clip*> clips;
     std::unordered_set<uint32_t> deleted_clip_ids;
 
-    ImVector<Event> event_buffer;
+    Vector<Event> event_buffer;
     TrackPlaybackState playback_state;
     Event last_event;
     Event current_event;

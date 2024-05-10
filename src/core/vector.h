@@ -61,6 +61,11 @@ struct Vector {
         return intern_.data[idx];
     }
 
+    inline T* begin() { return intern_.data; }
+    inline const T* begin() const { return intern_.data; }
+    inline T* end() { return intern_.data + intern_.size; }
+    inline const T* end() const { return intern_.data + intern_.size; }
+
     inline void push_back(const T& item)
         requires std::copy_constructible<T>
     {
@@ -137,7 +142,8 @@ struct Vector {
     }
 
     inline size_t grow_capacity_(size_t new_size) {
-        size_t new_capacity = intern_.capacity ? (intern_.capacity + intern_.capacity / size_t(2)) : 8;
+        size_t new_capacity =
+            intern_.capacity ? (intern_.capacity + intern_.capacity / size_t(2)) : 8;
         return new_capacity > new_size ? new_capacity : new_size;
     }
 
