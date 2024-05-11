@@ -11,6 +11,13 @@
 
 namespace wb {
 
+Track::Track() {
+    ui_parameter.resize(TrackParameter_Max);
+    ui_parameter.set(TrackParameter_Volume, 1.0f);
+    ui_parameter.set(TrackParameter_Pan, 0.0f);
+    ui_parameter.set(TrackParameter_Mute, 0);
+}
+
 Clip* Track::add_audio_clip(const std::string& name, double min_time, double max_time,
                             const AudioClip& clip_info, double beat_duration) {
     Clip* clip = (Clip*)clip_allocator.allocate();
@@ -140,7 +147,7 @@ void Track::update(Clip* updated_clip, double beat_duration) {
     Log::debug("--- Clip Ordering ---");
     for (auto clip : clips) {
         Log::debug("{:x}: {} ({}, {}, {} -> {})", (uint64_t)clip, clip->name, clip->id,
-                  clip->relative_start_time, clip->min_time, clip->max_time);
+                   clip->relative_start_time, clip->min_time, clip->max_time);
     }
 #endif
 }
@@ -225,6 +232,18 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
 }
 
 void Track::process(AudioBuffer<float>& output_buffer, double sample_rate, bool playing) {
+    ui_parameter.access_updated([this](const AudioParameterList& audio_param) {
+        if (audio_param.is_updated(TrackParameter_Volume)) {
+            parameter_state.volume = audio_param.get_float(TrackParameter_Volume);
+        }
+        if (audio_param.is_updated(TrackParameter_Pan)) {
+            parameter_state.pan = audio_param.get_float(TrackParameter_Pan);
+        }
+        if (audio_param.is_updated(TrackParameter_Pan)) {
+            parameter_state.mute = (bool)audio_param.get_uint(TrackParameter_Mute);
+        }
+    });
+
     if (playing) {
         Event* event = event_buffer.begin();
         Event* end = event_buffer.end();
@@ -304,8 +323,8 @@ void Track::stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uin
                 auto sample_data = sample->get_read_pointer<int32_t>(i % sample->channels);
                 for (uint32_t j = 0; j < num_samples; j++) {
                     double sample = (double)sample_data[sample_offset + j] * i24_pcm_normalizer;
-                    output[j + buffer_offset] +=
-                        (float)std::clamp(sample, -1.0, 1.0) * !mute.load(std::memory_order_relaxed);
+                    output[j + buffer_offset] += (float)std::clamp(sample, -1.0, 1.0) *
+                                                 !mute.load(std::memory_order_relaxed);
                 }
             }
             break;
@@ -315,8 +334,8 @@ void Track::stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uin
                 auto sample_data = sample->get_read_pointer<int32_t>(i % sample->channels);
                 for (uint32_t j = 0; j < num_samples; j++) {
                     double sample = (double)sample_data[sample_offset + j] * i32_pcm_normalizer;
-                    output[j + buffer_offset] +=
-                        (float)std::clamp(sample, -1.0, 1.0) * !mute.load(std::memory_order_relaxed);
+                    output[j + buffer_offset] += (float)std::clamp(sample, -1.0, 1.0) *
+                                                 !mute.load(std::memory_order_relaxed);
                 }
             }
             break;

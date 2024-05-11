@@ -211,6 +211,8 @@ bool mixer_label(const char* caption, const float height, const ImColor& color);
 
 void metering(const ImVec2& size, uint32_t count, const float* channels);
 
+bool audio_param_drag();
+
 void render_test_controls();
 extern bool g_test_control_shown;
 

@@ -2,6 +2,7 @@
 
 #include "clip.h"
 #include "core/audio_buffer.h"
+#include "core/audio_param.h"
 #include "core/memory.h"
 #include "core/queue.h"
 #include "core/thread.h"
@@ -14,11 +15,25 @@
 
 namespace wb {
 
+enum TrackParameter {
+    TrackParameter_Volume,
+    TrackParameter_Pan,
+    TrackParameter_Mute,
+    TrackParameter_Max,
+};
+
 struct TrackPlaybackState {
     Clip* current_clip;
     Clip* next_clip;
     double last_start_clip_position;
 };
+
+struct TrackParameterState {
+    float volume;
+    float pan;
+    bool mute;
+};
+
 struct Track {
     std::string name;
     ImColor color {0.3f, 0.3f, 0.3f, 1.0f};
@@ -26,6 +41,8 @@ struct Track {
     float volume = 0.0f;
     std::atomic_bool mute;
     bool shown = true;
+    AudioParameterList ui_parameter;
+    TrackParameterState parameter_state;
 
     Pool<Clip> clip_allocator;
     std::vector<Clip*> clips;
@@ -36,6 +53,8 @@ struct Track {
     Event last_event;
     Event current_event;
     size_t samples_processed;
+
+    Track();
 
     /**
      * @brief Add audio clip into the track.
