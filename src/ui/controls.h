@@ -2,6 +2,7 @@
 
 #include "draw.h"
 #include "popup_state_manager.h"
+#include "core/debug.h"
 #include <algorithm>
 #include <bit>
 #include <imgui.h>
@@ -204,7 +205,14 @@ static bool slider2(const SliderProperties& properties, const char* str_id, cons
         ImVec2(grab_rect_min.x + grab_size.x - 2.0f, grab_rect_min.y + grab_size.y * 0.5f),
         0xFFFFFFFF, 3.0f);
 
-    return true;
+    if (dragging) {
+        ImVec2 delta = ImGui::GetMouseDragDelta();
+        ImGui::ResetMouseDragDelta();
+        if (delta.y != 0.0f)
+            return true;
+    }
+
+    return false;
 }
 
 bool mixer_label(const char* caption, const float height, const ImColor& color);

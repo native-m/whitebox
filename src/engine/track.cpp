@@ -16,6 +16,7 @@ Track::Track() {
     ui_parameter.set(TrackParameter_Volume, 1.0f);
     ui_parameter.set(TrackParameter_Pan, 0.0f);
     ui_parameter.set(TrackParameter_Mute, 0);
+    ui_parameter.update();
 }
 
 Clip* Track::add_audio_clip(const std::string& name, double min_time, double max_time,
@@ -232,15 +233,15 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
 }
 
 void Track::process(AudioBuffer<float>& output_buffer, double sample_rate, bool playing) {
-    ui_parameter.access_updated([this](const AudioParameterList& audio_param) {
+    ui_parameter.flush_if_updated([this](const AudioParameterList& audio_param) {
         if (audio_param.is_updated(TrackParameter_Volume)) {
-            parameter_state.volume = audio_param.get_float(TrackParameter_Volume);
+            parameter_state.volume = audio_param.flush_float(TrackParameter_Volume);
         }
         if (audio_param.is_updated(TrackParameter_Pan)) {
-            parameter_state.pan = audio_param.get_float(TrackParameter_Pan);
+            parameter_state.pan = audio_param.flush_float(TrackParameter_Pan);
         }
-        if (audio_param.is_updated(TrackParameter_Pan)) {
-            parameter_state.mute = (bool)audio_param.get_uint(TrackParameter_Mute);
+        if (audio_param.is_updated(TrackParameter_Mute)) {
+            parameter_state.mute = (bool)audio_param.flush_uint(TrackParameter_Mute);
         }
     });
 
@@ -305,6 +306,8 @@ void Track::stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uin
     static constexpr double i32_pcm_normalizer =
         1.0 / static_cast<double>(std::numeric_limits<int32_t>::max());
 
+    float volume = parameter_state.mute ? 0.0f : parameter_state.volume;
+
     switch (sample->format) {
         case AudioFormat::I16:
             for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
@@ -312,8 +315,7 @@ void Track::stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uin
                 auto sample_data = sample->get_read_pointer<int16_t>(i % sample->channels);
                 for (uint32_t j = 0; j < num_samples; j++) {
                     float sample = (float)sample_data[sample_offset + j] * i16_pcm_normalizer;
-                    output[j + buffer_offset] +=
-                        std::clamp(sample, -1.0f, 1.0f) * !mute.load(std::memory_order_relaxed);
+                    output[j + buffer_offset] += std::clamp(sample, -1.0f, 1.0f) * volume;
                 }
             }
             break;
@@ -323,8 +325,7 @@ void Track::stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uin
                 auto sample_data = sample->get_read_pointer<int32_t>(i % sample->channels);
                 for (uint32_t j = 0; j < num_samples; j++) {
                     double sample = (double)sample_data[sample_offset + j] * i24_pcm_normalizer;
-                    output[j + buffer_offset] += (float)std::clamp(sample, -1.0, 1.0) *
-                                                 !mute.load(std::memory_order_relaxed);
+                    output[j + buffer_offset] += (float)std::clamp(sample, -1.0, 1.0) * volume;
                 }
             }
             break;
@@ -334,8 +335,7 @@ void Track::stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uin
                 auto sample_data = sample->get_read_pointer<int32_t>(i % sample->channels);
                 for (uint32_t j = 0; j < num_samples; j++) {
                     double sample = (double)sample_data[sample_offset + j] * i32_pcm_normalizer;
-                    output[j + buffer_offset] += (float)std::clamp(sample, -1.0, 1.0) *
-                                                 !mute.load(std::memory_order_relaxed);
+                    output[j + buffer_offset] += (float)std::clamp(sample, -1.0, 1.0) * volume;
                 }
             }
             break;
@@ -345,8 +345,7 @@ void Track::stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uin
                 auto sample_data = sample->get_read_pointer<float>(i % sample->channels);
                 for (uint32_t j = 0; j < num_samples; j++) {
                     if (!mute.load(std::memory_order_relaxed)) {
-                        output[j + buffer_offset] +=
-                            sample_data[sample_offset + j] * !mute.load(std::memory_order_relaxed);
+                        output[j + buffer_offset] += sample_data[sample_offset + j] * volume;
                     }
                 }
             }
@@ -356,8 +355,7 @@ void Track::stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uin
                 float* output = output_buffer.get_write_pointer(i);
                 auto sample_data = sample->get_read_pointer<double>(i % sample->channels);
                 for (uint32_t j = 0; j < num_samples; j++)
-                    output[j + buffer_offset] += (float)sample_data[sample_offset + j] *
-                                                 !mute.load(std::memory_order_relaxed);
+                    output[j + buffer_offset] += (float)sample_data[sample_offset + j] * volume;
             }
             break;
         default:

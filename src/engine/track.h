@@ -42,17 +42,17 @@ struct Track {
     std::atomic_bool mute;
     bool shown = true;
     AudioParameterList ui_parameter;
-    TrackParameterState parameter_state;
+    TrackParameterState parameter_state {};
 
     Pool<Clip> clip_allocator;
     std::vector<Clip*> clips;
     std::unordered_set<uint32_t> deleted_clip_ids;
 
     Vector<Event> event_buffer;
-    TrackPlaybackState playback_state;
-    Event last_event;
-    Event current_event;
-    size_t samples_processed;
+    TrackPlaybackState playback_state {};
+    Event last_event {};
+    Event current_event {};
+    size_t samples_processed {};
 
     Track();
 

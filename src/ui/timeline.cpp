@@ -470,6 +470,8 @@ inline void GuiTimeline::render_track_controls() {
                           track_control_window_flags);
 
         {
+            bool parameter_updated = false;
+
             ImGui::PopStyleVar();
             ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, tmp_item_spacing);
             ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.0f, style.FramePadding.y));
@@ -478,19 +480,25 @@ inline void GuiTimeline::render_track_controls() {
 
             ImGui::SameLine(0.0f, 6.0f);
             ImGui::Text((const char*)track->name.c_str());
-            ImGui::DragFloat("Vol.", &track->volume, 0.01f, 0.0f, 0.0f, "%.2f db");
 
+            float value = track->ui_parameter.get_float(TrackParameter_Volume);
+            if (ImGui::DragFloat("Vol.", &value, 0.01f, 0.0f, 1.0f, "%.2f db")) {
+                track->ui_parameter.set(TrackParameter_Volume, value);
+                parameter_updated = true;
+            }
+
+            bool mute = (bool)track->ui_parameter.get_uint(TrackParameter_Mute);
             if (ImGui::SmallButton("M")) {
-                track->mute.store(!track->mute.load(std::memory_order_acquire),
-                                  std::memory_order_release);
+                mute = !mute;
+                track->ui_parameter.set(TrackParameter_Mute, (uint32_t)mute);
+                parameter_updated = true;
             }
 
             ImGui::SameLine(0.0f, 2.0f);
             ImGui::SmallButton("S");
             ImGui::SameLine(0.0f, 2.0f);
 
-            bool muted = track->mute.load(std::memory_order_relaxed);
-            if (muted) {
+            if (mute) {
                 ImGui::Text("Muted");
             }
 
@@ -505,6 +513,9 @@ inline void GuiTimeline::render_track_controls() {
 
             track_context_menu(*track, id);
             ImGui::PopStyleVar();
+
+            if (parameter_updated)
+                track->ui_parameter.update();
         }
 
         ImGui::EndChild();
