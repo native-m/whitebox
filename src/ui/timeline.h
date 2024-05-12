@@ -64,6 +64,10 @@ struct GuiTimeline {
     double edited_clip_min_time;
     double edited_clip_max_time;
 
+    Track* hovered_track = nullptr;
+    float hovered_track_y = 0.0f;
+    float hovered_track_height = 60.0f;
+
     // Context menu stuff...
     Track* context_menu_track {};
     Clip* context_menu_clip {};
@@ -92,6 +96,9 @@ struct GuiTimeline {
     }
 
     inline void finish_edit_action() {
+        hovered_track = nullptr;
+        hovered_track_y = 0.0f;
+        hovered_track_height = 60.0f;
         edited_clip = nullptr;
         edited_track = nullptr;
         edited_track_pos_y = 0.0f;

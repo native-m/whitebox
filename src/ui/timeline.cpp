@@ -766,9 +766,6 @@ void GuiTimeline::render_track_lanes() {
     }
 
     bool has_deleted_clips = g_engine.has_deleted_clips.load(std::memory_order_relaxed);
-    Track* hovered_track = nullptr;
-    float hovered_track_y = 0.0f;
-    float hovered_track_height = 60.0f;
 
     for (auto track : g_engine.tracks) {
         float height = track->height;
@@ -788,7 +785,7 @@ void GuiTimeline::render_track_lanes() {
                                        ImVec2(timeline_end_x, track_pos_y + height + 2.0f));
         bool hovering_current_track = timeline_hovered && hovering_track_rect;
 
-        if (hovering_current_track) {
+        if (left_mouse_down && hovering_current_track) {
             hovered_track = track;
             hovered_track_y = track_pos_y;
             hovered_track_height = height;
