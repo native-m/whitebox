@@ -650,8 +650,8 @@ void GuiTimeline::render_track_lanes() {
         redraw = redraw || true;
     }
 
-    ImGui::InvisibleButton("##timeline",
-                           ImVec2(timeline_width, std::max(timeline_area.y, area_size.y + vscroll)));
+    ImGui::InvisibleButton(
+        "##timeline", ImVec2(timeline_width, std::max(timeline_area.y, area_size.y + vscroll)));
 
     double view_scale = calc_view_scale();
     double inv_view_scale = 1.0 / view_scale;
@@ -766,6 +766,9 @@ void GuiTimeline::render_track_lanes() {
     }
 
     bool has_deleted_clips = g_engine.has_deleted_clips.load(std::memory_order_relaxed);
+    Track* hovered_track = nullptr;
+    float hovered_track_y = 0.0f;
+    float hovered_track_height = 60.0f;
 
     for (auto track : g_engine.tracks) {
         float height = track->height;
@@ -780,9 +783,16 @@ void GuiTimeline::render_track_lanes() {
         }
 
         bool hovering_track_rect =
-            !scrolling && ImGui::IsMouseHoveringRect(ImVec2(timeline_view_pos.x, track_pos_y),
-                                                     ImVec2(timeline_end_x, track_pos_y + height));
+            !scrolling &&
+            ImGui::IsMouseHoveringRect(ImVec2(timeline_view_pos.x, track_pos_y),
+                                       ImVec2(timeline_end_x, track_pos_y + height + 2.0f));
         bool hovering_current_track = timeline_hovered && hovering_track_rect;
+
+        if (hovering_current_track) {
+            hovered_track = track;
+            hovered_track_y = track_pos_y;
+            hovered_track_height = height;
+        }
 
         for (auto clip : track->clips) {
             if (has_deleted_clips && track->deleted_clip_ids.contains(clip->id)) {
@@ -849,7 +859,7 @@ void GuiTimeline::render_track_lanes() {
                 }
             }
 
-            double start_sample_pos = (double)clip->audio.min_sample_pos;
+            double start_sample_pos = (double)clip->audio.start_sample_pos;
 
             if (redraw) {
                 /*draw_clip(priv_draw_list, clip_content_cmds, track, clip, timeline_view_pos.x,
@@ -904,11 +914,11 @@ void GuiTimeline::render_track_lanes() {
         track_pos_y += 2.0f;
     }
 
-    // Visualize the edited clip
+    // Visualize the edited clip during the action
     if (edited_clip && redraw) {
         double min_time = edited_clip->min_time;
         double max_time = edited_clip->max_time;
-        double start_sample_pos = (double)edited_clip->audio.min_sample_pos;
+        double start_sample_pos = (double)edited_clip->audio.start_sample_pos;
 
         switch (edit_action) {
             case TimelineEditAction::ClipMove: {
@@ -937,6 +947,7 @@ void GuiTimeline::render_track_lanes() {
                     rel_offset -= old_min - min_time;
                 else
                     rel_offset += min_time - old_min;
+                Log::debug("{}", rel_offset);
                 rel_offset = std::max(rel_offset, 0.0);
 
                 if (edited_clip->type == ClipType::Audio) {
@@ -955,12 +966,14 @@ void GuiTimeline::render_track_lanes() {
             case TimelineEditAction::ClipDuplicate: {
                 float highlight_pos = (float)mouse_at_gridline; // Snap to grid
                 float length = (float)(edited_clip->max_time - edited_clip->min_time);
+                float duplicate_pos_y = hovered_track_y;
+                hovered_track_y = edited_track_pos_y;
                 priv_draw_list->AddRectFilled(
                     ImVec2(timeline_scroll_offset_x_f32 + highlight_pos * (float)clip_scale,
-                           edited_track_pos_y),
+                           duplicate_pos_y),
                     ImVec2(timeline_scroll_offset_x_f32 +
                                (highlight_pos + length) * (float)clip_scale,
-                           edited_track_pos_y + edited_track->height),
+                           duplicate_pos_y + edited_track->height),
                     ImGui::GetColorU32(ImGuiCol_Border));
                 break;
             }
@@ -974,10 +987,10 @@ void GuiTimeline::render_track_lanes() {
         if (min_pos_x < timeline_end_x && max_pos_x > timeline_view_pos.x) {
             draw_clip(priv_draw_list, clip_content_cmds, edited_clip, timeline_width, offset_y,
                       timeline_view_pos.x, min_pos_x, max_pos_x, clip_scale, sample_scale,
-                      start_sample_pos, edited_track_pos_y, edited_track->height,
-                      edited_track->color, font, text_color);
+                      start_sample_pos, hovered_track_y, hovered_track_height, edited_track->color,
+                      font, text_color);
         }
-        
+
         edited_clip_min_time = min_time;
         edited_clip_max_time = max_time;
     }
@@ -1008,8 +1021,17 @@ void GuiTimeline::render_track_lanes() {
         switch (edit_action) {
             case TimelineEditAction::ClipMove:
                 if (!left_mouse_down) {
-                    edited_track->move_clip(edited_clip, mouse_at_gridline - initial_time_pos,
-                                            beat_duration);
+                    double relative_pos = mouse_at_gridline - initial_time_pos;
+                    if (edited_track == hovered_track) {
+                        edited_track->move_clip(edited_clip, relative_pos, beat_duration);
+                    } else if (hovered_track != nullptr) {
+                        // Move clip to another track
+                        double new_pos = std::max(edited_clip->min_time + relative_pos, 0.0);
+                        double length = edited_clip->max_time - edited_clip->min_time;
+                        hovered_track->duplicate_clip(edited_clip, new_pos, new_pos + length,
+                                                      beat_duration);
+                        g_engine.delete_clip(edited_track, edited_clip);
+                    }
                     finish_edit_action();
                     force_redraw = true;
                 }
@@ -1038,8 +1060,14 @@ void GuiTimeline::render_track_lanes() {
             case TimelineEditAction::ClipDuplicate:
                 if (!left_mouse_down) {
                     double clip_length = edited_clip->max_time - edited_clip->min_time;
-                    edited_track->duplicate_clip(edited_clip, mouse_at_gridline,
-                                                 mouse_at_gridline + clip_length, beat_duration);
+                    if (edited_track == hovered_track) {
+                        edited_track->duplicate_clip(edited_clip, mouse_at_gridline,
+                                                     mouse_at_gridline + clip_length, beat_duration);
+                    } else if (hovered_track != nullptr) {
+                        hovered_track->duplicate_clip(edited_clip, mouse_at_gridline,
+                                                      mouse_at_gridline + clip_length,
+                                                      beat_duration);
+                    }
                     finish_edit_action();
                     force_redraw = true;
                 }
