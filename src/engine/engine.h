@@ -50,7 +50,7 @@ struct Engine {
     Clip* add_audio_clip_from_file(Track* track, const std::filesystem::path& path,
                                    double min_time);
     void delete_clip(Track* track, Clip* clip);
-    
+
     /*
         Process the whole thing.
         This runs on the audio thread.

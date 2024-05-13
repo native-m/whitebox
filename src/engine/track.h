@@ -38,8 +38,6 @@ struct Track {
     std::string name;
     ImColor color {0.3f, 0.3f, 0.3f, 1.0f};
     float height = 60.0f;
-    float volume = 0.0f;
-    std::atomic_bool mute;
     bool shown = true;
     AudioParameterList ui_parameter;
     TrackParameterState parameter_state {};

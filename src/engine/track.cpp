@@ -343,11 +343,8 @@ void Track::stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uin
             for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
                 float* output = output_buffer.get_write_pointer(i);
                 auto sample_data = sample->get_read_pointer<float>(i % sample->channels);
-                for (uint32_t j = 0; j < num_samples; j++) {
-                    if (!mute.load(std::memory_order_relaxed)) {
-                        output[j + buffer_offset] += sample_data[sample_offset + j] * volume;
-                    }
-                }
+                for (uint32_t j = 0; j < num_samples; j++)
+                    output[j + buffer_offset] += sample_data[sample_offset + j] * volume;
             }
             break;
         case AudioFormat::F64:

@@ -3,10 +3,12 @@
 #include "core/thread.h"
 #include "engine/audio_io.h"
 #include "engine/engine.h"
+#include "engine/project.h"
 #include "renderer.h"
 #include "settings_data.h"
 #include "ui/browser.h"
 #include "ui/controls.h"
+#include "ui/file_dialog.h"
 #include "ui/file_dropper.h"
 #include "ui/mixer.h"
 #include "ui/settings.h"
@@ -84,7 +86,22 @@ void App::run() {
                 ImGui::MenuItem("Open Recent");
                 ImGui::Separator();
                 ImGui::MenuItem("Save", "Ctrl+S");
-                ImGui::MenuItem("Save As...", "Shift+Ctrl+S");
+                if (ImGui::MenuItem("Save As...", "Shift+Ctrl+S")) {
+                    if (auto file = save_file_dialog({{"Whitebox Project File", "wb"}})) {
+                        ProjectFile project_file;
+                        g_audio_io->close_device();
+                        if (project_file.open(file.value().string(), true)) {
+                            project_file.write_project(g_engine, g_sample_table);
+                        }
+                        g_audio_io->open_device(g_settings_data.output_device_properties.id,
+                                                g_settings_data.input_device_properties.id);
+                        g_audio_io->start(
+                            &g_engine, g_settings_data.audio_exclusive_mode,
+                            g_settings_data.audio_buffer_size, g_settings_data.audio_input_format,
+                            g_settings_data.audio_output_format, g_settings_data.audio_sample_rate,
+                            AudioThreadPriority::Normal);
+                    }
+                }
                 ImGui::Separator();
                 if (ImGui::MenuItem("Quit"))
                     running = false;

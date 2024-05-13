@@ -49,8 +49,11 @@ set(WB_SOURCES
     "src/engine/engine.cpp"
     "src/engine/engine.h"
     "src/engine/event.h"
+    "src/engine/project.cpp"
+    "src/engine/project.h"
     "src/engine/sample.cpp"
     "src/engine/sample.h"
+    "src/engine/sample_peaks.h"
     "src/engine/sample_table.cpp"
     "src/engine/sample_table.h"
     "src/engine/track.cpp"
@@ -62,6 +65,8 @@ set(WB_SOURCES
     "src/ui/controls.h"
     "src/ui/draw.cpp"
     "src/ui/draw.h"
+    "src/ui/file_dialog.cpp"
+    "src/ui/file_dialog.h"
     "src/ui/file_dropper.cpp"
     "src/ui/file_dropper.h"
     "src/ui/forms.h"
@@ -103,7 +108,8 @@ set(WB_LINK_LIBRARIES
     imgui-freetype
     imgui-vulkan
     sndfile
-    nfd)
+    nfd
+    cista)
 
 if (MSVC)
     set(WB_LINK_LIBRARIES ${WB_LINK_LIBRARIES} imgui-d3d11 Avrt)
