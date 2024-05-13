@@ -79,6 +79,7 @@ struct GuiTimeline {
     void init();
     void shutdown();
     Track* add_track();
+    void reset();
     void render();
     inline void render_horizontal_scrollbar();
     inline void render_time_ruler();

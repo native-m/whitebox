@@ -128,9 +128,35 @@ void App::run() {
 
 void App::render_menu_bar() {
     if (ImGui::BeginMenu("File")) {
-        ImGui::MenuItem("New");
+        if (ImGui::MenuItem("New")) {
+            g_audio_io->close_device();
+            g_engine.clear_all();
+            g_timeline.reset();
+            g_timeline.add_track();
+            g_timeline.redraw_screen();
+            g_audio_io->open_device(g_settings_data.output_device_properties.id,
+                                    g_settings_data.input_device_properties.id);
+            g_audio_io->start(&g_engine, g_settings_data.audio_exclusive_mode,
+                              g_settings_data.audio_buffer_size, g_settings_data.audio_input_format,
+                              g_settings_data.audio_output_format,
+                              g_settings_data.audio_sample_rate, AudioThreadPriority::Normal);
+        }
         if (ImGui::MenuItem("Open...", "Ctrl+O")) {
             if (auto file = open_file_dialog({{"Whitebox Project File", "wb"}})) {
+                ProjectFile project_file;
+                g_audio_io->close_device();
+                g_engine.clear_all();
+                if (project_file.open(file.value().string(), false)) {
+                    project_file.read_project(g_engine, g_sample_table);
+                }
+                g_timeline.redraw_screen();
+                g_audio_io->open_device(g_settings_data.output_device_properties.id,
+                                        g_settings_data.input_device_properties.id);
+                g_audio_io->start(&g_engine, g_settings_data.audio_exclusive_mode,
+                                  g_settings_data.audio_buffer_size,
+                                  g_settings_data.audio_input_format,
+                                  g_settings_data.audio_output_format,
+                                  g_settings_data.audio_sample_rate, AudioThreadPriority::Normal);
             }
         }
         ImGui::MenuItem("Open Recent");

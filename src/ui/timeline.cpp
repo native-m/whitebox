@@ -117,6 +117,11 @@ Track* GuiTimeline::add_track() {
     return track;
 }
 
+void GuiTimeline::reset() {
+    finish_edit_action();
+    color_spin = 0;
+}
+
 void GuiTimeline::render() {
     constexpr ImGuiWindowFlags timeline_content_area_flags =
         ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_AlwaysVerticalScrollbar;

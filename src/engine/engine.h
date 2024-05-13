@@ -36,6 +36,7 @@ struct Engine {
     void set_bpm(double bpm);
     void set_playhead_position(double beat_position);
     void set_buffer_size(uint32_t channels, uint32_t size);
+    void clear_all();
     void play();
     void stop();
     bool is_playing() const { return playing.load(std::memory_order_relaxed); }

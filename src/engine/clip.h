@@ -25,22 +25,24 @@ struct MidiClip {
 };
 
 struct Clip {
-    uint32_t id;
+    uint32_t id {};
 
     // General clip information
-    ClipType type;
-    std::string name;
-    ImColor color;
+    ClipType type {};
+    std::string name {};
+    ImColor color {};
 
     // Time placement in beat units
-    double min_time;
-    double max_time;
+    double min_time {};
+    double max_time {};
     double relative_start_time = 0.0;
 
     union {
         AudioClip audio;
         MidiClip midi;
     };
+
+    Clip() noexcept : id(WB_INVALID_CLIP_ID), audio() {}
 
     Clip(const std::string& name, const ImColor& color, double min_time, double max_time) noexcept :
         id(WB_INVALID_CLIP_ID),

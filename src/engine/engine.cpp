@@ -33,6 +33,13 @@ void Engine::set_buffer_size(uint32_t channels, uint32_t size) {
     mixing_buffer.resize_channel(channels);
 }
 
+void Engine::clear_all() {
+    for (auto track : tracks) {
+        delete track;
+    }
+    tracks.clear();
+}
+
 void Engine::play() {
     Log::debug("-------------- Playing --------------");
     editor_lock.lock();

@@ -19,6 +19,13 @@ Track::Track() {
     ui_parameter.update();
 }
 
+Track::~Track() {
+    for (auto clip : clips) {
+        clip->~Clip();
+        clip_allocator.free(clip);
+    }
+}
+
 Clip* Track::add_audio_clip(const std::string& name, double min_time, double max_time,
                             const AudioClip& clip_info, double beat_duration) {
     Clip* clip = (Clip*)clip_allocator.allocate();
@@ -99,7 +106,7 @@ void Track::update(Clip* updated_clip, double beat_duration) {
               [](const Clip* a, const Clip* b) { return a->min_time < b->min_time; });
 
     // Trim overlapping clips or delete if completely overlapped
-    if (updated_clip) {
+    if (updated_clip && beat_duration != 0.0) {
         // std::vector<Clip*> deleted_clips;
         for (uint32_t i = 0; i < (uint32_t)clips.size(); i++) {
             Clip* clip = clips[i];

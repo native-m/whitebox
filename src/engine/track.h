@@ -53,6 +53,7 @@ struct Track {
     size_t samples_processed {};
 
     Track();
+    ~Track();
 
     /**
      * @brief Add audio clip into the track.
