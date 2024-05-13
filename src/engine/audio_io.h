@@ -117,11 +117,6 @@ struct AudioIO {
     virtual bool start(Engine* engine, bool exclusive_mode, uint32_t buffer_size,
                        AudioFormat input_format, AudioFormat output_format,
                        AudioDeviceSampleRate sample_rate, AudioThreadPriority priority) = 0;
-
-    /*
-        Stop the audio engine.
-    */
-    virtual void stop() = 0;
 };
 
 inline static uint32_t period_to_buffer_size(AudioDevicePeriod period, uint32_t sample_rate) {

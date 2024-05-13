@@ -329,8 +329,14 @@ struct AudioIOWASAPI : public AudioIO {
         if (!open)
             return;
         Log::info("Closing audio devices...");
-        if (running)
-            stop();
+        if (running) {
+            running = false;
+            if (audio_thread.joinable()) {
+                audio_thread.join();
+            }
+            render_client->Release();
+            output.stop_stream();
+        }
         output.close();
         input.close();
         open = false;
@@ -361,15 +367,6 @@ struct AudioIOWASAPI : public AudioIO {
         audio_thread = std::thread(audio_thread_runner, this, priority);
 
         return true;
-    }
-
-    void stop() override {
-        running = false;
-        if (audio_thread.joinable()) {
-            audio_thread.join();
-        }
-        render_client->Release();
-        output.stop_stream();
     }
 
     bool scan_audio_endpoints(EDataFlow type, std::vector<AudioDeviceWASAPI>& endpoints) {

@@ -44,10 +44,6 @@ struct AudioIOPulseAudio : public AudioIO {
                AudioThreadPriority priority) override {
         return false;
     }
-
-    void stop() override {
-        // do nothing
-    }
 };
 
 AudioIO* create_audio_io_pulseaudio() {
