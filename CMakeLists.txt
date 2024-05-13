@@ -108,8 +108,7 @@ set(WB_LINK_LIBRARIES
     imgui-freetype
     imgui-vulkan
     sndfile
-    nfd
-    cista)
+    nfd)
 
 if (MSVC)
     set(WB_LINK_LIBRARIES ${WB_LINK_LIBRARIES} imgui-d3d11 Avrt)

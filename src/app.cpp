@@ -80,56 +80,7 @@ void App::run() {
                                      ImGuiDockNodeFlags_PassthruCentralNode);
 
         if (ImGui::BeginMainMenuBar()) {
-            if (ImGui::BeginMenu("File")) {
-                ImGui::MenuItem("New");
-                ImGui::MenuItem("Open...", "Ctrl+O");
-                ImGui::MenuItem("Open Recent");
-                ImGui::Separator();
-                ImGui::MenuItem("Save", "Ctrl+S");
-                if (ImGui::MenuItem("Save As...", "Shift+Ctrl+S")) {
-                    if (auto file = save_file_dialog({{"Whitebox Project File", "wb"}})) {
-                        ProjectFile project_file;
-                        g_audio_io->close_device();
-                        if (project_file.open(file.value().string(), true)) {
-                            project_file.write_project(g_engine, g_sample_table);
-                        }
-                        g_audio_io->open_device(g_settings_data.output_device_properties.id,
-                                                g_settings_data.input_device_properties.id);
-                        g_audio_io->start(
-                            &g_engine, g_settings_data.audio_exclusive_mode,
-                            g_settings_data.audio_buffer_size, g_settings_data.audio_input_format,
-                            g_settings_data.audio_output_format, g_settings_data.audio_sample_rate,
-                            AudioThreadPriority::Normal);
-                    }
-                }
-                ImGui::Separator();
-                if (ImGui::MenuItem("Quit"))
-                    running = false;
-                ImGui::EndMenu();
-            }
-
-            if (ImGui::BeginMenu("Edit")) {
-                ImGui::MenuItem("Undo");
-                ImGui::MenuItem("Redo");
-                ImGui::End();
-            }
-
-            if (ImGui::BeginMenu("View")) {
-                ImGui::MenuItem("Windows", nullptr, false, false);
-                ImGui::Separator();
-                ImGui::MenuItem("Timeline", nullptr, &g_timeline.open);
-                ImGui::MenuItem("Mixer", nullptr, &g_mixer.open);
-                ImGui::MenuItem("Browser", nullptr, &g_browser.open);
-                ImGui::MenuItem("Settings", nullptr, &g_settings.open);
-                ImGui::MenuItem("Test Controls", nullptr, &controls::g_test_control_shown);
-                ImGui::EndMenu();
-            }
-
-            if (ImGui::BeginMenu("Help")) {
-                ImGui::MenuItem("About...");
-                ImGui::EndMenu();
-            }
-
+            render_menu_bar();
             ImGui::EndMainMenuBar();
         }
 
@@ -172,6 +123,61 @@ void App::run() {
 
         // ImGui::UpdatePlatformWindows();
         // ImGui::RenderPlatformWindowsDefault();
+    }
+}
+
+void App::render_menu_bar() {
+    if (ImGui::BeginMenu("File")) {
+        ImGui::MenuItem("New");
+        if (ImGui::MenuItem("Open...", "Ctrl+O")) {
+            if (auto file = open_file_dialog({{"Whitebox Project File", "wb"}})) {
+            }
+        }
+        ImGui::MenuItem("Open Recent");
+        ImGui::Separator();
+        ImGui::MenuItem("Save", "Ctrl+S");
+        if (ImGui::MenuItem("Save As...", "Shift+Ctrl+S")) {
+            if (auto file = save_file_dialog({{"Whitebox Project File", "wb"}})) {
+                ProjectFile project_file;
+                g_audio_io->close_device();
+                if (project_file.open(file.value().string(), true)) {
+                    project_file.write_project(g_engine, g_sample_table);
+                }
+                g_audio_io->open_device(g_settings_data.output_device_properties.id,
+                                        g_settings_data.input_device_properties.id);
+                g_audio_io->start(&g_engine, g_settings_data.audio_exclusive_mode,
+                                  g_settings_data.audio_buffer_size,
+                                  g_settings_data.audio_input_format,
+                                  g_settings_data.audio_output_format,
+                                  g_settings_data.audio_sample_rate, AudioThreadPriority::Normal);
+            }
+        }
+        ImGui::Separator();
+        if (ImGui::MenuItem("Quit"))
+            running = false;
+        ImGui::EndMenu();
+    }
+
+    if (ImGui::BeginMenu("Edit")) {
+        ImGui::MenuItem("Undo");
+        ImGui::MenuItem("Redo");
+        ImGui::End();
+    }
+
+    if (ImGui::BeginMenu("View")) {
+        ImGui::MenuItem("Windows", nullptr, false, false);
+        ImGui::Separator();
+        ImGui::MenuItem("Timeline", nullptr, &g_timeline.open);
+        ImGui::MenuItem("Mixer", nullptr, &g_mixer.open);
+        ImGui::MenuItem("Browser", nullptr, &g_browser.open);
+        ImGui::MenuItem("Settings", nullptr, &g_settings.open);
+        ImGui::MenuItem("Test Controls", nullptr, &controls::g_test_control_shown);
+        ImGui::EndMenu();
+    }
+
+    if (ImGui::BeginMenu("Help")) {
+        ImGui::MenuItem("About...");
+        ImGui::EndMenu();
     }
 }
 
