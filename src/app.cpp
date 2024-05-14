@@ -14,6 +14,7 @@
 #include "ui/mixer.h"
 #include "ui/settings.h"
 #include "ui/timeline.h"
+#include "ui/IconsMaterialSymbols.h"
 #include <imgui.h>
 #include <imgui_freetype.h>
 
@@ -33,6 +34,10 @@ void App::init() {
 
     ImFontConfig config;
     config.SizePixels = 13.0f;
+    ImFontConfig icon_config;
+    icon_config.SizePixels = 24.0f;
+    icon_config.GlyphOffset.y = 6.0f;
+    icon_config.MergeMode = true;
 
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
@@ -40,8 +45,12 @@ void App::init() {
     // io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
     io.ConfigViewportsNoTaskBarIcon = false;
 
+    static const ImWchar icons_ranges[] = {ICON_MIN_MS, ICON_MAX_MS, 0};
     io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
     io.Fonts->AddFontFromFileTTF("assets/Inter-Medium.otf", 0.0f, &config);
+    io.Fonts->AddFontFromFileTTF("assets/MaterialSymbolsRoundedInstanced.ttf", 0.0f, &icon_config,
+                                 icons_ranges);
+    io.Fonts->Build();
     apply_theme(ImGui::GetStyle());
 
     g_settings_data.load_settings_data();
@@ -56,14 +65,6 @@ void App::init() {
                       g_settings_data.audio_buffer_size, g_settings_data.audio_input_format,
                       g_settings_data.audio_output_format, g_settings_data.audio_sample_rate,
                       AudioThreadPriority::Normal);
-
-    Track* track = g_timeline.add_track();
-    g_engine.add_audio_clip_from_file(
-        track, "D:/packs/Some samples/NewPacks/Buildups Drum/NM Buildup Drum 09 150 BPM.wav", 0.5);
-
-    // Track* track = g_engine.add_track("New Track");
-    // track->add_audio_clip("Clip 1", 4.0, 8.0);
-    // track->add_audio_clip("Clip 2", 0.0, 4.0);
 }
 
 void App::run() {
@@ -86,9 +87,11 @@ void App::run() {
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 12.0f));
         ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+        ImGui::PushStyleColor(ImGuiCol_MenuBarBg, ImGui::GetStyleColorVec4(ImGuiCol_TitleBg));
         if (ImGui::BeginMainMenuBar()) {
             ImGui::PopStyleVar(4);
-            render_menu_bar();
+            ImGui::PopStyleColor();
+            render_control_bar();
             ImGui::EndMainMenuBar();
         }
 
@@ -134,20 +137,28 @@ void App::run() {
     }
 }
 
-void App::render_menu_bar() {
+void App::render_control_bar() {
     bool open_menu = false;
     ImVec2 frame_padding = GImGui->Style.FramePadding;
     ImVec4 btn_color = GImGui->Style.Colors[ImGuiCol_Button];
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_TitleBg));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 4.0f));
     ImGui::BeginChild("WB_TOOLBAR", ImVec2(), ImGuiChildFlags_AlwaysUseWindowPadding);
     ImGui::PopStyleColor();
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 8.0f));
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
     ImGui::PushStyleColor(ImGuiCol_Button, color_brighten(btn_color, 0.15f).Value);
-    open_menu = ImGui::Button("Menu");
+    open_menu = ImGui::Button(ICON_MS_MENU);
+    ImGui::SameLine(0.0f, 12.0f);
+    ImGui::Button(ICON_MS_LIBRARY_ADD "##new_project");
     ImGui::SameLine(0.0f, 4.0f);
-    ImGui::Button("Test");
+    ImGui::Button(ICON_MS_FOLDER_OPEN "##open_project");
+    ImGui::SameLine(0.0f, 4.0f);
+    ImGui::Button(ICON_MS_SAVE "##save_project");
+    ImGui::SameLine(0.0f, 12.0f);
+    ImGui::Button(ICON_MS_PLAY_ARROW);
+    ImGui::SameLine(0.0f, 4.0f);
+    ImGui::Button(ICON_MS_STOP);
 
     ImGui::PopStyleColor();
     ImGui::PopStyleVar(2);

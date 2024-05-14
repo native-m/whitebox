@@ -15,7 +15,7 @@ bool mixer_label(const char* caption, const float height, const ImColor& color) 
 
     auto draw_list = GImGui->CurrentWindow->DrawList;
     draw_list->AddRectFilled(bb.Min, bb.Max, ImGui::GetColorU32(ImGuiCol_FrameBg));
-    add_vertical_text(draw_list, caption, ImVec2(bb.Min.x + 2.0f, bb.Max.y - 4.0f), ImVec4(),
+    draw_vertical_text(draw_list, caption, ImVec2(bb.Min.x + 2.0f, bb.Max.y - 4.0f), ImVec4(),
                       ImGui::GetColorU32(ImGuiCol_Text));
 
     return true;

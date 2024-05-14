@@ -17,7 +17,7 @@ struct App {
 
     virtual ~App();
     void run();
-    void render_menu_bar();
+    void render_control_bar();
     void shutdown();
     void options_window();
     virtual void init();

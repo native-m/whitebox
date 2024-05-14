@@ -2,7 +2,7 @@
 
 namespace wb {
 
-void add_vertical_text(ImDrawList* DrawList, const char* text, ImVec2 pos, ImVec4 rect, ImU32 text_color) {
+void draw_vertical_text(ImDrawList* DrawList, const char* text, ImVec2 pos, ImVec4 rect, ImU32 text_color) {
     pos.x = IM_ROUND(pos.x);
     pos.y = IM_ROUND(pos.y);
     ImFont* font = GImGui->Font;
