@@ -293,7 +293,7 @@ void Track::render_sample(AudioBuffer<float>& output_buffer, uint32_t buffer_off
             if (sample_offset >= sample->count)
                 break;
             uint32_t min_num_samples =
-                std::min(num_samples, (uint32_t)(sample->count - samples_processed));
+                std::min(num_samples, (uint32_t)(sample->count - sample_offset));
             stream_sample(output_buffer, current_event.audio.sample, buffer_offset, min_num_samples,
                           sample_offset);
             samples_processed += min_num_samples;
@@ -350,16 +350,18 @@ void Track::stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uin
             for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
                 float* output = output_buffer.get_write_pointer(i);
                 auto sample_data = sample->get_read_pointer<float>(i % sample->channels);
-                for (uint32_t j = 0; j < num_samples; j++)
+                for (uint32_t j = 0; j < num_samples; j++) {
                     output[j + buffer_offset] += sample_data[sample_offset + j] * volume;
+                }
             }
             break;
         case AudioFormat::F64:
             for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
                 float* output = output_buffer.get_write_pointer(i);
                 auto sample_data = sample->get_read_pointer<double>(i % sample->channels);
-                for (uint32_t j = 0; j < num_samples; j++)
+                for (uint32_t j = 0; j < num_samples; j++) {
                     output[j + buffer_offset] += (float)sample_data[sample_offset + j] * volume;
+                }
             }
             break;
         default:

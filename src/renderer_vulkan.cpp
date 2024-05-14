@@ -1050,8 +1050,6 @@ void RendererVK::draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) {
             .sample_count = mip.sample_count,
         };
 
-        Log::debug("{}", (double)mip.sample_count);
-
         vkCmdPushConstants(current_cb_, waveform_layout,
                            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                            sizeof(ClipContentDrawCmdVK), &draw_cmd);
