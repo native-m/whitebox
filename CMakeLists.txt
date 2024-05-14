@@ -70,6 +70,7 @@ set(WB_SOURCES
     "src/ui/file_dropper.cpp"
     "src/ui/file_dropper.h"
     "src/ui/forms.h"
+    "src/ui/IconsMaterialSymbols.h"
     "src/ui/layout.h"
     "src/ui/mixer.cpp"
     "src/ui/mixer.h"
