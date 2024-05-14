@@ -1,4 +1,5 @@
 #include "app.h"
+#include "core/color.h"
 #include "core/debug.h"
 #include "core/thread.h"
 #include "engine/audio_io.h"
@@ -79,7 +80,14 @@ void App::run() {
         ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(),
                                      ImGuiDockNodeFlags_PassthruCentralNode);
 
+        ImVec2 frame_padding = GImGui->Style.FramePadding;
+        ImVec2 window_padding = GImGui->Style.WindowPadding;
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 12.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
         if (ImGui::BeginMainMenuBar()) {
+            ImGui::PopStyleVar(4);
             render_menu_bar();
             ImGui::EndMainMenuBar();
         }
@@ -127,28 +135,35 @@ void App::run() {
 }
 
 void App::render_menu_bar() {
-    if (ImGui::BeginMenu("File")) {
-        if (ImGui::MenuItem("New")) {
-            g_audio_io->close_device();
-            g_engine.clear_all();
-            g_timeline.reset();
-            g_timeline.add_track();
-            g_timeline.redraw_screen();
-            g_audio_io->open_device(g_settings_data.output_device_properties.id,
-                                    g_settings_data.input_device_properties.id);
-            g_audio_io->start(&g_engine, g_settings_data.audio_exclusive_mode,
-                              g_settings_data.audio_buffer_size, g_settings_data.audio_input_format,
-                              g_settings_data.audio_output_format,
-                              g_settings_data.audio_sample_rate, AudioThreadPriority::Normal);
-        }
-        if (ImGui::MenuItem("Open...", "Ctrl+O")) {
-            if (auto file = open_file_dialog({{"Whitebox Project File", "wb"}})) {
-                ProjectFile project_file;
+    bool open_menu = false;
+    ImVec2 frame_padding = GImGui->Style.FramePadding;
+    ImVec4 btn_color = GImGui->Style.Colors[ImGuiCol_Button];
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 4.0f));
+    ImGui::BeginChild("WB_TOOLBAR", ImVec2(), ImGuiChildFlags_AlwaysUseWindowPadding);
+    ImGui::PopStyleColor();
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 8.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
+    ImGui::PushStyleColor(ImGuiCol_Button, color_brighten(btn_color, 0.15f).Value);
+    open_menu = ImGui::Button("Menu");
+    ImGui::SameLine(0.0f, 4.0f);
+    ImGui::Button("Test");
+
+    ImGui::PopStyleColor();
+    ImGui::PopStyleVar(2);
+    ImGui::EndChild();
+    ImGui::PopStyleVar();
+
+    if (open_menu)
+        ImGui::OpenPopup("WB_MAIN_MENU_POPUP");
+
+    if (ImGui::BeginPopup("WB_MAIN_MENU_POPUP")) {
+        if (ImGui::BeginMenu("File")) {
+            if (ImGui::MenuItem("New")) {
                 g_audio_io->close_device();
                 g_engine.clear_all();
-                if (project_file.open(file.value().string(), false)) {
-                    project_file.read_project(g_engine, g_sample_table);
-                }
+                g_timeline.reset();
+                g_timeline.add_track();
                 g_timeline.redraw_screen();
                 g_audio_io->open_device(g_settings_data.output_device_properties.id,
                                         g_settings_data.input_device_properties.id);
@@ -158,52 +173,71 @@ void App::render_menu_bar() {
                                   g_settings_data.audio_output_format,
                                   g_settings_data.audio_sample_rate, AudioThreadPriority::Normal);
             }
-        }
-        ImGui::MenuItem("Open Recent");
-        ImGui::Separator();
-        ImGui::MenuItem("Save", "Ctrl+S");
-        if (ImGui::MenuItem("Save As...", "Shift+Ctrl+S")) {
-            if (auto file = save_file_dialog({{"Whitebox Project File", "wb"}})) {
-                ProjectFile project_file;
-                g_audio_io->close_device();
-                if (project_file.open(file.value().string(), true)) {
-                    project_file.write_project(g_engine, g_sample_table);
+            if (ImGui::MenuItem("Open...", "Ctrl+O")) {
+                if (auto file = open_file_dialog({{"Whitebox Project File", "wb"}})) {
+                    ProjectFile project_file;
+                    g_audio_io->close_device();
+                    g_engine.clear_all();
+                    if (project_file.open(file.value().string(), false)) {
+                        project_file.read_project(g_engine, g_sample_table);
+                    }
+                    g_timeline.redraw_screen();
+                    g_audio_io->open_device(g_settings_data.output_device_properties.id,
+                                            g_settings_data.input_device_properties.id);
+                    g_audio_io->start(
+                        &g_engine, g_settings_data.audio_exclusive_mode,
+                        g_settings_data.audio_buffer_size, g_settings_data.audio_input_format,
+                        g_settings_data.audio_output_format, g_settings_data.audio_sample_rate,
+                        AudioThreadPriority::Normal);
                 }
-                g_audio_io->open_device(g_settings_data.output_device_properties.id,
-                                        g_settings_data.input_device_properties.id);
-                g_audio_io->start(&g_engine, g_settings_data.audio_exclusive_mode,
-                                  g_settings_data.audio_buffer_size,
-                                  g_settings_data.audio_input_format,
-                                  g_settings_data.audio_output_format,
-                                  g_settings_data.audio_sample_rate, AudioThreadPriority::Normal);
             }
+            ImGui::MenuItem("Open Recent");
+            ImGui::Separator();
+            ImGui::MenuItem("Save", "Ctrl+S");
+            if (ImGui::MenuItem("Save As...", "Shift+Ctrl+S")) {
+                if (auto file = save_file_dialog({{"Whitebox Project File", "wb"}})) {
+                    ProjectFile project_file;
+                    g_audio_io->close_device();
+                    if (project_file.open(file.value().string(), true)) {
+                        project_file.write_project(g_engine, g_sample_table);
+                    }
+                    g_audio_io->open_device(g_settings_data.output_device_properties.id,
+                                            g_settings_data.input_device_properties.id);
+                    g_audio_io->start(
+                        &g_engine, g_settings_data.audio_exclusive_mode,
+                        g_settings_data.audio_buffer_size, g_settings_data.audio_input_format,
+                        g_settings_data.audio_output_format, g_settings_data.audio_sample_rate,
+                        AudioThreadPriority::Normal);
+                }
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem("Quit"))
+                running = false;
+            ImGui::EndMenu();
         }
-        ImGui::Separator();
-        if (ImGui::MenuItem("Quit"))
-            running = false;
-        ImGui::EndMenu();
-    }
 
-    if (ImGui::BeginMenu("Edit")) {
-        ImGui::MenuItem("Undo");
-        ImGui::MenuItem("Redo");
-        ImGui::End();
-    }
+        if (ImGui::BeginMenu("Edit")) {
+            ImGui::MenuItem("Undo");
+            ImGui::MenuItem("Redo");
+            ImGui::End();
+        }
 
-    if (ImGui::BeginMenu("View")) {
-        ImGui::MenuItem("Windows", nullptr, false, false);
-        ImGui::Separator();
-        ImGui::MenuItem("Timeline", nullptr, &g_timeline.open);
-        ImGui::MenuItem("Mixer", nullptr, &g_mixer.open);
-        ImGui::MenuItem("Browser", nullptr, &g_browser.open);
-        ImGui::MenuItem("Settings", nullptr, &g_settings.open);
-        ImGui::MenuItem("Test Controls", nullptr, &controls::g_test_control_shown);
-        ImGui::EndMenu();
-    }
+        if (ImGui::BeginMenu("View")) {
+            ImGui::MenuItem("Windows", nullptr, false, false);
+            ImGui::Separator();
+            ImGui::MenuItem("Timeline", nullptr, &g_timeline.open);
+            ImGui::MenuItem("Mixer", nullptr, &g_mixer.open);
+            ImGui::MenuItem("Browser", nullptr, &g_browser.open);
+            ImGui::MenuItem("Settings", nullptr, &g_settings.open);
+            ImGui::MenuItem("Test Controls", nullptr, &controls::g_test_control_shown);
+            ImGui::EndMenu();
+        }
 
-    if (ImGui::BeginMenu("Help")) {
-        ImGui::MenuItem("About...");
-        ImGui::EndMenu();
+        if (ImGui::BeginMenu("Help")) {
+            ImGui::MenuItem("About...");
+            ImGui::EndMenu();
+        }
+        ImGui::EndPopup();
     }
 }
 

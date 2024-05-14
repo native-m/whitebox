@@ -156,7 +156,7 @@ static bool slider2(const SliderProperties& properties, const char* str_id, cons
     //cursor_pos.y += properties.extra_padding.y;
 
     ImRect bb(ImVec2(cursor_pos.x, cursor_pos.y),
-              ImVec2(cursor_pos.x + size.x, cursor_pos.y + size.y));
+              ImVec2(cursor_pos.x, cursor_pos.y) + size);
     ImGuiID id = ImGui::GetID(str_id);
 
     ImGui::ItemSize(bb);
@@ -216,11 +216,8 @@ static bool slider2(const SliderProperties& properties, const char* str_id, cons
 }
 
 bool mixer_label(const char* caption, const float height, const ImColor& color);
-
 void metering(const ImVec2& size, uint32_t count, const float* channels);
-
 bool audio_param_drag();
-
 void render_test_controls();
 extern bool g_test_control_shown;
 
