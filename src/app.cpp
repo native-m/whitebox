@@ -7,6 +7,7 @@
 #include "engine/project.h"
 #include "renderer.h"
 #include "settings_data.h"
+#include "ui/IconsMaterialSymbols.h"
 #include "ui/browser.h"
 #include "ui/controls.h"
 #include "ui/file_dialog.h"
@@ -14,7 +15,6 @@
 #include "ui/mixer.h"
 #include "ui/settings.h"
 #include "ui/timeline.h"
-#include "ui/IconsMaterialSymbols.h"
 #include <imgui.h>
 #include <imgui_freetype.h>
 
@@ -78,6 +78,15 @@ void App::run() {
             }
         }
 
+        bool is_playing = g_engine.is_playing();
+        if (!ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Space)) {
+            if (is_playing) {
+                g_engine.stop();
+            } else {
+                g_engine.play();
+            }
+        }
+
         ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(),
                                      ImGuiDockNodeFlags_PassthruCentralNode);
 
@@ -96,36 +105,13 @@ void App::run() {
         }
 
         ImGui::ShowDemoWindow();
-
-        static float tempo = 150.0;
-        bool is_playing = g_engine.is_playing();
-        ImGui::Begin("Player");
-        if (ImGui::DragFloat("Tempo", &tempo, 1.0f, 0.0f, 0.0f, "%.2f BPM")) {
-            g_engine.set_bpm((double)tempo);
-        }
-
-        if (!ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Space)) {
-            if (is_playing) {
-                g_engine.stop();
-            } else {
-                g_engine.play();
-            }
-        }
-        if (is_playing)
-            ImGui::Text("Playing");
-        float playhead_pos = g_engine.playhead_ui.load(std::memory_order_relaxed);
-        ImGui::Text("Playhead: %f", playhead_pos);
-        ImGui::End();
-
         controls::render_test_controls();
-
         g_settings.render();
         g_browser.render();
         g_mixer.render();
         g_timeline.render();
 
         ImGui::Render();
-
         g_renderer->begin_draw(nullptr, {0.0f, 0.0f, 0.0f, 1.0f});
         g_renderer->render_draw_data(ImGui::GetDrawData());
         g_renderer->finish_draw();
@@ -141,9 +127,12 @@ void App::render_control_bar() {
     bool open_menu = false;
     ImVec2 frame_padding = GImGui->Style.FramePadding;
     ImVec4 btn_color = GImGui->Style.Colors[ImGuiCol_Button];
+    ImVec4 frame_bg = GImGui->Style.Colors[ImGuiCol_FrameBg];
+    bool is_playing = g_engine.is_playing();
     bool new_project = false;
     bool open_project = false;
     bool save_project = false;
+    static float tempo = 150.0;
 
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_TitleBg));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 4.0f));
@@ -151,7 +140,8 @@ void App::render_control_bar() {
     ImGui::PopStyleColor();
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 8.0f));
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
-    ImGui::PushStyleColor(ImGuiCol_Button, color_brighten(btn_color, 0.15f).Value);
+    ImGui::PushStyleColor(ImGuiCol_Button, color_brighten(btn_color, 0.10f).Value);
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, color_brighten(frame_bg, 0.10f).Value);
     open_menu = ImGui::Button(ICON_MS_MENU);
     ImGui::SameLine(0.0f, 12.0f);
     new_project = ImGui::Button(ICON_MS_LIBRARY_ADD "##new_project");
@@ -160,11 +150,28 @@ void App::render_control_bar() {
     ImGui::SameLine(0.0f, 4.0f);
     save_project = ImGui::Button(ICON_MS_SAVE "##save_project");
     ImGui::SameLine(0.0f, 12.0f);
-    ImGui::Button(ICON_MS_PLAY_ARROW);
+    if (ImGui::Button(!is_playing ? ICON_MS_PLAY_ARROW : ICON_MS_PAUSE)) {
+        if (is_playing) {
+            g_engine.stop();
+        } else {
+            g_engine.play();
+        }
+    }
     ImGui::SameLine(0.0f, 4.0f);
     ImGui::Button(ICON_MS_STOP);
+    ImGui::SameLine(0.0f, 4.0f);
 
-    ImGui::PopStyleColor();
+    ImGui::PushItemWidth(85.0f);
+    if (ImGui::DragFloat("Tempo", &tempo, 1.0f, 0.0f, 0.0f, "%.2f BPM")) {
+        g_engine.set_bpm((double)tempo);
+    }
+    ImGui::PopItemWidth();
+
+    ImGui::SameLine(0.0f, 12.0f);
+    float playhead_pos = g_engine.playhead_ui.load(std::memory_order_relaxed);
+    ImGui::Text("Playhead: %f", playhead_pos);
+
+    ImGui::PopStyleColor(2);
     ImGui::PopStyleVar(2);
     ImGui::EndChild();
     ImGui::PopStyleVar();
