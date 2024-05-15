@@ -141,6 +141,10 @@ void App::render_control_bar() {
     bool open_menu = false;
     ImVec2 frame_padding = GImGui->Style.FramePadding;
     ImVec4 btn_color = GImGui->Style.Colors[ImGuiCol_Button];
+    bool new_project = false;
+    bool open_project = false;
+    bool save_project = false;
+
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_TitleBg));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 4.0f));
     ImGui::BeginChild("WB_TOOLBAR", ImVec2(), ImGuiChildFlags_AlwaysUseWindowPadding);
@@ -150,11 +154,11 @@ void App::render_control_bar() {
     ImGui::PushStyleColor(ImGuiCol_Button, color_brighten(btn_color, 0.15f).Value);
     open_menu = ImGui::Button(ICON_MS_MENU);
     ImGui::SameLine(0.0f, 12.0f);
-    ImGui::Button(ICON_MS_LIBRARY_ADD "##new_project");
+    new_project = ImGui::Button(ICON_MS_LIBRARY_ADD "##new_project");
     ImGui::SameLine(0.0f, 4.0f);
-    ImGui::Button(ICON_MS_FOLDER_OPEN "##open_project");
+    open_project = ImGui::Button(ICON_MS_FOLDER_OPEN "##open_project");
     ImGui::SameLine(0.0f, 4.0f);
-    ImGui::Button(ICON_MS_SAVE "##save_project");
+    save_project = ImGui::Button(ICON_MS_SAVE "##save_project");
     ImGui::SameLine(0.0f, 12.0f);
     ImGui::Button(ICON_MS_PLAY_ARROW);
     ImGui::SameLine(0.0f, 4.0f);
@@ -170,57 +174,12 @@ void App::render_control_bar() {
 
     if (ImGui::BeginPopup("WB_MAIN_MENU_POPUP")) {
         if (ImGui::BeginMenu("File")) {
-            if (ImGui::MenuItem("New")) {
-                g_audio_io->close_device();
-                g_engine.clear_all();
-                g_timeline.reset();
-                g_timeline.add_track();
-                g_timeline.redraw_screen();
-                g_audio_io->open_device(g_settings_data.output_device_properties.id,
-                                        g_settings_data.input_device_properties.id);
-                g_audio_io->start(&g_engine, g_settings_data.audio_exclusive_mode,
-                                  g_settings_data.audio_buffer_size,
-                                  g_settings_data.audio_input_format,
-                                  g_settings_data.audio_output_format,
-                                  g_settings_data.audio_sample_rate, AudioThreadPriority::Normal);
-            }
-            if (ImGui::MenuItem("Open...", "Ctrl+O")) {
-                if (auto file = open_file_dialog({{"Whitebox Project File", "wb"}})) {
-                    ProjectFile project_file;
-                    g_audio_io->close_device();
-                    g_engine.clear_all();
-                    if (project_file.open(file.value().string(), false)) {
-                        project_file.read_project(g_engine, g_sample_table);
-                    }
-                    g_timeline.redraw_screen();
-                    g_audio_io->open_device(g_settings_data.output_device_properties.id,
-                                            g_settings_data.input_device_properties.id);
-                    g_audio_io->start(
-                        &g_engine, g_settings_data.audio_exclusive_mode,
-                        g_settings_data.audio_buffer_size, g_settings_data.audio_input_format,
-                        g_settings_data.audio_output_format, g_settings_data.audio_sample_rate,
-                        AudioThreadPriority::Normal);
-                }
-            }
+            new_project = ImGui::MenuItem("New");
+            open_project = ImGui::MenuItem("Open...", "Ctrl+O");
             ImGui::MenuItem("Open Recent");
             ImGui::Separator();
             ImGui::MenuItem("Save", "Ctrl+S");
-            if (ImGui::MenuItem("Save As...", "Shift+Ctrl+S")) {
-                if (auto file = save_file_dialog({{"Whitebox Project File", "wb"}})) {
-                    ProjectFile project_file;
-                    g_audio_io->close_device();
-                    if (project_file.open(file.value().string(), true)) {
-                        project_file.write_project(g_engine, g_sample_table);
-                    }
-                    g_audio_io->open_device(g_settings_data.output_device_properties.id,
-                                            g_settings_data.input_device_properties.id);
-                    g_audio_io->start(
-                        &g_engine, g_settings_data.audio_exclusive_mode,
-                        g_settings_data.audio_buffer_size, g_settings_data.audio_input_format,
-                        g_settings_data.audio_output_format, g_settings_data.audio_sample_rate,
-                        AudioThreadPriority::Normal);
-                }
-            }
+            save_project = ImGui::MenuItem("Save As...", "Shift+Ctrl+S");
             ImGui::Separator();
             if (ImGui::MenuItem("Quit"))
                 running = false;
@@ -249,6 +208,50 @@ void App::render_control_bar() {
             ImGui::EndMenu();
         }
         ImGui::EndPopup();
+    }
+
+    if (new_project) {
+        g_audio_io->close_device();
+        g_engine.clear_all();
+        g_timeline.reset();
+        g_timeline.add_track();
+        g_timeline.redraw_screen();
+        g_audio_io->open_device(g_settings_data.output_device_properties.id,
+                                g_settings_data.input_device_properties.id);
+        g_audio_io->start(&g_engine, g_settings_data.audio_exclusive_mode,
+                          g_settings_data.audio_buffer_size, g_settings_data.audio_input_format,
+                          g_settings_data.audio_output_format, g_settings_data.audio_sample_rate,
+                          AudioThreadPriority::Normal);
+    } else if (open_project) {
+        if (auto file = open_file_dialog({{"Whitebox Project File", "wb"}})) {
+            ProjectFile project_file;
+            g_audio_io->close_device();
+            g_engine.clear_all();
+            if (project_file.open(file.value().string(), false)) {
+                project_file.read_project(g_engine, g_sample_table);
+            }
+            g_timeline.redraw_screen();
+            g_audio_io->open_device(g_settings_data.output_device_properties.id,
+                                    g_settings_data.input_device_properties.id);
+            g_audio_io->start(&g_engine, g_settings_data.audio_exclusive_mode,
+                              g_settings_data.audio_buffer_size, g_settings_data.audio_input_format,
+                              g_settings_data.audio_output_format,
+                              g_settings_data.audio_sample_rate, AudioThreadPriority::Normal);
+        }
+    } else if (save_project) {
+        if (auto file = save_file_dialog({{"Whitebox Project File", "wb"}})) {
+            ProjectFile project_file;
+            g_audio_io->close_device();
+            if (project_file.open(file.value().string(), true)) {
+                project_file.write_project(g_engine, g_sample_table);
+            }
+            g_audio_io->open_device(g_settings_data.output_device_properties.id,
+                                    g_settings_data.input_device_properties.id);
+            g_audio_io->start(&g_engine, g_settings_data.audio_exclusive_mode,
+                              g_settings_data.audio_buffer_size, g_settings_data.audio_input_format,
+                              g_settings_data.audio_output_format,
+                              g_settings_data.audio_sample_rate, AudioThreadPriority::Normal);
+        }
     }
 }
 
