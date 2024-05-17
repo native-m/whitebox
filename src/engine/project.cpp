@@ -165,7 +165,6 @@ void ProjectFile::write_track(Track* track) {
     file.write((char*)&volume, sizeof(float));
     file.write((char*)&pan, sizeof(float));
     file.write((char*)&mute, 1);
-
     file.write((char*)&clip_count, sizeof(size_t));
     for (auto clip : track->clips) {
         write_clip(clip);

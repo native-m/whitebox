@@ -215,6 +215,7 @@ static bool slider2(const SliderProperties& properties, const char* str_id, cons
     return false;
 }
 
+void song_position();
 bool mixer_label(const char* caption, const float height, const ImColor& color);
 void metering(const ImVec2& size, uint32_t count, const float* channels);
 bool audio_param_drag();

@@ -550,6 +550,7 @@ struct AudioIOWASAPI : public AudioIO {
                         convert_f32_to_interleaved_i24_x8((int32_t*)buffer,
                                                           output_buffer.channel_buffers, offset,
                                                           frames_available, output_channels);
+                        break;
                     case AudioFormat::I32:
                         convert_f32_to_interleaved_i32((int32_t*)buffer,
                                                        output_buffer.channel_buffers, offset,

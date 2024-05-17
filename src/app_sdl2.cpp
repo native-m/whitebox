@@ -30,7 +30,7 @@ void AppSDL2::init() {
 
     window_id = SDL_GetWindowID(new_window);
     window = new_window;
-
+ 
     SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
 
     App::init();

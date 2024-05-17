@@ -69,6 +69,8 @@ set(WB_SOURCES
     "src/ui/file_dialog.h"
     "src/ui/file_dropper.cpp"
     "src/ui/file_dropper.h"
+    "src/ui/font.cpp"
+    "src/ui/font.h"
     "src/ui/forms.h"
     "src/ui/IconsMaterialSymbols.h"
     "src/ui/layout.h"

@@ -12,6 +12,7 @@
 #include "ui/controls.h"
 #include "ui/file_dialog.h"
 #include "ui/file_dropper.h"
+#include "ui/font.h"
 #include "ui/mixer.h"
 #include "ui/settings.h"
 #include "ui/timeline.h"
@@ -32,25 +33,13 @@ void App::init() {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
 
-    ImFontConfig config;
-    config.SizePixels = 13.0f;
-    ImFontConfig icon_config;
-    icon_config.SizePixels = 24.0f;
-    icon_config.GlyphOffset.y = 6.0f;
-    icon_config.MergeMode = true;
-
     ImGuiIO& io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     // io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
     io.ConfigViewportsNoTaskBarIcon = false;
 
-    static const ImWchar icons_ranges[] = {ICON_MIN_MS, ICON_MAX_MS, 0};
-    io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
-    io.Fonts->AddFontFromFileTTF("assets/Inter-Medium.otf", 0.0f, &config);
-    io.Fonts->AddFontFromFileTTF("assets/MaterialSymbolsRoundedInstanced.ttf", 0.0f, &icon_config,
-                                 icons_ranges);
-    io.Fonts->Build();
+    init_font_assets();
     apply_theme(ImGui::GetStyle());
 
     g_settings_data.load_settings_data();
@@ -94,7 +83,7 @@ void App::run() {
         ImVec2 window_padding = GImGui->Style.WindowPadding;
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 12.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 13.0f));
         ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
         ImGui::PushStyleColor(ImGuiCol_MenuBarBg, ImGui::GetStyleColorVec4(ImGuiCol_TitleBg));
         if (ImGui::BeginMainMenuBar()) {
@@ -138,10 +127,13 @@ void App::render_control_bar() {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 4.0f));
     ImGui::BeginChild("WB_TOOLBAR", ImVec2(), ImGuiChildFlags_AlwaysUseWindowPadding);
     ImGui::PopStyleColor();
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 8.0f));
+    ImGuiWindow* toolbar_window = ImGui::GetCurrentWindow();
+
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
-    ImGui::PushStyleColor(ImGuiCol_Button, color_brighten(btn_color, 0.10f).Value);
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, color_brighten(frame_bg, 0.10f).Value);
+    ImGui::PushStyleColor(ImGuiCol_Button, color_brighten(btn_color, 0.12f).Value);
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, color_brighten(frame_bg, 0.12f).Value);
+
+    set_current_font(FontType::Icon);
     open_menu = ImGui::Button(ICON_MS_MENU);
     ImGui::SameLine(0.0f, 12.0f);
     new_project = ImGui::Button(ICON_MS_LIBRARY_ADD "##new_project");
@@ -158,18 +150,31 @@ void App::render_control_bar() {
         }
     }
     ImGui::SameLine(0.0f, 4.0f);
-    ImGui::Button(ICON_MS_STOP);
+    if (ImGui::Button(ICON_MS_STOP)) {
+        g_engine.stop();
+    }
     ImGui::SameLine(0.0f, 4.0f);
 
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.951f, 0.322f, 0.322f, 1.000f));
+    ImGui::Button(ICON_MS_FIBER_MANUAL_RECORD);
+    ImGui::PopStyleColor();
+
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 8.0f));
     ImGui::PushItemWidth(85.0f);
-    if (ImGui::DragFloat("Tempo", &tempo, 1.0f, 0.0f, 0.0f, "%.2f BPM")) {
+    ImGui::SameLine(0.0f, 4.0f);
+    set_current_font(FontType::Medium);
+    controls::song_position();
+    set_current_font(FontType::Nornal);
+    ImGui::SameLine(0.0f, 4.0f);
+    if (ImGui::DragFloat("Tempo", &tempo, 1.0f, 0.0f, 0.0f, "%.2f BPM",
+                         ImGuiSliderFlags_Vertical)) {
         g_engine.set_bpm((double)tempo);
     }
     ImGui::PopItemWidth();
 
-    ImGui::SameLine(0.0f, 12.0f);
+    /*ImGui::SameLine(0.0f, 12.0f);
     float playhead_pos = g_engine.playhead_ui.load(std::memory_order_relaxed);
-    ImGui::Text("Playhead: %f", playhead_pos);
+    ImGui::Text("Playhead: %f", playhead_pos);*/
 
     ImGui::PopStyleColor(2);
     ImGui::PopStyleVar(2);
@@ -342,7 +347,8 @@ void apply_theme(ImGuiStyle& style) {
     colors[ImGuiCol_ResizeGripActive] = ImVec4(0.32f, 0.32f, 0.33f, 1.00f);
     colors[ImGuiCol_Tab] = ImVec4(0.15f, 0.15f, 0.15f, 1.00f);
     colors[ImGuiCol_TabHovered] = ImVec4(0.11f, 0.59f, 0.93f, 1.00f);
-    colors[ImGuiCol_TabActive] = ImVec4(0.00f, 0.47f, 0.78f, 1.00f);
+    colors[ImGuiCol_TabActive] = ImVec4(0.11f, 0.59f, 0.93f, 1.00f);
+    // colors[ImGuiCol_TabActive] = ImVec4(0.00f, 0.47f, 0.78f, 1.00f);
     colors[ImGuiCol_TabUnfocused] = ImVec4(0.15f, 0.15f, 0.15f, 1.00f);
     colors[ImGuiCol_TabUnfocusedActive] = ImVec4(0.00f, 0.47f, 0.78f, 1.00f);
     colors[ImGuiCol_DockingPreview] = ImVec4(0.26f, 0.59f, 0.98f, 0.70f);
