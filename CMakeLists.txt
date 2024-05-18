@@ -15,6 +15,7 @@ project("whitebox")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED 20)
+option(WB_VST3_SDK_PATH "Path to VST3 SDK")
 
 include(Dependencies.cmake)
 
@@ -60,6 +61,9 @@ set(WB_SOURCES
     "src/engine/sample_table.h"
     "src/engine/track.cpp"
     "src/engine/track.h"
+
+    "src/plughost/vst3host.cpp"
+    "src/plughost/vst3host.h"
 
     "src/ui/browser.cpp"
     "src/ui/browser.h"
