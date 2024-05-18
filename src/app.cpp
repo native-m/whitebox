@@ -134,6 +134,7 @@ void App::render_control_bar() {
     ImGui::PushStyleColor(ImGuiCol_FrameBg, color_brighten(frame_bg, 0.12f).Value);
 
     set_current_font(FontType::Icon);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 3.0f));
     open_menu = ImGui::Button(ICON_MS_MENU);
     ImGui::SameLine(0.0f, 12.0f);
     new_project = ImGui::Button(ICON_MS_LIBRARY_ADD "##new_project");
@@ -154,15 +155,15 @@ void App::render_control_bar() {
         g_engine.stop();
     }
     ImGui::SameLine(0.0f, 4.0f);
-
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.951f, 0.322f, 0.322f, 1.000f));
     ImGui::Button(ICON_MS_FIBER_MANUAL_RECORD);
+    ImGui::PopStyleVar();
     ImGui::PopStyleColor();
 
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 8.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 8.5f));
     ImGui::PushItemWidth(85.0f);
     ImGui::SameLine(0.0f, 4.0f);
-    set_current_font(FontType::Medium);
+    set_current_font(FontType::MonoMedium);
     controls::song_position();
     set_current_font(FontType::Nornal);
     ImGui::SameLine(0.0f, 4.0f);
@@ -172,9 +173,9 @@ void App::render_control_bar() {
     }
     ImGui::PopItemWidth();
 
-    /*ImGui::SameLine(0.0f, 12.0f);
+    ImGui::SameLine(0.0f, 12.0f);
     float playhead_pos = g_engine.playhead_ui.load(std::memory_order_relaxed);
-    ImGui::Text("Playhead: %f", playhead_pos);*/
+    ImGui::Text("Playhead: %f", playhead_pos);
 
     ImGui::PopStyleColor(2);
     ImGui::PopStyleVar(2);

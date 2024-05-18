@@ -39,7 +39,9 @@ struct Engine {
     void clear_all();
     void play();
     void stop();
-    bool is_playing() const { return playing.load(std::memory_order_relaxed); }
+
+    inline double playhead_pos() const { return playhead_ui.load(std::memory_order_relaxed); }
+    inline bool is_playing() const { return playing.load(std::memory_order_relaxed); }
 
     void edit_lock() { editor_lock.lock(); }
     void edit_unlock() { editor_lock.unlock(); }

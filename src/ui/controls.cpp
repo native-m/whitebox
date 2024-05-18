@@ -1,4 +1,6 @@
 #include "controls.h"
+#include "engine/engine.h"
+#include "core/math.h"
 
 namespace wb::controls {
 
@@ -15,13 +17,18 @@ void song_position() {
     ImGui::ItemSize(size);
     if (!ImGui::ItemAdd(bb, id))
         return;
-
-    ImVec2 text_size = ImGui::CalcTextSize("999:00:00");
+    double playhead = g_engine.playhead_pos();
+    float bar = IM_TRUNC(playhead * 0.25) + 1.0;
+    float beat = IM_TRUNC(std::fmod(playhead, 4.0)) + 1.0;
+    float tick = IM_TRUNC(math::fract(playhead) * g_engine.ppq);
+    char buf[32] {};
+    fmt::format_to(buf, "{}:{}:{:03}", bar, beat, tick);
+    ImVec2 text_size = ImGui::CalcTextSize(buf);
     ImVec2 text_pos = position + size * 0.5f - text_size * 0.5f;
     float half_font_size = font->FontSize * 0.5f;
     draw_list->AddRectFilled(bb.Min, bb.Max, ImGui::GetColorU32(ImGuiCol_Button), 2.0f);
-    draw_monospace_text(draw_list, "999:00:00", text_pos, text_color);
-    // draw_list->AddText(position + text_pos, ImGui::GetColorU32(ImGuiCol_Text), "999:00:00");
+    //draw_simple_text(draw_list, "999:00:00", position + size * 0.5f - text_size * 0.5f, text_color);
+    draw_list->AddText(text_pos, ImGui::GetColorU32(ImGuiCol_Text), buf);
 }
 
 bool mixer_label(const char* caption, const float height, const ImColor& color) {

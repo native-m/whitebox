@@ -12,6 +12,11 @@ inline double uround(double x) {
     return (double)((uint64_t)(v));
 }
 
+template <typename T>
+inline T fract(T x) {
+    return x - std::floor(x);
+}
+
 } // namespace math
 
 template <typename T>
