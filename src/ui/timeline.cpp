@@ -377,7 +377,7 @@ inline void GuiTimeline::render_time_ruler() {
     for (int i = 0; i <= line_count; i++) {
         char digits[24] {};
         float rounded_gridline_pos_x = std::round(gridline_pos_x);
-        fmt::format_to_n(digits, sizeof(digits), "{}", i + count_offset);
+        fmt::format_to_n(digits, sizeof(digits), "{}", i + count_offset + 1);
         draw_list->AddText(ImVec2(rounded_gridline_pos_x + 4.0f,
                                   cursor_pos.y + style.FramePadding.y * 2.0f - 2.0f),
                            ImGui::GetColorU32(ImGuiCol_Text), digits);

@@ -137,13 +137,19 @@ void App::render_control_bar() {
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 3.0f));
     open_menu = ImGui::Button(ICON_MS_MENU);
     ImGui::SameLine(0.0f, 12.0f);
-    new_project = ImGui::Button(ICON_MS_LIBRARY_ADD "##new_project");
+    new_project = ImGui::Button(ICON_MS_LIBRARY_ADD "##wb_new_project");
     ImGui::SameLine(0.0f, 4.0f);
-    open_project = ImGui::Button(ICON_MS_FOLDER_OPEN "##open_project");
+    open_project = ImGui::Button(ICON_MS_FOLDER_OPEN "##wb_open_project");
     ImGui::SameLine(0.0f, 4.0f);
-    save_project = ImGui::Button(ICON_MS_SAVE "##save_project");
+    save_project = ImGui::Button(ICON_MS_SAVE "##wb_save_project");
+
     ImGui::SameLine(0.0f, 12.0f);
-    if (ImGui::Button(!is_playing ? ICON_MS_PLAY_ARROW : ICON_MS_PAUSE)) {
+    ImGui::Button(ICON_MS_UNDO "##wb_undo");
+    ImGui::SameLine(0.0f, 4.0f);
+    ImGui::Button(ICON_MS_REDO "##wb_redo");
+
+    ImGui::SameLine(0.0f, 12.0f);
+    if (ImGui::Button(!is_playing ? ICON_MS_PLAY_ARROW "##wb_play" : ICON_MS_PAUSE "##wb_play")) {
         if (is_playing) {
             g_engine.stop();
         } else {
@@ -151,14 +157,14 @@ void App::render_control_bar() {
         }
     }
     ImGui::SameLine(0.0f, 4.0f);
-    if (ImGui::Button(ICON_MS_STOP)) {
+    if (ImGui::Button(ICON_MS_STOP "##wb_stop")) {
         g_engine.stop();
     }
     ImGui::SameLine(0.0f, 4.0f);
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.951f, 0.322f, 0.322f, 1.000f));
-    ImGui::Button(ICON_MS_FIBER_MANUAL_RECORD);
-    ImGui::PopStyleVar();
+    ImGui::Button(ICON_MS_FIBER_MANUAL_RECORD "##wb_record");
     ImGui::PopStyleColor();
+    ImGui::PopStyleVar();
 
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 8.5f));
     ImGui::PushItemWidth(85.0f);
@@ -173,9 +179,9 @@ void App::render_control_bar() {
     }
     ImGui::PopItemWidth();
 
-    ImGui::SameLine(0.0f, 12.0f);
-    float playhead_pos = g_engine.playhead_ui.load(std::memory_order_relaxed);
-    ImGui::Text("Playhead: %f", playhead_pos);
+    //ImGui::SameLine(0.0f, 12.0f);
+    //float playhead_pos = g_engine.playhead_ui.load(std::memory_order_relaxed);
+    //ImGui::Text("Playhead: %f", playhead_pos);
 
     ImGui::PopStyleColor(2);
     ImGui::PopStyleVar(2);
