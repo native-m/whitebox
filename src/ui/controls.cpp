@@ -18,8 +18,8 @@ void song_position() {
     if (!ImGui::ItemAdd(bb, id))
         return;
     double playhead = g_engine.playhead_pos();
-    float bar = IM_TRUNC(playhead * 0.25) + 1.0;
-    float beat = IM_TRUNC(std::fmod(playhead, 4.0)) + 1.0;
+    float bar = IM_TRUNC(playhead * 0.25) + 1.0f;
+    float beat = IM_TRUNC(std::fmod(playhead, 4.0)) + 1.0f;
     float tick = IM_TRUNC(math::fract(playhead) * g_engine.ppq);
     char buf[32] {};
     fmt::format_to(buf, "{}:{}:{:03}", bar, beat, tick);

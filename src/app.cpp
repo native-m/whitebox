@@ -32,6 +32,7 @@ void App::init() {
     Log::info("Initializing UI...");
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+    g_settings_data.load_settings_data();
 
     ImGuiIO& io = ImGui::GetIO();
     //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
@@ -41,13 +42,11 @@ void App::init() {
 
     init_font_assets();
     apply_theme(ImGui::GetStyle());
-
-    g_settings_data.load_settings_data();
     init_renderer(this);
     init_audio_io(AudioIOType::WASAPI);
+
     g_engine.set_bpm(150.0f);
     g_timeline.init();
-
     g_audio_io->open_device(g_settings_data.output_device_properties.id,
                             g_settings_data.input_device_properties.id);
     g_audio_io->start(&g_engine, g_settings_data.audio_exclusive_mode,
@@ -127,7 +126,6 @@ void App::render_control_bar() {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 4.0f));
     ImGui::BeginChild("WB_TOOLBAR", ImVec2(), ImGuiChildFlags_AlwaysUseWindowPadding);
     ImGui::PopStyleColor();
-    ImGuiWindow* toolbar_window = ImGui::GetCurrentWindow();
 
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
     ImGui::PushStyleColor(ImGuiCol_Button, color_brighten(btn_color, 0.12f).Value);
@@ -199,6 +197,19 @@ void App::render_control_bar() {
             ImGui::Separator();
             ImGui::MenuItem("Save", "Ctrl+S");
             save_project = ImGui::MenuItem("Save As...", "Shift+Ctrl+S");
+            ImGui::Separator();
+            if (ImGui::MenuItem("Open VST3 plugin")) {
+                if (auto folder = pick_folder_dialog()) {
+                    if (vst3_host.open_module(folder.value().string())) {
+                        if (vst3_host.init_view()) {
+                            Steinberg::ViewRect rect;
+                            vst3_host.view->getSize(&rect);
+                            add_vst3_view(vst3_host, "whitebox plugin host", rect.getWidth(),
+                                          rect.getHeight());
+                        }
+                    }
+                }
+            }
             ImGui::Separator();
             if (ImGui::MenuItem("Quit"))
                 running = false;

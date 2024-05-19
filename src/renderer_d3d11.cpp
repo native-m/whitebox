@@ -1,4 +1,4 @@
-#include "core/platform.h"
+#include "core/platform_def.h"
 
 #ifdef WB_PLATFORM_WINDOWS
 

@@ -8,7 +8,6 @@
 #include "core/thread.h"
 #include "engine/engine.h"
 
-#define WIN32_LEAN_AND_MEAN
 #include <Audioclient.h>
 #include <atomic>
 #include <ks.h>

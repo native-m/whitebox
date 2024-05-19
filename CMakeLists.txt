@@ -37,7 +37,7 @@ set(WB_SOURCES
     "src/core/json_fwd.hpp"
     "src/core/math.h"
     "src/core/memory.h"
-    "src/core/platform.h"
+    "src/core/platform_def.h"
     "src/core/queue.h"
     "src/core/thread.cpp"
     "src/core/thread.h"
@@ -117,7 +117,8 @@ set(WB_LINK_LIBRARIES
     imgui-freetype
     imgui-vulkan
     sndfile
-    nfd)
+    nfd
+    vst3-sdk-hosting)
 
 if (MSVC)
     set(WB_LINK_LIBRARIES ${WB_LINK_LIBRARIES} imgui-d3d11 Avrt)

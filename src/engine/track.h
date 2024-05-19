@@ -9,7 +9,6 @@
 #include "core/vector.h"
 #include "event.h"
 #include <imgui.h>
-#include <string>
 #include <unordered_set>
 #include <vector>
 

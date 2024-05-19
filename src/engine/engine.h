@@ -6,8 +6,6 @@
 #include "core/thread.h"
 #include "track.h"
 #include <functional>
-#include <string>
-#include <vector>
 
 namespace wb {
 
