@@ -24,6 +24,37 @@ struct Vector {
     Vector(const Vector<T>&) = delete;
     ~Vector() { destroy_(); }
 
+    inline Vector<T>& operator=(const Vector<T>& other)
+        requires std::copyable<T>
+    {
+        if constexpr (std::is_trivially_copyable_v<T>) {
+            size_t other_size = other.size();
+            if (other_size != size()) {
+                destroy_();
+                intern_.data = (T*)std::malloc(other_size * sizeof(T));
+                intern_.size = other_size;
+                intern_.capacity = other_size;
+            }
+            std::memcpy(intern_.data, other.intern_.data, other_size * sizeof(T));
+        } else {
+            size_t other_size = other.size();
+            if (other_size != size())
+                resize(other_size);
+            T* data_ptr = intern_.data;
+            T* end_ptr = intern_.data + other_size;
+            T* other_ptr = other.intern_;
+            for (; data_ptr != end_ptr; (void)++data_ptr, (void)++other_ptr)
+                *data_ptr = *other_ptr;
+        }
+        return *this;
+    }
+
+    inline Vector<T>& operator=(Vector<T>&& other) noexcept {
+        destroy_();
+        intern_ = std::exchange(other.intern_, {});
+        return *this;
+    }
+
     inline bool empty() const { return intern_.size == 0; }
     inline size_t size() const { return intern_.size; }
     inline size_t max_size() const { return SIZE_MAX / sizeof(T); }
@@ -147,7 +178,7 @@ struct Vector {
         return new_capacity > new_size ? new_capacity : new_size;
     }
 
-    inline void destroy_() {
+    inline void destroy_(bool without_free = false) {
         if (!intern_.data)
             return;
         if constexpr (!std::is_trivially_destructible_v<T>) {
@@ -158,8 +189,10 @@ struct Vector {
                 data_ptr++;
             }
         }
-        std::free(intern_.data);
-        intern_.data = nullptr;
+        if (!without_free) {
+            std::free(intern_.data);
+            intern_.data = nullptr;
+        }
     }
 };
 } // namespace wb
