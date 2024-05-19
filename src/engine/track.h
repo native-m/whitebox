@@ -4,13 +4,10 @@
 #include "core/audio_buffer.h"
 #include "core/audio_param.h"
 #include "core/memory.h"
-#include "core/queue.h"
-#include "core/thread.h"
 #include "core/vector.h"
 #include "event.h"
 #include <imgui.h>
 #include <unordered_set>
-#include <vector>
 
 namespace wb {
 
@@ -42,7 +39,7 @@ struct Track {
     TrackParameterState parameter_state {};
 
     Pool<Clip> clip_allocator;
-    std::vector<Clip*> clips;
+    Vector<Clip*> clips;
     std::unordered_set<uint32_t> deleted_clip_ids;
 
     Vector<Event> event_buffer;

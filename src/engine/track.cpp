@@ -192,10 +192,11 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
 
     Clip* current_clip = playback_state.current_clip;
     Clip* next_clip = playback_state.next_clip;
+    bool has_deleted_clips = !deleted_clip_ids.empty();
 
     if (current_clip) {
         double max_time = math::uround(current_clip->max_time * ppq) * inv_ppq;
-        if (!deleted_clip_ids.empty() && deleted_clip_ids.contains(current_clip->id) ||
+        if (has_deleted_clips && deleted_clip_ids.contains(current_clip->id) ||
             time_pos >= max_time) {
             event_buffer.push_back({
                 .type = EventType::StopSample,
@@ -207,6 +208,16 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
             });
             playback_state.current_clip = nullptr;
         }
+    }
+
+    if (has_deleted_clips && deleted_clip_ids.contains(next_clip->id)) {
+        auto new_next_clip = clips.begin() + (next_clip->id + 1);
+        if (new_next_clip != clips.end()) {
+            next_clip = *new_next_clip;
+        } else {
+            next_clip = nullptr;
+        }
+        playback_state.next_clip = next_clip;
     }
 
     if (next_clip) {
@@ -372,7 +383,7 @@ void Track::stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uin
 
 void Track::flush_deleted_clips() {
     uint32_t i = 0;
-    std::vector<Clip*> new_clip_list;
+    Vector<Clip*> new_clip_list;
     new_clip_list.reserve(clips.size());
     for (auto clip : clips) {
         if (deleted_clip_ids.contains(clip->id)) {
