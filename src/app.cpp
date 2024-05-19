@@ -1,7 +1,6 @@
 #include "app.h"
 #include "core/color.h"
 #include "core/debug.h"
-#include "core/thread.h"
 #include "engine/audio_io.h"
 #include "engine/engine.h"
 #include "engine/project.h"
@@ -17,7 +16,6 @@
 #include "ui/settings.h"
 #include "ui/timeline.h"
 #include <imgui.h>
-#include <imgui_freetype.h>
 
 using namespace std::literals::chrono_literals;
 

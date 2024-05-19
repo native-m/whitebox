@@ -5,7 +5,6 @@
 #include "core/audio_format_conv.h"
 #include "core/debug.h"
 #include "core/math.h"
-#include "core/thread.h"
 #include "engine/engine.h"
 
 #include <Audioclient.h>
@@ -15,7 +14,6 @@
 #include <memory>
 #include <string_view>
 #include <thread>
-#include <unordered_set>
 #include <vector>
 #include <wrl.h>
 

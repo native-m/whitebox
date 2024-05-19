@@ -5,9 +5,7 @@
 #include "renderer_d3d11.h"
 #include "app_sdl2.h"
 #include "core/debug.h"
-#include <SDL.h>
 #include <SDL_syswm.h>
-#include <algorithm>
 #include <imgui_impl_dx11.h>
 #include <imgui_impl_sdl2.h>
 #include <wrl.h>
