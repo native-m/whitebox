@@ -658,10 +658,13 @@ void GuiTimeline::render_track_lanes() {
     ImGui::InvisibleButton(
         "##timeline", ImVec2(timeline_width, std::max(timeline_area.y, area_size.y + vscroll)));
 
+    ImGui::SetItemKeyOwner(ImGuiKey_MouseWheelX);
+    
     double view_scale = calc_view_scale();
     double inv_view_scale = 1.0 / view_scale;
     ImVec2 mouse_pos = ImGui::GetMousePos();
     float mouse_wheel = ImGui::GetIO().MouseWheel;
+    float mouse_wheel_h = ImGui::GetIO().MouseWheelH;
     bool left_mouse_clicked = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
     bool left_mouse_down = ImGui::IsMouseDown(ImGuiMouseButton_Left);
     bool middle_mouse_clicked = ImGui::IsMouseClicked(ImGuiMouseButton_Middle);
@@ -669,6 +672,10 @@ void GuiTimeline::render_track_lanes() {
     bool right_mouse_clicked = ImGui::IsMouseDown(ImGuiMouseButton_Right);
     bool timeline_hovered = ImGui::IsItemHovered();
     bool mouse_move = false;
+
+    if (timeline_hovered && mouse_wheel_h != 0.0f) {
+        scroll_horizontal(mouse_wheel_h, song_length, timeline_width);
+    }
 
     if (mouse_pos.x != last_mouse_pos.x || mouse_pos.y != last_mouse_pos.y) {
         last_mouse_pos = mouse_pos;
@@ -717,11 +724,11 @@ void GuiTimeline::render_track_lanes() {
         float max_offset = !dragging_file ? timeline_end_x : timeline_end_x - 20.0f;
         if (mouse_pos.x < min_offset) {
             float distance = min_offset - mouse_pos.x;
-            scroll_horizontal(distance * speed * (float)inv_view_scale, song_length, -view_scale);
+            scroll_horizontal(distance * speed, song_length, -view_scale);
         }
         if (mouse_pos.x > max_offset) {
             float distance = max_offset - mouse_pos.x;
-            scroll_horizontal(distance * speed * (float)inv_view_scale, song_length, -view_scale);
+            scroll_horizontal(distance * speed, song_length, -view_scale);
         }
         redraw = true;
     }
