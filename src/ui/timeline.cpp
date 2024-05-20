@@ -658,8 +658,6 @@ void GuiTimeline::render_track_lanes() {
     ImGui::InvisibleButton(
         "##timeline", ImVec2(timeline_width, std::max(timeline_area.y, area_size.y + vscroll)));
 
-    ImGui::SetItemKeyOwner(ImGuiKey_MouseWheelX);
-    
     double view_scale = calc_view_scale();
     double inv_view_scale = 1.0 / view_scale;
     ImVec2 mouse_pos = ImGui::GetMousePos();
