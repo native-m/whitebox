@@ -31,6 +31,7 @@ void App::init() {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     g_settings_data.load_settings_data();
+    g_settings_data.apply_audio_settings();
 
     ImGuiIO& io = ImGui::GetIO();
     //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
@@ -41,16 +42,9 @@ void App::init() {
     init_font_assets();
     apply_theme(ImGui::GetStyle());
     init_renderer(this);
-    init_audio_io(AudioIOType::WASAPI);
 
     g_engine.set_bpm(150.0f);
     g_timeline.init();
-    g_audio_io->open_device(g_settings_data.output_device_properties.id,
-                            g_settings_data.input_device_properties.id);
-    g_audio_io->start(&g_engine, g_settings_data.audio_exclusive_mode,
-                      g_settings_data.audio_buffer_size, g_settings_data.audio_input_format,
-                      g_settings_data.audio_output_format, g_settings_data.audio_sample_rate,
-                      AudioThreadPriority::Normal);
 }
 
 void App::run() {
@@ -284,6 +278,7 @@ void App::render_control_bar() {
 }
 
 void App::shutdown() {
+    g_settings_data.save_settings_data();
     Log::info("Closing application...");
     g_timeline.shutdown();
     shutdown_audio_io();

@@ -147,6 +147,7 @@ void Track::update(Clip* updated_clip, double beat_duration) {
         }
     }
 
+    // Reconstruct IDs
     for (uint32_t i = 0; i < (uint32_t)clips.size(); i++) {
         clips[i]->id = i;
     }
@@ -314,6 +315,7 @@ void Track::render_sample(AudioBuffer<float>& output_buffer, uint32_t buffer_off
 }
 
 void Track::update_playback_state(Event& event) {
+    // TODO: Should put something here...
 }
 
 void Track::stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uint32_t buffer_offset,

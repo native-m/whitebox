@@ -26,7 +26,6 @@
 #include <avrt.h>
 
 #define LOG_BUFFERING 0
-#define WB_INVALID_INDEX (~0U)
 
 #ifdef NDEBUG
 #undef LOG_BUFFERING
@@ -239,6 +238,13 @@ struct AudioIOWASAPI : public AudioIO {
                scan_audio_endpoints(EDataFlow::eRender, output_devices);
     }
 
+    uint32_t get_input_device_index(AudioDeviceID id) const override {
+        return find_device_index(input_devices, id);
+    }
+    uint32_t get_output_device_index(AudioDeviceID id) const override {
+        return find_device_index(output_devices, id);
+    }
+
     const AudioDeviceProperties& get_input_device_properties(uint32_t idx) const override {
         return input_devices[idx].properties;
     }
@@ -252,7 +258,7 @@ struct AudioIOWASAPI : public AudioIO {
 
         if (output_device_id != 0) {
             uint32_t device_index = find_device_index(output_devices, output_device_id);
-            if (device_index == WB_INVALID_INDEX)
+            if (device_index == WB_INVALID_AUDIO_DEVICE_INDEX)
                 return false;
             AudioDeviceWASAPI& output_device = output_devices[device_index];
             if (!output.open(output_device.device))
@@ -261,7 +267,7 @@ struct AudioIOWASAPI : public AudioIO {
 
         if (input_device_id != 0) {
             uint32_t device_index = find_device_index(input_devices, input_device_id);
-            if (device_index == WB_INVALID_INDEX) {
+            if (device_index == WB_INVALID_AUDIO_DEVICE_INDEX) {
                 output.close();
                 return false;
             }
@@ -444,7 +450,7 @@ struct AudioIOWASAPI : public AudioIO {
         return true;
     }
 
-    uint32_t find_device_index(const std::vector<AudioDeviceWASAPI>& devices, AudioDeviceID id) {
+    uint32_t find_device_index(const std::vector<AudioDeviceWASAPI>& devices, AudioDeviceID id) const {
         uint32_t idx = 0;
         bool found = false;
         for (const auto& device : devices) {
@@ -455,7 +461,7 @@ struct AudioIOWASAPI : public AudioIO {
             idx++;
         }
         if (!found)
-            return WB_INVALID_INDEX;
+            return WB_INVALID_AUDIO_DEVICE_INDEX;
         return idx;
     }
 

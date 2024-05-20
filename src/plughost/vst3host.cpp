@@ -33,7 +33,7 @@ bool VST3Host::open_module(const std::string& path) {
 
     component_.reset(plug_provider_->getComponent());
     controller_.reset(plug_provider_->getController());
-    //controller_->setComponentHandler(&component_handler_);
+    controller_->setComponentHandler(&component_handler_);
     return true;
 }
 

@@ -20,6 +20,9 @@ struct AudioIOPulseAudio : public AudioIO {
 
     bool rescan_devices() override { return false; }
 
+    uint32_t get_input_device_index(AudioDeviceID id) const override { return WB_INVALID_AUDIO_DEVICE_INDEX; }
+    uint32_t get_output_device_index(AudioDeviceID id) const override { return WB_INVALID_AUDIO_DEVICE_INDEX; }
+
     const AudioDeviceProperties& get_input_device_properties(uint32_t idx) const override {
         return default_input_device;
     }

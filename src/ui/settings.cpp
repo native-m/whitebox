@@ -24,6 +24,7 @@ void GuiSettings::render() {
     if (!open)
         return;
 
+    ImGui::SetNextWindowSize(ImVec2(300.0f, 200.0f), ImGuiCond_FirstUseEver);
     if (!ImGui::Begin("Settings", &open)) {
         ImGui::End();
         return;
@@ -43,7 +44,7 @@ void GuiSettings::render() {
                 g_settings_data.output_device_properties;
 
             bool audio_io_type_changed = false;
-            bool audio_device_changed = false;
+            bool audio_settings_changed = false;
 
             if (ImGui::BeginCombo("Type", io_type_preview)) {
                 for (uint32_t i = 0; i < IM_ARRAYSIZE(io_types); i++) {
@@ -59,7 +60,8 @@ void GuiSettings::render() {
 #endif
                     const bool is_selected = i == io_type_index;
                     if (ImGui::Selectable(io_types[i], is_selected)) {
-                        audio_io_type_changed = true;
+                        if (!is_selected)
+                            audio_settings_changed = true;
                         g_settings_data.audio_io_type = static_cast<AudioIOType>(i);
                     }
                     if (is_selected)
@@ -77,7 +79,7 @@ void GuiSettings::render() {
 
                     if (ImGui::Selectable(device_properties.name, is_selected)) {
                         if (!is_selected)
-                            audio_device_changed = true;
+                            audio_settings_changed = true;
                         g_settings_data.output_device_properties = device_properties;
                     }
 
@@ -110,8 +112,11 @@ void GuiSettings::render() {
                             if (!g_audio_io->is_input_format_supported(format))
                                 continue;
                             const bool is_selected = i == current_input_format;
-                            if (ImGui::Selectable(get_audio_format_string(format), is_selected))
+                            if (ImGui::Selectable(get_audio_format_string(format), is_selected)) {
+                                if (!is_selected)
+                                    audio_settings_changed = true;
                                 g_settings_data.audio_input_format = format;
+                            }
                             if (is_selected)
                                 ImGui::SetItemDefaultFocus();
                         }
@@ -124,8 +129,11 @@ void GuiSettings::render() {
                             if (!g_audio_io->is_output_format_supported(format))
                                 continue;
                             const bool is_selected = i == current_output_format;
-                            if (ImGui::Selectable(get_audio_format_string(format), is_selected))
+                            if (ImGui::Selectable(get_audio_format_string(format), is_selected)) {
+                                if (!is_selected)
+                                    audio_settings_changed = true;
                                 g_settings_data.audio_output_format = format;
+                            }
                             if (is_selected)
                                 ImGui::SetItemDefaultFocus();
                         }
@@ -137,8 +145,11 @@ void GuiSettings::render() {
                             if (!g_audio_io->is_sample_rate_supported((AudioDeviceSampleRate)i))
                                 continue;
                             const bool is_selected = i == current_sample_rate_idx;
-                            if (ImGui::Selectable(sample_rates[i], is_selected))
+                            if (ImGui::Selectable(sample_rates[i], is_selected)) {
+                                if (!is_selected)
+                                    audio_settings_changed = true;
                                 g_settings_data.audio_sample_rate = (AudioDeviceSampleRate)i;
+                            }
                             if (is_selected)
                                 ImGui::SetItemDefaultFocus();
                         }
@@ -165,8 +176,11 @@ void GuiSettings::render() {
 
                         std::snprintf(tmp, sizeof(tmp), "%u (%.2f ms)", min_buffer_size, period_ms);
 
-                        if (ImGui::Selectable(tmp, is_selected))
+                        if (ImGui::Selectable(tmp, is_selected)) {
+                            if (!is_selected)
+                                audio_settings_changed = true;
                             g_settings_data.audio_buffer_size = min_buffer_size;
+                        }
                         if (is_selected)
                             ImGui::SetItemDefaultFocus();
 
@@ -183,8 +197,8 @@ void GuiSettings::render() {
                 }
             }
 
-            if (audio_device_changed)
-                g_settings_data.apply_audio_device();
+            if (audio_settings_changed)
+                g_settings_data.apply_audio_settings();
 
             ImGui::EndTabItem();
         }
