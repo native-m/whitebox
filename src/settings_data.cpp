@@ -208,6 +208,7 @@ void SettingsData::apply_audio_settings() {
     // Realign buffer size
     audio_buffer_size += audio_buffer_size % g_audio_io->buffer_alignment;
 
+    g_engine.set_buffer_size(2, audio_buffer_size);
     g_audio_io->start(&g_engine, audio_exclusive_mode, audio_buffer_size, audio_input_format,
                       audio_output_format, audio_sample_rate, AudioThreadPriority::Normal);
 }
