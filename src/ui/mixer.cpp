@@ -49,7 +49,7 @@ void GuiMixer::render() {
         ImGui::SameLine();
 
         bool param_updated = false;
-        float volume = track->ui_parameter.get_float(TrackParameter_Volume);
+        /* float volume = track->ui_parameter.get_float(TrackParameter_Volume);
         if (controls::slider2<float>(mixer_slider, "##vol_slider", ImVec2(20.0f, size.y),
                                      track->color, &volume, 0.0f, 1.0f)) {
             //Log::debug("Held");
@@ -57,7 +57,7 @@ void GuiMixer::render() {
             param_updated = true;
         }
 
-        ImGui::SameLine();
+        ImGui::SameLine(); */
         ImGui::PopID();
         id++;
 

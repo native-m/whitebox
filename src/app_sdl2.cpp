@@ -78,10 +78,10 @@ void AppSDL2::handle_events(SDL_Event& event) {
         auto plugin_window = plugin_windows.find(event.window.windowID);
         if (plugin_window != plugin_windows.end()) {
             SDL_Window* window = plugin_window->second;
-            VST3Host* plug_instance =
-                static_cast<VST3Host*>(SDL_GetWindowData(window, "wb_vst3_instance"));
             switch (event.type) {
                 case SDL_WINDOWEVENT: {
+                    VST3Host* plug_instance =
+                        static_cast<VST3Host*>(SDL_GetWindowData(window, "wb_vst3_instance"));
                     if (event.window.event == SDL_WINDOWEVENT_CLOSE) {
                         SDL_DestroyWindow(window);
                         plug_instance->view = nullptr;

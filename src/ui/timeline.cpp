@@ -476,6 +476,7 @@ inline void GuiTimeline::render_track_controls() {
 
         {
             bool parameter_updated = false;
+            ImGuiSliderFlags slider_flags = ImGuiSliderFlags_Vertical;
 
             ImGui::PopStyleVar();
             ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, tmp_item_spacing);
@@ -486,9 +487,7 @@ inline void GuiTimeline::render_track_controls() {
             ImGui::SameLine(0.0f, 6.0f);
             ImGui::Text((const char*)track->name.c_str());
 
-            float value = track->ui_parameter.get_float(TrackParameter_Volume);
-            if (ImGui::DragFloat("Vol.", &value, 0.01f, 0.0f, 1.0f, "%.2f db")) {
-                track->ui_parameter.set(TrackParameter_Volume, value);
+            if (controls::param_drag_db(track->ui_parameter, TrackParameter_Volume, "Vol.")) {
                 parameter_updated = true;
             }
 
@@ -672,7 +671,7 @@ void GuiTimeline::render_track_lanes() {
     bool mouse_move = false;
 
     if (timeline_hovered && mouse_wheel_h != 0.0f) {
-        scroll_horizontal(mouse_wheel_h, song_length, timeline_width);
+        scroll_horizontal(mouse_wheel_h, song_length, -timeline_width);
     }
 
     if (mouse_pos.x != last_mouse_pos.x || mouse_pos.y != last_mouse_pos.y) {
@@ -1069,7 +1068,8 @@ void GuiTimeline::render_track_lanes() {
                     double clip_length = edited_clip->max_time - edited_clip->min_time;
                     if (edited_track == hovered_track) {
                         edited_track->duplicate_clip(edited_clip, mouse_at_gridline,
-                                                     mouse_at_gridline + clip_length, beat_duration);
+                                                     mouse_at_gridline + clip_length,
+                                                     beat_duration);
                     } else if (hovered_track != nullptr) {
                         hovered_track->duplicate_clip(edited_clip, mouse_at_gridline,
                                                       mouse_at_gridline + clip_length,

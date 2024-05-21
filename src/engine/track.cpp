@@ -13,7 +13,7 @@ namespace wb {
 
 Track::Track() {
     ui_parameter.resize(TrackParameter_Max);
-    ui_parameter.set(TrackParameter_Volume, 1.0f);
+    ui_parameter.set(TrackParameter_Volume, math::db_to_linear(0.0f), 0.0f);
     ui_parameter.set(TrackParameter_Pan, 0.0f);
     ui_parameter.set(TrackParameter_Mute, 0);
     ui_parameter.update();
@@ -254,7 +254,8 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
 void Track::process(AudioBuffer<float>& output_buffer, double sample_rate, bool playing) {
     ui_parameter.flush_if_updated([this](const AudioParameterList& audio_param) {
         if (audio_param.is_updated(TrackParameter_Volume)) {
-            parameter_state.volume = audio_param.flush_float(TrackParameter_Volume);
+            parameter_state.volume = audio_param.flush_normalized_float(TrackParameter_Volume);
+            //Log::info("{}", parameter_state.volume);
         }
         if (audio_param.is_updated(TrackParameter_Pan)) {
             parameter_state.pan = audio_param.flush_float(TrackParameter_Pan);

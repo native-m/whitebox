@@ -1,10 +1,8 @@
 #pragma once
 
-#include "draw.h"
-#include "popup_state_manager.h"
-#include "core/debug.h"
+// #include "core/debug.h"
+#include "core/audio_param.h"
 #include <algorithm>
-#include <bit>
 #include <imgui.h>
 #include <imgui_internal.h>
 
@@ -58,11 +56,10 @@ static bool begin_dockable_window(const char* title, bool* p_open = nullptr,
 
 static bool collapse_button(const char* str_id, bool* shown) {
     ImGuiID id = ImGui::GetID(str_id);
-    ImGuiStyle& style = ImGui::GetStyle();
+    ImGuiStyle& style = GImGui->Style;
     float font_size = ImGui::GetFontSize();
-    auto draw_list = ImGui::GetWindowDrawList();
-    ImVec2 cur_pos = ImGui::GetCursorScreenPos();
     float padding = style.FramePadding.x;
+    ImVec2 cur_pos = GImGui->CurrentWindow->DC.CursorPos;
     cur_pos.y += style.FramePadding.y * 0.5f;
     ImRect bb(cur_pos, ImVec2(cur_pos.x + font_size + padding, cur_pos.y + font_size + padding));
 
@@ -75,6 +72,7 @@ static bool collapse_button(const char* str_id, bool* shown) {
     if (pressed)
         *shown = !*shown;
 
+    auto draw_list = ImGui::GetWindowDrawList();
     if (hovered || held) {
         ImU32 bg_col = ImGui::GetColorU32(!held ? ImGuiCol_ButtonHovered : ImGuiCol_ButtonActive);
         draw_list->AddCircleFilled(ImVec2(cur_pos.x + (font_size + padding) * 0.5f,
@@ -151,12 +149,11 @@ static bool slider2(const SliderProperties& properties, const char* str_id, cons
                     const ImColor& color, T* value, T min, T max) {
     ImGuiWindow* window = GImGui->CurrentWindow;
     ImVec2 cursor_pos = window->DC.CursorPos;
-    //ImVec2 padded_size(size.x - properties.extra_padding.x, size.y - properties.extra_padding.y);
-    //cursor_pos.x += properties.extra_padding.x;
-    //cursor_pos.y += properties.extra_padding.y;
+    // ImVec2 padded_size(size.x - properties.extra_padding.x, size.y - properties.extra_padding.y);
+    // cursor_pos.x += properties.extra_padding.x;
+    // cursor_pos.y += properties.extra_padding.y;
 
-    ImRect bb(ImVec2(cursor_pos.x, cursor_pos.y),
-              ImVec2(cursor_pos.x, cursor_pos.y) + size);
+    ImRect bb(ImVec2(cursor_pos.x, cursor_pos.y), ImVec2(cursor_pos.x, cursor_pos.y) + size);
     ImGuiID id = ImGui::GetID(str_id);
 
     ImGui::ItemSize(bb);
@@ -165,23 +162,24 @@ static bool slider2(const SliderProperties& properties, const char* str_id, cons
 
     bool hovered, held;
     bool pressed = ImGui::ButtonBehavior(bb, id, &hovered, &held, ImGuiButtonFlags_None);
+    bool dragging = held && ImGui::IsMouseDragging(ImGuiMouseButton_Left);
     ImGuiContext& g = *ImGui::GetCurrentContext();
     const ImVec2& mouse_pos = g.IO.MousePos;
     ImVec2 grab_size(properties.grab_size);
     ImU32 frame_col = ImGui::GetColorU32(ImGui::GetStyleColorVec4(ImGuiCol_Border));
-
     ImU32 grab_col = ImGui::GetColorU32(color.Value);
+    float range = max - min;
+    float normalized_value = (*value - min) / range;
     float scroll_height = size.y - grab_size.y;
     float inv_scroll_height = 1.0f / scroll_height;
     float frame_width = std::max(properties.frame_width, 3.0f);
-    bool dragging = held && ImGui::IsMouseDragging(ImGuiMouseButton_Left);
 
     if (ImGui::IsItemActivated())
-        g.SliderGrabClickOffset = mouse_pos.y - ((1.0f - *value) * scroll_height + cursor_pos.y);
+        g.SliderGrabClickOffset = mouse_pos.y - ((1.0f - normalized_value) * scroll_height + cursor_pos.y);
 
     if (held) {
         float val = (mouse_pos.y - cursor_pos.y - g.SliderGrabClickOffset) * inv_scroll_height;
-        *value = std::clamp(1.0f - val, 0.0f, 1.0f);
+        *value = std::clamp((1.0f - val) * range + min, min, max);
         // ImGui::SetNextWindowPos(ImVec2())
         ImGui::BeginTooltip();
         ImGui::Text("%.3f", *value);
@@ -216,9 +214,11 @@ static bool slider2(const SliderProperties& properties, const char* str_id, cons
 }
 
 void song_position();
+bool param_drag_db(AudioParameterList& param_list, uint32_t id, const char* str_id,
+                   float speed = 0.1f, float min_db = -70.0f, float max_db = 5.0f,
+                   const char* format = "%.2fdB", ImGuiSliderFlags flags = ImGuiSliderFlags_Vertical);
 bool mixer_label(const char* caption, const float height, const ImColor& color);
 void metering(const ImVec2& size, uint32_t count, const float* channels);
-bool audio_param_drag();
 void render_test_controls();
 extern bool g_test_control_shown;
 
