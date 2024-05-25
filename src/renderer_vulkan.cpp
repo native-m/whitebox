@@ -996,8 +996,13 @@ ImTextureID RendererVK::prepare_as_imgui_texture(const std::shared_ptr<Framebuff
 void RendererVK::draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) {
     VkBuffer current_buffer {};
 
+    float fb_width_f32 = (float)fb_width;
+    float fb_height_f32 = (float)fb_height;
+
     for (auto& clip : clips) {
-        if (clip.min_bb.y > (float)fb_height || clip.max_bb.y < 0.0f)
+        if (clip.min_bb.y >= fb_height_f32 || clip.max_bb.y < 0.0f)
+            continue;
+        if (clip.min_bb.x >= fb_width_f32 || clip.max_bb.x < 0.0f)
             continue;
 
         SamplePeaksVK* peaks = static_cast<SamplePeaksVK*>(clip.peaks);
