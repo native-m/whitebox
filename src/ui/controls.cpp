@@ -45,7 +45,28 @@ bool param_drag_db(AudioParameterList& param_list, uint32_t id, const char* str_
     }
 
     if (ImGui::DragFloat(str_id, &value, speed, min_db, max_db, format, flags)) {
-        Log::debug("{}", value);
+        if (value == min_db) {
+            param_list.set(id, 0.0f, min_db);
+        } else {
+            param_list.set(id, math::db_to_linear(value), value);
+        }
+        return true;
+    }
+
+    return false;
+}
+
+bool param_slider_db(AudioParameterList& param_list, uint32_t id,
+                     const SliderProperties& properties, const char* str_id, const ImVec2& size,
+                     const ImColor& color, float min_db, float max_db,
+                     const char* format) {
+    float value = param_list.get_plain_float(id);
+
+    if (value == min_db) {
+        format = "-INFdB";
+    }
+
+    if (slider2<float>(properties, str_id, size, color, &value, min_db, max_db)) {
         if (value == min_db) {
             param_list.set(id, 0.0f, min_db);
         } else {

@@ -24,6 +24,11 @@ struct Spinlock {
     }
 
     inline void unlock() noexcept { lock_.store(false, std::memory_order_release); }
+
+    inline void wait() noexcept {
+        while (lock_.load(std::memory_order_relaxed))
+            ;
+    }
 };
 
 void accurate_sleep_ns(int64_t timeout_ns);

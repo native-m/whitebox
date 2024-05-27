@@ -5,6 +5,7 @@
 #include "core/debug.h"
 #include "core/math.h"
 #include "engine/engine.h"
+#include "engine/track.h"
 #include "forms.h"
 #include "layout.h"
 #include "popup_state_manager.h"

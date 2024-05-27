@@ -1,7 +1,7 @@
 #pragma once
 
 #include "common.h"
-#include "memaccess.h"
+#include "algorithm.h"
 #include "types.h"
 #include <memory>
 

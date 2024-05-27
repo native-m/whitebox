@@ -198,7 +198,7 @@ struct ActiveDeviceWASAPI {
             channel_count = shared_format.Format.nChannels;
         }
 
-        stream_event = CreateEvent(nullptr, FALSE, FALSE, "WB_OUTPUT_STREAM_EVENT");
+        stream_event = CreateEvent(nullptr, FALSE, FALSE, L"WB_OUTPUT_STREAM_EVENT");
         client->SetEventHandle(stream_event);
 
         return true;
@@ -471,7 +471,7 @@ struct AudioIOWASAPI : public AudioIO {
         Engine* engine = instance->current_engine;
 
         DWORD task_index = 0;
-        HANDLE task = AvSetMmThreadCharacteristics("Pro Audio", &task_index);
+        HANDLE task = AvSetMmThreadCharacteristics(L"Pro Audio", &task_index);
         if (task) {
             AVRT_PRIORITY avrt_priority;
             switch (priority) {

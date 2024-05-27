@@ -6,6 +6,7 @@
 #include "core/memory.h"
 #include "core/vector.h"
 #include "event.h"
+#include "param_changes.h"
 #include <imgui.h>
 #include <unordered_set>
 
@@ -36,7 +37,6 @@ struct Track {
     float height = 60.0f;
     bool shown = true;
     AudioParameterList ui_parameter;
-    TrackParameterState parameter_state {};
 
     Pool<Clip> clip_allocator;
     Vector<Clip*> clips;
@@ -47,6 +47,10 @@ struct Track {
     Event last_event {};
     Event current_event {};
     size_t samples_processed {};
+
+    TrackParameterState parameter_state {};
+    ParamChanges param_changes;
+    RingBuffer<ParamChange> ui_param_changes;
 
     Track();
     ~Track();

@@ -1,6 +1,6 @@
 #pragma once
 
-// #include "core/debug.h"
+#include "core/debug.h"
 #include "core/audio_param.h"
 #include <algorithm>
 #include <imgui.h>
@@ -174,19 +174,23 @@ static bool slider2(const SliderProperties& properties, const char* str_id, cons
     float inv_scroll_height = 1.0f / scroll_height;
     float frame_width = std::max(properties.frame_width, 3.0f);
 
+    //Log::debug("{}", normalized_value);
+
     if (ImGui::IsItemActivated())
-        g.SliderGrabClickOffset = mouse_pos.y - ((1.0f - normalized_value) * scroll_height + cursor_pos.y);
+        g.SliderGrabClickOffset =
+            mouse_pos.y - ((1.0f - normalized_value) * scroll_height + cursor_pos.y);
 
     if (held) {
         float val = (mouse_pos.y - cursor_pos.y - g.SliderGrabClickOffset) * inv_scroll_height;
-        *value = std::clamp((1.0f - val) * range + min, min, max);
+        normalized_value = std::clamp(1.0f - val, 0.0f, 1.0f);
+        *value = normalized_value * range + min;
         // ImGui::SetNextWindowPos(ImVec2())
         ImGui::BeginTooltip();
         ImGui::Text("%.3f", *value);
         ImGui::EndTooltip();
     }
 
-    float grab_pos = (1.0f - *value) * scroll_height;
+    float grab_pos = (1.0f - normalized_value) * scroll_height;
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
     ImVec2 frame_rect_min(cursor_pos.x + size.x * 0.5f - frame_width * 0.5f,
                           cursor_pos.y + grab_size.y * 0.5f);
@@ -215,8 +219,13 @@ static bool slider2(const SliderProperties& properties, const char* str_id, cons
 
 void song_position();
 bool param_drag_db(AudioParameterList& param_list, uint32_t id, const char* str_id,
-                   float speed = 0.1f, float min_db = -70.0f, float max_db = 5.0f,
-                   const char* format = "%.2fdB", ImGuiSliderFlags flags = ImGuiSliderFlags_Vertical);
+                   float speed = 0.1f, float min_db = -70.0f, float max_db = 7.0f,
+                   const char* format = "%.2fdB",
+                   ImGuiSliderFlags flags = ImGuiSliderFlags_Vertical);
+bool param_slider_db(AudioParameterList& param_list, uint32_t id,
+                     const SliderProperties& properties, const char* str_id, const ImVec2& size,
+                     const ImColor& color, float min_db = -70.0f, float max_db = 7.0f,
+                     const char* format = "%.2fdB");
 bool mixer_label(const char* caption, const float height, const ImColor& color);
 void metering(const ImVec2& size, uint32_t count, const float* channels);
 void render_test_controls();

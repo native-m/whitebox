@@ -16,7 +16,23 @@ Track::Track() {
     ui_parameter.set(TrackParameter_Volume, math::db_to_linear(0.0f), 0.0f);
     ui_parameter.set(TrackParameter_Pan, 0.0f);
     ui_parameter.set(TrackParameter_Mute, 0);
-    ui_parameter.update();
+
+    param_changes.set_max_params(TrackParameter_Max);
+    ui_param_changes.push({
+        .id = TrackParameter_Volume,
+        .sample_offset = 0,
+        .value = 1.0,
+    });
+    ui_param_changes.push({
+        .id = TrackParameter_Pan,
+        .sample_offset = 0,
+        .value = 0.0,
+    });
+    ui_param_changes.push({
+        .id = TrackParameter_Mute,
+        .sample_offset = 0,
+        .value = 0.0,
+    });
 }
 
 Track::~Track() {
@@ -252,18 +268,27 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
 }
 
 void Track::process(AudioBuffer<float>& output_buffer, double sample_rate, bool playing) {
-    ui_parameter.flush_if_updated([this](const AudioParameterList& audio_param) {
-        if (audio_param.is_updated(TrackParameter_Volume)) {
-            parameter_state.volume = audio_param.flush_normalized_float(TrackParameter_Volume);
-            //Log::info("{}", parameter_state.volume);
+    param_changes.transfer_changes_from(ui_param_changes);
+
+    for (uint32_t i = 0; i < param_changes.changes_count; i++) {
+        ParamValueQueue& queue = param_changes.params[i];
+        if (queue.points.size() == 0) {
+            continue;
         }
-        if (audio_param.is_updated(TrackParameter_Pan)) {
-            parameter_state.pan = audio_param.flush_float(TrackParameter_Pan);
+        size_t last_idx = queue.points.size() - 1;
+        double last_value = queue.points[last_idx].value;
+        switch (queue.id) {
+            case TrackParameter_Volume:
+                parameter_state.volume = (float)last_value;
+                break;
+            case TrackParameter_Pan:
+                parameter_state.pan = (float)last_value;
+                break;
+            case TrackParameter_Mute:
+                parameter_state.mute = last_value > 0.5 ? 1.0f : 0.0f;
+                break;
         }
-        if (audio_param.is_updated(TrackParameter_Mute)) {
-            parameter_state.mute = (bool)audio_param.flush_uint(TrackParameter_Mute);
-        }
-    });
+    }
 
     if (playing) {
         Event* event = event_buffer.begin();
@@ -291,6 +316,8 @@ void Track::process(AudioBuffer<float>& output_buffer, double sample_rate, bool 
             }
         }
     }
+
+    param_changes.clear_changes();
 }
 
 void Track::render_sample(AudioBuffer<float>& output_buffer, uint32_t buffer_offset,
