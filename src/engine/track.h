@@ -4,14 +4,11 @@
 #include "core/audio_buffer.h"
 #include "core/audio_param.h"
 #include "core/memory.h"
-#include "core/queue.h"
-#include "core/thread.h"
 #include "core/vector.h"
 #include "event.h"
+#include "param_changes.h"
 #include <imgui.h>
-#include <string>
 #include <unordered_set>
-#include <vector>
 
 namespace wb {
 
@@ -40,10 +37,9 @@ struct Track {
     float height = 60.0f;
     bool shown = true;
     AudioParameterList ui_parameter;
-    TrackParameterState parameter_state {};
 
     Pool<Clip> clip_allocator;
-    std::vector<Clip*> clips;
+    Vector<Clip*> clips;
     std::unordered_set<uint32_t> deleted_clip_ids;
 
     Vector<Event> event_buffer;
@@ -51,6 +47,10 @@ struct Track {
     Event last_event {};
     Event current_event {};
     size_t samples_processed {};
+
+    TrackParameterState parameter_state {};
+    ParamChanges param_changes;
+    RingBuffer<ParamChange> ui_param_changes;
 
     Track();
     ~Track();

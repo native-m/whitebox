@@ -13,10 +13,26 @@ namespace wb {
 
 Track::Track() {
     ui_parameter.resize(TrackParameter_Max);
-    ui_parameter.set(TrackParameter_Volume, 1.0f);
+    ui_parameter.set(TrackParameter_Volume, math::db_to_linear(0.0f), 0.0f);
     ui_parameter.set(TrackParameter_Pan, 0.0f);
     ui_parameter.set(TrackParameter_Mute, 0);
-    ui_parameter.update();
+
+    param_changes.set_max_params(TrackParameter_Max);
+    ui_param_changes.push({
+        .id = TrackParameter_Volume,
+        .sample_offset = 0,
+        .value = 1.0,
+    });
+    ui_param_changes.push({
+        .id = TrackParameter_Pan,
+        .sample_offset = 0,
+        .value = 0.0,
+    });
+    ui_param_changes.push({
+        .id = TrackParameter_Mute,
+        .sample_offset = 0,
+        .value = 0.0,
+    });
 }
 
 Track::~Track() {
@@ -147,6 +163,7 @@ void Track::update(Clip* updated_clip, double beat_duration) {
         }
     }
 
+    // Reconstruct IDs
     for (uint32_t i = 0; i < (uint32_t)clips.size(); i++) {
         clips[i]->id = i;
     }
@@ -192,10 +209,11 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
 
     Clip* current_clip = playback_state.current_clip;
     Clip* next_clip = playback_state.next_clip;
+    bool has_deleted_clips = !deleted_clip_ids.empty();
 
     if (current_clip) {
         double max_time = math::uround(current_clip->max_time * ppq) * inv_ppq;
-        if (!deleted_clip_ids.empty() && deleted_clip_ids.contains(current_clip->id) ||
+        if (has_deleted_clips && deleted_clip_ids.contains(current_clip->id) ||
             time_pos >= max_time) {
             event_buffer.push_back({
                 .type = EventType::StopSample,
@@ -207,6 +225,16 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
             });
             playback_state.current_clip = nullptr;
         }
+    }
+
+    if (has_deleted_clips && deleted_clip_ids.contains(next_clip->id)) {
+        auto new_next_clip = clips.begin() + (next_clip->id + 1);
+        if (new_next_clip != clips.end()) {
+            next_clip = *new_next_clip;
+        } else {
+            next_clip = nullptr;
+        }
+        playback_state.next_clip = next_clip;
     }
 
     if (next_clip) {
@@ -240,17 +268,27 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
 }
 
 void Track::process(AudioBuffer<float>& output_buffer, double sample_rate, bool playing) {
-    ui_parameter.flush_if_updated([this](const AudioParameterList& audio_param) {
-        if (audio_param.is_updated(TrackParameter_Volume)) {
-            parameter_state.volume = audio_param.flush_float(TrackParameter_Volume);
+    param_changes.transfer_changes_from(ui_param_changes);
+
+    for (uint32_t i = 0; i < param_changes.changes_count; i++) {
+        ParamValueQueue& queue = param_changes.params[i];
+        if (queue.points.size() == 0) {
+            continue;
         }
-        if (audio_param.is_updated(TrackParameter_Pan)) {
-            parameter_state.pan = audio_param.flush_float(TrackParameter_Pan);
+        size_t last_idx = queue.points.size() - 1;
+        double last_value = queue.points[last_idx].value;
+        switch (queue.id) {
+            case TrackParameter_Volume:
+                parameter_state.volume = (float)last_value;
+                break;
+            case TrackParameter_Pan:
+                parameter_state.pan = (float)last_value;
+                break;
+            case TrackParameter_Mute:
+                parameter_state.mute = last_value > 0.5 ? 1.0f : 0.0f;
+                break;
         }
-        if (audio_param.is_updated(TrackParameter_Mute)) {
-            parameter_state.mute = (bool)audio_param.flush_uint(TrackParameter_Mute);
-        }
-    });
+    }
 
     if (playing) {
         Event* event = event_buffer.begin();
@@ -278,6 +316,8 @@ void Track::process(AudioBuffer<float>& output_buffer, double sample_rate, bool 
             }
         }
     }
+
+    param_changes.clear_changes();
 }
 
 void Track::render_sample(AudioBuffer<float>& output_buffer, uint32_t buffer_offset,
@@ -303,6 +343,7 @@ void Track::render_sample(AudioBuffer<float>& output_buffer, uint32_t buffer_off
 }
 
 void Track::update_playback_state(Event& event) {
+    // TODO: Should put something here...
 }
 
 void Track::stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uint32_t buffer_offset,
@@ -372,7 +413,7 @@ void Track::stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uin
 
 void Track::flush_deleted_clips() {
     uint32_t i = 0;
-    std::vector<Clip*> new_clip_list;
+    Vector<Clip*> new_clip_list;
     new_clip_list.reserve(clips.size());
     for (auto clip : clips) {
         if (deleted_clip_ids.contains(clip->id)) {

@@ -698,7 +698,7 @@ std::shared_ptr<SamplePeaks> RendererVK::create_sample_peaks(const Sample& sampl
         buffer_info.size = total_length * elem_size;
         staging_buffer_info.size = buffer_info.size;
         buffer_copy.size = buffer_info.size;
-        mip.sample_count = required_length;
+        mip.sample_count = (uint32_t)required_length;
 
         if (VK_FAILED(vmaCreateBuffer(allocator_, &staging_buffer_info, &staging_alloc_info,
                                       &buffer_copy.staging_buffer, &buffer_copy.staging_allocation,
@@ -996,8 +996,13 @@ ImTextureID RendererVK::prepare_as_imgui_texture(const std::shared_ptr<Framebuff
 void RendererVK::draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) {
     VkBuffer current_buffer {};
 
+    float fb_width_f32 = (float)fb_width;
+    float fb_height_f32 = (float)fb_height;
+
     for (auto& clip : clips) {
-        if (clip.min_bb.y > (float)fb_height || clip.max_bb.y < 0.0f)
+        if (clip.min_bb.y >= fb_height_f32 || clip.max_bb.y < 0.0f)
+            continue;
+        if (clip.min_bb.x >= fb_width_f32 || clip.max_bb.x < 0.0f)
             continue;
 
         SamplePeaksVK* peaks = static_cast<SamplePeaksVK*>(clip.peaks);
@@ -1080,7 +1085,6 @@ void RendererVK::render_draw_data(ImDrawData* draw_data) {
 
     ImGui_ImplVulkan_Data* bd = (ImGui_ImplVulkan_Data*)ImGui::GetIO().BackendRendererUserData;
     ImGui_ImplVulkan_FrameRenderBuffers* rb = &render_buffers_[frame_id_];
-    ImGui_ImplVulkan_InitInfo* v = &bd->VulkanInitInfo;
     CommandBufferVK& cmd_buf = cmd_buf_[frame_id_];
     VkPipeline pipeline = bd->Pipeline;
 
@@ -1382,7 +1386,6 @@ void RendererVK::setup_imgui_render_state(ImDrawData* draw_data, VkPipeline pipe
                                           ImGui_ImplVulkan_FrameRenderBuffers* rb, int fb_width,
                                           int fb_height) {
     ImGui_ImplVulkan_Data* bd = (ImGui_ImplVulkan_Data*)ImGui::GetIO().BackendRendererUserData;
-    CommandBufferVK& cmd_buf = cmd_buf_[frame_id_];
 
     // Bind pipeline:
     { vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline); }
@@ -1715,7 +1718,6 @@ Renderer* RendererVK::create(App* app) {
         .presentWait = true,
     };
 
-    void* pNext = nullptr;
     bool has_present_id = false;
     if (physical_device.enable_extension_if_present(VK_KHR_PRESENT_ID_EXTENSION_NAME)) {
         has_present_id = true;

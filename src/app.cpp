@@ -1,7 +1,6 @@
 #include "app.h"
 #include "core/color.h"
 #include "core/debug.h"
-#include "core/thread.h"
 #include "engine/audio_io.h"
 #include "engine/engine.h"
 #include "engine/project.h"
@@ -17,7 +16,6 @@
 #include "ui/settings.h"
 #include "ui/timeline.h"
 #include <imgui.h>
-#include <imgui_freetype.h>
 
 using namespace std::literals::chrono_literals;
 
@@ -32,6 +30,8 @@ void App::init() {
     Log::info("Initializing UI...");
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+    g_settings_data.load_settings_data();
+    g_settings_data.apply_audio_settings();
 
     ImGuiIO& io = ImGui::GetIO();
     //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
@@ -41,19 +41,10 @@ void App::init() {
 
     init_font_assets();
     apply_theme(ImGui::GetStyle());
-
-    g_settings_data.load_settings_data();
     init_renderer(this);
-    init_audio_io(AudioIOType::WASAPI);
+
     g_engine.set_bpm(150.0f);
     g_timeline.init();
-
-    g_audio_io->open_device(g_settings_data.output_device_properties.id,
-                            g_settings_data.input_device_properties.id);
-    g_audio_io->start(&g_engine, g_settings_data.audio_exclusive_mode,
-                      g_settings_data.audio_buffer_size, g_settings_data.audio_input_format,
-                      g_settings_data.audio_output_format, g_settings_data.audio_sample_rate,
-                      AudioThreadPriority::Normal);
 }
 
 void App::run() {
@@ -127,7 +118,6 @@ void App::render_control_bar() {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 4.0f));
     ImGui::BeginChild("WB_TOOLBAR", ImVec2(), ImGuiChildFlags_AlwaysUseWindowPadding);
     ImGui::PopStyleColor();
-    ImGuiWindow* toolbar_window = ImGui::GetCurrentWindow();
 
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
     ImGui::PushStyleColor(ImGuiCol_Button, color_brighten(btn_color, 0.12f).Value);
@@ -137,13 +127,19 @@ void App::render_control_bar() {
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 3.0f));
     open_menu = ImGui::Button(ICON_MS_MENU);
     ImGui::SameLine(0.0f, 12.0f);
-    new_project = ImGui::Button(ICON_MS_LIBRARY_ADD "##new_project");
+    new_project = ImGui::Button(ICON_MS_LIBRARY_ADD "##wb_new_project");
     ImGui::SameLine(0.0f, 4.0f);
-    open_project = ImGui::Button(ICON_MS_FOLDER_OPEN "##open_project");
+    open_project = ImGui::Button(ICON_MS_FOLDER_OPEN "##wb_open_project");
     ImGui::SameLine(0.0f, 4.0f);
-    save_project = ImGui::Button(ICON_MS_SAVE "##save_project");
+    save_project = ImGui::Button(ICON_MS_SAVE "##wb_save_project");
+
     ImGui::SameLine(0.0f, 12.0f);
-    if (ImGui::Button(!is_playing ? ICON_MS_PLAY_ARROW : ICON_MS_PAUSE)) {
+    ImGui::Button(ICON_MS_UNDO "##wb_undo");
+    ImGui::SameLine(0.0f, 4.0f);
+    ImGui::Button(ICON_MS_REDO "##wb_redo");
+
+    ImGui::SameLine(0.0f, 12.0f);
+    if (ImGui::Button(!is_playing ? ICON_MS_PLAY_ARROW "##wb_play" : ICON_MS_PAUSE "##wb_play")) {
         if (is_playing) {
             g_engine.stop();
         } else {
@@ -151,14 +147,14 @@ void App::render_control_bar() {
         }
     }
     ImGui::SameLine(0.0f, 4.0f);
-    if (ImGui::Button(ICON_MS_STOP)) {
+    if (ImGui::Button(ICON_MS_STOP "##wb_stop")) {
         g_engine.stop();
     }
     ImGui::SameLine(0.0f, 4.0f);
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.951f, 0.322f, 0.322f, 1.000f));
-    ImGui::Button(ICON_MS_FIBER_MANUAL_RECORD);
-    ImGui::PopStyleVar();
+    ImGui::Button(ICON_MS_FIBER_MANUAL_RECORD "##wb_record");
     ImGui::PopStyleColor();
+    ImGui::PopStyleVar();
 
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 8.5f));
     ImGui::PushItemWidth(85.0f);
@@ -173,9 +169,9 @@ void App::render_control_bar() {
     }
     ImGui::PopItemWidth();
 
-    ImGui::SameLine(0.0f, 12.0f);
-    float playhead_pos = g_engine.playhead_ui.load(std::memory_order_relaxed);
-    ImGui::Text("Playhead: %f", playhead_pos);
+    //ImGui::SameLine(0.0f, 12.0f);
+    //float playhead_pos = g_engine.playhead_ui.load(std::memory_order_relaxed);
+    //ImGui::Text("Playhead: %f", playhead_pos);
 
     ImGui::PopStyleColor(2);
     ImGui::PopStyleVar(2);
@@ -193,6 +189,19 @@ void App::render_control_bar() {
             ImGui::Separator();
             ImGui::MenuItem("Save", "Ctrl+S");
             save_project = ImGui::MenuItem("Save As...", "Shift+Ctrl+S");
+            ImGui::Separator();
+            if (ImGui::MenuItem("Open VST3 plugin")) {
+                if (auto folder = pick_folder_dialog()) {
+                    if (vst3_host.open_module(folder.value().string())) {
+                        if (vst3_host.init_view()) {
+                            Steinberg::ViewRect rect;
+                            vst3_host.view->getSize(&rect);
+                            add_vst3_view(vst3_host, "whitebox plugin host", rect.getWidth(),
+                                          rect.getHeight());
+                        }
+                    }
+                }
+            }
             ImGui::Separator();
             if (ImGui::MenuItem("Quit"))
                 running = false;
@@ -269,6 +278,7 @@ void App::render_control_bar() {
 }
 
 void App::shutdown() {
+    g_settings_data.save_settings_data();
     Log::info("Closing application...");
     g_timeline.shutdown();
     shutdown_audio_io();

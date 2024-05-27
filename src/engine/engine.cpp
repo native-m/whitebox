@@ -1,4 +1,5 @@
 #include "engine.h"
+#include "track.h"
 #include "core/debug.h"
 #include "core/math.h"
 #include <numbers>
@@ -156,7 +157,9 @@ void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
     }
 
     for (auto track : tracks) {
-        track->process(output_buffer, sample_rate, currently_playing);
+        mixing_buffer.clear();
+        track->process(mixing_buffer, sample_rate, currently_playing);
+        output_buffer.mix(mixing_buffer);
     }
 
     if (has_deleted_clips.load(std::memory_order_relaxed)) {

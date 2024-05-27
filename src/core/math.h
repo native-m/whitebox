@@ -17,6 +17,11 @@ inline T fract(T x) {
     return x - std::floor(x);
 }
 
+template <typename T>
+inline T db_to_linear(T x) {
+    return std::pow(T(10), T((double)x * 0.05));
+}
+
 } // namespace math
 
 template <typename T>

@@ -27,6 +27,7 @@ void shutdown_audio_io() {
         return;
     g_audio_io->close_device();
     delete g_audio_io;
+    g_audio_io = nullptr;
 }
 
 } // namespace wb

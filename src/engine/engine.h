@@ -4,18 +4,18 @@
 #include "core/audio_buffer.h"
 #include "core/common.h"
 #include "core/thread.h"
-#include "track.h"
 #include <functional>
-#include <string>
-#include <vector>
 
 namespace wb {
+
+struct Track;
 
 struct Engine {
     using OnBpmChangeFn = std::function<void(double, double)>;
 
     std::vector<Track*> tracks;
     Spinlock editor_lock;
+    Spinlock track_lock;
     
     double ppq = 96.0;
     double playhead {};

@@ -59,6 +59,17 @@ struct AudioBuffer {
         }
     }
 
+    void mix(const AudioBuffer<T>& other) {
+        assert(n_samples == other.n_samples);
+        for (uint32_t i = 0; i < n_channels; i++) {
+            const float* other_buffer = other.channel_buffers[i];
+            float* buffer = channel_buffers[i];
+            for (uint32_t j = 0; j < n_samples; j++) {
+                buffer[j] += other_buffer[j];
+            }
+        }
+    }
+
     void resize(uint32_t samples, bool clear = false) {
         if (samples == n_samples)
             return;
@@ -90,6 +101,8 @@ struct AudioBuffer {
 
     void resize_channel(uint32_t channel_count) {
         assert(n_samples != 0);
+        if (channel_count == n_channels)
+            return;
         uint32_t old_channel_count = n_channels;
         resize_channel_array_(channel_count);
         if (channel_count > old_channel_count) {

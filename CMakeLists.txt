@@ -15,6 +15,7 @@ project("whitebox")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED 20)
+option(WB_VST3_SDK_PATH "Path to VST3 SDK")
 
 include(Dependencies.cmake)
 
@@ -22,6 +23,7 @@ enable_testing()
 add_subdirectory(assets)
 
 set(WB_SOURCES
+    "src/core/algorithm.h"
     "src/core/audio_buffer.h"
     "src/core/audio_format_conv.h"
     "src/core/audio_format.h"
@@ -36,7 +38,7 @@ set(WB_SOURCES
     "src/core/json_fwd.hpp"
     "src/core/math.h"
     "src/core/memory.h"
-    "src/core/platform.h"
+    "src/core/platform_def.h"
     "src/core/queue.h"
     "src/core/thread.cpp"
     "src/core/thread.h"
@@ -51,6 +53,7 @@ set(WB_SOURCES
     "src/engine/engine.cpp"
     "src/engine/engine.h"
     "src/engine/event.h"
+    "src/engine/param_changes.h"
     "src/engine/project.cpp"
     "src/engine/project.h"
     "src/engine/sample.cpp"
@@ -60,6 +63,10 @@ set(WB_SOURCES
     "src/engine/sample_table.h"
     "src/engine/track.cpp"
     "src/engine/track.h"
+
+    "src/plughost/vst3host.cpp"
+    "src/plughost/vst3host.h"
+    "src/plughost/wb_plug.h"
 
     "src/ui/browser.cpp"
     "src/ui/browser.h"
@@ -113,7 +120,8 @@ set(WB_LINK_LIBRARIES
     imgui-freetype
     imgui-vulkan
     sndfile
-    nfd)
+    nfd
+    vst3-sdk-hosting)
 
 if (MSVC)
     set(WB_LINK_LIBRARIES ${WB_LINK_LIBRARIES} imgui-d3d11 Avrt)
@@ -125,6 +133,10 @@ add_library(whitebox-lib STATIC ${WB_SOURCES})
 target_link_libraries(whitebox-lib PUBLIC ${WB_LINK_LIBRARIES})
 target_include_directories(whitebox-lib PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 set_target_properties(whitebox-lib PROPERTIES CXX_STANDARD 20)
+
+if (WIN32)
+    target_compile_definitions(whitebox-lib PUBLIC -DUNICODE -D_UNICODE)
+endif()
 
 add_executable(whitebox "src/main.cpp")
 target_link_libraries(whitebox whitebox-lib)

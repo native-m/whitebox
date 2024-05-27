@@ -5,6 +5,7 @@
 #include "core/debug.h"
 #include "core/math.h"
 #include "engine/engine.h"
+#include "engine/track.h"
 #include "forms.h"
 #include "layout.h"
 #include "popup_state_manager.h"
@@ -377,7 +378,7 @@ inline void GuiTimeline::render_time_ruler() {
     for (int i = 0; i <= line_count; i++) {
         char digits[24] {};
         float rounded_gridline_pos_x = std::round(gridline_pos_x);
-        fmt::format_to_n(digits, sizeof(digits), "{}", i + count_offset);
+        fmt::format_to_n(digits, sizeof(digits), "{}", i + count_offset + 1);
         draw_list->AddText(ImVec2(rounded_gridline_pos_x + 4.0f,
                                   cursor_pos.y + style.FramePadding.y * 2.0f - 2.0f),
                            ImGui::GetColorU32(ImGuiCol_Text), digits);
@@ -476,6 +477,7 @@ inline void GuiTimeline::render_track_controls() {
 
         {
             bool parameter_updated = false;
+            ImGuiSliderFlags slider_flags = ImGuiSliderFlags_Vertical;
 
             ImGui::PopStyleVar();
             ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, tmp_item_spacing);
@@ -486,9 +488,7 @@ inline void GuiTimeline::render_track_controls() {
             ImGui::SameLine(0.0f, 6.0f);
             ImGui::Text((const char*)track->name.c_str());
 
-            float value = track->ui_parameter.get_float(TrackParameter_Volume);
-            if (ImGui::DragFloat("Vol.", &value, 0.01f, 0.0f, 1.0f, "%.2f db")) {
-                track->ui_parameter.set(TrackParameter_Volume, value);
+            if (controls::param_drag_db(track->ui_parameter, TrackParameter_Volume, "Vol.")) {
                 parameter_updated = true;
             }
 
@@ -662,6 +662,7 @@ void GuiTimeline::render_track_lanes() {
     double inv_view_scale = 1.0 / view_scale;
     ImVec2 mouse_pos = ImGui::GetMousePos();
     float mouse_wheel = ImGui::GetIO().MouseWheel;
+    float mouse_wheel_h = ImGui::GetIO().MouseWheelH;
     bool left_mouse_clicked = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
     bool left_mouse_down = ImGui::IsMouseDown(ImGuiMouseButton_Left);
     bool middle_mouse_clicked = ImGui::IsMouseClicked(ImGuiMouseButton_Middle);
@@ -669,6 +670,10 @@ void GuiTimeline::render_track_lanes() {
     bool right_mouse_clicked = ImGui::IsMouseDown(ImGuiMouseButton_Right);
     bool timeline_hovered = ImGui::IsItemHovered();
     bool mouse_move = false;
+
+    if (timeline_hovered && mouse_wheel_h != 0.0f) {
+        scroll_horizontal(mouse_wheel_h, song_length, -timeline_width);
+    }
 
     if (mouse_pos.x != last_mouse_pos.x || mouse_pos.y != last_mouse_pos.y) {
         last_mouse_pos = mouse_pos;
@@ -717,11 +722,11 @@ void GuiTimeline::render_track_lanes() {
         float max_offset = !dragging_file ? timeline_end_x : timeline_end_x - 20.0f;
         if (mouse_pos.x < min_offset) {
             float distance = min_offset - mouse_pos.x;
-            scroll_horizontal(distance * speed * (float)inv_view_scale, song_length, -view_scale);
+            scroll_horizontal(distance * speed, song_length, -view_scale);
         }
         if (mouse_pos.x > max_offset) {
             float distance = max_offset - mouse_pos.x;
-            scroll_horizontal(distance * speed * (float)inv_view_scale, song_length, -view_scale);
+            scroll_horizontal(distance * speed, song_length, -view_scale);
         }
         redraw = true;
     }
@@ -1064,7 +1069,8 @@ void GuiTimeline::render_track_lanes() {
                     double clip_length = edited_clip->max_time - edited_clip->min_time;
                     if (edited_track == hovered_track) {
                         edited_track->duplicate_clip(edited_clip, mouse_at_gridline,
-                                                     mouse_at_gridline + clip_length, beat_duration);
+                                                     mouse_at_gridline + clip_length,
+                                                     beat_duration);
                     } else if (hovered_track != nullptr) {
                         hovered_track->duplicate_clip(edited_clip, mouse_at_gridline,
                                                       mouse_at_gridline + clip_length,
