@@ -27,7 +27,6 @@ set(WB_SOURCES
     "src/core/audio_buffer.h"
     "src/core/audio_format_conv.h"
     "src/core/audio_format.h"
-    "src/core/audio_param.h"
     "src/core/bit_manipulation.h"
     "src/core/color.h"
     "src/core/common.h"
