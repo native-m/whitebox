@@ -956,19 +956,20 @@ void GuiTimeline::render_track_lanes() {
                     rel_offset += min_time - old_min;
                 Log::debug("{}", rel_offset);
                 rel_offset = std::max(rel_offset, 0.0);
+                hovered_track_y = edited_track_pos_y;
 
                 if (edited_clip->type == ClipType::Audio) {
                     SampleAsset* asset = edited_clip->audio.asset;
                     start_sample_pos = beat_to_samples(
                         rel_offset, (double)asset->sample_instance.sample_rate, beat_duration);
                 }
-
                 break;
             }
             case TimelineEditAction::ClipResizeRight:
                 max_time = std::max(max_time + mouse_at_gridline - initial_time_pos, 0.0);
                 if (max_time <= min_time)
                     max_time = min_time + (1.0 / grid_scale);
+                hovered_track_y = edited_track_pos_y;
                 break;
             case TimelineEditAction::ClipDuplicate: {
                 float highlight_pos = (float)mouse_at_gridline; // Snap to grid
