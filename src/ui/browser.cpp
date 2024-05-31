@@ -56,18 +56,25 @@ void GuiBrowser::render_item(const std::filesystem::path& root_path, BrowserItem
         bool directory_open = ImGui::TreeNodeEx("##browser_item", ImGuiTreeNodeFlags_SpanFullWidth,
                                                 (const char*)item.name.data());
         bool dir_activated = ImGui::IsItemActivated();
-        ImGui::PopID();
 
         if (dir_activated) {
-            if (!item.open) {
+            if (!directory_open) {
                 auto path_from_root_dir = item.get_file_path(root_path);
                 glob_path(path_from_root_dir, item);
-            } else if (item.open) {
+            } else {
                 item.dir_items.reset();
                 item.file_items.reset();
             }
 
-            item.open = !item.open;
+            item.open = directory_open;
+        }
+
+        if (item.open != directory_open) {
+            item.open = directory_open;
+            if (!item.open) {
+                item.dir_items.reset();
+                item.file_items.reset();
+            }
         }
 
         if (directory_open) {
@@ -79,6 +86,8 @@ void GuiBrowser::render_item(const std::filesystem::path& root_path, BrowserItem
                     render_item(root_path, file_item);
             ImGui::TreePop();
         }
+
+        ImGui::PopID();
     } else {
         constexpr ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_Leaf |
                                              ImGuiTreeNodeFlags_NoTreePushOnOpen |
