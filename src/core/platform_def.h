@@ -13,3 +13,7 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 #endif
+
+#ifdef WB_PLATFORM_WINDOWS
+#include <crtdbg.h>
+#endif
