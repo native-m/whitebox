@@ -42,20 +42,22 @@ inline void draw_clip(ImDrawList* draw_list, ImVector<ClipContentDrawCmd>& clip_
     ImVec2 clip_title_max_bb(max_x2, clip_title_max_y);
     ImVec2 clip_content_min(min_x2, clip_title_max_y);
     ImVec2 clip_content_max(max_x2, track_pos_y + track_height);
-    ImDrawListFlags tmp_flags = draw_list->Flags;
-    draw_list->Flags = draw_list->Flags & ~draw_list_aa_flags;
-    draw_list->AddRectFilled(clip_title_min_bb, clip_title_max_bb, clip->color);
+    // ImDrawListFlags tmp_flags = draw_list->Flags;
+    // draw_list->Flags = draw_list->Flags & ~draw_list_aa_flags;
+    draw_list->AddRectFilled(clip_title_min_bb, clip_title_max_bb, clip->color, 3.0f,
+                             ImDrawFlags_RoundCornersTop);
     draw_list->AddRectFilled(clip_content_min, clip_content_max,
                              color_adjust_alpha(clip->color, 0.35f));
-    draw_list->AddRect(clip_title_min_bb, clip_title_max_bb, border_color);
-    draw_list->Flags = tmp_flags;
+    draw_list->AddRect(clip_title_min_bb, clip_title_max_bb, border_color, 3.0f,
+                       ImDrawFlags_RoundCornersTop);
+    // draw_list->Flags = tmp_flags;
 
     // Draw clip label
     const char* str = clip->name.c_str();
     ImVec4 clip_label_rect(clip_title_min_bb.x, clip_title_min_bb.y, clip_title_max_bb.x - 6.0f,
                            clip_title_max_y);
     draw_list->AddText(font, font_size,
-                       ImVec2(std::max(clip_title_min_bb.x, min_draw_x) + 3.0f, track_pos_y + 2.0f),
+                       ImVec2(std::max(clip_title_min_bb.x, min_draw_x) + 4.0f, track_pos_y + 2.0f),
                        text_color_adjusted, str, str + clip->name.size(), 0.0f, &clip_label_rect);
 
     SampleAsset* asset = clip->audio.asset;
@@ -85,8 +87,8 @@ inline void draw_clip(ImDrawList* draw_list, ImVector<ClipContentDrawCmd>& clip_
         if (draw_count) {
             clip_content_cmds.push_back({
                 .peaks = sample_peaks,
-                .min_bb = ImVec2((float)std::round(min_pos_x), clip_content_min.y - offset_y),
-                .max_bb = ImVec2((float)std::round(max_pos_x), clip_content_max.y - offset_y),
+                .min_bb = ImVec2(std::round((float)min_pos_x), clip_content_min.y - offset_y),
+                .max_bb = ImVec2(std::round((float)max_pos_x), clip_content_max.y - offset_y),
                 .color = color_brighten(clip->color, 0.85f),
                 .scale_x = (float)mip_scale,
                 .mip_index = index,
@@ -234,8 +236,8 @@ inline void GuiTimeline::render_horizontal_scrollbar() {
     }
 
     // Transform scroll units in pixels
-    float min_hscroll_pixels = (float)min_hscroll * scroll_btn_max_length;
-    float max_hscroll_pixels = (1.0f - (float)max_hscroll) * scroll_btn_max_length;
+    float min_hscroll_pixels = std::round((float)min_hscroll * scroll_btn_max_length);
+    float max_hscroll_pixels = std::round((1.0f - (float)max_hscroll) * scroll_btn_max_length);
 
     // Calculate bounds
     float lhs_x = scroll_btn_min_bb.x + min_hscroll_pixels;
@@ -313,11 +315,11 @@ inline void GuiTimeline::render_time_ruler() {
 
     ImGui::SetCursorPosX(std::max(separator_pos, 100.0f) + 2.0f);
 
-    auto size = ImVec2(ImGui::GetContentRegionAvail().x,
-                       ImGui::GetFontSize() + style.FramePadding.y * 2.0f);
     double view_scale = calc_view_scale();
     ImVec2 drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left);
     ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
+    auto size = ImVec2(ImGui::GetContentRegionAvail().x,
+                       ImGui::GetFontSize() + style.FramePadding.y * 2.0f);
     ImGui::InvisibleButton("##time_ruler_control", size);
 
     if (ImGui::IsItemActivated() || (ImGui::IsItemActive() && std::abs(drag_delta.x) > 0.001f)) {
@@ -358,7 +360,7 @@ inline void GuiTimeline::render_time_ruler() {
     double inv_view_scale = 1.0 / view_scale;
     float grid_inc_x = (float)g_engine.ppq * 4.0f / (float)view_scale;
     float inv_grid_inc_x = 1.0f / grid_inc_x;
-    float scroll_pos_x = (float)(min_hscroll * song_length) / (float)view_scale;
+    float scroll_pos_x = (float)std::round((min_hscroll * song_length) / view_scale);
     float gridline_pos_x = cursor_pos.x - std::fmod(scroll_pos_x, grid_inc_x);
     float scroll_offset = cursor_pos.x - scroll_pos_x;
     int line_count = (uint32_t)(size.x * inv_grid_inc_x) + 1;
@@ -375,6 +377,7 @@ inline void GuiTimeline::render_time_ruler() {
             ImVec2(position + size.y * 0.5f, cursor_pos.y + size.y - 2.5f), col);
     }
 
+    float tick_pos_y = cursor_pos.y + size.y;
     for (int i = 0; i <= line_count; i++) {
         char digits[24] {};
         float rounded_gridline_pos_x = std::round(gridline_pos_x);
@@ -382,8 +385,8 @@ inline void GuiTimeline::render_time_ruler() {
         draw_list->AddText(ImVec2(rounded_gridline_pos_x + 4.0f,
                                   cursor_pos.y + style.FramePadding.y * 2.0f - 2.0f),
                            ImGui::GetColorU32(ImGuiCol_Text), digits);
-        draw_list->AddLine(ImVec2(rounded_gridline_pos_x, cursor_pos.y + size.y - 8.0f),
-                           ImVec2(rounded_gridline_pos_x, cursor_pos.y + size.y - 3.0f), col);
+        draw_list->AddLine(ImVec2(rounded_gridline_pos_x, tick_pos_y - 8.0f),
+                           ImVec2(rounded_gridline_pos_x, tick_pos_y - 3.0f), col);
         gridline_pos_x += grid_inc_x;
     }
 
@@ -732,7 +735,7 @@ void GuiTimeline::render_track_lanes() {
     }
 
     double sample_scale = (view_scale * beat_duration) * inv_ppq;
-    double scroll_pos_x = (min_hscroll * song_length) / view_scale;
+    double scroll_pos_x = std::round((min_hscroll * song_length) / view_scale);
 
     // Map mouse position to time position
     double mouse_at_time_pos =
@@ -766,8 +769,9 @@ void GuiTimeline::render_track_lanes() {
         int count_offset = (uint32_t)(scroll_pos_x * inv_grid_inc_x);
         for (int i = 0; i <= gridline_count; i++) {
             gridline_pos_x += grid_inc_x;
-            priv_draw_list->AddLine(ImVec2(std::round(gridline_pos_x), offset_y),
-                                    ImVec2(std::round(gridline_pos_x), offset_y + area_size.y),
+            float gridline_pos_x_pixel = std::floor(gridline_pos_x);
+            priv_draw_list->AddLine(ImVec2(gridline_pos_x_pixel, offset_y),
+                                    ImVec2(gridline_pos_x_pixel, offset_y + area_size.y),
                                     grid_color, (i + count_offset + 1) % 4 ? 1.0f : 2.0f);
         }
 
