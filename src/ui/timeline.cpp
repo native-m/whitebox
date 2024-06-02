@@ -640,6 +640,7 @@ inline void GuiTimeline::clip_context_menu() {
 
         if (ImGui::MenuItem("Delete")) {
             g_engine.delete_clip(context_menu_track, context_menu_clip);
+            recalculate_song_length();
             force_redraw = true;
         }
 
@@ -1134,6 +1135,10 @@ void GuiTimeline::render_track_lanes() {
 
     clip_context_menu();
 
+    if (item_drop.item) {
+        recalculate_song_length();
+    }
+
     ImTextureID tex_id = g_renderer->prepare_as_imgui_texture(timeline_fb);
     main_draw_list->AddImage(tex_id, ImVec2(timeline_view_pos.x, offset_y),
                              ImVec2(timeline_view_pos.x + timeline_width, offset_y + area_size.y));
@@ -1172,13 +1177,13 @@ void GuiTimeline::finish_edit_action() {
 }
 
 void GuiTimeline::recalculate_song_length() {
-    double max_length = std::numeric_limits<double>::max();
+    double max_length = std::numeric_limits<double>::min();
     for (auto track : g_engine.tracks) {
         if (!track->clips.empty()) {
             Clip* clip = track->clips.back();
-            max_length = math::min(max_length, clip->max_time * g_engine.ppq);
+            max_length = math::max(max_length, clip->max_time * g_engine.ppq);
         } else {
-            max_length = math::min(max_length, 10000.0);
+            max_length = math::max(max_length, 10000.0);
         }
     }
     if (max_length > 10000.0) {
