@@ -236,12 +236,21 @@ inline void GuiTimeline::render_horizontal_scrollbar() {
     }
 
     // Transform scroll units in pixels
-    float min_hscroll_pixels = std::round((float)min_hscroll * scroll_btn_max_length);
-    float max_hscroll_pixels = std::round((1.0f - (float)max_hscroll) * scroll_btn_max_length);
+    double min_space = 4.0 / scroll_btn_max_length;
+    float min_hscroll_pixels =
+        (float)std::round(math::min(min_hscroll, 1.0 - min_space) * scroll_btn_max_length);
+    float max_hscroll_pixels =
+        (float)std::round(math::min(max_hscroll, 1.0) * scroll_btn_max_length);
+    float dist_pixel = max_hscroll_pixels - min_hscroll_pixels;
+
+    if (dist_pixel < 4.0f) {
+        max_hscroll_pixels = min_hscroll_pixels + 4.0f;
+    }
 
     // Calculate bounds
     float lhs_x = scroll_btn_min_bb.x + min_hscroll_pixels;
-    float rhs_x = scroll_btn_max_bb.x - max_hscroll_pixels;
+    float rhs_x = scroll_btn_min_bb.x + max_hscroll_pixels;
+
     ImVec2 lhs_min(lhs_x, scroll_btn_min_bb.y);
     ImVec2 lhs_max(lhs_x + 2.0f, scroll_btn_min_bb.y + btn_size_y);
     ImVec2 rhs_min(rhs_x - 2.0f, scroll_btn_min_bb.y);
@@ -256,8 +265,12 @@ inline void GuiTimeline::render_horizontal_scrollbar() {
     // Check whether the mouse hovering the right-hand side bound
     else if (!grabbing_scroll && ImGui::IsMouseHoveringRect(rhs_min, rhs_max)) {
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
-        if (active && !resizing_rhs_scroll_grab)
+        if (active && !resizing_rhs_scroll_grab) {
+            if (max_hscroll > 1.0) {
+                max_hscroll -= max_hscroll - 1.0;
+            }
             resizing_rhs_scroll_grab = true;
+        }
     }
     // Check whether the mouse is grabbing the scroll
     else if (ImGui::IsMouseHoveringRect(lhs_min, rhs_max) && active && !grabbing_scroll) {
@@ -280,20 +293,20 @@ inline void GuiTimeline::render_horizontal_scrollbar() {
     if (resizing_lhs_scroll_grab) {
         auto drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left, 1.0f);
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
-        min_hscroll =
-            std::clamp(min_hscroll + drag_delta.x / scroll_btn_max_length, 0.0, max_hscroll);
+        min_hscroll = std::clamp(min_hscroll + drag_delta.x / scroll_btn_max_length, 0.0,
+                                 max_hscroll - min_space);
         ImGui::ResetMouseDragDelta(ImGuiMouseButton_Left);
     } else if (resizing_rhs_scroll_grab) {
         auto drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left, 1.0f);
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
         max_hscroll =
-            std::clamp(max_hscroll + drag_delta.x / scroll_btn_max_length, min_hscroll, 1.0);
+            math::max(max_hscroll + drag_delta.x / scroll_btn_max_length, min_hscroll + min_space);
         ImGui::ResetMouseDragDelta(ImGuiMouseButton_Left);
     } else if (grabbing_scroll) {
         ImVec2 drag_delta = ImGui::GetMouseDragDelta();
         double scroll_grab_length = max_hscroll - min_hscroll;
-        double new_min_hscroll = std::clamp(last_hscroll + drag_delta.x / scroll_btn_max_length,
-                                            0.0, 1.0 - scroll_grab_length);
+        double new_min_hscroll =
+            math::max(last_hscroll + drag_delta.x / scroll_btn_max_length, 0.0);
         max_hscroll = new_min_hscroll + scroll_grab_length;
         min_hscroll = new_min_hscroll;
     }
@@ -937,14 +950,6 @@ void GuiTimeline::render_track_lanes() {
                     std::max(min_time + mouse_at_gridline - initial_time_pos, 0.0);
                 max_time = new_min_time + (max_time - min_time);
                 min_time = new_min_time;
-
-                // Readjust song length
-                if (max_time * ppq > song_length) {
-                    double new_song_length = std::max(max_time * ppq, song_length);
-                    min_hscroll = min_hscroll * song_length / new_song_length;
-                    max_hscroll = max_hscroll * song_length / new_song_length;
-                    song_length = new_song_length;
-                }
                 break;
             }
             case TimelineEditAction::ClipResizeLeft: {
@@ -1124,12 +1129,48 @@ void GuiTimeline::render_track_lanes() {
     ImGui::PopClipRect();
 }
 
+void GuiTimeline::finish_edit_action() {
+    hovered_track = nullptr;
+    hovered_track_y = 0.0f;
+    hovered_track_height = 60.0f;
+    edited_clip = nullptr;
+    edited_track = nullptr;
+    edited_track_pos_y = 0.0f;
+    edited_clip_min_time = 0.0;
+    edited_clip_max_time = 0.0;
+    edit_action = TimelineEditAction::None;
+    initial_time_pos = 0.0;
+    recalculate_song_length();
+}
+
+void GuiTimeline::recalculate_song_length() {
+    double max_length = std::numeric_limits<double>::max();
+    for (auto track : g_engine.tracks) {
+        if (!track->clips.empty()) {
+            Clip* clip = track->clips.back();
+            max_length = math::min(max_length, clip->max_time * g_engine.ppq);
+        } else {
+            max_length = math::min(max_length, 10000.0);
+        }
+    }
+    if (max_length > 10000.0) {
+        max_length += g_engine.ppq * 4;
+        min_hscroll = min_hscroll * song_length / max_length;
+        max_hscroll = max_hscroll * song_length / max_length;
+        song_length = max_length;
+    } else {
+        min_hscroll = min_hscroll * song_length / 10000.0;
+        max_hscroll = max_hscroll * song_length / 10000.0;
+        song_length = 10000.0;
+    }
+}
+
 inline void GuiTimeline::scroll_horizontal(float drag_delta, double max_length, double direction) {
     double norm_drag_delta = ((double)drag_delta / max_length) * direction;
     if (drag_delta != 0.0f) {
         double new_min_hscroll = min_hscroll + norm_drag_delta;
         double new_max_hscroll = max_hscroll + norm_drag_delta;
-        if (new_min_hscroll >= 0.0f && new_max_hscroll <= 1.0f) {
+        if (new_min_hscroll >= 0.0f) {
             min_hscroll = new_min_hscroll;
             max_hscroll = new_max_hscroll;
         } else {
@@ -1137,9 +1178,6 @@ inline void GuiTimeline::scroll_horizontal(float drag_delta, double max_length, 
             if (new_min_hscroll < 0.0) {
                 min_hscroll = 0.0;
                 max_hscroll = new_max_hscroll + std::abs(new_min_hscroll);
-            } else if (new_max_hscroll > 1.0) {
-                min_hscroll = new_min_hscroll - (new_max_hscroll - 1.0);
-                max_hscroll = 1.0;
             }
         }
         redraw = true;
@@ -1148,16 +1186,19 @@ inline void GuiTimeline::scroll_horizontal(float drag_delta, double max_length, 
 
 inline void GuiTimeline::zoom(float mouse_pos_x, float cursor_pos_x, double view_scale,
                               float mouse_wheel) {
+    if (max_hscroll > 1.0) {
+        double dist = max_hscroll - 1.0;
+        min_hscroll -= dist;
+        max_hscroll -= dist;
+    }
     double zoom_position =
         ((double)(mouse_pos_x - cursor_pos_x) / song_length * view_scale) + min_hscroll;
-    if (zoom_position <= 1.0) {
-        double dist_from_start = zoom_position - min_hscroll;
-        double dist_to_end = max_hscroll - zoom_position;
-        mouse_wheel *= 0.1f;
-        min_hscroll = std::clamp(min_hscroll + dist_from_start * mouse_wheel, 0.0, max_hscroll);
-        max_hscroll = std::clamp(max_hscroll - dist_to_end * mouse_wheel, min_hscroll, 1.0);
-        redraw = true;
-    }
+    double dist_from_start = zoom_position - min_hscroll;
+    double dist_to_end = max_hscroll - zoom_position;
+    mouse_wheel *= 0.1f;
+    min_hscroll = std::clamp(min_hscroll + dist_from_start * mouse_wheel, 0.0, max_hscroll);
+    max_hscroll = std::clamp(max_hscroll - dist_to_end * mouse_wheel, min_hscroll, 1.0);
+    redraw = true;
 }
 
 GuiTimeline g_timeline;

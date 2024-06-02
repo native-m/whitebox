@@ -88,25 +88,14 @@ struct GuiTimeline {
     inline void track_context_menu(Track& track, int track_id);
     inline void clip_context_menu();
     void render_track_lanes();
+    void finish_edit_action();
+    void recalculate_song_length();
 
     inline void scroll_horizontal(float drag_delta, double max_length, double direction = 1.0);
     inline void zoom(float mouse_pos_x, float cursor_pos_x, double view_scale, float mouse_wheel);
 
     inline double calc_view_scale() const {
         return (max_hscroll - min_hscroll) * song_length / (double)timeline_width;
-    }
-
-    inline void finish_edit_action() {
-        hovered_track = nullptr;
-        hovered_track_y = 0.0f;
-        hovered_track_height = 60.0f;
-        edited_clip = nullptr;
-        edited_track = nullptr;
-        edited_track_pos_y = 0.0f;
-        edited_clip_min_time = 0.0;
-        edited_clip_max_time = 0.0;
-        edit_action = TimelineEditAction::None;
-        initial_time_pos = 0.0;
     }
 
     inline void redraw_screen() { force_redraw = true; }
