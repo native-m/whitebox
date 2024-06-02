@@ -793,8 +793,12 @@ void GuiTimeline::render_track_lanes() {
     }
 
     bool has_deleted_clips = g_engine.has_deleted_clips.load(std::memory_order_relaxed);
+    if (has_deleted_clips) {
+        g_engine.delete_lock.lock();
+    }
 
-    for (auto track : g_engine.tracks) {
+    for (uint32_t i = 0; i < g_engine.tracks.size(); i++) {
+        Track* track = g_engine.tracks[i];
         float height = track->height;
 
         if (track_pos_y > timeline_area.y + offset_y) {
@@ -936,6 +940,10 @@ void GuiTimeline::render_track_lanes() {
         }
 
         track_pos_y += 2.0f;
+    }
+
+    if (has_deleted_clips) {
+        g_engine.delete_lock.unlock();
     }
 
     // Visualize the edited clip during the action
