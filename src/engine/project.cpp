@@ -38,8 +38,7 @@ bool ProjectFile::read_project(Engine& engine, SampleTable& sample_table) {
     file.read((char*)&track_count, sizeof(size_t));
     engine.tracks.reserve(track_count);
     for (size_t i = 0; i < track_count; i++) {
-        Track* track = new Track();
-        read_track(track);
+        Track* track = read_track();
         engine.tracks.push_back(track);
     }
 
@@ -63,22 +62,30 @@ void ProjectFile::read_project_info() {
     read_string_(project_info.genre);
 }
 
-void ProjectFile::read_track(Track* track) {
+Track* ProjectFile::read_track() {
+    std::string name;
     uint32_t color;
+    float height;
     float volume;
     float pan;
     bool mute;
 
-    read_string_(track->name);
+    read_string_(name);
     file.read((char*)&color, sizeof(uint32_t));
-    file.read((char*)&track->height, sizeof(float));
+    file.read((char*)&height, sizeof(float));
     file.read((char*)&volume, sizeof(float));
     file.read((char*)&pan, sizeof(float));
     file.read((char*)&mute, 1);
-    track->color = ImColor(color);
-    track->ui_parameter.set(TrackParameter_Volume, volume);
-    track->ui_parameter.set(TrackParameter_Pan, pan);
-    track->ui_parameter.set(TrackParameter_Mute, (uint32_t)mute);
+
+    Track* track = new Track(name, color, height, true,
+                             {
+                                 .volume = volume,
+                                 .pan = pan,
+                                 .mute = false,
+                             });
+    // track->ui_parameter.set(TrackParameter_Volume, volume);
+    // track->ui_parameter.set(TrackParameter_Pan, pan);
+    // track->ui_parameter.set(TrackParameter_Mute, (uint32_t)mute);
 
     size_t clip_count;
     file.read((char*)&clip_count, sizeof(size_t));
@@ -91,6 +98,8 @@ void ProjectFile::read_track(Track* track) {
     }
 
     track->update(nullptr, 0.0);
+
+    return track;
 }
 
 void ProjectFile::read_clip(Clip* clip) {
@@ -156,9 +165,9 @@ void ProjectFile::write_project_info(const ProjectInfo& project_info) {
 
 void ProjectFile::write_track(Track* track) {
     uint32_t color = track->color;
-    float volume = track->ui_parameter.get_float(TrackParameter_Volume);
-    float pan = track->ui_parameter.get_float(TrackParameter_Pan);
-    bool mute = (bool)track->ui_parameter.get_uint(TrackParameter_Mute);
+    float volume = track->ui_parameter_state.volume;
+    float pan = track->ui_parameter_state.pan;
+    bool mute = (bool)track->ui_parameter_state.mute;
     size_t clip_count = track->clips.size();
     write_string_(track->name);
     file.write((char*)&color, sizeof(uint32_t));

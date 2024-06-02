@@ -22,7 +22,8 @@ static const std::filesystem::path userpath {std::getenv("HOME")};
 #else
 static const std::filesystem::path userpath {std::filesystem::current_path()};
 #endif
-static const std::filesystem::path settings_file_path {userpath / ".whitebox" / "settings.json"};
+static const std::filesystem::path devpath {std::filesystem::current_path()};
+static const std::filesystem::path settings_file_path {devpath / ".whitebox" / "settings.json"};
 
 void SettingsData::load_settings_data() {
     Log::info("Loading user settings...");
@@ -153,8 +154,8 @@ void SettingsData::load_default_settings() {
 void SettingsData::save_settings_data() {
     Log::info("Saving user settings...");
 
-    if (!std::filesystem::is_directory(userpath / ".whitebox")) {
-        std::filesystem::create_directory(userpath / ".whitebox");
+    if (!std::filesystem::is_directory(devpath / ".whitebox")) {
+        std::filesystem::create_directory(devpath / ".whitebox");
     }
 
     ordered_json audio;

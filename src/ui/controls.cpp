@@ -1,6 +1,7 @@
 #include "controls.h"
 #include "core/debug.h"
 #include "core/math.h"
+#include "core/queue.h"
 #include "draw.h"
 #include "engine/engine.h"
 #include <fmt/format.h>
@@ -35,31 +36,26 @@ void song_position() {
     draw_list->AddText(text_pos, ImGui::GetColorU32(ImGuiCol_Text), buf);
 }
 
-bool param_drag_db(AudioParameterList& param_list, uint32_t id, const char* str_id, float speed,
-                   float min_db, float max_db, const char* format, ImGuiSliderFlags flags) {
-    float value = param_list.get_plain_float(id);
-    flags |= ImGuiSliderFlags_AlwaysClamp;
+bool param_drag_db(const char* str_id, float* value, float speed, float min_db, float max_db,
+                   const char* format, ImGuiSliderFlags flags) {
+    char tmp[16] {};
+    const char* str_value = tmp;
+    flags |=
+        ImGuiSliderFlags_AlwaysClamp;// | ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_NoRoundToFormat;
 
-    if (value == min_db) {
-        format = "-INFdB";
+    if (*value > 0.0f) {
+        float db_value = math::linear_to_db(*value);
+        fmt::format_to(tmp, "{:.2f}db", db_value);
+    } else {
+        str_value = "-INFdB";
     }
 
-    if (ImGui::DragFloat(str_id, &value, speed, min_db, max_db, format, flags)) {
-        if (value == min_db) {
-            param_list.set(id, 0.0f, min_db);
-        } else {
-            param_list.set(id, math::db_to_linear(value), value);
-        }
-        return true;
-    }
-
-    return false;
+    return ImGui::DragFloat(str_id, value, 0.005f, 0.0f, 1.0f, str_value, flags);
 }
 
 bool param_slider_db(AudioParameterList& param_list, uint32_t id,
                      const SliderProperties& properties, const char* str_id, const ImVec2& size,
-                     const ImColor& color, float min_db, float max_db,
-                     const char* format) {
+                     const ImColor& color, float min_db, float max_db, const char* format) {
     float value = param_list.get_plain_float(id);
 
     if (value == min_db) {

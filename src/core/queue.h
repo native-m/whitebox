@@ -1,8 +1,8 @@
 #pragma once
 
-#include "core/common.h"
-#include "core/thread.h"
-#include "core/types.h"
+#include "common.h"
+#include "thread.h"
+#include "types.h"
 
 namespace wb {
 
@@ -94,15 +94,22 @@ struct LocalQueue {
 };
 
 template <Trivial T>
-struct RingBuffer {
+struct ConcurrentQueue {
     static constexpr auto cache_size_ = std::hardware_destructive_interference_size;
 
     alignas(cache_size_) std::atomic<uint32_t> write_pos_ {};
     alignas(cache_size_) std::atomic<uint32_t> read_pos_ {};
     alignas(cache_size_) std::atomic<uint32_t> size_ {};
-    uint32_t capacity_ {};
     T* data_ {};
+    uint32_t capacity_ {};
     Spinlock resize_lock_;
+
+    ~ConcurrentQueue() {
+        resize_lock_.wait();
+        if (data_) {
+            std::free(data_);
+        }
+    }
 
     inline void push(const T& value) {
         uint32_t write_pos = write_pos_.load(std::memory_order_relaxed);
@@ -111,7 +118,7 @@ struct RingBuffer {
         if (size >= capacity_) {
             reserve(capacity_ + (capacity_ / 2) + 2);
             write_pos = write_pos_.load(std::memory_order_relaxed);
-            read_pos = read_pos_.load(std::memory_order_acquire);
+            read_pos = read_pos_.load(std::memory_order_relaxed);
         }
         data_[write_pos] = value;
         write_pos = (write_pos + 1) % capacity_;

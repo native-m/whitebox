@@ -504,15 +504,24 @@ inline void GuiTimeline::render_track_controls() {
             ImGui::SameLine(0.0f, 6.0f);
             ImGui::Text((const char*)track->name.c_str());
 
-            if (controls::param_drag_db(track->ui_parameter, TrackParameter_Volume, "Vol.")) {
-                parameter_updated = true;
+            float volume = track->ui_parameter_state.volume;
+            if (controls::param_drag_db("Vol.", &volume)) {
+                track->ui_parameter_state.volume = volume;
+                track->ui_param_changes.push({
+                    .id = TrackParameter_Volume,
+                    .sample_offset = 0,
+                    .value = (double)volume,
+                });
             }
 
-            bool mute = (bool)track->ui_parameter.get_uint(TrackParameter_Mute);
+            bool mute = track->ui_parameter_state.mute;
             if (ImGui::SmallButton("M")) {
-                mute = !mute;
-                track->ui_parameter.set(TrackParameter_Mute, (uint32_t)mute);
-                parameter_updated = true;
+                track->ui_parameter_state.mute = !mute;
+                track->ui_param_changes.push({
+                    .id = TrackParameter_Mute,
+                    .sample_offset = 0,
+                    .value = (double)track->ui_parameter_state.mute,
+                });
             }
 
             ImGui::SameLine(0.0f, 2.0f);
@@ -534,9 +543,6 @@ inline void GuiTimeline::render_track_controls() {
 
             track_context_menu(*track, id);
             ImGui::PopStyleVar();
-
-            if (parameter_updated)
-                track->ui_parameter.update();
         }
 
         ImGui::EndChild();
@@ -633,9 +639,7 @@ inline void GuiTimeline::clip_context_menu() {
         }
 
         if (ImGui::MenuItem("Delete")) {
-            g_engine.edit_lock();
             g_engine.delete_clip(context_menu_track, context_menu_clip);
-            g_engine.edit_unlock();
             force_redraw = true;
         }
 
@@ -766,6 +770,12 @@ void GuiTimeline::render_track_lanes() {
     float drop_file_pos_y = 0.0f;
     double clip_scale = ppq * inv_view_scale;
     ImFont* font = ImGui::GetFont();
+    bool holding_ctrl = ImGui::IsKeyDown(ImGuiKey_ModCtrl);
+
+    if (selecting_range && !left_mouse_down) {
+        Log::debug("Selection end");
+        selecting_range = false;
+    }
 
     redraw = redraw || (mouse_move && edit_action != TimelineEditAction::None) || dragging_file;
 
@@ -822,7 +832,16 @@ void GuiTimeline::render_track_lanes() {
             hovered_track_height = height;
         }
 
-        for (auto clip : track->clips) {
+        if (holding_ctrl && left_mouse_clicked) {
+            Log::debug("Selection start");
+            target_sel_range.start_track = i;
+            target_sel_range.min = mouse_at_gridline;
+            selecting_range = true;
+        }
+
+        for (size_t j = 0; j < track->clips.size(); j++) {
+            Clip* clip = track->clips[j];
+
             if (has_deleted_clips && track->deleted_clip_ids.contains(clip->id)) {
                 continue;
             }
@@ -851,7 +870,8 @@ void GuiTimeline::render_track_lanes() {
             bool hovering_left_side = false;
             bool hovering_right_side = false;
 
-            if (hovering_current_track && edit_action == TimelineEditAction::None) {
+            if (hovering_current_track && edit_action == TimelineEditAction::None &&
+                !holding_ctrl) {
                 ImRect clip_rect(min_bb, max_bb);
                 // Sizing handle hitboxes
                 ImRect lhs(min_pos_x_in_pixel, track_pos_y, min_pos_x_in_pixel + 4.0f, max_bb.y);
@@ -1126,7 +1146,7 @@ void GuiTimeline::render_track_lanes() {
                                 ImVec2(playhead_pos, offset_y + timeline_area.y), playhead_color);
     }
 
-    if (timeline_hovered && ImGui::IsKeyDown(ImGuiKey_LeftCtrl) && mouse_wheel != 0.0f) {
+    if (timeline_hovered && holding_ctrl && mouse_wheel != 0.0f) {
         zoom(mouse_pos.x, timeline_view_pos.x, view_scale, mouse_wheel);
         zooming = true;
         force_redraw = true;

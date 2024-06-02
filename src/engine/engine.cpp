@@ -118,8 +118,8 @@ Clip* Engine::add_audio_clip_from_file(Track* track, const std::filesystem::path
 }
 
 void Engine::delete_clip(Track* track, Clip* clip) {
-    has_deleted_clips.store(true, std::memory_order_release);
     track->delete_clip(clip->id);
+    has_deleted_clips.store(true, std::memory_order_release);
 }
 
 void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
@@ -163,12 +163,12 @@ void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
     }
 
     if (has_deleted_clips.load(std::memory_order_relaxed)) {
+        delete_lock.lock();
         for (auto track : tracks) {
-            if (track->deleted_clip_ids.empty())
-                continue;
             Log::debug("Deleting pending clips for track: {} ...", (uintptr_t)track);
             track->flush_deleted_clips();
         }
+        delete_lock.unlock();
         has_deleted_clips.store(false, std::memory_order_relaxed);
     }
 }

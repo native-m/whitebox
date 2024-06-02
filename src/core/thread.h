@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common.h"
+#include <thread>
 #include <atomic>
 #include <chrono>
 
@@ -19,7 +20,7 @@ struct Spinlock {
             if (!lock_.exchange(true, std::memory_order_acquire))
                 return;
             while (lock_.load(std::memory_order_relaxed))
-                ;
+                std::this_thread::yield();
         }
     }
 

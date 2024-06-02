@@ -17,6 +17,20 @@ enum class TimelineEditAction {
     ShowClipContextMenu,
 };
 
+struct SelectionRange {
+    Track* track;
+    double min;
+    double max;
+};
+
+struct TargetSelectionRange
+{
+    uint32_t start_track;
+    uint32_t end_track;
+    double min;
+    double max;
+};
+
 struct GuiTimeline {
     bool open = true;
     bool redraw = false;
@@ -50,6 +64,8 @@ struct GuiTimeline {
     float scroll_delta_y = 0.0f;
     float grid_scale = 2.0f;
 
+    Vector<SelectionRange> selection_ranges;
+    TargetSelectionRange target_sel_range;
     TimelineEditAction edit_action;
     bool scrolling = false;
     bool zooming = false;
@@ -57,6 +73,7 @@ struct GuiTimeline {
     bool grabbing_scroll = false;
     bool resizing_lhs_scroll_grab = false;
     bool resizing_rhs_scroll_grab = false;
+    bool selecting_range = false;
 
     Track* edited_track {};
     Clip* edited_clip {};

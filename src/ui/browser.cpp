@@ -69,14 +69,6 @@ void GuiBrowser::render_item(const std::filesystem::path& root_path, BrowserItem
             item.open = directory_open;
         }
 
-        if (item.open != directory_open) {
-            item.open = directory_open;
-            if (!item.open) {
-                item.dir_items.reset();
-                item.file_items.reset();
-            }
-        }
-
         if (directory_open) {
             if (item.dir_items)
                 for (auto& directory_item : *item.dir_items)

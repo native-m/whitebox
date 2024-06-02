@@ -2,6 +2,7 @@
 
 #include "core/common.h"
 #include "sample_table.h"
+#include <atomic>
 #include <imgui.h>
 #include <string>
 
@@ -31,6 +32,7 @@ struct Clip {
     ClipType type {};
     std::string name {};
     ImColor color {};
+    mutable std::atomic_bool deleted {};
 
     // Time placement in beat units
     double min_time {};
@@ -86,12 +88,16 @@ struct Clip {
         }
     }
 
-    void as_audio_clip(const AudioClip& clip_info) {
+    inline void as_audio_clip(const AudioClip& clip_info) {
         type = ClipType::Audio;
         audio = clip_info;
     }
 
     void as_midi_clip() {}
+
+    inline void mark_deleted() { deleted.store(true, std::memory_order_release); }
+
+    inline bool is_deleted() const { return deleted.load(std::memory_order_relaxed); }
 };
 
 } // namespace wb

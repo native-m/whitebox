@@ -15,7 +15,7 @@ struct Engine {
 
     std::vector<Track*> tracks;
     Spinlock editor_lock;
-    Spinlock track_lock;
+    Spinlock delete_lock;
     
     double ppq = 96.0;
     double playhead {};

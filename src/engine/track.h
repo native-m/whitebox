@@ -1,8 +1,8 @@
 #pragma once
 
+#include "audio_param.h"
 #include "clip.h"
 #include "core/audio_buffer.h"
-#include "core/audio_param.h"
 #include "core/memory.h"
 #include "core/vector.h"
 #include "event.h"
@@ -36,7 +36,6 @@ struct Track {
     ImColor color {0.3f, 0.3f, 0.3f, 1.0f};
     float height = 60.0f;
     bool shown = true;
-    AudioParameterList ui_parameter;
 
     Pool<Clip> clip_allocator;
     Vector<Clip*> clips;
@@ -48,12 +47,19 @@ struct Track {
     Event current_event {};
     size_t samples_processed {};
 
-    TrackParameterState parameter_state {};
+    TrackParameterState ui_parameter_state {}; // UI-side state
+    TrackParameterState parameter_state {};    // Audio-side state
     ParamChanges param_changes;
-    RingBuffer<ParamChange> ui_param_changes;
+    ConcurrentQueue<ParamChange> ui_param_changes; // This handles UI to audio thread parameter state transfer
 
     Track();
+    Track(const std::string& name, const ImColor& color, float height, bool shown,
+          const TrackParameterState& track_param);
     ~Track();
+
+    void set_volume(float volume);
+    void set_pan(float pan);
+    void set_mute(bool mute);
 
     /**
      * @brief Add audio clip into the track.

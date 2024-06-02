@@ -49,19 +49,15 @@ void GuiMixer::render() {
         controls::mixer_label(track->name.c_str(), size.y, track->color);
         ImGui::SameLine();
 
-        bool param_updated = false;
+        /*bool param_updated = false;
         if (controls::param_slider_db(track->ui_parameter, TrackParameter_Volume, mixer_slider,
                                       "##mixer_slider", ImVec2(20.0f, size.y), track->color)) {
             param_updated = true;
-        }
+        }*/
 
-        ImGui::SameLine();
+        //ImGui::SameLine();
         ImGui::PopID();
         id++;
-
-        if (param_updated) {
-            track->ui_parameter.update();
-        }
     }
     ImGui::PopStyleVar();
 

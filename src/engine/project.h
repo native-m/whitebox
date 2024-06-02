@@ -30,7 +30,7 @@ struct ProjectFile {
     bool read_project(Engine& engine, SampleTable& sample_table);
     bool read_header();
     void read_project_info();
-    void read_track(Track* track);
+    Track* read_track();
     void read_clip(Clip* clip);
 
     void write_project(Engine& engine, SampleTable& sample_table);

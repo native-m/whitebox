@@ -12,10 +12,9 @@
 namespace wb {
 
 Track::Track() {
-    ui_parameter.resize(TrackParameter_Max);
-    ui_parameter.set(TrackParameter_Volume, math::db_to_linear(0.0f), 0.0f);
-    ui_parameter.set(TrackParameter_Pan, 0.0f);
-    ui_parameter.set(TrackParameter_Mute, 0);
+    ui_parameter_state.volume = 1.0f;
+    ui_parameter_state.pan = 0.0f;
+    ui_parameter_state.mute = false;
 
     param_changes.set_max_params(TrackParameter_Max);
     ui_param_changes.push({
@@ -32,6 +31,27 @@ Track::Track() {
         .id = TrackParameter_Mute,
         .sample_offset = 0,
         .value = 0.0,
+    });
+}
+
+Track::Track(const std::string& name, const ImColor& color, float height, bool shown,
+             const TrackParameterState& track_param) :
+    name(name), color(color), height(height), shown(shown), ui_parameter_state(track_param) {
+    param_changes.set_max_params(TrackParameter_Max);
+    ui_param_changes.push({
+        .id = TrackParameter_Volume,
+        .sample_offset = 0,
+        .value = (double)ui_parameter_state.volume,
+    });
+    ui_param_changes.push({
+        .id = TrackParameter_Pan,
+        .sample_offset = 0,
+        .value = (double)ui_parameter_state.pan,
+    });
+    ui_param_changes.push({
+        .id = TrackParameter_Mute,
+        .sample_offset = 0,
+        .value = (double)ui_parameter_state.mute,
     });
 }
 
@@ -114,7 +134,7 @@ void Track::resize_clip(Clip* clip, double relative_pos, double min_length, doub
 }
 
 void Track::delete_clip(uint32_t id) {
-    deleted_clip_ids.insert(id);
+    clips[id]->mark_deleted();
 }
 
 void Track::update(Clip* updated_clip, double beat_duration) {
@@ -198,7 +218,6 @@ void Track::stop() {
     current_event = {
         .type = EventType::None,
     };
-
     event_buffer.resize(0);
 }
 
@@ -209,12 +228,10 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
 
     Clip* current_clip = playback_state.current_clip;
     Clip* next_clip = playback_state.next_clip;
-    bool has_deleted_clips = !deleted_clip_ids.empty();
 
     if (current_clip) {
         double max_time = math::uround(current_clip->max_time * ppq) * inv_ppq;
-        if (has_deleted_clips && deleted_clip_ids.contains(current_clip->id) ||
-            time_pos >= max_time) {
+        if (time_pos >= max_time || current_clip->is_deleted()) {
             event_buffer.push_back({
                 .type = EventType::StopSample,
                 .audio =
@@ -227,7 +244,7 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
         }
     }
 
-    if (has_deleted_clips && deleted_clip_ids.contains(next_clip->id)) {
+    while (next_clip && next_clip->is_deleted()) {
         auto new_next_clip = clips.begin() + (next_clip->id + 1);
         if (new_next_clip != clips.end()) {
             next_clip = *new_next_clip;
@@ -271,7 +288,7 @@ void Track::process(AudioBuffer<float>& output_buffer, double sample_rate, bool 
     param_changes.transfer_changes_from(ui_param_changes);
 
     for (uint32_t i = 0; i < param_changes.changes_count; i++) {
-        ParamValueQueue& queue = param_changes.params[i];
+        ParamValueQueue& queue = param_changes.queues[i];
         if (queue.points.size() == 0) {
             continue;
         }
@@ -280,12 +297,15 @@ void Track::process(AudioBuffer<float>& output_buffer, double sample_rate, bool 
         switch (queue.id) {
             case TrackParameter_Volume:
                 parameter_state.volume = (float)last_value;
+                Log::debug("Volume changed: {}", parameter_state.volume);
                 break;
             case TrackParameter_Pan:
                 parameter_state.pan = (float)last_value;
+                Log::debug("Pan changed: {}", parameter_state.pan);
                 break;
             case TrackParameter_Mute:
-                parameter_state.mute = last_value > 0.5 ? 1.0f : 0.0f;
+                parameter_state.mute = last_value > 0.0 ? 1.0f : 0.0f;
+                Log::debug("Mute changed: {}", parameter_state.mute);
                 break;
         }
     }
@@ -416,7 +436,7 @@ void Track::flush_deleted_clips() {
     Vector<Clip*> new_clip_list;
     new_clip_list.reserve(clips.size());
     for (auto clip : clips) {
-        if (deleted_clip_ids.contains(clip->id)) {
+        if (clip->is_deleted()) {
             // Make sure we don't touch this deleted clip
             if (clip == playback_state.next_clip)
                 playback_state.next_clip = nullptr;

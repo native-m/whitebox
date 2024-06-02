@@ -2,6 +2,7 @@
 
 #include "core/queue.h"
 #include "core/vector.h"
+#include "core/debug.h"
 #include <pluginterfaces/vst/ivstparameterchanges.h>
 
 namespace wb {
@@ -51,13 +52,13 @@ struct ParamValueQueue {
 
 struct ParamChanges {
     Vector<uint32_t> param_ids;
-    Vector<ParamValueQueue> params;
+    Vector<ParamValueQueue> queues;
     uint32_t changes_count = 0;
 
     inline void clear_changes() { changes_count = 0; }
 
     inline void set_max_params(uint32_t max_params) {
-        params.resize(max_params);
+        queues.resize(max_params);
 
         while (param_ids.size() < max_params) {
             param_ids.emplace_back(Steinberg::Vst::kNoParamId);
@@ -73,16 +74,17 @@ struct ParamChanges {
     }
 
     inline ParamValueQueue* add_param_change(uint32_t id, int32_t& index) {
+        ParamValueQueue* ret = nullptr;
+
         if (param_ids[id] != Steinberg::Vst::kNoParamId) {
             index = param_ids[id];
-            return &params[index];
+            ret = &queues[index];
         }
 
-        ParamValueQueue* ret = nullptr;
-        if (params.size() == changes_count) {
-            ret = &params.emplace_back();
+        if (queues.size() == changes_count) {
+            ret = &queues.emplace_back();
         } else {
-            ret = &params[changes_count];
+            ret = &queues[changes_count];
             ret->clear();
         }
 
@@ -97,7 +99,7 @@ struct ParamChanges {
         return ret;
     }
 
-    void transfer_changes_from(RingBuffer<ParamChange>& source) {
+    void transfer_changes_from(ConcurrentQueue<ParamChange>& source) {
         while (ParamChange* p = source.pop()) {
             int32_t index;
             ParamValueQueue* param = add_param_change(p->id, index);
