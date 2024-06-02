@@ -102,8 +102,8 @@ struct ParamChanges {
     void transfer_changes_from(ConcurrentQueue<ParamChange>& source) {
         while (ParamChange* p = source.pop()) {
             int32_t index;
-            ParamValueQueue* param = add_param_change(p->id, index);
-            param->add_point(p->sample_offset, p->value);
+            ParamValueQueue* queue = add_param_change(p->id, index);
+            queue->add_point(p->sample_offset, p->value);
         }
     }
 };

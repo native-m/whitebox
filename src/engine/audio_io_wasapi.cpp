@@ -450,7 +450,8 @@ struct AudioIOWASAPI : public AudioIO {
         return true;
     }
 
-    uint32_t find_device_index(const std::vector<AudioDeviceWASAPI>& devices, AudioDeviceID id) const {
+    uint32_t find_device_index(const std::vector<AudioDeviceWASAPI>& devices,
+                               AudioDeviceID id) const {
         uint32_t idx = 0;
         bool found = false;
         for (const auto& device : devices) {
@@ -512,6 +513,17 @@ struct AudioIOWASAPI : public AudioIO {
             output_buffer.clear();
 
             engine->process(output_buffer, sample_rate);
+
+            for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
+                float* channel = output_buffer.get_write_pointer(i);
+                for (uint32_t j = 0; j < output_buffer.n_samples; j++) {
+                    if (channel[j] > 1.0) {
+                        channel[j] = 1.0;
+                    } else if (channel[j] < -1.0) {
+                        channel[j] = -1.0;
+                    }
+                }
+            }
 
 #if LOG_BUFFERING
             Log::debug("Splitting buffer");
