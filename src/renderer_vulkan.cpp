@@ -1078,6 +1078,9 @@ void RendererVK::draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) {
 
 // We slightly modified ImGui_ImplVulkan_RenderDrawData function to fit our vulkan backend
 void RendererVK::render_draw_data(ImDrawData* draw_data) {
+    if (draw_data->CmdListsCount == 0)
+        return;
+
     int fb_width = (int)(draw_data->DisplaySize.x * draw_data->FramebufferScale.x);
     int fb_height = (int)(draw_data->DisplaySize.y * draw_data->FramebufferScale.y);
     if (fb_width <= 0 || fb_height <= 0)
@@ -1107,7 +1110,7 @@ void RendererVK::render_draw_data(ImDrawData* draw_data) {
         VK_CHECK(vkMapMemory(device_, rb->VertexBufferMemory, 0, rb->VertexBufferSize, 0,
                              (void**)&cmd_buf.immediate_vtx));
         cmd_buf.immediate_vtx_offset = 0;
-        Log::debug("Resizing immediate vertex buffer: {}", frame_id_);
+        //Log::debug("Resizing immediate vertex buffer: {}", frame_id_);
     }
 
     if (rb->IndexBuffer == VK_NULL_HANDLE || rb->IndexBufferSize < index_size) {
@@ -1116,7 +1119,7 @@ void RendererVK::render_draw_data(ImDrawData* draw_data) {
         VK_CHECK(vkMapMemory(device_, rb->IndexBufferMemory, 0, rb->IndexBufferSize, 0,
                              (void**)&cmd_buf.immediate_idx));
         cmd_buf.immediate_idx_offset = 0;
-        Log::debug("Resizing immediate index buffer: {}", frame_id_);
+        //Log::debug("Resizing immediate index buffer: {}", frame_id_);
     }
 
     ImDrawVert* vtx_dst = cmd_buf.immediate_vtx + cmd_buf.immediate_vtx_offset;

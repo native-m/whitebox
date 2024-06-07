@@ -62,7 +62,7 @@ struct GuiTimeline {
     float vscroll = 0.0f;
     float last_vscroll = 0.0f;
     float scroll_delta_y = 0.0f;
-    float grid_scale = 2.0f;
+    float grid_scale = 4.0f;
 
     Vector<SelectionRange> selection_ranges;
     TargetSelectionRange target_sel_range;

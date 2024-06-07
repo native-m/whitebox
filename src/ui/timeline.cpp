@@ -762,7 +762,7 @@ void GuiTimeline::render_track_lanes() {
     double mouse_at_gridline =
         std::round(mouse_at_time_pos * (double)grid_scale) / (double)grid_scale;
 
-    ImU32 grid_color = (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.55f);
+    ImU32 grid_color = (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.65f);
     ImColor text_color = ImGui::GetStyleColorVec4(ImGuiCol_Text);
     double timeline_scroll_offset_x = (double)timeline_view_pos.x - scroll_pos_x;
     float timeline_scroll_offset_x_f32 = (float)timeline_scroll_offset_x;
@@ -786,7 +786,25 @@ void GuiTimeline::render_track_lanes() {
         priv_draw_list->PushTextureID(ImGui::GetIO().Fonts->TexID);
         priv_draw_list->PushClipRect(view_min, view_max);
 
-        float grid_inc_x = (float)(ppq / view_scale / (double)grid_scale);
+        float four_bars = (float)(16.0 * ppq / view_scale);
+        uint32_t guidestrip_count = (uint32_t)(timeline_width / four_bars) + 2;
+        float guidestrip_pos_x = timeline_view_pos.x - std::fmod((float)scroll_pos_x, four_bars * 2.0f);
+        ImU32 guidestrip_color =
+            (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.10f);
+        for (uint32_t i = 0; i <= guidestrip_count; i++) {
+            float start_pos_x = guidestrip_pos_x;
+            guidestrip_pos_x += four_bars;
+            if (i % 2) {
+                priv_draw_list->AddRectFilled(ImVec2(start_pos_x, offset_y),
+                                              ImVec2(guidestrip_pos_x, offset_y + area_size.y),
+                                              guidestrip_color);
+            }
+        }
+
+        double bar = 4.0 * ppq / view_scale;
+        double division = std::exp2(std::round(std::log2(view_scale / 4.0)));
+        float grid_inc_x = (float)(ppq * division / view_scale);
+        uint32_t lines_per_bar = std::max((uint32_t)((float)bar / grid_inc_x), 1u);
         float inv_grid_inc_x = 1.0f / grid_inc_x;
         float gridline_pos_x = timeline_view_pos.x - std::fmod((float)scroll_pos_x, grid_inc_x);
         int gridline_count = (uint32_t)(timeline_width * inv_grid_inc_x);
@@ -796,11 +814,9 @@ void GuiTimeline::render_track_lanes() {
             float gridline_pos_x_pixel = std::floor(gridline_pos_x);
             priv_draw_list->AddLine(ImVec2(gridline_pos_x_pixel, offset_y),
                                     ImVec2(gridline_pos_x_pixel, offset_y + area_size.y),
-                                    grid_color, (i + count_offset + 1) % 4 ? 1.0f : 2.0f);
+                                    grid_color,
+                                    (i + count_offset + 1) % lines_per_bar ? 1.0f : 2.0f);
         }
-
-        // Log::info("{}")
-        // Log::info("{} {}", view_max.y, vscroll);
     }
 
     bool has_deleted_clips = g_engine.has_deleted_clips.load(std::memory_order_relaxed);
