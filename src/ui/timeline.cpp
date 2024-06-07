@@ -802,7 +802,7 @@ void GuiTimeline::render_track_lanes() {
         }
 
         double bar = 4.0 * ppq / view_scale;
-        double division = std::exp2(std::round(std::log2(view_scale / 4.0)));
+        double division = std::exp2(std::round(std::log2(view_scale / 4.5)));
         float grid_inc_x = (float)(ppq * division / view_scale);
         uint32_t lines_per_bar = std::max((uint32_t)((float)bar / grid_inc_x), 1u);
         float inv_grid_inc_x = 1.0f / grid_inc_x;

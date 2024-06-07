@@ -142,7 +142,7 @@ void ResourceDisposalVK::dispose_framebuffer(FramebufferVK* obj) {
     // I don't know if this will work properly...
     for (uint32_t i = 0; i < obj->num_buffers; i++) {
         fb.push_back(FramebufferDisposalVK {
-            .frame_id = i,
+            .frame_id = current_frame_id,
             .allocation = obj->allocations[i],
             .image = obj->image[i],
             .view = obj->view[i],
@@ -1691,7 +1691,7 @@ Renderer* RendererVK::create(App* app) {
 #endif
 
     auto selected_physical_device = vkb::PhysicalDeviceSelector(instance)
-                                        .prefer_gpu_device_type(vkb::PreferredDeviceType::discrete)
+                                        .prefer_gpu_device_type(vkb::PreferredDeviceType::integrated)
                                         .allow_any_gpu_device_type(false)
                                         .set_surface(surface)
                                         .require_present()
