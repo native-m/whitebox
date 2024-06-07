@@ -22,11 +22,13 @@ void Engine::set_bpm(double bpm) {
 
 void Engine::set_playhead_position(double beat_position) {
     // TODO: Allow playhead dragging.
-    assert(!playing && "Dragging playhead while playing is not allowed yet!");
+    //assert(!playing && "Dragging playhead while playing is not allowed yet!");
+    editor_lock.lock();
     playhead_start = beat_position;
     playhead = playhead_start;
     playhead_ui = playhead_start;
     playhead_updated.store(true, std::memory_order_release);
+    editor_lock.unlock();
 }
 
 void Engine::set_buffer_size(uint32_t channels, uint32_t size) {

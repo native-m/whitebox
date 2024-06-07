@@ -200,7 +200,7 @@ void Track::update(Clip* updated_clip, double beat_duration) {
 Clip* Track::find_next_clip(double time_pos, uint32_t hint) {
     auto begin = clips.begin();
     auto end = clips.end();
-    while (begin != end && time_pos > (*begin)->max_time) {
+    while (begin != end && time_pos >= (*begin)->max_time) {
         begin++;
     }
     if (begin == end)
