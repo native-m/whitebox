@@ -237,6 +237,7 @@ void App::render_control_bar() {
         g_engine.clear_all();
         g_timeline.reset();
         g_timeline.add_track();
+        g_timeline.recalculate_song_length();
         g_timeline.redraw_screen();
         g_audio_io->open_device(g_settings_data.output_device_properties.id,
                                 g_settings_data.input_device_properties.id);
@@ -252,6 +253,7 @@ void App::render_control_bar() {
             if (project_file.open(file.value().string(), false)) {
                 project_file.read_project(g_engine, g_sample_table);
             }
+            g_timeline.recalculate_song_length();
             g_timeline.redraw_screen();
             g_audio_io->open_device(g_settings_data.output_device_properties.id,
                                     g_settings_data.input_device_properties.id);
