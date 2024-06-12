@@ -1691,7 +1691,7 @@ Renderer* RendererVK::create(App* app) {
 #endif
 
     auto selected_physical_device = vkb::PhysicalDeviceSelector(instance)
-                                        .prefer_gpu_device_type(vkb::PreferredDeviceType::integrated)
+                                        .prefer_gpu_device_type(vkb::PreferredDeviceType::discrete)
                                         .allow_any_gpu_device_type(false)
                                         .set_surface(surface)
                                         .require_present()

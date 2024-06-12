@@ -64,7 +64,6 @@ struct Engine {
     void add_on_bpm_change_listener(Fn&& fn) {
         on_bpm_change_listener.push_back(fn);
     }
-
 };
 
 extern Engine g_engine;

@@ -668,7 +668,6 @@ void GuiTimeline::render_track_lanes() {
     ImGui::PushClipRect(view_min, view_max, true);
 
     if (timeline_width != old_timeline_size.x || area_size.y != old_timeline_size.y) {
-        // TODO: Limit resizing rate
         Log::info("Resizing timeline framebuffer ({}x{})", (int)timeline_width, (int)area_size.y);
         timeline_fb = g_renderer->create_framebuffer((int)timeline_width, (int)area_size.y);
         old_timeline_size.x = timeline_width;
@@ -676,6 +675,7 @@ void GuiTimeline::render_track_lanes() {
         redraw = redraw || true;
     }
 
+    // The timeline is actually just a very large button that cover almost entire screen.
     ImGui::InvisibleButton(
         "##timeline", ImVec2(timeline_width, std::max(timeline_area.y, area_size.y + vscroll)));
 
@@ -701,9 +701,11 @@ void GuiTimeline::render_track_lanes() {
         mouse_move = true;
     }
 
+    // Assign scroll
     if (middle_mouse_clicked && middle_mouse_down && timeline_hovered)
         scrolling = true;
 
+    // Do scroll
     if (scrolling) {
         ImVec2 drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Middle, 1.0f);
         scroll_horizontal(drag_delta.x, song_length, -view_scale);
@@ -713,6 +715,7 @@ void GuiTimeline::render_track_lanes() {
         ImGui::ResetMouseDragDelta(ImGuiMouseButton_Middle);
     }
 
+    // Release scroll
     if (!middle_mouse_down) {
         scrolling = false;
         scroll_delta_y = 0.0f;
@@ -762,7 +765,7 @@ void GuiTimeline::render_track_lanes() {
     double mouse_at_gridline =
         std::round(mouse_at_time_pos * (double)grid_scale) / (double)grid_scale;
 
-    ImU32 grid_color = (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.65f);
+    ImU32 grid_color = (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.8f);
     ImColor text_color = ImGui::GetStyleColorVec4(ImGuiCol_Text);
     double timeline_scroll_offset_x = (double)timeline_view_pos.x - scroll_pos_x;
     float timeline_scroll_offset_x_f32 = (float)timeline_scroll_offset_x;
@@ -785,10 +788,13 @@ void GuiTimeline::render_track_lanes() {
         priv_draw_list->_ResetForNewFrame();
         priv_draw_list->PushTextureID(ImGui::GetIO().Fonts->TexID);
         priv_draw_list->PushClipRect(view_min, view_max);
+        ImU32 dark_grid_color = (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.4f);
 
+        // Draw four bars length guidestrip
         float four_bars = (float)(16.0 * ppq / view_scale);
         uint32_t guidestrip_count = (uint32_t)(timeline_width / four_bars) + 2;
-        float guidestrip_pos_x = timeline_view_pos.x - std::fmod((float)scroll_pos_x, four_bars * 2.0f);
+        float guidestrip_pos_x =
+            timeline_view_pos.x - std::fmod((float)scroll_pos_x, four_bars * 2.0f);
         ImU32 guidestrip_color =
             (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.10f);
         for (uint32_t i = 0; i <= guidestrip_count; i++) {
@@ -801,10 +807,13 @@ void GuiTimeline::render_track_lanes() {
             }
         }
 
-        double bar = 4.0 * ppq / view_scale;
-        double division = std::exp2(std::round(std::log2(view_scale / 4.5)));
-        float grid_inc_x = (float)(ppq * division / view_scale);
+        // Finally, draw the gridline
+        double beat = ppq / view_scale;
+        double bar = 4.0 * beat;
+        double division = std::exp2(std::round(std::log2(view_scale / 5.0)));
+        float grid_inc_x = (float)(beat * division);
         uint32_t lines_per_bar = std::max((uint32_t)((float)bar / grid_inc_x), 1u);
+        uint32_t lines_per_beat = std::max((uint32_t)((float)beat / grid_inc_x), 1u);
         float inv_grid_inc_x = 1.0f / grid_inc_x;
         float gridline_pos_x = timeline_view_pos.x - std::fmod((float)scroll_pos_x, grid_inc_x);
         int gridline_count = (uint32_t)(timeline_width * inv_grid_inc_x);
@@ -812,10 +821,11 @@ void GuiTimeline::render_track_lanes() {
         for (int i = 0; i <= gridline_count; i++) {
             gridline_pos_x += grid_inc_x;
             float gridline_pos_x_pixel = std::floor(gridline_pos_x);
+            uint32_t grid_id = i + count_offset + 1;
             priv_draw_list->AddLine(ImVec2(gridline_pos_x_pixel, offset_y),
                                     ImVec2(gridline_pos_x_pixel, offset_y + area_size.y),
-                                    grid_color,
-                                    (i + count_offset + 1) % lines_per_bar ? 1.0f : 2.0f);
+                                    (grid_id % lines_per_beat) ? dark_grid_color : grid_color,
+                                    grid_id % lines_per_bar ? 1.0f : 2.0f);
         }
     }
 
@@ -849,6 +859,7 @@ void GuiTimeline::render_track_lanes() {
             hovered_track_height = height;
         }
 
+        // Register start position of selection
         if (holding_ctrl && left_mouse_clicked) {
             Log::debug("Selection start");
             target_sel_range.start_track = i;
@@ -927,10 +938,6 @@ void GuiTimeline::render_track_lanes() {
             double start_sample_pos = (double)clip->audio.start_sample_pos;
 
             if (redraw) {
-                /*draw_clip(priv_draw_list, clip_content_cmds, track, clip, timeline_view_pos.x,
-                          offset_y, timeline_width_f64, sample_scale, clip_scale,
-                          (double)clip->audio.start_sample_pos, min_bb, max_bb, text_color, font,
-                          font_size);*/
                 draw_clip(priv_draw_list, clip_content_cmds, clip, timeline_width, offset_y,
                           timeline_view_pos.x, min_pos_x, max_pos_x, clip_scale, sample_scale,
                           start_sample_pos, track_pos_y, track->height, track->color, font,
@@ -1156,15 +1163,16 @@ void GuiTimeline::render_track_lanes() {
     }
 
     ImTextureID tex_id = g_renderer->prepare_as_imgui_texture(timeline_fb);
-    main_draw_list->AddImage(tex_id, ImVec2(timeline_view_pos.x, offset_y),
-                             ImVec2(timeline_view_pos.x + timeline_width, offset_y + area_size.y));
+    ImVec2 img_pos(timeline_view_pos.x, offset_y);
+    main_draw_list->AddImage(tex_id, img_pos, img_pos + ImVec2(timeline_width, area_size.y));
 
     if (g_engine.is_playing()) {
         double playhead_offset = playhead * ppq * inv_view_scale;
         float playhead_pos =
             (float)std::round(timeline_view_pos.x - scroll_pos_x + playhead_offset);
-        main_draw_list->AddLine(ImVec2(playhead_pos, offset_y),
-                                ImVec2(playhead_pos, offset_y + timeline_area.y), playhead_color);
+        ImVec2 playhead_line_pos(playhead_pos, offset_y);
+        main_draw_list->AddLine(playhead_line_pos,
+                                playhead_line_pos + ImVec2(0.0f, timeline_area.y), playhead_color);
     }
 
     if (timeline_hovered && holding_ctrl && mouse_wheel != 0.0f) {
@@ -1194,6 +1202,7 @@ void GuiTimeline::finish_edit_action() {
 
 void GuiTimeline::recalculate_song_length() {
     double max_length = std::numeric_limits<double>::min();
+
     for (auto track : g_engine.tracks) {
         if (!track->clips.empty()) {
             Clip* clip = track->clips.back();
@@ -1202,6 +1211,7 @@ void GuiTimeline::recalculate_song_length() {
             max_length = math::max(max_length, 10000.0);
         }
     }
+
     if (max_length > 10000.0) {
         max_length += g_engine.ppq * 4;
         min_hscroll = min_hscroll * song_length / max_length;
@@ -1240,6 +1250,7 @@ inline void GuiTimeline::zoom(float mouse_pos_x, float cursor_pos_x, double view
         min_hscroll -= dist;
         max_hscroll -= dist;
     }
+
     double zoom_position =
         ((double)(mouse_pos_x - cursor_pos_x) / song_length * view_scale) + min_hscroll;
     double dist_from_start = zoom_position - min_hscroll;

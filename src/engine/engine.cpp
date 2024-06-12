@@ -49,7 +49,6 @@ void Engine::play() {
     for (auto track : tracks) {
         track->prepare_play(playhead_start);
     }
-
     playhead_updated.store(false, std::memory_order_release);
     sample_position = 0;
     playing = true;
@@ -142,13 +141,11 @@ void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
             double position = std::round(playhead * ppq) * inv_ppq;
             uint32_t buffer_offset =
                 (uint32_t)((uint64_t)sample_position % output_buffer.n_samples);
-
             current_beat_duration = beat_duration.load(std::memory_order_relaxed);
             for (auto track : tracks) {
                 track->process_event(buffer_offset, position, current_beat_duration, sample_rate,
                                      ppq, inv_ppq);
             }
-
             playhead += inv_ppq;
             sample_position += beat_to_samples(inv_ppq, sample_rate, current_beat_duration);
         } while (playhead < playhead_ui + (buffer_duration / current_beat_duration));
