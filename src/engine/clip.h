@@ -88,12 +88,14 @@ struct Clip {
         }
     }
 
-    inline void as_audio_clip(const AudioClip& clip_info) {
+    inline void init_as_audio_clip(const AudioClip& clip_info) {
         type = ClipType::Audio;
         audio = clip_info;
     }
 
-    void as_midi_clip() {}
+    inline void as_midi_clip() {
+        type = ClipType::Midi;
+    }
 
     inline void mark_deleted() { deleted.store(true, std::memory_order_release); }
 

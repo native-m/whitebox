@@ -68,7 +68,7 @@ Clip* Track::add_audio_clip(const std::string& name, double min_time, double max
     if (!clip)
         return nullptr;
     new (clip) Clip(name, color, min_time, max_time);
-    clip->as_audio_clip(clip_info);
+    clip->init_as_audio_clip(clip_info);
     clips.push_back(clip);
     update(clip, beat_duration);
     return clip;
@@ -234,11 +234,8 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
         if (time_pos >= max_time || current_clip->is_deleted()) {
             event_buffer.push_back({
                 .type = EventType::StopSample,
-                .audio =
-                    {
-                        .time = time_pos,
-                        .buffer_offset = buffer_offset,
-                    },
+                .buffer_offset = buffer_offset,
+                .time = time_pos,
             });
             playback_state.current_clip = nullptr;
         }
@@ -255,24 +252,26 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
     }
 
     if (next_clip) {
-        assert(next_clip->type == ClipType::Audio);
         double min_time = math::uround(next_clip->min_time * ppq) * inv_ppq;
         double max_time = math::uround(next_clip->max_time * ppq) * inv_ppq;
+        assert(next_clip->type == ClipType::Audio);
+
         if (time_pos >= min_time && time_pos < max_time) {
             double relative_start_time = time_pos - min_time;
-            uint64_t sample_offset =
-                (uint64_t)(beat_to_samples(relative_start_time, sample_rate, beat_duration) +
-                           next_clip->audio.start_sample_pos);
+            double sample_pos = beat_to_samples(relative_start_time, sample_rate, beat_duration);
+            uint64_t sample_offset = (uint64_t)(sample_pos + next_clip->audio.start_sample_pos);
+
             event_buffer.push_back({
                 .type = EventType::PlaySample,
+                .buffer_offset = buffer_offset,
+                .time = time_pos,
                 .audio =
                     {
-                        .time = time_pos,
                         .sample_offset = sample_offset,
-                        .buffer_offset = buffer_offset,
                         .sample = &next_clip->audio.asset->sample_instance,
                     },
             });
+            
             auto new_next_clip = clips.begin() + (next_clip->id + 1);
             if (new_next_clip != clips.end()) {
                 playback_state.next_clip = *new_next_clip;
@@ -316,14 +315,14 @@ void Track::process(AudioBuffer<float>& output_buffer, double sample_rate, bool 
         uint32_t start_sample = 0;
         while (start_sample < output_buffer.n_samples) {
             if (event != end) {
-                uint32_t event_length = event->audio.buffer_offset - start_sample;
+                uint32_t event_length = event->buffer_offset - start_sample;
                 render_sample(output_buffer, start_sample, event_length, sample_rate);
                 switch (event->type) {
                     case EventType::StopSample:
-                        Log::debug("Stop {} {}", event->audio.time, event->audio.buffer_offset);
+                        Log::debug("Stop {} {}", event->time, event->buffer_offset);
                         break;
                     case EventType::PlaySample:
-                        Log::debug("Play {} {}", event->audio.time, event->audio.buffer_offset);
+                        Log::debug("Play {} {}", event->time, event->buffer_offset);
                         break;
                 }
                 current_event = *event;
