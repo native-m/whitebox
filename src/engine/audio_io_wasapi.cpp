@@ -516,6 +516,10 @@ struct AudioIOWASAPI : public AudioIO {
 #if LOG_BUFFERING
             Log::debug("Splitting buffer");
 #endif
+
+            // WASAPI may use the default device buffer size instead of user-defined buffer size. If
+            // that's the case, we have to roll the buffer manually so that it fits into the default
+            // device buffer size.
             uint32_t offset = 0;
             while (offset < output_buffer.n_samples) {
                 WaitForSingleObject(output_stream_event, INFINITE);
@@ -533,9 +537,15 @@ struct AudioIOWASAPI : public AudioIO {
                 HRESULT hr = render->GetBuffer(frames_available, (BYTE**)&buffer);
                 assert(SUCCEEDED(hr));
 
+                // Perform format conversion
                 switch (instance->output_stream_format) {
                     case AudioFormat::I16:
                         convert_f32_to_interleaved_i16((int16_t*)buffer,
+                                                       output_buffer.channel_buffers, offset,
+                                                       frames_available, output_channels);
+                        break;
+                    case AudioFormat::I24:
+                        convert_f32_to_interleaved_i24((std::byte*)buffer,
                                                        output_buffer.channel_buffers, offset,
                                                        frames_available, output_channels);
                         break;

@@ -22,7 +22,7 @@ struct GuiTimeline {
     bool redraw = false;
     bool force_redraw = false;
     uint32_t color_spin = 0;
-    ImDrawList* win_draw_list {};
+    ImDrawList* main_draw_list {};
     ImDrawList* priv_draw_list {};
     ImDrawData priv_draw_data;
     std::shared_ptr<Framebuffer> timeline_fb {};
@@ -64,6 +64,10 @@ struct GuiTimeline {
     double edited_clip_min_time;
     double edited_clip_max_time;
 
+    Track* hovered_track = nullptr;
+    float hovered_track_y = 0.0f;
+    float hovered_track_height = 60.0f;
+
     // Context menu stuff...
     Track* context_menu_track {};
     Clip* context_menu_clip {};
@@ -82,7 +86,7 @@ struct GuiTimeline {
     inline void render_track_controls();
     inline void track_context_menu(Track& track, int track_id);
     inline void clip_context_menu();
-    void render_tracks();
+    void render_track_lanes();
 
     inline void scroll_horizontal(float drag_delta, double max_length, double direction = 1.0);
     inline void zoom(float mouse_pos_x, float cursor_pos_x, double view_scale, float mouse_wheel);
@@ -92,6 +96,9 @@ struct GuiTimeline {
     }
 
     inline void finish_edit_action() {
+        hovered_track = nullptr;
+        hovered_track_y = 0.0f;
+        hovered_track_height = 60.0f;
         edited_clip = nullptr;
         edited_track = nullptr;
         edited_track_pos_y = 0.0f;

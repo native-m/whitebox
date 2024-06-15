@@ -50,6 +50,7 @@ struct FramebufferVK : public Framebuffer {
 struct SamplePeaksMipVK {
     VkBuffer buffer;
     VmaAllocation allocation;
+    uint32_t sample_count;
 };
 
 struct SamplePeaksVK : public SamplePeaks {

@@ -4,6 +4,7 @@
 #include <imgui.h>
 
 namespace wb {
+
 inline static constexpr ImColor color_darken(const ImColor& color, float amount) {
     amount = 1.0f / (1.0f + amount);
     return ImColor(color.Value.x * amount, color.Value.y * amount, color.Value.z * amount);
@@ -43,4 +44,5 @@ inline static constexpr float calc_contrast_ratio(const ImColor& a, const ImColo
     float y2 = color_luminance(b);
     return y1 > y2 ? (y2 + 0.05f) / (y1 + 0.05f) : (y1 + 0.05f) / (y2 + 0.05f);
 }
+
 } // namespace wb

@@ -61,15 +61,14 @@ struct AudioIOPulseAudio : public AudioIO {
     pa_context* context = nullptr;
     pa_stream* stream = nullptr;
     pa_sample_spec sample_spec;
-    pa_device selected_output_device;
-    pa_device selected_input_device;
+    AudioDevicePulseAudio selected_output_device;
+    AudioDevicePulseAudio selected_input_device;
 
     bool running = false;
 
     PulseAudioDeviceList device_list;
 
     AudioIOPulseAudio() {
-        // do nothing
     }
 
     ~AudioIOPulseAudio() {
@@ -77,15 +76,71 @@ struct AudioIOPulseAudio : public AudioIO {
     }
 
     bool init() {
+        sample_spec.format = PA_SAMPLE_S16LE;
+        sample_spec.rate = 44100;
+        sample_spec.channels = 2;
+
         mainloop = pa_mainloop_new();
+        if (!mainloop) {
+            std::cerr << "Failed to create mainloop." << std::endl;
+            return false;
+        }
+
         mainloop_api = pa_mainloop_get_api(mainloop);
-        context = pa_context_new(mainloop_api, "audio-device-manager");
+        if (!mainloop_api) {
+            std::cerr << "Failed to get mainloop API." << std::endl;
+            return false;
+        }
+
+        context = pa_context_new(mainloop_api,  "whitebox-audio-device-manager");
+        if (!context) {
+            std::cerr << "Failed to create context." << std::endl;
+            return false;
+        }
 
         pa_context_connect(context, NULL, PA_CONTEXT_NOFLAGS, NULL);
 
         device_list.set_context(context);
 
-        return rescan_devices();
+        if (!rescan_devices()) {
+            return false;
+        }
+
+        if (!init_stream()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    bool init_stream() {
+        if (!context) {
+            std::cerr << "Context is not initialized." << std::endl;
+            return false;
+        }
+
+        stream = pa_stream_new(context, "whitebox-audio-stream", &sample_spec, nullptr);
+        if (!stream) {
+            std::cerr << "Failed to create stream." << std::endl;
+            return false;
+        }
+
+        pa_stream_set_state_callback(stream, stream_state_callback, nullptr);
+
+        return true;
+    }
+
+    static void stream_state_callback(pa_stream* s, void* userdata) {
+        switch (pa_stream_get_state(s)) {
+            case PA_STREAM_CREATING:
+            case PA_STREAM_READY:
+                break;
+            case PA_STREAM_FAILED:
+            case PA_STREAM_TERMINATED:
+            default:
+                std::cerr << "Stream error: " << pa_strerror(pa_context_errno(pa_stream_get_context(s))) << std::endl;
+                break;
+        }
     }
 
     bool rescan_devices() override {
@@ -134,6 +189,9 @@ struct AudioIOPulseAudio : public AudioIO {
         input_device_count = input_devices.size();
         output_device_count = output_devices.size();
 
+        default_input_device = input_devices[0].properties;
+        default_output_device = output_devices[0].properties;
+
         return true;
     }
 
@@ -158,27 +216,45 @@ struct AudioIOPulseAudio : public AudioIO {
             return false;
         }
 
-        // Get the sink and source devices by their IDs
-        auto output_device = device_list.get_sink_device_by_index(output_device_id);
-        auto input_device = device_list.get_sink_device_by_index(input_device_id);
-
-        if (!output_device.has_value() || !input_device.has_value()) {
-            std::cerr << "Invalid output or input device ID." << std::endl;
+        auto output_device_it = std::find_if(output_devices.begin(), output_devices.end(),
+                                             [output_device_id](const AudioDevicePulseAudio& device) {
+                                                 return device.properties.id == output_device_id;
+                                             });
+        if (output_device_it == output_devices.end()) {
+            std::cerr << "Invalid output device ID." << std::endl;
             return false;
         }
 
-        selected_output_device = output_device.value();
-        selected_input_device = input_device.value();
+        auto input_device_it = std::find_if(input_devices.begin(), input_devices.end(),
+                                            [input_device_id](const AudioDevicePulseAudio& device) {
+                                                return device.properties.id == input_device_id;
+                                            });
+
+        if (input_device_it == input_devices.end()) {
+            std::cerr << "Invalid input device ID." << std::endl;
+            return false;
+        }
+
+        selected_output_device = *output_device_it;
+        selected_input_device = *input_device_it;
 
         return true;
     }
 
     void close_device() override {
-        pa_stream_disconnect(stream);
-        pa_stream_unref(stream);
-        pa_context_disconnect(context);
-        pa_context_unref(context);
-        pa_mainloop_free(mainloop);
+        if (stream) {
+            pa_stream_disconnect(stream);
+            pa_stream_unref(stream);
+            stream = nullptr;
+        }
+
+        if (context) {
+            pa_context_disconnect(context);
+            pa_context_unref(context);
+            context = nullptr;
+        }
+
+        running = false;
     }
 
     bool start(Engine* engine, bool exclusive_mode, uint32_t buffer_size, AudioFormat input_format,
@@ -219,7 +295,7 @@ struct AudioIOPulseAudio : public AudioIO {
             return false;
         }
 
-        pa_stream_connect_playback(stream, selected_output_device.id.c_str(), nullptr,
+        pa_stream_connect_playback(stream, selected_output_device.properties.name, nullptr,
                                    PA_STREAM_NOFLAGS, nullptr, nullptr);
 
         return true;

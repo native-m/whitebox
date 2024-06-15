@@ -17,7 +17,7 @@ enum class ClipType {
 
 struct AudioClip {
     SampleAsset* asset;
-    double min_sample_pos;
+    double start_sample_pos;
 };
 
 struct MidiClip {
@@ -57,7 +57,8 @@ struct Clip {
         name(clip.name),
         color(clip.color),
         min_time(clip.min_time),
-        max_time(clip.max_time) {
+        max_time(clip.max_time),
+        relative_start_time(clip.relative_start_time) {
         switch (type) {
             case ClipType::Audio:
                 audio = clip.audio;

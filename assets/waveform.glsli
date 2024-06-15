@@ -7,4 +7,5 @@ layout(push_constant) uniform DrawCmd {
     float vp_height;
     int is_min;
     uint start_idx;
+    uint sample_count;
 } draw_cmd;

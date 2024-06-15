@@ -11,6 +11,14 @@
 
 namespace wb {
 
+Track::Track() {
+    ui_parameter.resize(TrackParameter_Max);
+    ui_parameter.set(TrackParameter_Volume, 1.0f);
+    ui_parameter.set(TrackParameter_Pan, 0.0f);
+    ui_parameter.set(TrackParameter_Mute, 0);
+    ui_parameter.update();
+}
+
 Clip* Track::add_audio_clip(const std::string& name, double min_time, double max_time,
                             const AudioClip& clip_info, double beat_duration) {
     Clip* clip = (Clip*)clip_allocator.allocate();
@@ -49,7 +57,7 @@ void Track::resize_clip(Clip* clip, double relative_pos, double min_length, doub
                         bool is_min) {
     if (relative_pos == 0.0)
         return;
-        
+
     if (is_min) {
         // Compute new minimum time
         double old_min = clip->min_time;
@@ -68,7 +76,7 @@ void Track::resize_clip(Clip* clip, double relative_pos, double min_length, doub
         // For audio, we also need to adjust the sample starting point
         if (clip->type == ClipType::Audio) {
             SampleAsset* asset = clip->audio.asset;
-            clip->audio.min_sample_pos =
+            clip->audio.start_sample_pos =
                 beat_to_samples(clip->relative_start_time,
                                 (double)asset->sample_instance.sample_rate, beat_duration);
         }
@@ -118,7 +126,7 @@ void Track::update(Clip* updated_clip, double beat_duration) {
 
                         if (clip->type == ClipType::Audio) {
                             SampleAsset* asset = clip->audio.asset;
-                            clip->audio.min_sample_pos = beat_to_samples(
+                            clip->audio.start_sample_pos = beat_to_samples(
                                 clip->relative_start_time,
                                 (double)asset->sample_instance.sample_rate, beat_duration);
                         }
@@ -137,10 +145,10 @@ void Track::update(Clip* updated_clip, double beat_duration) {
     }
 
 #if WB_LOG_CLIP_ORDERING
-    Log::info("--- Clip Ordering ---");
+    Log::debug("--- Clip Ordering ---");
     for (auto clip : clips) {
-        Log::info("{:x}: {} ({}, {}, {} -> {})", (uint64_t)clip, clip->name, clip->id,
-                  clip->relative_start_time, clip->min_time, clip->max_time);
+        Log::debug("{:x}: {} ({}, {}, {} -> {})", (uint64_t)clip, clip->name, clip->id,
+                   clip->relative_start_time, clip->min_time, clip->max_time);
     }
 #endif
 }
@@ -166,6 +174,8 @@ void Track::stop() {
     current_event = {
         .type = EventType::None,
     };
+
+    event_buffer.resize(0);
 }
 
 void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_duration,
@@ -196,13 +206,11 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
         assert(next_clip->type == ClipType::Audio);
         double min_time = math::uround(next_clip->min_time * ppq) * inv_ppq;
         double max_time = math::uround(next_clip->max_time * ppq) * inv_ppq;
-
         if (time_pos >= min_time && time_pos < max_time) {
             double relative_start_time = time_pos - min_time;
             uint64_t sample_offset =
                 (uint64_t)(beat_to_samples(relative_start_time, sample_rate, beat_duration) +
-                           next_clip->audio.min_sample_pos);
-
+                           next_clip->audio.start_sample_pos);
             event_buffer.push_back({
                 .type = EventType::PlaySample,
                 .audio =
@@ -213,20 +221,30 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
                         .sample = &next_clip->audio.asset->sample_instance,
                     },
             });
-
             auto new_next_clip = clips.begin() + (next_clip->id + 1);
             if (new_next_clip != clips.end()) {
                 playback_state.next_clip = *new_next_clip;
             } else {
                 playback_state.next_clip = nullptr;
             }
-
             playback_state.current_clip = next_clip;
         }
     }
 }
 
 void Track::process(AudioBuffer<float>& output_buffer, double sample_rate, bool playing) {
+    ui_parameter.flush_if_updated([this](const AudioParameterList& audio_param) {
+        if (audio_param.is_updated(TrackParameter_Volume)) {
+            parameter_state.volume = audio_param.flush_float(TrackParameter_Volume);
+        }
+        if (audio_param.is_updated(TrackParameter_Pan)) {
+            parameter_state.pan = audio_param.flush_float(TrackParameter_Pan);
+        }
+        if (audio_param.is_updated(TrackParameter_Mute)) {
+            parameter_state.mute = (bool)audio_param.flush_uint(TrackParameter_Mute);
+        }
+    });
+
     if (playing) {
         Event* event = event_buffer.begin();
         Event* end = event_buffer.end();
@@ -269,9 +287,9 @@ void Track::render_sample(AudioBuffer<float>& output_buffer, uint32_t buffer_off
                 break;
             uint32_t min_num_samples =
                 std::min(num_samples, (uint32_t)(sample->count - samples_processed));
-            stream_sample(output_buffer, current_event.audio.sample, buffer_offset, num_samples,
+            stream_sample(output_buffer, current_event.audio.sample, buffer_offset, min_num_samples,
                           sample_offset);
-            samples_processed += num_samples;
+            samples_processed += min_num_samples;
             break;
         }
     }
@@ -288,6 +306,8 @@ void Track::stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uin
     static constexpr double i32_pcm_normalizer =
         1.0 / static_cast<double>(std::numeric_limits<int32_t>::max());
 
+    float volume = parameter_state.mute ? 0.0f : parameter_state.volume;
+
     switch (sample->format) {
         case AudioFormat::I16:
             for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
@@ -295,7 +315,7 @@ void Track::stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uin
                 auto sample_data = sample->get_read_pointer<int16_t>(i % sample->channels);
                 for (uint32_t j = 0; j < num_samples; j++) {
                     float sample = (float)sample_data[sample_offset + j] * i16_pcm_normalizer;
-                    output[j + buffer_offset] += std::clamp(sample, -1.0f, 1.0f);
+                    output[j + buffer_offset] += std::clamp(sample, -1.0f, 1.0f) * volume;
                 }
             }
             break;
@@ -305,7 +325,7 @@ void Track::stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uin
                 auto sample_data = sample->get_read_pointer<int32_t>(i % sample->channels);
                 for (uint32_t j = 0; j < num_samples; j++) {
                     double sample = (double)sample_data[sample_offset + j] * i24_pcm_normalizer;
-                    output[j + buffer_offset] += (float)std::clamp(sample, -1.0, 1.0);
+                    output[j + buffer_offset] += (float)std::clamp(sample, -1.0, 1.0) * volume;
                 }
             }
             break;
@@ -315,7 +335,7 @@ void Track::stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uin
                 auto sample_data = sample->get_read_pointer<int32_t>(i % sample->channels);
                 for (uint32_t j = 0; j < num_samples; j++) {
                     double sample = (double)sample_data[sample_offset + j] * i32_pcm_normalizer;
-                    output[j + buffer_offset] += (float)std::clamp(sample, -1.0, 1.0);
+                    output[j + buffer_offset] += (float)std::clamp(sample, -1.0, 1.0) * volume;
                 }
             }
             break;
@@ -323,8 +343,11 @@ void Track::stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uin
             for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
                 float* output = output_buffer.get_write_pointer(i);
                 auto sample_data = sample->get_read_pointer<float>(i % sample->channels);
-                for (uint32_t j = 0; j < num_samples; j++)
-                    output[j + buffer_offset] += sample_data[sample_offset + j];
+                for (uint32_t j = 0; j < num_samples; j++) {
+                    if (!mute.load(std::memory_order_relaxed)) {
+                        output[j + buffer_offset] += sample_data[sample_offset + j] * volume;
+                    }
+                }
             }
             break;
         case AudioFormat::F64:
@@ -332,7 +355,7 @@ void Track::stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uin
                 float* output = output_buffer.get_write_pointer(i);
                 auto sample_data = sample->get_read_pointer<double>(i % sample->channels);
                 for (uint32_t j = 0; j < num_samples; j++)
-                    output[j + buffer_offset] += (float)sample_data[sample_offset + j];
+                    output[j + buffer_offset] += (float)sample_data[sample_offset + j] * volume;
             }
             break;
         default:
@@ -345,10 +368,9 @@ void Track::flush_deleted_clips() {
     uint32_t i = 0;
     std::vector<Clip*> new_clip_list;
     new_clip_list.reserve(clips.size());
-
     for (auto clip : clips) {
         if (deleted_clip_ids.contains(clip->id)) {
-            // Make sure we dont process this deleted clip
+            // Make sure we don't touch this deleted clip
             if (clip == playback_state.next_clip)
                 playback_state.next_clip = nullptr;
             if (clip == playback_state.current_clip)
@@ -361,7 +383,6 @@ void Track::flush_deleted_clips() {
         new_clip_list.push_back(clip);
         i++;
     }
-
     deleted_clip_ids.clear();
     clips = std::move(new_clip_list);
 }

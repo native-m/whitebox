@@ -9,12 +9,12 @@ namespace wb {
 struct Spinlock {
     std::atomic_bool lock_;
 
-    bool try_lock() noexcept {
+    inline bool try_lock() noexcept {
         return !lock_.load(std::memory_order_relaxed) &&
                !lock_.exchange(true, std::memory_order_acquire);
     }
 
-    void lock() noexcept {
+    inline void lock() noexcept {
         for (;;) {
             if (!lock_.exchange(true, std::memory_order_acquire))
                 return;
@@ -23,7 +23,7 @@ struct Spinlock {
         }
     }
 
-    void unlock() noexcept { lock_.store(false, std::memory_order_release); }
+    inline void unlock() noexcept { lock_.store(false, std::memory_order_release); }
 };
 
 void accurate_sleep_ns(int64_t timeout_ns);

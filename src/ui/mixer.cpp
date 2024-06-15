@@ -31,7 +31,6 @@ void GuiMixer::render() {
         ImGui::EndMenuBar();
     }
 
-    static float volume = 1.0f;
     static controls::SliderProperties mixer_slider = {
         .grab_shape = controls::SliderGrabShape::Circle,
         .grab_size = {16.0f, 28.0f},
@@ -48,11 +47,23 @@ void GuiMixer::render() {
         ImGui::PushID(id);
         controls::mixer_label(track->name.c_str(), size.y, track->color);
         ImGui::SameLine();
-        controls::slider2<float>(mixer_slider, "##vol_slider", ImVec2(20.0f, size.y - 20.0f), track->color,
-                                 &volume, 0.0f, 1.0f);
+
+        bool param_updated = false;
+        float volume = track->ui_parameter.get_float(TrackParameter_Volume);
+        if (controls::slider2<float>(mixer_slider, "##vol_slider", ImVec2(20.0f, size.y),
+                                     track->color, &volume, 0.0f, 1.0f)) {
+            //Log::debug("Held");
+            track->ui_parameter.set(TrackParameter_Volume, volume);
+            param_updated = true;
+        }
+
         ImGui::SameLine();
         ImGui::PopID();
         id++;
+
+        if (param_updated) {
+            track->ui_parameter.update();
+        }
     }
     ImGui::PopStyleVar();
 

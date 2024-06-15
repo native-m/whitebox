@@ -108,6 +108,7 @@ struct ClipContentDrawCmdVK {
     float vp_height;
     int is_min;
     uint32_t start_idx;
+    uint32_t sample_count;
 };
 
 FramebufferVK::~FramebufferVK() {
@@ -122,7 +123,7 @@ ImTextureID FramebufferVK::as_imgui_texture_id() const {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 SamplePeaksVK::~SamplePeaksVK() {
-    for (auto [buffer, allocation] : mipmap)
+    for (auto [buffer, allocation, _] : mipmap)
         resource_disposal->dispose_buffer(allocation, buffer);
 }
 
@@ -476,7 +477,6 @@ bool RendererVK::init() {
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
     };
 
-
     for (uint32_t i = 0; i < sync_count_; i++) {
         FrameSync& frame_sync = frame_sync_[i];
         VK_CHECK(vkCreateSemaphore(device_, &semaphore_info, nullptr,
@@ -698,6 +698,7 @@ std::shared_ptr<SamplePeaks> RendererVK::create_sample_peaks(const Sample& sampl
         buffer_info.size = total_length * elem_size;
         staging_buffer_info.size = buffer_info.size;
         buffer_copy.size = buffer_info.size;
+        mip.sample_count = required_length;
 
         if (VK_FAILED(vmaCreateBuffer(allocator_, &staging_buffer_info, &staging_alloc_info,
                                       &buffer_copy.staging_buffer, &buffer_copy.staging_allocation,
@@ -996,6 +997,9 @@ void RendererVK::draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) {
     VkBuffer current_buffer {};
 
     for (auto& clip : clips) {
+        if (clip.min_bb.y > (float)fb_height || clip.max_bb.y < 0.0f)
+            continue;
+
         SamplePeaksVK* peaks = static_cast<SamplePeaksVK*>(clip.peaks);
         const SamplePeaksMipVK& mip = peaks->mipmap[clip.mip_index];
         VkBuffer buffer = mip.buffer;
@@ -1031,7 +1035,6 @@ void RendererVK::draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) {
             .extent = {uint32_t(x1 - x0), uint32_t(y1 - y0)},
         };
         vkCmdSetScissor(current_cb_, 0, 1, &rect);
-
         vkCmdBindPipeline(current_cb_, VK_PIPELINE_BIND_POINT_GRAPHICS, waveform_fill);
 
         ClipContentDrawCmdVK draw_cmd {
@@ -1044,23 +1047,22 @@ void RendererVK::draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) {
             .vp_height = vp_height,
             .is_min = 0,
             .start_idx = clip.start_idx,
+            .sample_count = mip.sample_count,
         };
+
+        Log::debug("{}", (double)mip.sample_count);
 
         vkCmdPushConstants(current_cb_, waveform_layout,
                            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                            sizeof(ClipContentDrawCmdVK), &draw_cmd);
-
         vkCmdDraw(current_cb_, clip.draw_count, 1, 0, 0);
 
         vkCmdBindPipeline(current_cb_, VK_PIPELINE_BIND_POINT_GRAPHICS, waveform_aa);
-
         vkCmdDraw(current_cb_, clip.draw_count * 3, 1, 0, 0);
-
         draw_cmd.is_min = 1;
         vkCmdPushConstants(current_cb_, waveform_layout,
                            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                            sizeof(ClipContentDrawCmdVK), &draw_cmd);
-
         vkCmdDraw(current_cb_, clip.draw_count * 3, 1, 0, 0);
     }
 

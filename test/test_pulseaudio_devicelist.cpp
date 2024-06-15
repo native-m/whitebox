@@ -10,5 +10,11 @@ TEST_CASE("PulseAudioDeviceList get devices") {
     REQUIRE(output_devices > 0);
     REQUIRE(input_devices > 0);
 
+    auto output_device = audio_io->get_output_device_properties(0);
+    auto input_device = audio_io->get_input_device_properties(0);
+
+    REQUIRE(output_device.name != "");
+    REQUIRE(input_device.name != "");
+
     delete audio_io;
 }
