@@ -1,7 +1,8 @@
 #pragma once
 
-#include "core/common.h"
-#include "core/types.h"
+#include "common.h"
+#include "thread.h"
+#include "types.h"
 
 namespace wb {
 
@@ -89,6 +90,87 @@ struct LocalQueue {
         }
 
         return true;
+    }
+};
+
+template <Trivial T>
+struct ConcurrentQueue {
+    static constexpr auto cache_size_ = 64;
+
+    alignas(cache_size_) std::atomic<uint32_t> write_pos_ {};
+    alignas(cache_size_) std::atomic<uint32_t> read_pos_ {};
+    alignas(cache_size_) std::atomic<uint32_t> size_ {};
+    T* data_ {};
+    uint32_t capacity_ {};
+    Spinlock resize_lock_;
+
+    ~ConcurrentQueue() {
+        resize_lock_.wait();
+        if (data_) {
+            std::free(data_);
+        }
+    }
+
+    inline void push(const T& value) {
+        uint32_t write_pos = write_pos_.load(std::memory_order_relaxed);
+        uint32_t read_pos = read_pos_.load(std::memory_order_acquire);
+        uint32_t size = size_.load(std::memory_order_relaxed) + 1;
+        if (size >= capacity_) {
+            reserve(capacity_ + (capacity_ / 2) + 2);
+            write_pos = write_pos_.load(std::memory_order_relaxed);
+            read_pos = read_pos_.load(std::memory_order_relaxed);
+        }
+        data_[write_pos] = value;
+        write_pos = (write_pos + 1) % capacity_;
+        write_pos_.store(write_pos, std::memory_order_release);
+        size_.store(size, std::memory_order_release);
+    }
+
+    inline T* pop() {
+        resize_lock_.lock();
+        uint32_t write_pos = write_pos_.load(std::memory_order_acquire);
+        uint32_t read_pos = read_pos_.load(std::memory_order_relaxed);
+        if (write_pos == read_pos) {
+            resize_lock_.unlock();
+            return nullptr;
+        }
+        T* ptr = data_ + read_pos;
+        read_pos = (read_pos + 1) % capacity_;
+        read_pos_.store(read_pos, std::memory_order_release);
+        size_.fetch_sub(1, std::memory_order_relaxed);
+        resize_lock_.unlock();
+        return ptr;
+    }
+
+    inline uint32_t size() {
+        return write_pos_.load(std::memory_order_relaxed) -
+               read_pos_.load(std::memory_order_relaxed);
+    }
+
+    inline uint32_t num_items_written() { return write_pos_.load(std::memory_order_relaxed); }
+    inline uint32_t num_items_read() { return read_pos_.load(std::memory_order_relaxed); }
+
+    inline void reserve(size_t new_size) {
+        if (new_size <= capacity_)
+            return;
+
+        T* new_data = (T*)std::malloc(new_size * sizeof(T));
+        assert(new_data && "Cannot allocate memory");
+        resize_lock_.lock();
+        if (data_) {
+            uint32_t read_pos = read_pos_.load(std::memory_order_relaxed);
+            uint32_t size = size_.load(std::memory_order_relaxed);
+            // Maybe we can split this into two memcpy?
+            for (uint32_t i = 0; i < size; i++) {
+                new_data[i] = data_[(read_pos + i) % capacity_];
+            }
+            write_pos_.store(size, std::memory_order_relaxed);
+            read_pos_.store(0, std::memory_order_relaxed);
+            std::free(data_);
+        }
+        capacity_ = new_size;
+        data_ = new_data;
+        resize_lock_.unlock();
     }
 };
 

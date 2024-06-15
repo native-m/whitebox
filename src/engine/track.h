@@ -1,17 +1,14 @@
 #pragma once
 
+#include "audio_param.h"
 #include "clip.h"
 #include "core/audio_buffer.h"
-#include "core/audio_param.h"
 #include "core/memory.h"
-#include "core/queue.h"
-#include "core/thread.h"
 #include "core/vector.h"
 #include "event.h"
+#include "param_changes.h"
 #include <imgui.h>
-#include <string>
 #include <unordered_set>
-#include <vector>
 
 namespace wb {
 
@@ -38,14 +35,10 @@ struct Track {
     std::string name;
     ImColor color {0.3f, 0.3f, 0.3f, 1.0f};
     float height = 60.0f;
-    float volume = 0.0f;
-    std::atomic_bool mute;
     bool shown = true;
-    AudioParameterList ui_parameter;
-    TrackParameterState parameter_state {};
 
     Pool<Clip> clip_allocator;
-    std::vector<Clip*> clips;
+    Vector<Clip*> clips;
     std::unordered_set<uint32_t> deleted_clip_ids;
 
     Vector<Event> event_buffer;
@@ -54,7 +47,19 @@ struct Track {
     Event current_event {};
     size_t samples_processed {};
 
+    TrackParameterState ui_parameter_state {}; // UI-side state
+    TrackParameterState parameter_state {};    // Audio-side state
+    ParamChanges param_changes;
+    ConcurrentQueue<ParamChange> ui_param_changes; // This handles UI to audio thread parameter state transfer
+
     Track();
+    Track(const std::string& name, const ImColor& color, float height, bool shown,
+          const TrackParameterState& track_param);
+    ~Track();
+
+    void set_volume(float volume);
+    void set_pan(float pan);
+    void set_mute(bool mute);
 
     /**
      * @brief Add audio clip into the track.

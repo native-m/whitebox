@@ -17,6 +17,20 @@ enum class TimelineEditAction {
     ShowClipContextMenu,
 };
 
+struct SelectionRange {
+    Track* track;
+    double min;
+    double max;
+};
+
+struct TargetSelectionRange
+{
+    uint32_t start_track;
+    uint32_t end_track;
+    double min;
+    double max;
+};
+
 struct GuiTimeline {
     bool open = true;
     bool redraw = false;
@@ -48,8 +62,10 @@ struct GuiTimeline {
     float vscroll = 0.0f;
     float last_vscroll = 0.0f;
     float scroll_delta_y = 0.0f;
-    float grid_scale = 2.0f;
+    float grid_scale = 4.0f;
 
+    Vector<SelectionRange> selection_ranges;
+    TargetSelectionRange target_sel_range;
     TimelineEditAction edit_action;
     bool scrolling = false;
     bool zooming = false;
@@ -57,6 +73,7 @@ struct GuiTimeline {
     bool grabbing_scroll = false;
     bool resizing_lhs_scroll_grab = false;
     bool resizing_rhs_scroll_grab = false;
+    bool selecting_range = false;
 
     Track* edited_track {};
     Clip* edited_clip {};
@@ -79,6 +96,7 @@ struct GuiTimeline {
     void init();
     void shutdown();
     Track* add_track();
+    void reset();
     void render();
     inline void render_horizontal_scrollbar();
     inline void render_time_ruler();
@@ -87,25 +105,14 @@ struct GuiTimeline {
     inline void track_context_menu(Track& track, int track_id);
     inline void clip_context_menu();
     void render_track_lanes();
+    void finish_edit_action();
+    void recalculate_song_length();
 
     inline void scroll_horizontal(float drag_delta, double max_length, double direction = 1.0);
     inline void zoom(float mouse_pos_x, float cursor_pos_x, double view_scale, float mouse_wheel);
 
     inline double calc_view_scale() const {
         return (max_hscroll - min_hscroll) * song_length / (double)timeline_width;
-    }
-
-    inline void finish_edit_action() {
-        hovered_track = nullptr;
-        hovered_track_y = 0.0f;
-        hovered_track_height = 60.0f;
-        edited_clip = nullptr;
-        edited_track = nullptr;
-        edited_track_pos_y = 0.0f;
-        edited_clip_min_time = 0.0;
-        edited_clip_max_time = 0.0;
-        edit_action = TimelineEditAction::None;
-        initial_time_pos = 0.0;
     }
 
     inline void redraw_screen() { force_redraw = true; }

@@ -48,6 +48,58 @@ CPMAddPackage(
     DOWNLOAD_ONLY       YES
 )
 
+CPMAddPackage(
+    NAME                implot
+    VERSION             0.16
+    GITHUB_REPOSITORY   epezent/implot
+    DOWNLOAD_ONLY       YES
+)
+
+# Workaround for deprecated C++20 STL classes
+CPMAddPackage(
+    NAME                fmt
+    GIT_TAG             10.2.1
+    GITHUB_REPOSITORY   fmtlib/fmt
+    OPTIONS             "FMT_INSTALL OFF"
+)
+
+CPMAddPackage(
+    NAME                spdlog
+    VERSION             1.13.0
+    GITHUB_REPOSITORY   gabime/spdlog
+    OPTIONS             "SPDLOG_NO_EXCEPTIONS OFF"
+                        "SPDLOG_FMT_EXTERNAL ON"
+)
+
+CPMAddPackage(
+    NAME                freetype
+    GITHUB_REPOSITORY   freetype/freetype
+    GIT_TAG             VER-2-13-2
+    OPTIONS             "FT_DISABLE_ZLIB TRUE"
+                        "FT_DISABLE_BZIP2 TRUE"
+                        "FT_DISABLE_PNG TRUE"
+                        "FT_DISABLE_HARFBUZZ TRUE"
+                        "FT_DISABLE_BROTLI TRUE"
+)
+
+CPMAddPackage(
+    NAME                libsndfile
+    GITHUB_REPOSITORY   libsndfile/libsndfile
+    GIT_TAG             1.1.0
+    OPTIONS             "BUILD_PROGRAMS OFF"
+                        "BUILD_EXAMPLES OFF"
+                        "BUILD_TESTING OFF"
+                        "ENABLE_CPACK OFF"
+                        "ENABLE_PACKAGE_CONFIG OFF"
+                        "INSTALL_PKGCONFIG_MODULE OFF"
+)
+
+CPMAddPackage(
+    NAME                nativefiledialog-extended
+    GITHUB_REPOSITORY   btzy/nativefiledialog-extended
+    VERSION             1.1.0
+)
+
 if (imgui_ADDED)
     set(IMGUI_SRC_FILES
         "${imgui_SOURCE_DIR}/imgui.cpp"
@@ -118,13 +170,6 @@ if (imgui_ADDED)
     #     PUBLIC imgui imgui-backends)
 endif()
 
-CPMAddPackage(
-    NAME                implot
-    VERSION             0.16
-    GITHUB_REPOSITORY   epezent/implot
-    DOWNLOAD_ONLY       YES
-)
-
 if (implot_ADDED)
     set(IMPLOT_SRC_FILES
         "${implot_SOURCE_DIR}/implot.cpp"
@@ -137,52 +182,166 @@ if (implot_ADDED)
     target_link_libraries(implot PUBLIC imgui)
 endif()
 
-# Workaround for deprecated C++20 STL classes
-CPMAddPackage(
-    NAME                fmt
-    GIT_TAG             10.2.1
-    GITHUB_REPOSITORY   fmtlib/fmt
-    OPTIONS             "FMT_INSTALL OFF"
-)
-
-CPMAddPackage(
-    NAME                spdlog
-    VERSION             1.13.0
-    GITHUB_REPOSITORY   gabime/spdlog
-    OPTIONS             "SPDLOG_NO_EXCEPTIONS OFF"
-                        "SPDLOG_FMT_EXTERNAL ON"
-)
-
-CPMAddPackage(
-    NAME                freetype
-    GITHUB_REPOSITORY   freetype/freetype
-    GIT_TAG             VER-2-13-2
-    OPTIONS             "FT_DISABLE_ZLIB TRUE"
-                        "FT_DISABLE_BZIP2 TRUE"
-                        "FT_DISABLE_PNG TRUE"
-                        "FT_DISABLE_HARFBUZZ TRUE"
-                        "FT_DISABLE_BROTLI TRUE"
-)
-
-CPMAddPackage(
-    NAME                libsndfile
-    GITHUB_REPOSITORY   libsndfile/libsndfile
-    GIT_TAG             1.1.0
-    OPTIONS             "BUILD_PROGRAMS OFF"
-                        "BUILD_EXAMPLES OFF"
-                        "BUILD_TESTING OFF"
-                        "ENABLE_CPACK OFF"
-                        "ENABLE_PACKAGE_CONFIG OFF"
-                        "INSTALL_PKGCONFIG_MODULE OFF"
-)
-
-CPMAddPackage(
-    NAME                nativefiledialog-extended
-    GITHUB_REPOSITORY   btzy/nativefiledialog-extended
-    VERSION             1.1.0
-)
-
 if (VulkanMemoryAllocator_ADDED)
     add_library(VulkanMemoryAllocator INTERFACE)
     target_include_directories(VulkanMemoryAllocator INTERFACE "${VulkanMemoryAllocator_SOURCE_DIR}/include")
 endif()
+
+# VST3 Stuff
+set(VST3_BASE_PATH "${WB_VST3_SDK_PATH}/base")
+set(VST3_BASE_SRC
+    "${VST3_BASE_PATH}/source/baseiids.cpp"
+    "${VST3_BASE_PATH}/source/classfactoryhelpers.h"
+    "${VST3_BASE_PATH}/source/fbuffer.cpp"
+    "${VST3_BASE_PATH}/source/fbuffer.h"
+    "${VST3_BASE_PATH}/source/fcleanup.h"
+    "${VST3_BASE_PATH}/source/fcommandline.h"
+    "${VST3_BASE_PATH}/source/fdebug.cpp"
+    "${VST3_BASE_PATH}/source/fdebug.h"
+    "${VST3_BASE_PATH}/source/fdynlib.cpp"
+    "${VST3_BASE_PATH}/source/fdynlib.h"
+    "${VST3_BASE_PATH}/source/fobject.cpp"
+    "${VST3_BASE_PATH}/source/fobject.h"
+    "${VST3_BASE_PATH}/source/fstreamer.cpp"
+    "${VST3_BASE_PATH}/source/fstreamer.h"
+    "${VST3_BASE_PATH}/source/fstring.cpp"
+    "${VST3_BASE_PATH}/source/fstring.h"
+    "${VST3_BASE_PATH}/source/timer.cpp"
+    "${VST3_BASE_PATH}/source/timer.h"
+    "${VST3_BASE_PATH}/source/updatehandler.cpp"
+    "${VST3_BASE_PATH}/source/updatehandler.h"
+    "${VST3_BASE_PATH}/thread/include/fcondition.h"
+    "${VST3_BASE_PATH}/thread/include/flock.h"
+    "${VST3_BASE_PATH}/thread/source/fcondition.cpp"
+    "${VST3_BASE_PATH}/thread/source/flock.cpp")
+add_library(vst3-base STATIC ${VST3_BASE_SRC})
+target_include_directories(vst3-base PUBLIC "${WB_VST3_SDK_PATH}")
+target_compile_options(vst3-base
+    PUBLIC
+        "$<$<CONFIG:Debug>:-DDEVELOPMENT=1>"
+        "$<$<CONFIG:Release>:-DRELEASE=1>"
+        "$<$<CONFIG:RelWithDebInfo>:-DRELEASE=1>"
+)
+
+set(VST3_PLUGINTERFACES_PATH "${WB_VST3_SDK_PATH}/pluginterfaces")
+set(VST3_PLUGINTERFACES_SRC
+    "${VST3_PLUGINTERFACES_PATH}/base/conststringtable.cpp"
+    "${VST3_PLUGINTERFACES_PATH}/base/conststringtable.h"
+    "${VST3_PLUGINTERFACES_PATH}/base/coreiids.cpp"
+    "${VST3_PLUGINTERFACES_PATH}/base/falignpop.h"
+    "${VST3_PLUGINTERFACES_PATH}/base/falignpush.h"
+    "${VST3_PLUGINTERFACES_PATH}/base/fplatform.h"
+    "${VST3_PLUGINTERFACES_PATH}/base/fstrdefs.h"
+    "${VST3_PLUGINTERFACES_PATH}/base/ftypes.h"
+    "${VST3_PLUGINTERFACES_PATH}/base/funknown.cpp"
+    "${VST3_PLUGINTERFACES_PATH}/base/funknown.h"
+    "${VST3_PLUGINTERFACES_PATH}/base/funknownimpl.h"
+    "${VST3_PLUGINTERFACES_PATH}/base/futils.h"
+    "${VST3_PLUGINTERFACES_PATH}/base/fvariant.h"
+    "${VST3_PLUGINTERFACES_PATH}/base/geoconstants.h"
+    "${VST3_PLUGINTERFACES_PATH}/base/ibstream.h"
+    "${VST3_PLUGINTERFACES_PATH}/base/icloneable.h"
+    "${VST3_PLUGINTERFACES_PATH}/base/ierrorcontext.h"
+    "${VST3_PLUGINTERFACES_PATH}/base/ipersistent.h"
+    "${VST3_PLUGINTERFACES_PATH}/base/ipluginbase.h"
+    "${VST3_PLUGINTERFACES_PATH}/base/istringresult.h"
+    "${VST3_PLUGINTERFACES_PATH}/base/iupdatehandler.h"
+    "${VST3_PLUGINTERFACES_PATH}/base/keycodes.h"
+    "${VST3_PLUGINTERFACES_PATH}/base/pluginbasefwd.h"
+    "${VST3_PLUGINTERFACES_PATH}/base/smartpointer.h"
+    "${VST3_PLUGINTERFACES_PATH}/base/typesizecheck.h"
+    "${VST3_PLUGINTERFACES_PATH}/base/ucolorspec.h"
+    "${VST3_PLUGINTERFACES_PATH}/base/ustring.cpp"
+    "${VST3_PLUGINTERFACES_PATH}/base/ustring.h"
+    "${VST3_PLUGINTERFACES_PATH}/gui/iplugview.h"
+    "${VST3_PLUGINTERFACES_PATH}/gui/iplugviewcontentscalesupport.h"
+    "${VST3_PLUGINTERFACES_PATH}/vst/ivstattributes.h"
+    "${VST3_PLUGINTERFACES_PATH}/vst/ivstaudioprocessor.h"
+    "${VST3_PLUGINTERFACES_PATH}/vst/ivstautomationstate.h"
+    "${VST3_PLUGINTERFACES_PATH}/vst/ivstchannelcontextinfo.h"
+    "${VST3_PLUGINTERFACES_PATH}/vst/ivstcomponent.h"
+    "${VST3_PLUGINTERFACES_PATH}/vst/ivstcontextmenu.h"
+    "${VST3_PLUGINTERFACES_PATH}/vst/ivsteditcontroller.h"
+    "${VST3_PLUGINTERFACES_PATH}/vst/ivstevents.h"
+    "${VST3_PLUGINTERFACES_PATH}/vst/ivsthostapplication.h"
+    "${VST3_PLUGINTERFACES_PATH}/vst/ivstinterappaudio.h"
+    "${VST3_PLUGINTERFACES_PATH}/vst/ivstmessage.h"
+    "${VST3_PLUGINTERFACES_PATH}/vst/ivstmidicontrollers.h"
+    "${VST3_PLUGINTERFACES_PATH}/vst/ivstmidilearn.h"
+    "${VST3_PLUGINTERFACES_PATH}/vst/ivstnoteexpression.h"
+    "${VST3_PLUGINTERFACES_PATH}/vst/ivstparameterchanges.h"
+    "${VST3_PLUGINTERFACES_PATH}/vst/ivstparameterfunctionname.h"
+    "${VST3_PLUGINTERFACES_PATH}/vst/ivstphysicalui.h"
+    "${VST3_PLUGINTERFACES_PATH}/vst/ivstpluginterfacesupport.h"
+    "${VST3_PLUGINTERFACES_PATH}/vst/ivstplugview.h"
+    "${VST3_PLUGINTERFACES_PATH}/vst/ivstprefetchablesupport.h"
+    "${VST3_PLUGINTERFACES_PATH}/vst/ivstprocesscontext.h"
+    "${VST3_PLUGINTERFACES_PATH}/vst/ivstrepresentation.h"
+    "${VST3_PLUGINTERFACES_PATH}/vst/ivstunits.h"
+    "${VST3_PLUGINTERFACES_PATH}/vst/vstpresetkeys.h"
+    "${VST3_PLUGINTERFACES_PATH}/vst/vstpshpack4.h"
+    "${VST3_PLUGINTERFACES_PATH}/vst/vstspeaker.h"
+    "${VST3_PLUGINTERFACES_PATH}/vst/vsttypes.h")
+add_library(vst3-pluginterfaces STATIC ${VST3_PLUGINTERFACES_SRC})
+target_link_libraries(vst3-pluginterfaces PUBLIC vst3-base)
+
+set(VST3_PUBLICSDK_PATH "${WB_VST3_SDK_PATH}/public.sdk")
+set(VST3_SDK_COMMON_SRC
+    "${VST3_PUBLICSDK_PATH}/source/common/commoniids.cpp"
+    "${VST3_PUBLICSDK_PATH}/source/common/openurl.cpp"
+    "${VST3_PUBLICSDK_PATH}/source/common/openurl.h"
+    "${VST3_PUBLICSDK_PATH}/source/common/readfile.cpp"
+    "${VST3_PUBLICSDK_PATH}/source/common/readfile.h"
+    "${VST3_PUBLICSDK_PATH}/source/common/systemclipboard.h"
+    "${VST3_PUBLICSDK_PATH}/source/common/threadchecker.h"
+    "${VST3_PUBLICSDK_PATH}/source/common/threadchecker_linux.cpp")
+
+if (WIN32)
+    set(VST3_SDK_COMMON_SRC ${VST3_SDK_COMMON_SRC}
+        "${VST3_PUBLICSDK_PATH}/source/common/systemclipboard_win32.cpp"
+        "${VST3_PUBLICSDK_PATH}/source/common/threadchecker_win32.cpp"
+    )
+elseif (LINUX)
+    set(VST3_SDK_COMMON_SRC ${VST3_SDK_COMMON_SRC}
+        "${VST3_PUBLICSDK_PATH}/source/common/systemclipboard_linux.cpp"
+        "${VST3_PUBLICSDK_PATH}/source/common/threadchecker_linux.cpp")
+endif ()
+
+add_library(vst3-sdk-common STATIC ${VST3_SDK_COMMON_SRC})
+target_link_libraries(vst3-sdk-common PUBLIC vst3-pluginterfaces)
+
+set(VST3_SDK_HOSTING_SRC
+    "${VST3_PUBLICSDK_PATH}/source/vst/hosting/connectionproxy.cpp"
+    "${VST3_PUBLICSDK_PATH}/source/vst/hosting/connectionproxy.h"
+    "${VST3_PUBLICSDK_PATH}/source/vst/hosting/eventlist.cpp"
+    "${VST3_PUBLICSDK_PATH}/source/vst/hosting/eventlist.h"
+    "${VST3_PUBLICSDK_PATH}/source/vst/hosting/hostclasses.cpp"
+    "${VST3_PUBLICSDK_PATH}/source/vst/hosting/hostclasses.h"
+    "${VST3_PUBLICSDK_PATH}/source/vst/hosting/module.cpp"
+    "${VST3_PUBLICSDK_PATH}/source/vst/hosting/module.h"
+    
+    "${VST3_PUBLICSDK_PATH}/source/vst/hosting/parameterchanges.cpp"
+    "${VST3_PUBLICSDK_PATH}/source/vst/hosting/parameterchanges.h"
+    "${VST3_PUBLICSDK_PATH}/source/vst/hosting/pluginterfacesupport.cpp"
+    "${VST3_PUBLICSDK_PATH}/source/vst/hosting/pluginterfacesupport.h"
+    "${VST3_PUBLICSDK_PATH}/source/vst/hosting/plugprovider.cpp"
+    "${VST3_PUBLICSDK_PATH}/source/vst/hosting/plugprovider.h"
+    "${VST3_PUBLICSDK_PATH}/source/vst/hosting/processdata.cpp"
+    "${VST3_PUBLICSDK_PATH}/source/vst/hosting/processdata.h"
+    "${VST3_PUBLICSDK_PATH}/source/vst/utility/optional.h"
+    "${VST3_PUBLICSDK_PATH}/source/vst/utility/stringconvert.cpp"
+    "${VST3_PUBLICSDK_PATH}/source/vst/utility/stringconvert.h"
+    "${VST3_PUBLICSDK_PATH}/source/vst/utility/uid.h"
+    "${VST3_PUBLICSDK_PATH}/source/vst/utility/versionparser.h"
+    "${VST3_PUBLICSDK_PATH}/source/vst/vstinitiids.cpp")
+
+if (WIN32)
+    set(VST3_SDK_HOSTING_SRC ${VST3_SDK_HOSTING_SRC}
+        "${VST3_PUBLICSDK_PATH}/source/vst/hosting/module_win32.cpp")
+elseif (LINUX)
+    set(VST3_SDK_HOSTING_SRC ${VST3_SDK_HOSTING_SRC}
+        "${VST3_PUBLICSDK_PATH}/source/vst/hosting/module_linux.cpp")
+endif ()
+
+add_library(vst3-sdk-hosting STATIC ${VST3_SDK_HOSTING_SRC})
+target_link_libraries(vst3-sdk-hosting PUBLIC vst3-sdk-common)

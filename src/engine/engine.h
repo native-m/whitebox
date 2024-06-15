@@ -4,18 +4,18 @@
 #include "core/audio_buffer.h"
 #include "core/common.h"
 #include "core/thread.h"
-#include "track.h"
 #include <functional>
-#include <string>
-#include <vector>
 
 namespace wb {
+
+struct Track;
 
 struct Engine {
     using OnBpmChangeFn = std::function<void(double, double)>;
 
     std::vector<Track*> tracks;
     Spinlock editor_lock;
+    Spinlock delete_lock;
     
     double ppq = 96.0;
     double playhead {};
@@ -36,9 +36,12 @@ struct Engine {
     void set_bpm(double bpm);
     void set_playhead_position(double beat_position);
     void set_buffer_size(uint32_t channels, uint32_t size);
+    void clear_all();
     void play();
     void stop();
-    bool is_playing() const { return playing.load(std::memory_order_relaxed); }
+
+    inline double playhead_pos() const { return playhead_ui.load(std::memory_order_relaxed); }
+    inline bool is_playing() const { return playing.load(std::memory_order_relaxed); }
 
     void edit_lock() { editor_lock.lock(); }
     void edit_unlock() { editor_lock.unlock(); }
@@ -50,7 +53,7 @@ struct Engine {
     Clip* add_audio_clip_from_file(Track* track, const std::filesystem::path& path,
                                    double min_time);
     void delete_clip(Track* track, Clip* clip);
-    
+
     /*
         Process the whole thing.
         This runs on the audio thread.
@@ -61,7 +64,6 @@ struct Engine {
     void add_on_bpm_change_listener(Fn&& fn) {
         on_bpm_change_listener.push_back(fn);
     }
-
 };
 
 extern Engine g_engine;

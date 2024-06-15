@@ -1,18 +1,21 @@
 #include "app.h"
+#include "core/color.h"
 #include "core/debug.h"
-#include "core/thread.h"
 #include "engine/audio_io.h"
 #include "engine/engine.h"
+#include "engine/project.h"
 #include "renderer.h"
 #include "settings_data.h"
+#include "ui/IconsMaterialSymbols.h"
 #include "ui/browser.h"
 #include "ui/controls.h"
+#include "ui/file_dialog.h"
 #include "ui/file_dropper.h"
+#include "ui/font.h"
 #include "ui/mixer.h"
 #include "ui/settings.h"
 #include "ui/timeline.h"
 #include <imgui.h>
-#include <imgui_freetype.h>
 
 using namespace std::literals::chrono_literals;
 
@@ -27,40 +30,22 @@ void App::init() {
     Log::info("Initializing UI...");
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-
-    ImFontConfig config;
-    config.SizePixels = 13.0f;
+    g_settings_data.load_settings_data();
+    g_settings_data.apply_audio_settings();
 
     ImGuiIO& io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     // io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
     io.ConfigViewportsNoTaskBarIcon = false;
 
-    io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
-    io.Fonts->AddFontFromFileTTF("assets/Inter-Medium.otf", 0.0f, &config);
+    init_font_assets();
     apply_theme(ImGui::GetStyle());
-
-    g_settings_data.load_settings_data();
     init_renderer(this);
     init_audio_io(AudioIOType::PulseAudio);
+
     g_engine.set_bpm(150.0f);
     g_timeline.init();
-
-    g_audio_io->open_device(g_settings_data.output_device_properties.id,
-                            g_settings_data.input_device_properties.id);
-    g_audio_io->start(&g_engine, g_settings_data.audio_exclusive_mode,
-                      g_settings_data.audio_buffer_size, g_settings_data.audio_input_format,
-                      g_settings_data.audio_output_format, g_settings_data.audio_sample_rate,
-                      AudioThreadPriority::Normal);
-
-    Track* track = g_timeline.add_track();
-    g_engine.add_audio_clip_from_file(
-        track, "D:/packs/Some samples/NewPacks/Buildups Drum/NM Buildup Drum 09 150 BPM.wav", 0.5);
-
-    // Track* track = g_engine.add_track("New Track");
-    // track->add_audio_clip("Clip 1", 4.0, 8.0);
-    // track->add_audio_clip("Clip 2", 0.0, 4.0);
 }
 
 void App::run() {
@@ -74,57 +59,7 @@ void App::run() {
             }
         }
 
-        ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(),
-                                     ImGuiDockNodeFlags_PassthruCentralNode);
-
-        if (ImGui::BeginMainMenuBar()) {
-            if (ImGui::BeginMenu("File")) {
-                ImGui::MenuItem("New");
-                ImGui::MenuItem("Open...", "Ctrl+O");
-                ImGui::MenuItem("Open Recent");
-                ImGui::Separator();
-                ImGui::MenuItem("Save", "Ctrl+S");
-                ImGui::MenuItem("Save As...", "Shift+Ctrl+S");
-                ImGui::Separator();
-                if (ImGui::MenuItem("Quit"))
-                    running = false;
-                ImGui::EndMenu();
-            }
-
-            if (ImGui::BeginMenu("Edit")) {
-                ImGui::MenuItem("Undo");
-                ImGui::MenuItem("Redo");
-                ImGui::End();
-            }
-
-            if (ImGui::BeginMenu("View")) {
-                ImGui::MenuItem("Windows", nullptr, false, false);
-                ImGui::Separator();
-                ImGui::MenuItem("Timeline", nullptr, &g_timeline.open);
-                ImGui::MenuItem("Mixer", nullptr, &g_mixer.open);
-                ImGui::MenuItem("Browser", nullptr, &g_browser.open);
-                ImGui::MenuItem("Settings", nullptr, &g_settings.open);
-                ImGui::MenuItem("Test Controls", nullptr, &controls::g_test_control_shown);
-                ImGui::EndMenu();
-            }
-
-            if (ImGui::BeginMenu("Help")) {
-                ImGui::MenuItem("About...");
-                ImGui::EndMenu();
-            }
-
-            ImGui::EndMainMenuBar();
-        }
-
-        ImGui::ShowDemoWindow();
-
-        static float tempo = 150.0;
         bool is_playing = g_engine.is_playing();
-        ImGui::Begin("Player");
-        if (ImGui::DragFloat("Tempo", &tempo, 1.0f, 0.0f, 0.0f, "%.2f BPM")) {
-            g_engine.set_bpm((double)tempo);
-        }
-
         if (!ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Space)) {
             if (is_playing) {
                 g_engine.stop();
@@ -132,21 +67,32 @@ void App::run() {
                 g_engine.play();
             }
         }
-        if (is_playing)
-            ImGui::Text("Playing");
-        float playhead_pos = g_engine.playhead_ui.load(std::memory_order_relaxed);
-        ImGui::Text("Playhead: %f", playhead_pos);
-        ImGui::End();
 
+        ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(),
+                                     ImGuiDockNodeFlags_PassthruCentralNode);
+
+        ImVec2 frame_padding = GImGui->Style.FramePadding;
+        ImVec2 window_padding = GImGui->Style.WindowPadding;
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 13.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+        ImGui::PushStyleColor(ImGuiCol_MenuBarBg, ImGui::GetStyleColorVec4(ImGuiCol_TitleBg));
+        if (ImGui::BeginMainMenuBar()) {
+            ImGui::PopStyleVar(4);
+            ImGui::PopStyleColor();
+            render_control_bar();
+            ImGui::EndMainMenuBar();
+        }
+
+        ImGui::ShowDemoWindow();
         controls::render_test_controls();
-
         g_settings.render();
         g_browser.render();
         g_mixer.render();
         g_timeline.render();
 
         ImGui::Render();
-
         g_renderer->begin_draw(nullptr, {0.0f, 0.0f, 0.0f, 1.0f});
         g_renderer->render_draw_data(ImGui::GetDrawData());
         g_renderer->finish_draw();
@@ -158,7 +104,186 @@ void App::run() {
     }
 }
 
+void App::render_control_bar() {
+    bool open_menu = false;
+    ImVec2 frame_padding = GImGui->Style.FramePadding;
+    ImVec4 btn_color = GImGui->Style.Colors[ImGuiCol_Button];
+    ImVec4 frame_bg = GImGui->Style.Colors[ImGuiCol_FrameBg];
+    bool is_playing = g_engine.is_playing();
+    bool new_project = false;
+    bool open_project = false;
+    bool save_project = false;
+    static float tempo = 150.0;
+
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_TitleBg));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 4.0f));
+    ImGui::BeginChild("WB_TOOLBAR", ImVec2(), ImGuiChildFlags_AlwaysUseWindowPadding);
+    ImGui::PopStyleColor();
+
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
+    ImGui::PushStyleColor(ImGuiCol_Button, color_brighten(btn_color, 0.12f).Value);
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, color_brighten(frame_bg, 0.12f).Value);
+
+    set_current_font(FontType::Icon);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 3.0f));
+    open_menu = ImGui::Button(ICON_MS_MENU);
+    ImGui::SameLine(0.0f, 12.0f);
+    new_project = ImGui::Button(ICON_MS_LIBRARY_ADD "##wb_new_project");
+    ImGui::SameLine(0.0f, 4.0f);
+    open_project = ImGui::Button(ICON_MS_FOLDER_OPEN "##wb_open_project");
+    ImGui::SameLine(0.0f, 4.0f);
+    save_project = ImGui::Button(ICON_MS_SAVE "##wb_save_project");
+
+    ImGui::SameLine(0.0f, 12.0f);
+    ImGui::Button(ICON_MS_UNDO "##wb_undo");
+    ImGui::SameLine(0.0f, 4.0f);
+    ImGui::Button(ICON_MS_REDO "##wb_redo");
+
+    ImGui::SameLine(0.0f, 12.0f);
+    if (ImGui::Button(!is_playing ? ICON_MS_PLAY_ARROW "##wb_play" : ICON_MS_PAUSE "##wb_play")) {
+        if (is_playing) {
+            g_engine.stop();
+        } else {
+            g_engine.play();
+        }
+    }
+    ImGui::SameLine(0.0f, 4.0f);
+    if (ImGui::Button(ICON_MS_STOP "##wb_stop")) {
+        g_engine.stop();
+    }
+    ImGui::SameLine(0.0f, 4.0f);
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.951f, 0.322f, 0.322f, 1.000f));
+    ImGui::Button(ICON_MS_FIBER_MANUAL_RECORD "##wb_record");
+    ImGui::PopStyleColor();
+    ImGui::PopStyleVar();
+
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 8.5f));
+    ImGui::PushItemWidth(85.0f);
+    ImGui::SameLine(0.0f, 4.0f);
+    set_current_font(FontType::MonoMedium);
+    controls::song_position();
+    set_current_font(FontType::Nornal);
+    ImGui::SameLine(0.0f, 4.0f);
+    if (ImGui::DragFloat("Tempo", &tempo, 1.0f, 0.0f, 0.0f, "%.2f BPM",
+                         ImGuiSliderFlags_Vertical)) {
+        g_engine.set_bpm((double)tempo);
+    }
+    ImGui::PopItemWidth();
+
+    // ImGui::SameLine(0.0f, 12.0f);
+    // float playhead_pos = g_engine.playhead_ui.load(std::memory_order_relaxed);
+    // ImGui::Text("Playhead: %f", playhead_pos);
+
+    ImGui::PopStyleColor(2);
+    ImGui::PopStyleVar(2);
+    ImGui::EndChild();
+    ImGui::PopStyleVar();
+
+    if (open_menu)
+        ImGui::OpenPopup("WB_MAIN_MENU_POPUP");
+
+    if (ImGui::BeginPopup("WB_MAIN_MENU_POPUP")) {
+        if (ImGui::BeginMenu("File")) {
+            new_project = ImGui::MenuItem("New");
+            open_project = ImGui::MenuItem("Open...", "Ctrl+O");
+            ImGui::MenuItem("Open Recent");
+            ImGui::Separator();
+            ImGui::MenuItem("Save", "Ctrl+S");
+            save_project = ImGui::MenuItem("Save As...", "Shift+Ctrl+S");
+            ImGui::Separator();
+            if (ImGui::MenuItem("Open VST3 plugin")) {
+#ifdef WB_PLATFORM_WINDOWS
+                if (auto folder = pick_folder_dialog()) {
+                    if (vst3_host.open_module(folder.value().string())) {
+                        if (vst3_host.init_view()) {
+                            Steinberg::ViewRect rect;
+                            vst3_host.view->getSize(&rect);
+                            add_vst3_view(vst3_host, "whitebox plugin host", rect.getWidth(),
+                                          rect.getHeight());
+                        }
+                    }
+                }
+#endif
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem("Quit"))
+                running = false;
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Edit")) {
+            ImGui::MenuItem("Undo");
+            ImGui::MenuItem("Redo");
+            ImGui::End();
+        }
+
+        if (ImGui::BeginMenu("View")) {
+            ImGui::MenuItem("Windows", nullptr, false, false);
+            ImGui::Separator();
+            ImGui::MenuItem("Timeline", nullptr, &g_timeline.open);
+            ImGui::MenuItem("Mixer", nullptr, &g_mixer.open);
+            ImGui::MenuItem("Browser", nullptr, &g_browser.open);
+            ImGui::MenuItem("Settings", nullptr, &g_settings.open);
+            ImGui::MenuItem("Test Controls", nullptr, &controls::g_test_control_shown);
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Help")) {
+            ImGui::MenuItem("About...");
+            ImGui::EndMenu();
+        }
+        ImGui::EndPopup();
+    }
+
+    if (new_project) {
+        g_audio_io->close_device();
+        g_engine.clear_all();
+        g_timeline.reset();
+        g_timeline.add_track();
+        g_timeline.recalculate_song_length();
+        g_timeline.redraw_screen();
+        g_audio_io->open_device(g_settings_data.output_device_properties.id,
+                                g_settings_data.input_device_properties.id);
+        g_audio_io->start(&g_engine, g_settings_data.audio_exclusive_mode,
+                          g_settings_data.audio_buffer_size, g_settings_data.audio_input_format,
+                          g_settings_data.audio_output_format, g_settings_data.audio_sample_rate,
+                          AudioThreadPriority::Normal);
+    } else if (open_project) {
+        if (auto file = open_file_dialog({{"Whitebox Project File", "wb"}})) {
+            ProjectFile project_file;
+            g_audio_io->close_device();
+            g_engine.clear_all();
+            if (project_file.open(file.value().string(), false)) {
+                project_file.read_project(g_engine, g_sample_table);
+            }
+            g_timeline.recalculate_song_length();
+            g_timeline.redraw_screen();
+            g_audio_io->open_device(g_settings_data.output_device_properties.id,
+                                    g_settings_data.input_device_properties.id);
+            g_audio_io->start(&g_engine, g_settings_data.audio_exclusive_mode,
+                              g_settings_data.audio_buffer_size, g_settings_data.audio_input_format,
+                              g_settings_data.audio_output_format,
+                              g_settings_data.audio_sample_rate, AudioThreadPriority::Normal);
+        }
+    } else if (save_project) {
+        if (auto file = save_file_dialog({{"Whitebox Project File", "wb"}})) {
+            ProjectFile project_file;
+            g_audio_io->close_device();
+            if (project_file.open(file.value().string(), true)) {
+                project_file.write_project(g_engine, g_sample_table);
+            }
+            g_audio_io->open_device(g_settings_data.output_device_properties.id,
+                                    g_settings_data.input_device_properties.id);
+            g_audio_io->start(&g_engine, g_settings_data.audio_exclusive_mode,
+                              g_settings_data.audio_buffer_size, g_settings_data.audio_input_format,
+                              g_settings_data.audio_output_format,
+                              g_settings_data.audio_sample_rate, AudioThreadPriority::Normal);
+        }
+    }
+}
+
 void App::shutdown() {
+    g_settings_data.save_settings_data();
     Log::info("Closing application...");
     g_timeline.shutdown();
     shutdown_audio_io();
@@ -238,7 +363,8 @@ void apply_theme(ImGuiStyle& style) {
     colors[ImGuiCol_ResizeGripActive] = ImVec4(0.32f, 0.32f, 0.33f, 1.00f);
     colors[ImGuiCol_Tab] = ImVec4(0.15f, 0.15f, 0.15f, 1.00f);
     colors[ImGuiCol_TabHovered] = ImVec4(0.11f, 0.59f, 0.93f, 1.00f);
-    colors[ImGuiCol_TabActive] = ImVec4(0.00f, 0.47f, 0.78f, 1.00f);
+    colors[ImGuiCol_TabActive] = ImVec4(0.11f, 0.59f, 0.93f, 1.00f);
+    // colors[ImGuiCol_TabActive] = ImVec4(0.00f, 0.47f, 0.78f, 1.00f);
     colors[ImGuiCol_TabUnfocused] = ImVec4(0.15f, 0.15f, 0.15f, 1.00f);
     colors[ImGuiCol_TabUnfocusedActive] = ImVec4(0.00f, 0.47f, 0.78f, 1.00f);
     colors[ImGuiCol_DockingPreview] = ImVec4(0.26f, 0.59f, 0.98f, 0.70f);

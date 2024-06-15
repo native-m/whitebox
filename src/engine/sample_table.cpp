@@ -11,7 +11,6 @@ void SampleAsset::release() {
 SampleAsset* SampleTable::load_sample_from_file(const std::filesystem::path& path) {
     size_t hash = std::hash<std::filesystem::path> {}(path);
 
-    // Try to find if it already exist or create new instance
     auto item = samples.find(hash);
     if (item != samples.end()) {
         item->second.add_ref();

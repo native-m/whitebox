@@ -2,6 +2,7 @@
 #include "controls.h"
 #include "core/debug.h"
 #include "engine/engine.h"
+#include "engine/track.h"
 
 namespace wb {
 
@@ -48,22 +49,15 @@ void GuiMixer::render() {
         controls::mixer_label(track->name.c_str(), size.y, track->color);
         ImGui::SameLine();
 
-        bool param_updated = false;
-        float volume = track->ui_parameter.get_float(TrackParameter_Volume);
-        if (controls::slider2<float>(mixer_slider, "##vol_slider", ImVec2(20.0f, size.y),
-                                     track->color, &volume, 0.0f, 1.0f)) {
-            //Log::debug("Held");
-            track->ui_parameter.set(TrackParameter_Volume, volume);
+        /*bool param_updated = false;
+        if (controls::param_slider_db(track->ui_parameter, TrackParameter_Volume, mixer_slider,
+                                      "##mixer_slider", ImVec2(20.0f, size.y), track->color)) {
             param_updated = true;
-        }
+        }*/
 
-        ImGui::SameLine();
+        //ImGui::SameLine();
         ImGui::PopID();
         id++;
-
-        if (param_updated) {
-            track->ui_parameter.update();
-        }
     }
     ImGui::PopStyleVar();
 

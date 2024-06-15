@@ -1,15 +1,55 @@
 #pragma once
 
 #include "common.h"
+#include "types.h"
 #include <cmath>
 
 namespace wb {
 
 namespace math {
 
-inline double uround(double x) {
-    double v = x + 0.5;
-    return (double)((uint64_t)(v));
+template <typename T>
+inline T min(T a, T b) {
+    return a < b ? a : b;
+}
+
+template <typename T>
+inline T max(T a, T b) {
+    return b < a ? a : b;
+}
+
+template <std::floating_point T>
+inline T trunc(T x) {
+    if constexpr (std::is_same_v<T, double>) {
+        return (T)(int64_t)x;
+    } else {
+        return (T)(int32_t)x;
+    }
+}
+
+template <std::floating_point T>
+inline T uround(T x) {
+    return math::trunc(x + T(0.5));
+}
+
+template <std::floating_point T>
+inline T round(T x) {
+    return math::trunc(x + (x > T(0) ? 0.5 : -0.5));
+}
+
+template <std::floating_point T>
+inline T fract(T x) {
+    return x - std::floor(x);
+}
+
+template <std::floating_point T>
+inline T db_to_linear(T x) {
+    return std::pow(T(10), T((double)x * 0.05));
+}
+
+template <std::floating_point T>
+inline T linear_to_db(T x) {
+    return T(20) * std::log10(std::abs(x));
 }
 
 } // namespace math

@@ -1,7 +1,7 @@
 ﻿# CMakeList.txt : CMake project for whitebox, include source and define
 # project specific logic here.
 #
-cmake_minimum_required (VERSION 3.8)
+cmake_minimum_required (VERSION 3.20)
 
 # Enable Hot Reload for MSVC compilers if supported.
 if (POLICY CMP0141)
@@ -9,10 +9,13 @@ if (POLICY CMP0141)
   set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
 endif()
 
+#set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
 project("whitebox")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED 20)
+option(WB_VST3_SDK_PATH "Path to VST3 SDK")
 
 include(Dependencies.cmake)
 
@@ -20,10 +23,10 @@ enable_testing()
 add_subdirectory(assets)
 
 set(WB_SOURCES
+    "src/core/algorithm.h"
     "src/core/audio_buffer.h"
     "src/core/audio_format_conv.h"
     "src/core/audio_format.h"
-    "src/core/audio_param.h"
     "src/core/bit_manipulation.h"
     "src/core/color.h"
     "src/core/common.h"
@@ -34,7 +37,7 @@ set(WB_SOURCES
     "src/core/json_fwd.hpp"
     "src/core/math.h"
     "src/core/memory.h"
-    "src/core/platform.h"
+    "src/core/platform_def.h"
     "src/core/queue.h"
     "src/core/thread.cpp"
     "src/core/thread.h"
@@ -49,8 +52,12 @@ set(WB_SOURCES
     "src/engine/engine.cpp"
     "src/engine/engine.h"
     "src/engine/event.h"
+    "src/engine/param_changes.h"
+    "src/engine/project.cpp"
+    "src/engine/project.h"
     "src/engine/sample.cpp"
     "src/engine/sample.h"
+    "src/engine/sample_peaks.h"
     "src/engine/sample_table.cpp"
     "src/engine/sample_table.h"
     "src/engine/track.cpp"
@@ -58,15 +65,24 @@ set(WB_SOURCES
     "src/engine/pulseaudio_devicelist_wrapper.cpp"
     "src/engine/pulseaudio_devicelist_wrapper.h"
 
+    "src/plughost/vst3host.cpp"
+    "src/plughost/vst3host.h"
+    "src/plughost/wb_plug.h"
+
     "src/ui/browser.cpp"
     "src/ui/browser.h"
     "src/ui/controls.cpp"
     "src/ui/controls.h"
     "src/ui/draw.cpp"
     "src/ui/draw.h"
+    "src/ui/file_dialog.cpp"
+    "src/ui/file_dialog.h"
     "src/ui/file_dropper.cpp"
     "src/ui/file_dropper.h"
+    "src/ui/font.cpp"
+    "src/ui/font.h"
     "src/ui/forms.h"
+    "src/ui/IconsMaterialSymbols.h"
     "src/ui/layout.h"
     "src/ui/mixer.cpp"
     "src/ui/mixer.h"
@@ -105,7 +121,8 @@ set(WB_LINK_LIBRARIES
     imgui-freetype
     imgui-vulkan
     sndfile
-    nfd)
+    nfd
+    vst3-sdk-hosting)
 
 if (MSVC)
     set(WB_LINK_LIBRARIES ${WB_LINK_LIBRARIES} imgui-d3d11 Avrt)
@@ -122,11 +139,16 @@ if (UNIX AND NOT APPLE)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(LIBPULSE REQUIRED IMPORTED_TARGET libpulse)
     target_link_libraries(whitebox-lib PRIVATE PkgConfig::LIBPULSE)
+endif ()
+if (WIN32)
+    target_compile_definitions(whitebox-lib PUBLIC -DUNICODE -D_UNICODE)
 endif()
 
 add_executable(whitebox "src/main.cpp")
 target_link_libraries(whitebox whitebox-lib)
 add_dependencies(whitebox wb-assets)
 set_target_properties(whitebox PROPERTIES CXX_STANDARD 20)
+
+#set_property(TARGET whitebox-lib whitebox PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 add_subdirectory(test)

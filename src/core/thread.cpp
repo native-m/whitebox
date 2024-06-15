@@ -3,7 +3,6 @@
 #include <thread>
 
 #ifdef WB_PLATFORM_WINDOWS
-#define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #endif
 
@@ -22,6 +21,7 @@ void accurate_sleep_ns(int64_t timeout_ns) {
     SetWaitableTimer(global_waitable_timer, &due_time, 0, nullptr, nullptr, FALSE);
     WaitForSingleObjectEx(global_waitable_timer, INFINITE, FALSE);
 #else
+    std::this_thread::sleep_for(std::chrono::nanoseconds(timeout_ns));
     // TODO: Implement for other platforms
 #endif
 }

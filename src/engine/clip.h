@@ -2,6 +2,7 @@
 
 #include "core/common.h"
 #include "sample_table.h"
+#include <atomic>
 #include <imgui.h>
 #include <string>
 
@@ -25,22 +26,25 @@ struct MidiClip {
 };
 
 struct Clip {
-    uint32_t id;
+    uint32_t id {};
 
     // General clip information
-    ClipType type;
-    std::string name;
-    ImColor color;
+    ClipType type {};
+    std::string name {};
+    ImColor color {};
+    mutable std::atomic_bool deleted {};
 
     // Time placement in beat units
-    double min_time;
-    double max_time;
+    double min_time {};
+    double max_time {};
     double relative_start_time = 0.0;
 
     union {
         AudioClip audio;
         MidiClip midi;
     };
+
+    Clip() noexcept : id(WB_INVALID_CLIP_ID), audio() {}
 
     Clip(const std::string& name, const ImColor& color, double min_time, double max_time) noexcept :
         id(WB_INVALID_CLIP_ID),
@@ -84,12 +88,18 @@ struct Clip {
         }
     }
 
-    void as_audio_clip(const AudioClip& clip_info) {
+    inline void init_as_audio_clip(const AudioClip& clip_info) {
         type = ClipType::Audio;
         audio = clip_info;
     }
 
-    void as_midi_clip() {}
+    inline void as_midi_clip() {
+        type = ClipType::Midi;
+    }
+
+    inline void mark_deleted() { deleted.store(true, std::memory_order_release); }
+
+    inline bool is_deleted() const { return deleted.load(std::memory_order_relaxed); }
 };
 
 } // namespace wb

@@ -46,5 +46,7 @@ wb_add_shader_glsl(vertex waveform_aa.vs)
 wb_add_shader_glsl(vertex waveform_fill.vs)
 wb_add_shader_glsl(fragment waveform_aa.fs)
 wb_add_asset_file("Inter-Medium.otf")
+wb_add_asset_file("RobotoMono-Regular.ttf")
+wb_add_asset_file("MaterialSymbolsRoundedInstanced.ttf")
 
 add_custom_target(wb-assets DEPENDS ${WB_ASSET_DEPENDENCIES})

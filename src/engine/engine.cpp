@@ -1,4 +1,5 @@
 #include "engine.h"
+#include "track.h"
 #include "core/debug.h"
 #include "core/math.h"
 #include <numbers>
@@ -21,16 +22,25 @@ void Engine::set_bpm(double bpm) {
 
 void Engine::set_playhead_position(double beat_position) {
     // TODO: Allow playhead dragging.
-    assert(!playing && "Dragging playhead while playing is not allowed yet!");
+    //assert(!playing && "Dragging playhead while playing is not allowed yet!");
+    editor_lock.lock();
     playhead_start = beat_position;
     playhead = playhead_start;
     playhead_ui = playhead_start;
     playhead_updated.store(true, std::memory_order_release);
+    editor_lock.unlock();
 }
 
 void Engine::set_buffer_size(uint32_t channels, uint32_t size) {
     mixing_buffer.resize(size);
     mixing_buffer.resize_channel(channels);
+}
+
+void Engine::clear_all() {
+    for (auto track : tracks) {
+        delete track;
+    }
+    tracks.clear();
 }
 
 void Engine::play() {
@@ -39,7 +49,6 @@ void Engine::play() {
     for (auto track : tracks) {
         track->prepare_play(playhead_start);
     }
-
     playhead_updated.store(false, std::memory_order_release);
     sample_position = 0;
     playing = true;
@@ -110,8 +119,8 @@ Clip* Engine::add_audio_clip_from_file(Track* track, const std::filesystem::path
 }
 
 void Engine::delete_clip(Track* track, Clip* clip) {
-    has_deleted_clips.store(true, std::memory_order_release);
     track->delete_clip(clip->id);
+    has_deleted_clips.store(true, std::memory_order_release);
 }
 
 void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
@@ -132,13 +141,11 @@ void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
             double position = std::round(playhead * ppq) * inv_ppq;
             uint32_t buffer_offset =
                 (uint32_t)((uint64_t)sample_position % output_buffer.n_samples);
-
             current_beat_duration = beat_duration.load(std::memory_order_relaxed);
             for (auto track : tracks) {
                 track->process_event(buffer_offset, position, current_beat_duration, sample_rate,
                                      ppq, inv_ppq);
             }
-
             playhead += inv_ppq;
             sample_position += beat_to_samples(inv_ppq, sample_rate, current_beat_duration);
         } while (playhead < playhead_ui + (buffer_duration / current_beat_duration));
@@ -149,16 +156,18 @@ void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
     }
 
     for (auto track : tracks) {
-        track->process(output_buffer, sample_rate, currently_playing);
+        mixing_buffer.clear();
+        track->process(mixing_buffer, sample_rate, currently_playing);
+        output_buffer.mix(mixing_buffer);
     }
 
     if (has_deleted_clips.load(std::memory_order_relaxed)) {
+        delete_lock.lock();
         for (auto track : tracks) {
-            if (track->deleted_clip_ids.empty())
-                continue;
             Log::debug("Deleting pending clips for track: {} ...", (uintptr_t)track);
             track->flush_deleted_clips();
         }
+        delete_lock.unlock();
         has_deleted_clips.store(false, std::memory_order_relaxed);
     }
 }

@@ -17,8 +17,7 @@ struct SettingsData {
     void load_settings_data();
     void load_default_settings();
     void save_settings_data();
-    void apply_audio_device();
-    void apply_audio_buffer_size();
+    void apply_audio_settings();
 };
 
 extern SettingsData g_settings_data;

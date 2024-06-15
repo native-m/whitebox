@@ -202,6 +202,9 @@ struct AudioIOPulseAudio : public AudioIO {
         return output_device_count;
     }
 
+    uint32_t get_input_device_index(AudioDeviceID id) const override { return WB_INVALID_AUDIO_DEVICE_INDEX; }
+    uint32_t get_output_device_index(AudioDeviceID id) const override { return WB_INVALID_AUDIO_DEVICE_INDEX; }
+
     const AudioDeviceProperties& get_input_device_properties(uint32_t idx) const override {
         return input_devices[idx].properties;
     }
@@ -299,10 +302,6 @@ struct AudioIOPulseAudio : public AudioIO {
                                    PA_STREAM_NOFLAGS, nullptr, nullptr);
 
         return true;
-    }
-
-    void stop() override {
-        // do nothing
     }
 };
 

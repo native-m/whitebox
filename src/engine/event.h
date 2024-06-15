@@ -12,18 +12,17 @@ enum class EventType {
 };
 
 struct AudioEvent {
-    double time;
     size_t sample_offset;
-    uint32_t buffer_offset;
     Sample* sample;
 };
 
 struct MidiEvent {
-
 };
 
 struct Event {
     EventType type;
+    uint32_t buffer_offset;
+    double time;
 
     union {
         AudioEvent audio;

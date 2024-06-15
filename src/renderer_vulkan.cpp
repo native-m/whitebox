@@ -142,7 +142,7 @@ void ResourceDisposalVK::dispose_framebuffer(FramebufferVK* obj) {
     // I don't know if this will work properly...
     for (uint32_t i = 0; i < obj->num_buffers; i++) {
         fb.push_back(FramebufferDisposalVK {
-            .frame_id = i,
+            .frame_id = current_frame_id,
             .allocation = obj->allocations[i],
             .image = obj->image[i],
             .view = obj->view[i],
@@ -698,7 +698,7 @@ std::shared_ptr<SamplePeaks> RendererVK::create_sample_peaks(const Sample& sampl
         buffer_info.size = total_length * elem_size;
         staging_buffer_info.size = buffer_info.size;
         buffer_copy.size = buffer_info.size;
-        mip.sample_count = required_length;
+        mip.sample_count = (uint32_t)required_length;
 
         if (VK_FAILED(vmaCreateBuffer(allocator_, &staging_buffer_info, &staging_alloc_info,
                                       &buffer_copy.staging_buffer, &buffer_copy.staging_allocation,
@@ -996,8 +996,13 @@ ImTextureID RendererVK::prepare_as_imgui_texture(const std::shared_ptr<Framebuff
 void RendererVK::draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) {
     VkBuffer current_buffer {};
 
+    float fb_width_f32 = (float)fb_width;
+    float fb_height_f32 = (float)fb_height;
+
     for (auto& clip : clips) {
-        if (clip.min_bb.y > (float)fb_height || clip.max_bb.y < 0.0f)
+        if (clip.min_bb.y >= fb_height_f32 || clip.max_bb.y < 0.0f)
+            continue;
+        if (clip.min_bb.x >= fb_width_f32 || clip.max_bb.x < 0.0f)
             continue;
 
         SamplePeaksVK* peaks = static_cast<SamplePeaksVK*>(clip.peaks);
@@ -1050,8 +1055,6 @@ void RendererVK::draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) {
             .sample_count = mip.sample_count,
         };
 
-        Log::debug("{}", (double)mip.sample_count);
-
         vkCmdPushConstants(current_cb_, waveform_layout,
                            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                            sizeof(ClipContentDrawCmdVK), &draw_cmd);
@@ -1075,6 +1078,9 @@ void RendererVK::draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) {
 
 // We slightly modified ImGui_ImplVulkan_RenderDrawData function to fit our vulkan backend
 void RendererVK::render_draw_data(ImDrawData* draw_data) {
+    if (draw_data->CmdListsCount == 0)
+        return;
+
     int fb_width = (int)(draw_data->DisplaySize.x * draw_data->FramebufferScale.x);
     int fb_height = (int)(draw_data->DisplaySize.y * draw_data->FramebufferScale.y);
     if (fb_width <= 0 || fb_height <= 0)
@@ -1082,7 +1088,6 @@ void RendererVK::render_draw_data(ImDrawData* draw_data) {
 
     ImGui_ImplVulkan_Data* bd = (ImGui_ImplVulkan_Data*)ImGui::GetIO().BackendRendererUserData;
     ImGui_ImplVulkan_FrameRenderBuffers* rb = &render_buffers_[frame_id_];
-    ImGui_ImplVulkan_InitInfo* v = &bd->VulkanInitInfo;
     CommandBufferVK& cmd_buf = cmd_buf_[frame_id_];
     VkPipeline pipeline = bd->Pipeline;
 
@@ -1105,7 +1110,7 @@ void RendererVK::render_draw_data(ImDrawData* draw_data) {
         VK_CHECK(vkMapMemory(device_, rb->VertexBufferMemory, 0, rb->VertexBufferSize, 0,
                              (void**)&cmd_buf.immediate_vtx));
         cmd_buf.immediate_vtx_offset = 0;
-        Log::debug("Resizing immediate vertex buffer: {}", frame_id_);
+        //Log::debug("Resizing immediate vertex buffer: {}", frame_id_);
     }
 
     if (rb->IndexBuffer == VK_NULL_HANDLE || rb->IndexBufferSize < index_size) {
@@ -1114,7 +1119,7 @@ void RendererVK::render_draw_data(ImDrawData* draw_data) {
         VK_CHECK(vkMapMemory(device_, rb->IndexBufferMemory, 0, rb->IndexBufferSize, 0,
                              (void**)&cmd_buf.immediate_idx));
         cmd_buf.immediate_idx_offset = 0;
-        Log::debug("Resizing immediate index buffer: {}", frame_id_);
+        //Log::debug("Resizing immediate index buffer: {}", frame_id_);
     }
 
     ImDrawVert* vtx_dst = cmd_buf.immediate_vtx + cmd_buf.immediate_vtx_offset;
@@ -1272,6 +1277,7 @@ bool RendererVK::init_swapchain_() {
                                 .set_required_min_image_count(VULKAN_MAX_BUFFER_SIZE)
                                 .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
                                 .set_desired_format({VK_FORMAT_B8G8R8A8_UNORM})
+                                .set_composite_alpha_flags(VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR)
                                 .build();
 
     if (!swapchain_result) {
@@ -1383,7 +1389,6 @@ void RendererVK::setup_imgui_render_state(ImDrawData* draw_data, VkPipeline pipe
                                           ImGui_ImplVulkan_FrameRenderBuffers* rb, int fb_width,
                                           int fb_height) {
     ImGui_ImplVulkan_Data* bd = (ImGui_ImplVulkan_Data*)ImGui::GetIO().BackendRendererUserData;
-    CommandBufferVK& cmd_buf = cmd_buf_[frame_id_];
 
     // Bind pipeline:
     { vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline); }
@@ -1716,7 +1721,6 @@ Renderer* RendererVK::create(App* app) {
         .presentWait = true,
     };
 
-    void* pNext = nullptr;
     bool has_present_id = false;
     if (physical_device.enable_extension_if_present(VK_KHR_PRESENT_ID_EXTENSION_NAME)) {
         has_present_id = true;

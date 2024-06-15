@@ -6,6 +6,8 @@
 #include <cmath>
 #include <string>
 
+#define WB_INVALID_AUDIO_DEVICE_INDEX (~0U)
+
 namespace wb {
 
 struct Engine;
@@ -96,6 +98,8 @@ struct AudioIO {
     */
     virtual bool rescan_devices() = 0;
 
+    virtual uint32_t get_input_device_index(AudioDeviceID id) const = 0;
+    virtual uint32_t get_output_device_index(AudioDeviceID id) const = 0;
     virtual const AudioDeviceProperties& get_input_device_properties(uint32_t idx) const = 0;
     virtual const AudioDeviceProperties& get_output_device_properties(uint32_t idx) const = 0;
 
@@ -117,11 +121,6 @@ struct AudioIO {
     virtual bool start(Engine* engine, bool exclusive_mode, uint32_t buffer_size,
                        AudioFormat input_format, AudioFormat output_format,
                        AudioDeviceSampleRate sample_rate, AudioThreadPriority priority) = 0;
-
-    /*
-        Stop the audio engine.
-    */
-    virtual void stop() = 0;
 };
 
 inline static uint32_t period_to_buffer_size(AudioDevicePeriod period, uint32_t sample_rate) {
