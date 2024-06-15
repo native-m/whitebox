@@ -87,7 +87,6 @@ struct AudioIOPulseAudio2 : public AudioIO {
             device.properties.type = AudioDeviceType::Output;
             device.index = i->index;
             device.hw_name = i->name;
-            Log::debug("Output device: {}", i->description);
         };
 
         auto source_info_cb = [](pa_context* c, const pa_source_info* i, int eol, void* userdata) {
@@ -104,7 +103,6 @@ struct AudioIOPulseAudio2 : public AudioIO {
             device.properties.type = AudioDeviceType::Input;
             device.index = i->index;
             device.hw_name = i->name;
-            Log::debug("Input device: {}", i->description);
         };
 
         pa_operation* op = pa_context_get_sink_info_list(context_, sink_info_cb, this);
@@ -117,20 +115,31 @@ struct AudioIOPulseAudio2 : public AudioIO {
             return false;
         }
 
+        for (const auto& output : output_devices) {
+            Log::debug("Found output device: {}", output.properties.name);
+        }
+
+        for (const auto& input : input_devices) {
+            Log::debug("Found input device: {}", input.properties.name);
+        }
+
         return true;
     }
 
     virtual uint32_t get_input_device_index(AudioDeviceID id) const {
-        return WB_INVALID_AUDIO_DEVICE_INDEX;
+        return find_device_index(input_devices, id);
     }
+
     virtual uint32_t get_output_device_index(AudioDeviceID id) const {
-        return WB_INVALID_AUDIO_DEVICE_INDEX;
+        return find_device_index(output_devices, id);
     }
+
     virtual const AudioDeviceProperties& get_input_device_properties(uint32_t idx) const {
-        return dummy_input_device;
+        return input_devices[idx].properties;
     }
+
     virtual const AudioDeviceProperties& get_output_device_properties(uint32_t idx) const {
-        return dummy_output_device;
+        return output_devices[idx].properties;
     }
 
     /*
@@ -178,6 +187,22 @@ struct AudioIOPulseAudio2 : public AudioIO {
             }
         }
         return true;
+    }
+
+    uint32_t find_device_index(const Vector<AudioDevicePulseAudio2>& devices,
+                               AudioDeviceID id) const {
+        uint32_t idx = 0;
+        bool found = false;
+        for (const auto& device : devices) {
+            if (device.properties.id == id) {
+                found = true;
+                break;
+            }
+            idx++;
+        }
+        if (!found)
+            return WB_INVALID_AUDIO_DEVICE_INDEX;
+        return idx;
     }
 
     static void state_callback(pa_context* ctx, void* userdata) {
