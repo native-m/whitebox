@@ -4,6 +4,7 @@
 #include "algorithm.h"
 #include "types.h"
 #include <memory>
+#include <utility>
 
 namespace wb {
 namespace detail {

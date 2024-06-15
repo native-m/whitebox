@@ -42,7 +42,6 @@ void App::init() {
     init_font_assets();
     apply_theme(ImGui::GetStyle());
     init_renderer(this);
-    init_audio_io(AudioIOType::PulseAudio);
 
     g_engine.set_bpm(150.0f);
     g_timeline.init();

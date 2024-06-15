@@ -48,6 +48,7 @@ set(WB_SOURCES
     "src/engine/audio_io.h"
     "src/engine/audio_io_wasapi.cpp"
     "src/engine/audio_io_pulseaudio.cpp"
+    "src/engine/audio_io_pulseaudio2.cpp"
     "src/engine/clip.h"
     "src/engine/engine.cpp"
     "src/engine/engine.h"

@@ -1,6 +1,7 @@
 #include "audio_io.h"
 
 #include <vector>
+#include <algorithm>
 #include <iostream>
 #include <cstring>
 
