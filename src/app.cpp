@@ -34,7 +34,7 @@ void App::init() {
     g_settings_data.apply_audio_settings();
 
     ImGuiIO& io = ImGui::GetIO();
-    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     // io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
     io.ConfigViewportsNoTaskBarIcon = false;
@@ -169,9 +169,9 @@ void App::render_control_bar() {
     }
     ImGui::PopItemWidth();
 
-    //ImGui::SameLine(0.0f, 12.0f);
-    //float playhead_pos = g_engine.playhead_ui.load(std::memory_order_relaxed);
-    //ImGui::Text("Playhead: %f", playhead_pos);
+    // ImGui::SameLine(0.0f, 12.0f);
+    // float playhead_pos = g_engine.playhead_ui.load(std::memory_order_relaxed);
+    // ImGui::Text("Playhead: %f", playhead_pos);
 
     ImGui::PopStyleColor(2);
     ImGui::PopStyleVar(2);
@@ -191,6 +191,7 @@ void App::render_control_bar() {
             save_project = ImGui::MenuItem("Save As...", "Shift+Ctrl+S");
             ImGui::Separator();
             if (ImGui::MenuItem("Open VST3 plugin")) {
+#ifdef WB_PLATFORM_WINDOWS
                 if (auto folder = pick_folder_dialog()) {
                     if (vst3_host.open_module(folder.value().string())) {
                         if (vst3_host.init_view()) {
@@ -201,6 +202,7 @@ void App::render_control_bar() {
                         }
                     }
                 }
+#endif
             }
             ImGui::Separator();
             if (ImGui::MenuItem("Quit"))

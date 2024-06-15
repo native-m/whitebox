@@ -53,6 +53,7 @@ void AppSDL2::new_frame() {
 
 void AppSDL2::add_vst3_view(VST3Host& plug_instance, const char* name, uint32_t width,
                             uint32_t height) {
+#ifdef WB_PLATFORM_WINDOWS
     SDL_Window* window =
         SDL_CreateWindow(name, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, 0);
     SDL_SysWMinfo wm_info {};
@@ -71,6 +72,7 @@ void AppSDL2::add_vst3_view(VST3Host& plug_instance, const char* name, uint32_t 
     uint32_t id = SDL_GetWindowID(window);
     plugin_windows.emplace(id, window);
     SDL_SetWindowData(window, "wb_vst3_instance", &plug_instance);
+#endif
 }
 
 void AppSDL2::handle_events(SDL_Event& event) {

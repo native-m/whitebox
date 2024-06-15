@@ -216,6 +216,12 @@ set(VST3_BASE_SRC
     "${VST3_BASE_PATH}/thread/source/flock.cpp")
 add_library(vst3-base STATIC ${VST3_BASE_SRC})
 target_include_directories(vst3-base PUBLIC "${WB_VST3_SDK_PATH}")
+target_compile_options(vst3-base
+    PUBLIC
+        "$<$<CONFIG:Debug>:-DDEVELOPMENT=1>"
+        "$<$<CONFIG:Release>:-DRELEASE=1>"
+        "$<$<CONFIG:RelWithDebInfo>:-DRELEASE=1>"
+)
 
 set(VST3_PLUGINTERFACES_PATH "${WB_VST3_SDK_PATH}/pluginterfaces")
 set(VST3_PLUGINTERFACES_SRC
@@ -287,11 +293,20 @@ set(VST3_SDK_COMMON_SRC
     "${VST3_PUBLICSDK_PATH}/source/common/readfile.cpp"
     "${VST3_PUBLICSDK_PATH}/source/common/readfile.h"
     "${VST3_PUBLICSDK_PATH}/source/common/systemclipboard.h"
-    "${VST3_PUBLICSDK_PATH}/source/common/systemclipboard_linux.cpp"
-    "${VST3_PUBLICSDK_PATH}/source/common/systemclipboard_win32.cpp"
     "${VST3_PUBLICSDK_PATH}/source/common/threadchecker.h"
-    "${VST3_PUBLICSDK_PATH}/source/common/threadchecker_linux.cpp"
-    "${VST3_PUBLICSDK_PATH}/source/common/threadchecker_win32.cpp")
+    "${VST3_PUBLICSDK_PATH}/source/common/threadchecker_linux.cpp")
+
+if (WIN32)
+    set(VST3_SDK_COMMON_SRC ${VST3_SDK_COMMON_SRC}
+        "${VST3_PUBLICSDK_PATH}/source/common/systemclipboard_win32.cpp"
+        "${VST3_PUBLICSDK_PATH}/source/common/threadchecker_win32.cpp"
+    )
+elseif (LINUX)
+    set(VST3_SDK_COMMON_SRC ${VST3_SDK_COMMON_SRC}
+        "${VST3_PUBLICSDK_PATH}/source/common/systemclipboard_linux.cpp"
+        "${VST3_PUBLICSDK_PATH}/source/common/threadchecker_linux.cpp")
+endif ()
+
 add_library(vst3-sdk-common STATIC ${VST3_SDK_COMMON_SRC})
 target_link_libraries(vst3-sdk-common PUBLIC vst3-pluginterfaces)
 
@@ -304,7 +319,7 @@ set(VST3_SDK_HOSTING_SRC
     "${VST3_PUBLICSDK_PATH}/source/vst/hosting/hostclasses.h"
     "${VST3_PUBLICSDK_PATH}/source/vst/hosting/module.cpp"
     "${VST3_PUBLICSDK_PATH}/source/vst/hosting/module.h"
-    "${VST3_PUBLICSDK_PATH}/source/vst/hosting/module_win32.cpp"
+    
     "${VST3_PUBLICSDK_PATH}/source/vst/hosting/parameterchanges.cpp"
     "${VST3_PUBLICSDK_PATH}/source/vst/hosting/parameterchanges.h"
     "${VST3_PUBLICSDK_PATH}/source/vst/hosting/pluginterfacesupport.cpp"
@@ -319,5 +334,14 @@ set(VST3_SDK_HOSTING_SRC
     "${VST3_PUBLICSDK_PATH}/source/vst/utility/uid.h"
     "${VST3_PUBLICSDK_PATH}/source/vst/utility/versionparser.h"
     "${VST3_PUBLICSDK_PATH}/source/vst/vstinitiids.cpp")
+
+if (WIN32)
+    set(VST3_SDK_HOSTING_SRC ${VST3_SDK_HOSTING_SRC}
+        "${VST3_PUBLICSDK_PATH}/source/vst/hosting/module_win32.cpp")
+elseif (LINUX)
+    set(VST3_SDK_HOSTING_SRC ${VST3_SDK_HOSTING_SRC}
+        "${VST3_PUBLICSDK_PATH}/source/vst/hosting/module_linux.cpp")
+endif ()
+
 add_library(vst3-sdk-hosting STATIC ${VST3_SDK_HOSTING_SRC})
 target_link_libraries(vst3-sdk-hosting PUBLIC vst3-sdk-common)
