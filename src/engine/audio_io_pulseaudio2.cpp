@@ -443,7 +443,6 @@ struct AudioIOPulseAudio2 : public AudioIO {
                             PA_SEEK_RELATIVE);
             return;
         }
-        Log::debug("Buffer processing {}", nbytes / 4);
         current->engine_->process(current->output_buffer_,
                                   (double)current->output_sample_spec_.rate);
         switch (current->output_sample_format_) {
