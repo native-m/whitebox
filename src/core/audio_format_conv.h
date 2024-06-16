@@ -8,7 +8,7 @@ namespace wb {
 
 inline void convert_f32_to_interleaved_i16(int16_t* dst, const float* const* src, size_t src_offset,
                                            size_t num_samples, uint32_t num_channels) {
-    static constexpr float min_val = (float)-std::numeric_limits<int16_t>::min();
+    static constexpr float min_val = -(float)std::numeric_limits<int16_t>::min();
     static constexpr float max_val = (float)std::numeric_limits<int16_t>::max();
     for (uint32_t c = 0; c < num_channels; c++) {
         const float* src_channel = src[c] + src_offset;
@@ -59,7 +59,7 @@ inline void convert_f32_to_interleaved_i24_x8(int32_t* dst, const float* const* 
 
 inline void convert_f32_to_interleaved_i32(int32_t* dst, const float* const* src, size_t src_offset,
                                            size_t num_samples, uint32_t num_channels) {
-    static constexpr double min_val = (double)-std::numeric_limits<int32_t>::min();
+    static constexpr double min_val = -(double)std::numeric_limits<int32_t>::min();
     static constexpr double max_val = (double)std::numeric_limits<int32_t>::max();
     for (uint32_t c = 0; c < num_channels; c++) {
         const float* src_channel = src[c] + src_offset;

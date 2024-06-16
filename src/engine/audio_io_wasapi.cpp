@@ -337,7 +337,7 @@ struct AudioIOWASAPI : public AudioIO {
         Log::info("Closing audio devices...");
         if (running) {
             running = false;
-            if (audio_thread.joinable()) {
+            if (!audio_thread.joinable()) {
                 audio_thread.join();
             }
             render_client->Release();
@@ -513,8 +513,6 @@ struct AudioIOWASAPI : public AudioIO {
         uint32_t output_channels = output_buffer.n_channels;
 
         while (instance->running.load(std::memory_order_relaxed)) {
-            output_buffer.clear();
-
             engine->process(output_buffer, sample_rate);
 
             for (uint32_t i = 0; i < output_buffer.n_channels; i++) {

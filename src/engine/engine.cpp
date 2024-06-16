@@ -155,6 +155,8 @@ void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
         editor_lock.unlock();
     }
 
+    output_buffer.clear();
+
     for (auto track : tracks) {
         mixing_buffer.clear();
         track->process(mixing_buffer, sample_rate, currently_playing);

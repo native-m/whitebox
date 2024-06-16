@@ -26,6 +26,10 @@ inline static uint32_t get_audio_format_size(AudioFormat format) {
         case AudioFormat::I16:
         case AudioFormat::U16:
             return 2;
+        case AudioFormat::I24:
+            return 3;
+        case AudioFormat::I24_X8:
+            return 4;
         case AudioFormat::I32:
         case AudioFormat::U32:
         case AudioFormat::F32:

@@ -1,9 +1,12 @@
 #include "audio_io.h"
 
 #ifdef WB_PLATFORM_LINUX
+#include "core/audio_buffer.h"
+#include "core/audio_format_conv.h"
 #include "core/debug.h"
 #include "core/defer.h"
 #include "core/vector.h"
+#include "engine.h"
 #include <pulse/pulseaudio.h>
 #include <pulse/rtclock.h>
 
@@ -11,8 +14,6 @@ namespace wb {
 
 inline AudioFormat to_audio_format(pa_sample_format format) {
     switch (format) {
-        case PA_SAMPLE_U8:
-            return AudioFormat::U8;
         case PA_SAMPLE_S16LE:
             return AudioFormat::I16;
         case PA_SAMPLE_S24LE:
@@ -28,6 +29,37 @@ inline AudioFormat to_audio_format(pa_sample_format format) {
     }
 
     return AudioFormat::Unknown;
+}
+
+inline pa_sample_spec to_sample_spec(AudioFormat format, AudioDeviceSampleRate sample_rate,
+                                     uint16_t channels) {
+    pa_sample_spec ret {
+        .rate = get_sample_rate_value(sample_rate),
+        .channels = (uint8_t)channels,
+    };
+
+    switch (format) {
+        case AudioFormat::I16:
+            ret.format = PA_SAMPLE_S16LE;
+            break;
+        case AudioFormat::I24:
+            ret.format = PA_SAMPLE_S24LE;
+            break;
+        case AudioFormat::I24_X8:
+            ret.format = PA_SAMPLE_S24_32LE;
+            break;
+        case AudioFormat::I32:
+            ret.format = PA_SAMPLE_S32LE;
+            break;
+        case AudioFormat::F32:
+            ret.format = PA_SAMPLE_FLOAT32LE;
+            break;
+        default:
+            ret.format = PA_SAMPLE_INVALID;
+            break;
+    }
+
+    return ret;
 }
 
 struct AudioDevicePulseAudio2 {
@@ -46,6 +78,15 @@ struct AudioIOPulseAudio2 : public AudioIO {
     pa_context_state_t ctx_state_ {};
     AudioDevicePulseAudio2 output_ {};
     AudioDevicePulseAudio2 input_ {};
+    pa_sample_spec output_sample_spec_ {};
+    AudioFormat output_sample_format_ {};
+    pa_stream* output_stream_ {};
+    std::thread audio_thread_;
+    Engine* engine_ {};
+    std::atomic<bool> running_ = false;
+
+    AudioBuffer<float> output_buffer_;
+    void* conversion_buffer_;
 
     Vector<AudioDevicePulseAudio2> output_devices;
     Vector<AudioDevicePulseAudio2> input_devices;
@@ -126,7 +167,8 @@ struct AudioIOPulseAudio2 : public AudioIO {
             device.configured_latency = i->configured_latency;
         };
 
-        auto default_sink_info_cb = [](pa_context* c, const pa_sink_info* i, int eol, void* userdata) {
+        auto default_sink_info_cb = [](pa_context* c, const pa_sink_info* i, int eol,
+                                       void* userdata) {
             if (eol > 0) {
                 return;
             }
@@ -137,7 +179,8 @@ struct AudioIOPulseAudio2 : public AudioIO {
             current->default_output_device = current->output_devices[i->index - 1].properties;
         };
 
-        auto default_source_info_cb = [](pa_context* c, const pa_source_info* i, int eol, void* userdata) {
+        auto default_source_info_cb = [](pa_context* c, const pa_source_info* i, int eol,
+                                         void* userdata) {
             if (eol > 0) {
                 return;
             }
@@ -220,7 +263,7 @@ struct AudioIOPulseAudio2 : public AudioIO {
             input_ = input_device;
         }
 
-        min_period = std::min(output_.latency, input_.latency);
+        min_period = buffer_size_to_period(128, 48000);
         buffer_alignment = 32;
         shared_mode_output_format = to_audio_format(output_.default_sample_spec.format);
         shared_mode_input_format = to_audio_format(input_.default_sample_spec.format);
@@ -246,13 +289,29 @@ struct AudioIOPulseAudio2 : public AudioIO {
                 break;
         }
 
+        open = true;
+
         return true;
     }
 
     /*
         Closes input and output devices after being used by the application.
     */
-    void close_device() override {}
+    void close_device() override {
+        if (!open)
+            return;
+        if (running_) {
+            pa_mainloop_quit(main_loop_, 0);
+            audio_thread_.join();
+            running_ = false;
+            pa_stream_unref(output_stream_);
+            free_aligned(conversion_buffer_);
+            conversion_buffer_ = nullptr;
+        }
+        open = false;
+        min_period = 0;
+        buffer_alignment = 0;
+    }
 
     /*
         Starts the audio engine.
@@ -261,6 +320,54 @@ struct AudioIOPulseAudio2 : public AudioIO {
     bool start(Engine* engine, bool exclusive_mode, uint32_t buffer_size, AudioFormat input_format,
                AudioFormat output_format, AudioDeviceSampleRate sample_rate,
                AudioThreadPriority priority) override {
+        pa_sample_spec output_spec = to_sample_spec(output_format, sample_rate, 2);
+        if (!pa_sample_spec_valid(&output_spec)) {
+            return false;
+        }
+
+        pa_channel_map stereo_map;
+        pa_channel_map_init_stereo(&stereo_map);
+        if (!pa_channel_map_compatible(&stereo_map, &output_spec)) {
+            return false;
+        }
+
+        pa_stream* output_stream =
+            pa_stream_new(context_, "wb_pa_output_stream", &output_spec, &stereo_map);
+        if (!output_stream) {
+            return false;
+        }
+
+        int stream_flags = PA_STREAM_INTERPOLATE_TIMING | PA_STREAM_AUTO_TIMING_UPDATE |
+                           PA_STREAM_ADJUST_LATENCY | PA_STREAM_START_UNMUTED |
+                           PA_STREAM_NO_REMIX_CHANNELS | PA_STREAM_NO_REMAP_CHANNELS;
+
+        uint32_t requested_buffer_size =
+            buffer_size * output_spec.channels * get_audio_format_size(output_format);
+        pa_buffer_attr output_buffer_attr {
+            .maxlength = requested_buffer_size,
+            .tlength = requested_buffer_size,
+            .prebuf = (uint32_t)-1,
+            .minreq = requested_buffer_size,
+            .fragsize = (uint32_t)-1,
+        };
+
+        pa_stream_set_write_callback(output_stream, write_stream_callback, this);
+        pa_stream_connect_playback(output_stream, output_.hw_name.c_str(), &output_buffer_attr,
+                                   (pa_stream_flags)stream_flags, nullptr, nullptr);
+        if (!wait_for_stream(output_stream)) {
+            pa_stream_unref(output_stream);
+            free_aligned(conversion_buffer_);
+            return false;
+        }
+
+        output_stream_ = output_stream;
+        output_sample_spec_ = output_spec;
+        output_sample_format_ = output_format;
+        output_buffer_.resize(buffer_size, true);
+        output_buffer_.resize_channel(output_sample_spec_.channels);
+        engine_ = engine;
+        running_ = true;
+        audio_thread_ = std::thread(audio_thread_runner, this, priority);
 
         return false;
     }
@@ -289,6 +396,20 @@ struct AudioIOPulseAudio2 : public AudioIO {
         return true;
     }
 
+    bool wait_for_stream(pa_stream* stream) {
+        while (true) {
+            pa_mainloop_iterate(main_loop_, 1, nullptr);
+            pa_stream_state state = pa_stream_get_state(stream);
+            if (state == PA_STREAM_READY) {
+                break;
+            }
+            if (state == PA_STREAM_FAILED || state == PA_STREAM_TERMINATED) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     uint32_t find_device_index(const Vector<AudioDevicePulseAudio2>& devices,
                                AudioDeviceID id) const {
         uint32_t idx = 0;
@@ -308,6 +429,59 @@ struct AudioIOPulseAudio2 : public AudioIO {
     static void state_callback(pa_context* ctx, void* userdata) {
         AudioIOPulseAudio2* current = (AudioIOPulseAudio2*)userdata;
         current->ctx_state_ = pa_context_get_state(ctx);
+    }
+
+    static void write_stream_callback(pa_stream* stream, size_t nbytes, void* userdata) {
+        AudioIOPulseAudio2* current = (AudioIOPulseAudio2*)userdata;
+        if (!current->running_.load(std::memory_order_relaxed)) {
+            const pa_buffer_attr* actual_buffer_attr = pa_stream_get_buffer_attr(stream);
+            uint32_t actual_buffer_size = actual_buffer_attr->tlength;
+            uint32_t buffer_byte_size = actual_buffer_size;
+            current->conversion_buffer_ = allocate_aligned(buffer_byte_size, 32);
+            std::memset(current->conversion_buffer_, 0, buffer_byte_size);
+            pa_stream_write(stream, current->conversion_buffer_, nbytes, nullptr, 0,
+                            PA_SEEK_RELATIVE);
+            return;
+        }
+        Log::debug("Buffer processing {}", nbytes / 4);
+        current->engine_->process(current->output_buffer_,
+                                  (double)current->output_sample_spec_.rate);
+        switch (current->output_sample_format_) {
+            case AudioFormat::I16:
+                convert_f32_to_interleaved_i16(
+                    (int16_t*)current->conversion_buffer_, current->output_buffer_.channel_buffers,
+                    0, current->output_buffer_.n_samples, current->output_buffer_.n_channels);
+                break;
+            case AudioFormat::I24:
+                convert_f32_to_interleaved_i24((std::byte*)current->conversion_buffer_,
+                                               current->output_buffer_.channel_buffers, 0,
+                                               current->output_buffer_.n_samples,
+                                               current->output_buffer_.n_channels);
+                break;
+            case AudioFormat::I24_X8:
+                convert_f32_to_interleaved_i24_x8(
+                    (int32_t*)current->conversion_buffer_, current->output_buffer_.channel_buffers,
+                    0, current->output_buffer_.n_samples, current->output_buffer_.n_channels);
+                break;
+            case AudioFormat::I32:
+                convert_f32_to_interleaved_i32(
+                    (int32_t*)current->conversion_buffer_, current->output_buffer_.channel_buffers,
+                    0, current->output_buffer_.n_samples, current->output_buffer_.n_channels);
+                break;
+            case AudioFormat::F32:
+                convert_to_interleaved_f32(
+                    (float*)current->conversion_buffer_, current->output_buffer_.channel_buffers, 0,
+                    current->output_buffer_.n_samples, current->output_buffer_.n_channels);
+                break;
+            default:
+                assert(false);
+        }
+        pa_stream_write(stream, current->conversion_buffer_, nbytes, nullptr, 0, PA_SEEK_RELATIVE);
+    }
+
+    static void audio_thread_runner(AudioIOPulseAudio2* instance,
+                                    AudioThreadPriority thread_priority) {
+        pa_mainloop_run(instance->main_loop_, nullptr);
     }
 };
 
