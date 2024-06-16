@@ -9,10 +9,34 @@
 
 namespace wb {
 
+inline AudioFormat to_audio_format(pa_sample_format format) {
+    switch (format) {
+        case PA_SAMPLE_U8:
+            return AudioFormat::U8;
+        case PA_SAMPLE_S16LE:
+            return AudioFormat::I16;
+        case PA_SAMPLE_S24LE:
+            return AudioFormat::I24;
+        case PA_SAMPLE_S24_32LE:
+            return AudioFormat::I24_X8;
+        case PA_SAMPLE_S32LE:
+            return AudioFormat::I32;
+        case PA_SAMPLE_FLOAT32LE:
+            return AudioFormat::F32;
+        default:
+            break;
+    }
+
+    return AudioFormat::Unknown;
+}
+
 struct AudioDevicePulseAudio2 {
     AudioDeviceProperties properties;
     int index;
     std::string hw_name;
+    pa_sample_spec default_sample_spec;
+    pa_usec_t latency;
+    pa_usec_t configured_latency;
 };
 
 struct AudioIOPulseAudio2 : public AudioIO {
@@ -20,6 +44,8 @@ struct AudioIOPulseAudio2 : public AudioIO {
     pa_mainloop_api* ml_api_ {};
     pa_context* context_ {};
     pa_context_state_t ctx_state_ {};
+    AudioDevicePulseAudio2 output_ {};
+    AudioDevicePulseAudio2 input_ {};
 
     Vector<AudioDevicePulseAudio2> output_devices;
     Vector<AudioDevicePulseAudio2> input_devices;
@@ -90,6 +116,9 @@ struct AudioIOPulseAudio2 : public AudioIO {
             device.properties.type = AudioDeviceType::Output;
             device.index = i->index;
             device.hw_name = i->name;
+            device.default_sample_spec = i->sample_spec;
+            device.latency = i->latency;
+            device.configured_latency = i->configured_latency;
         };
 
         auto source_info_cb = [](pa_context* c, const pa_source_info* i, int eol, void* userdata) {
@@ -106,6 +135,9 @@ struct AudioIOPulseAudio2 : public AudioIO {
             device.properties.type = AudioDeviceType::Input;
             device.index = i->index;
             device.hw_name = i->name;
+            device.default_sample_spec = i->sample_spec;
+            device.latency = i->latency;
+            device.configured_latency = i->configured_latency;
         };
 
         pa_operation* op = pa_context_get_sink_info_list(context_, sink_info_cb, this);
@@ -129,19 +161,19 @@ struct AudioIOPulseAudio2 : public AudioIO {
         return true;
     }
 
-    virtual uint32_t get_input_device_index(AudioDeviceID id) const {
+    uint32_t get_input_device_index(AudioDeviceID id) const override {
         return find_device_index(input_devices, id);
     }
 
-    virtual uint32_t get_output_device_index(AudioDeviceID id) const {
+    uint32_t get_output_device_index(AudioDeviceID id) const override {
         return find_device_index(output_devices, id);
     }
 
-    virtual const AudioDeviceProperties& get_input_device_properties(uint32_t idx) const {
+    const AudioDeviceProperties& get_input_device_properties(uint32_t idx) const override {
         return input_devices[idx].properties;
     }
 
-    virtual const AudioDeviceProperties& get_output_device_properties(uint32_t idx) const {
+    const AudioDeviceProperties& get_output_device_properties(uint32_t idx) const override {
         return output_devices[idx].properties;
     }
 
@@ -149,22 +181,68 @@ struct AudioIOPulseAudio2 : public AudioIO {
         Open input and output devices to ensure they are ready for use.
         Usually, the implementation gets the hardware information in here.
     */
-    virtual bool open_device(AudioDeviceID output_device_id, AudioDeviceID input_device_idx) {
-        return false;
+    bool open_device(AudioDeviceID output_device_id, AudioDeviceID input_device_id) override {
+        Log::info("Opening audio devices...");
+
+        if (output_device_id != 0) {
+            uint32_t device_index = find_device_index(output_devices, output_device_id);
+            if (device_index == WB_INVALID_AUDIO_DEVICE_INDEX) {
+                return false;
+            }
+            AudioDevicePulseAudio2& output_device = output_devices[device_index];
+            output_ = output_device;
+        }
+
+        if (input_device_id != 0) {
+            uint32_t device_index = find_device_index(input_devices, input_device_id);
+            if (device_index == WB_INVALID_AUDIO_DEVICE_INDEX) {
+                return false;
+            }
+            AudioDevicePulseAudio2& input_device = input_devices[device_index];
+            input_ = input_device;
+        }
+
+        min_period = std::min(output_.latency, input_.latency);
+        buffer_alignment = 32;
+        shared_mode_output_format = to_audio_format(output_.default_sample_spec.format);
+        shared_mode_input_format = to_audio_format(input_.default_sample_spec.format);
+
+        switch (output_.default_sample_spec.rate) {
+            case 44100:
+                shared_mode_sample_rate = AudioDeviceSampleRate::Hz44100;
+                break;
+            case 48000:
+                shared_mode_sample_rate = AudioDeviceSampleRate::Hz44100;
+                break;
+            case 88200:
+                shared_mode_sample_rate = AudioDeviceSampleRate::Hz88200;
+                break;
+            case 96000:
+                shared_mode_sample_rate = AudioDeviceSampleRate::Hz96000;
+                break;
+            case 176400:
+                shared_mode_sample_rate = AudioDeviceSampleRate::Hz176400;
+                break;
+            case 192000:
+                shared_mode_sample_rate = AudioDeviceSampleRate::Hz192000;
+                break;
+        }
+
+        return true;
     }
 
     /*
         Closes input and output devices after being used by the application.
     */
-    virtual void close_device() {}
+    void close_device() override {}
 
     /*
         Starts the audio engine.
         Audio thread will be launched here.
     */
-    virtual bool start(Engine* engine, bool exclusive_mode, uint32_t buffer_size,
-                       AudioFormat input_format, AudioFormat output_format,
-                       AudioDeviceSampleRate sample_rate, AudioThreadPriority priority) {
+    bool start(Engine* engine, bool exclusive_mode, uint32_t buffer_size, AudioFormat input_format,
+               AudioFormat output_format, AudioDeviceSampleRate sample_rate,
+               AudioThreadPriority priority) override {
         return false;
     }
 
