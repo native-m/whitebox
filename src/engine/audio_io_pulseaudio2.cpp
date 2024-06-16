@@ -50,20 +50,6 @@ struct AudioIOPulseAudio2 : public AudioIO {
     Vector<AudioDevicePulseAudio2> output_devices;
     Vector<AudioDevicePulseAudio2> input_devices;
 
-    AudioDeviceProperties dummy_input_device {
-        .name = "Dummy Audio",
-        .id = 0,
-        .type = AudioDeviceType::Input,
-        .io_type = AudioIOType::PulseAudio,
-    };
-
-    AudioDeviceProperties dummy_output_device {
-        .name = "Dummy Audio",
-        .id = 0,
-        .type = AudioDeviceType::Output,
-        .io_type = AudioIOType::PulseAudio,
-    };
-
     virtual ~AudioIOPulseAudio2() {
         if (context_) {
             pa_context_disconnect(context_);
@@ -108,10 +94,10 @@ struct AudioIOPulseAudio2 : public AudioIO {
             }
             AudioIOPulseAudio2* current = (AudioIOPulseAudio2*)userdata;
             AudioDevicePulseAudio2& device = current->output_devices.emplace_back();
-            std::string_view description(i->description);
+            std::string_view name(i->name);
             std::strncpy(device.properties.name, i->description,
                          sizeof(AudioDeviceProperties::name));
-            device.properties.id = std::hash<std::string_view> {}(description);
+            device.properties.id = std::hash<std::string_view> {}(name);
             device.properties.io_type = AudioIOType::PulseAudio;
             device.properties.type = AudioDeviceType::Output;
             device.index = i->index;
@@ -127,10 +113,10 @@ struct AudioIOPulseAudio2 : public AudioIO {
             }
             AudioIOPulseAudio2* current = (AudioIOPulseAudio2*)userdata;
             AudioDevicePulseAudio2& device = current->input_devices.emplace_back();
-            std::string_view description(i->description);
+            std::string_view name(i->name);
             std::strncpy(device.properties.name, i->description,
                          sizeof(AudioDeviceProperties::name));
-            device.properties.id = std::hash<std::string_view> {}(description);
+            device.properties.id = std::hash<std::string_view> {}(name);
             device.properties.io_type = AudioIOType::PulseAudio;
             device.properties.type = AudioDeviceType::Input;
             device.index = i->index;
@@ -138,6 +124,28 @@ struct AudioIOPulseAudio2 : public AudioIO {
             device.default_sample_spec = i->sample_spec;
             device.latency = i->latency;
             device.configured_latency = i->configured_latency;
+        };
+
+        auto default_sink_info_cb = [](pa_context* c, const pa_sink_info* i, int eol, void* userdata) {
+            if (eol > 0) {
+                return;
+            }
+            if (i->index == 0) {
+                return;
+            }
+            AudioIOPulseAudio2* current = (AudioIOPulseAudio2*)userdata;
+            current->default_output_device = current->output_devices[i->index - 1].properties;
+        };
+
+        auto default_source_info_cb = [](pa_context* c, const pa_source_info* i, int eol, void* userdata) {
+            if (eol > 0) {
+                return;
+            }
+            if (i->index == 0) {
+                return;
+            }
+            AudioIOPulseAudio2* current = (AudioIOPulseAudio2*)userdata;
+            current->default_input_device = current->input_devices[i->index - 1].properties;
         };
 
         pa_operation* op = pa_context_get_sink_info_list(context_, sink_info_cb, this);
@@ -151,11 +159,21 @@ struct AudioIOPulseAudio2 : public AudioIO {
         }
 
         for (const auto& output : output_devices) {
-            Log::debug("Found output device: {}", output.properties.name);
+            Log::debug("Found output device ({}): {}", output.index, output.properties.name);
         }
 
         for (const auto& input : input_devices) {
-            Log::debug("Found input device: {}", input.properties.name);
+            Log::debug("Found input device ({}): {}", input.index, input.properties.name);
+        }
+
+        op = pa_context_get_sink_info_by_name(context_, nullptr, default_sink_info_cb, this);
+        if (!wait_for_context(op)) {
+            return false;
+        }
+
+        op = pa_context_get_source_info_by_name(context_, nullptr, default_source_info_cb, this);
+        if (!wait_for_context(op)) {
+            return false;
         }
 
         return true;
@@ -243,6 +261,7 @@ struct AudioIOPulseAudio2 : public AudioIO {
     bool start(Engine* engine, bool exclusive_mode, uint32_t buffer_size, AudioFormat input_format,
                AudioFormat output_format, AudioDeviceSampleRate sample_rate,
                AudioThreadPriority priority) override {
+
         return false;
     }
 
