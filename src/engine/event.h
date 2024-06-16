@@ -2,6 +2,7 @@
 
 #include "clip.h"
 #include "core/common.h"
+#include "core/midi.h"
 
 namespace wb {
 
@@ -9,6 +10,8 @@ enum class EventType {
     None,
     StopSample,
     PlaySample,
+    StopMidi,
+    PlayMidi,
 };
 
 struct AudioEvent {
@@ -17,6 +20,7 @@ struct AudioEvent {
 };
 
 struct MidiEvent {
+    
 };
 
 struct Event {
