@@ -11,7 +11,7 @@ inline void* allocate_aligned(size_t size, size_t alignment = 16) noexcept {
 #ifdef WB_PLATFORM_WINDOWS
     return _aligned_malloc(size, alignment);
 #else
-    return std::aligned_alloc(size, alignment);
+    return std::aligned_alloc(alignment, size);
 #endif
 }
 

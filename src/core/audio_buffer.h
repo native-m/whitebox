@@ -12,7 +12,7 @@ namespace wb {
 template <std::floating_point T>
 struct AudioBuffer {
     static constexpr uint32_t internal_buffer_capacity = 16;
-    static constexpr uint32_t alignment = 64;
+    static constexpr uint32_t alignment = 32;
 
     uint32_t n_samples {};
     uint32_t n_channels {};
