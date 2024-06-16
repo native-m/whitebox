@@ -219,6 +219,9 @@ struct AudioIOPulseAudio2 : public AudioIO {
             return false;
         }
 
+        input_device_count = (size_t)input_devices.size();
+        output_device_count = (size_t)output_devices.size();
+
         return true;
     }
 
