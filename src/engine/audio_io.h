@@ -93,6 +93,9 @@ struct AudioIO {
 
     virtual ~AudioIO() {}
 
+    virtual bool exclusive_mode_support() { return false; }
+    virtual bool shared_mode_support() { return false; }
+
     /*
         Rescan available device that can be used by whitebox.
     */

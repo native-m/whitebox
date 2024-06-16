@@ -233,6 +233,9 @@ struct AudioIOWASAPI : public AudioIO {
 
     bool init() { return rescan_devices(); }
 
+    bool exclusive_mode_support() override { return true; }
+    bool shared_mode_support() override { return true; }
+
     bool rescan_devices() override {
         return scan_audio_endpoints(EDataFlow::eCapture, input_devices) &&
                scan_audio_endpoints(EDataFlow::eRender, output_devices);
@@ -385,8 +388,8 @@ struct AudioIOWASAPI : public AudioIO {
         uint32_t count = 0;
         device_collection->GetCount(&count);
 
-        ComPtr<IMMDevice> default_device;
         wchar_t* default_device_id;
+        ComPtr<IMMDevice> default_device;
         enumerator->GetDefaultAudioEndpoint(type, eConsole, &default_device);
         default_device->GetId(&default_device_id);
 

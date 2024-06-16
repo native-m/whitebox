@@ -69,10 +69,13 @@ struct AudioIOPulseAudio2 : public AudioIO {
         return rescan_devices();
     }
 
+    bool exclusive_mode_support() override { return false; }
+    bool shared_mode_support() override { return true; }
+
     /*
         Rescan available device that can be used by whitebox.
     */
-    virtual bool rescan_devices() {
+    bool rescan_devices() override {
         auto sink_info_cb = [](pa_context* c, const pa_sink_info* i, int eol, void* userdata) {
             if (eol > 0) {
                 return;
