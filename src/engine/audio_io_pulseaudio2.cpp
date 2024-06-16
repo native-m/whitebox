@@ -501,7 +501,7 @@ AudioIO* create_audio_io_pulseaudio2() {
 } // namespace wb
 #else
 namespace wb {
-AudioIO* create_audio_io_wasapi() {
+AudioIO* create_audio_io_pulseaudio2() {
     return nullptr;
 }
 } // namespace wb
