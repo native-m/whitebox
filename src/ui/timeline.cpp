@@ -570,8 +570,10 @@ inline void GuiTimeline::track_context_menu(Track& track, int track_id) {
 
         if (ImGui::BeginMenu("Rename")) {
             FormResult result = rename_form(&context_menu_track->name, &tmp_name);
-            if (result == FormResult::Close)
+            if (result == FormResult::Close) {
                 ImGui::CloseCurrentPopup();
+                redraw = true;
+            }
             ImGui::EndMenu();
         }
 
@@ -595,6 +597,7 @@ inline void GuiTimeline::track_context_menu(Track& track, int track_id) {
             g_engine.edit_lock();
             g_engine.delete_track((uint32_t)track_id);
             g_engine.edit_unlock();
+            redraw = true;
         }
 
         ImGui::Separator();
