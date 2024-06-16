@@ -37,6 +37,7 @@ set(WB_SOURCES
     "src/core/json_fwd.hpp"
     "src/core/math.h"
     "src/core/memory.h"
+    "src/core/midi.h"
     "src/core/platform_def.h"
     "src/core/queue.h"
     "src/core/thread.cpp"

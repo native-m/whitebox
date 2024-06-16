@@ -358,6 +358,8 @@ void Track::render_sample(AudioBuffer<float>& output_buffer, uint32_t buffer_off
             samples_processed += min_num_samples;
             break;
         }
+        default:
+            break;
     }
 }
 
