@@ -337,9 +337,7 @@ struct AudioIOWASAPI : public AudioIO {
         Log::info("Closing audio devices...");
         if (running) {
             running = false;
-            if (!audio_thread.joinable()) {
-                audio_thread.join();
-            }
+            audio_thread.join();
             render_client->Release();
             output.stop_stream();
         }
