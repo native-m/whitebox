@@ -472,6 +472,10 @@ struct AudioIOWASAPI : public AudioIO {
         IAudioClient* output_client = instance->output.client;
         Engine* engine = instance->current_engine;
 
+#ifndef _NDEBUG
+        SetThreadDescription(GetCurrentThread(), L"Whitebox Audio Thread");
+#endif
+
         DWORD task_index = 0;
         HANDLE task = AvSetMmThreadCharacteristics(L"Pro Audio", &task_index);
         if (task) {
