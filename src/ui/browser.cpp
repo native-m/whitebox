@@ -7,9 +7,6 @@ namespace fs = std::filesystem;
 
 namespace wb {
 GuiBrowser::GuiBrowser() {
-    add_directory("D:/packs/Some samples/NewPacks");
-    add_directory("D:/packs/Some samples/NewPack2");
-    sort_directory();
 }
 
 void GuiBrowser::add_directory(const std::filesystem::path& path) {

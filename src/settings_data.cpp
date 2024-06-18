@@ -4,6 +4,7 @@
 // #include "core/math.h"
 #include "engine/audio_io.h"
 #include "engine/engine.h"
+#include "ui/browser.h"
 #include <filesystem>
 #include <fstream>
 
@@ -52,7 +53,7 @@ void SettingsData::load_settings_data() {
     AudioDeviceID input_device_id = 0;
     uint32_t sample_rate_value = 0;
     if (settings.contains("audio")) {
-        json audio = settings["audio"];
+        json& audio = settings["audio"];
 
         AudioIOType default_type;
 #if defined(WB_PLATFORM_WINDOWS)
@@ -106,6 +107,16 @@ void SettingsData::load_settings_data() {
                     sample_rate_value = 0;
                     break;
             }
+        }
+    }
+
+    if (settings.contains("user_dirs")) {
+        json& user_dirs = settings["user_dirs"];
+        if (user_dirs.is_array()) {
+            for (auto& dir : user_dirs) {
+                g_browser.add_directory(dir);
+            }
+            g_browser.sort_directory();
         }
     }
 
@@ -179,9 +190,16 @@ void SettingsData::save_settings_data() {
     audio["buffer_size"] = audio_buffer_size;
     audio["sample_rate"] = sample_rate_value;
 
+    std::vector<std::string> user_dirs;
+    user_dirs.reserve(g_browser.directories.size());
+    for (const auto& dir : g_browser.directories) {
+        user_dirs.push_back(dir.first->generic_string());
+    }
+
     ordered_json settings_json;
-    settings_json["version"] = "0.0.1";
+    settings_json["version"] = "0.0.2";
     settings_json["audio"] = audio;
+    settings_json["user_dirs"] = user_dirs;
 
     std::ofstream settings_file(settings_file_path);
     if (settings_file.is_open()) {
