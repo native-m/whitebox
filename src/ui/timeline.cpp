@@ -873,7 +873,7 @@ void GuiTimeline::render_track_lanes() {
         for (size_t j = 0; j < track->clips.size(); j++) {
             Clip* clip = track->clips[j];
 
-            if (has_deleted_clips && track->deleted_clip_ids.contains(clip->id)) {
+            if (has_deleted_clips && clip->is_deleted()) {
                 continue;
             }
 
