@@ -4,6 +4,7 @@
 #include "ui/file_dropper.h"
 #include <SDL.h>
 #include <SDL_syswm.h>
+#include <dwmapi.h>
 #include <imgui_impl_sdl2.h>
 
 namespace wb {
@@ -33,6 +34,19 @@ void AppSDL2::init() {
     window = new_window;
 
     SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
+
+
+#ifdef WB_PLATFORM_WINDOWS
+    SDL_SysWMinfo wm_info {};
+    SDL_VERSION(&wm_info.version);
+    SDL_GetWindowWMInfo(new_window, &wm_info);
+    BOOL dark_mode = true;
+    ImU32 title_bar_color = ImColor(0.15f, 0.15f, 0.15f, 1.00f) & 0x00FFFFFF;
+    ::DwmSetWindowAttribute(wm_info.info.win.window, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark_mode,
+                            sizeof(dark_mode));
+    ::DwmSetWindowAttribute(wm_info.info.win.window, DWMWA_CAPTION_COLOR, &title_bar_color,
+                            sizeof(title_bar_color));
+#endif
 
     App::init();
 }

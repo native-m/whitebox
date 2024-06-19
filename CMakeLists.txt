@@ -127,7 +127,7 @@ set(WB_LINK_LIBRARIES
     vst3-sdk-hosting)
 
 if (MSVC)
-    set(WB_LINK_LIBRARIES ${WB_LINK_LIBRARIES} imgui-d3d11 Avrt)
+    set(WB_LINK_LIBRARIES ${WB_LINK_LIBRARIES} imgui-d3d11 Avrt Dwmapi)
 else ()
     set(WB_LINK_LIBRARIES ${WB_LINK_LIBRARIES} xcb X11 X11-xcb)
 endif()
