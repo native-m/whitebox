@@ -523,8 +523,8 @@ inline void GuiTimeline::render_track_controls() {
             if (ImGui::SmallButton("S")) {
                 g_engine.solo_track(id);
             }
-            ImGui::SameLine(0.0f, 2.0f);
 
+            ImGui::SameLine(0.0f, 2.0f);
             if (mute) {
                 ImGui::Text("Muted");
             }

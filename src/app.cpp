@@ -88,6 +88,15 @@ void App::run() {
 
         ImGui::ShowDemoWindow();
         controls::render_test_controls();
+
+        float framerate = GImGui->IO.Framerate;
+        // Update vu meters
+        for (auto track : g_engine.tracks) {
+            for (auto& vu_channel : track->vu_meter) {
+                vu_channel.update(framerate);
+            }
+        }
+
         g_settings.render();
         g_browser.render();
         g_mixer.render();

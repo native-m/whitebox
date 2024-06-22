@@ -113,12 +113,10 @@ void vu_meter(const char* str_id, const ImVec2& size, uint32_t count, VUMeter* c
     draw_list->AddRect(start_pos, end_pos, border_col);
     
     float pos_x = start_pos.x;
-    float frame_time = GImGui->IO.Framerate;
-
+    
     for (uint32_t i = 0; i < count; i++) {
         float channel_pos_x = pos_x;
         pos_x += channel_size;
-        channels[i].update(frame_time);
 
         float level_height = (1.0 - channels[i].get_value()) * inner_height;
         draw_list->AddRectFilled(ImVec2(channel_pos_x + 1.0f, level_height + start_pos.y + 1.0f),
