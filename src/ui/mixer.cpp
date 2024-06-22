@@ -55,7 +55,10 @@ void GuiMixer::render() {
             param_updated = true;
         }*/
 
-        //ImGui::SameLine();
+        ImGui::SetCursorPos(ImGui::GetCursorPos() + ImVec2(0.0f, 10.0f));
+        controls::vu_meter("##mixer_vu_meter", ImVec2(20.0f, size.y - 20.0f), 2, track->vu_meter);
+        ImGui::SameLine();
+
         ImGui::PopID();
         id++;
     }

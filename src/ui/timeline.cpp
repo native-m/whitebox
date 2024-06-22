@@ -84,8 +84,6 @@ inline void draw_clip(ImDrawList* draw_list, ImVector<ClipContentDrawCmd>& clip_
         double draw_count = std::max(max_pos_x - min_pos_x, 0.0);
         double start_idx = std::max(-rel_min_x, 0.0) + waveform_start;
 
-        // Log::info("{} {} {}", min_pos_x - waveform_start, draw_count, start_idx);
-
         if (draw_count) {
             clip_content_cmds.push_back({
                 .peaks = sample_peaks,

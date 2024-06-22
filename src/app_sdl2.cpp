@@ -35,7 +35,6 @@ void AppSDL2::init() {
 
     SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
 
-
 #ifdef WB_PLATFORM_WINDOWS
     SDL_SysWMinfo wm_info {};
     SDL_VERSION(&wm_info.version);

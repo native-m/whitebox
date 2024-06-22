@@ -57,6 +57,8 @@ set(WB_SOURCES
     "src/engine/param_changes.h"
     "src/engine/project.cpp"
     "src/engine/project.h"
+    "src/engine/pulseaudio_devicelist_wrapper.cpp"
+    "src/engine/pulseaudio_devicelist_wrapper.h"
     "src/engine/sample.cpp"
     "src/engine/sample.h"
     "src/engine/sample_peaks.h"
@@ -64,8 +66,7 @@ set(WB_SOURCES
     "src/engine/sample_table.h"
     "src/engine/track.cpp"
     "src/engine/track.h"
-    "src/engine/pulseaudio_devicelist_wrapper.cpp"
-    "src/engine/pulseaudio_devicelist_wrapper.h"
+    "src/engine/vu_meter.h"
 
     "src/plughost/vst3host.cpp"
     "src/plughost/vst3host.h"

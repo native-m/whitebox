@@ -93,7 +93,37 @@ bool mixer_label(const char* caption, const float height, const ImColor& color) 
     return true;
 }
 
-void metering(const ImVec2& size, uint32_t count, const float* channels) {
+void vu_meter(const char* str_id, const ImVec2& size, uint32_t count, VUMeter* channels) {
+    static const ImU32 channel_color = ImColor(121, 166, 91);
+    ImVec2 start_pos = ImGui::GetCursorScreenPos();
+    ImVec2 end_pos = start_pos + size;
+    ImRect bb(start_pos, end_pos);
+    float inner_start_y = start_pos.y + 1.0f;
+    float inner_end_y = end_pos.y - 1.0f;
+    float inner_height = inner_end_y - inner_start_y;
+    float channel_size = size.x / (float)count;
+    auto draw_list = GImGui->CurrentWindow->DrawList;
+    auto border_col = ImGui::GetColorU32(ImGuiCol_Border);
+    ImGuiID id = ImGui::GetID(str_id);
+
+    ImGui::ItemSize(bb);
+    if (!ImGui::ItemAdd(bb, id))
+        return;
+
+    draw_list->AddRect(start_pos, end_pos, border_col);
+    
+    float pos_x = start_pos.x;
+    float frame_time = GImGui->IO.Framerate;
+
+    for (uint32_t i = 0; i < count; i++) {
+        float channel_pos_x = pos_x;
+        pos_x += channel_size;
+        channels[i].update(frame_time);
+
+        float level_height = (1.0 - channels[i].get_value()) * inner_height;
+        draw_list->AddRectFilled(ImVec2(channel_pos_x + 1.0f, level_height + start_pos.y + 1.0f),
+                                 ImVec2(pos_x - 1.0f, end_pos.y - 1.0f), channel_color);
+    }
 }
 
 } // namespace wb::controls

@@ -8,6 +8,10 @@ namespace wb {
 
 namespace math {
 
+inline auto abs(NumericalType auto x) {
+    return x < 0 ? -x : x;
+}
+
 template <typename T>
 inline T min(T a, T b) {
     return a < b ? a : b;

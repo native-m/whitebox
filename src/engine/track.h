@@ -5,6 +5,7 @@
 #include "core/audio_buffer.h"
 #include "core/memory.h"
 #include "core/vector.h"
+#include "vu_meter.h"
 #include "event.h"
 #include "param_changes.h"
 #include <imgui.h>
@@ -47,6 +48,7 @@ struct Track {
     Event current_event {};
     size_t samples_processed {};
 
+    VUMeter vu_meter[2] {};
     TrackParameterState ui_parameter_state {}; // UI-side state
     TrackParameterState parameter_state {};    // Audio-side state
     ParamChanges param_changes;

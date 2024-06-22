@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/debug.h"
+#include "engine/vu_meter.h"
 #include "engine/audio_param.h"
 #include "engine/param_changes.h"
 #include <algorithm>
@@ -227,7 +228,7 @@ bool param_slider_db(AudioParameterList& param_list, uint32_t id,
                      const ImColor& color, float min_db = -70.0f, float max_db = 7.0f,
                      const char* format = "%.2fdB");
 bool mixer_label(const char* caption, const float height, const ImColor& color);
-void metering(const ImVec2& size, uint32_t count, const float* channels);
+void vu_meter(const char* str_id, const ImVec2& size, uint32_t count, VUMeter* channels);
 void render_test_controls();
 extern bool g_test_control_shown;
 

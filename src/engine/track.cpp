@@ -336,6 +336,10 @@ void Track::process(AudioBuffer<float>& output_buffer, double sample_rate, bool 
         }
     }
 
+    for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
+        vu_meter[i].push_samples(output_buffer, i);
+    }
+
     param_changes.clear_changes();
 }
 
