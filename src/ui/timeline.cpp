@@ -770,7 +770,7 @@ void GuiTimeline::render_track_lanes() {
     double mouse_at_gridline =
         std::round(mouse_at_time_pos * (double)grid_scale) / (double)grid_scale;
 
-    ImU32 grid_color = (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.8f);
+    ImU32 grid_color = (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.7f);
     ImColor text_color = ImGui::GetStyleColorVec4(ImGuiCol_Text);
     double timeline_scroll_offset_x = (double)timeline_view_pos.x - scroll_pos_x;
     float timeline_scroll_offset_x_f32 = (float)timeline_scroll_offset_x;
