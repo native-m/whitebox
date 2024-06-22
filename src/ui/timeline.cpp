@@ -95,7 +95,7 @@ inline void draw_clip(ImDrawList* draw_list, ImVector<ClipContentDrawCmd>& clip_
                 .scale_x = (float)mip_scale,
                 .mip_index = index,
                 .start_idx = (uint32_t)std::round(start_idx),
-                .draw_count = (uint32_t)draw_count * 2,
+                .draw_count = ((uint32_t)draw_count + 1) * 2,
             });
         }
     }
