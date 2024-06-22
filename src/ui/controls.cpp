@@ -40,8 +40,8 @@ bool param_drag_db(const char* str_id, float* value, float speed, float min_db, 
                    const char* format, ImGuiSliderFlags flags) {
     char tmp[16] {};
     const char* str_value = tmp;
-    flags |=
-        ImGuiSliderFlags_AlwaysClamp;// | ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_NoRoundToFormat;
+    flags |= ImGuiSliderFlags_AlwaysClamp; // | ImGuiSliderFlags_Logarithmic |
+                                           // ImGuiSliderFlags_NoRoundToFormat;
 
     if (*value > 0.0f) {
         float db_value = math::linear_to_db(*value);
@@ -93,7 +93,8 @@ bool mixer_label(const char* caption, const float height, const ImColor& color) 
     return true;
 }
 
-void vu_meter(const char* str_id, const ImVec2& size, uint32_t count, VUMeter* channels) {
+void vu_meter(const char* str_id, const ImVec2& size, uint32_t count, VUMeter* channels,
+              bool border) {
     static const ImU32 channel_color = ImColor(121, 166, 91);
     ImVec2 start_pos = ImGui::GetCursorScreenPos();
     ImVec2 end_pos = start_pos + size;
@@ -110,10 +111,11 @@ void vu_meter(const char* str_id, const ImVec2& size, uint32_t count, VUMeter* c
     if (!ImGui::ItemAdd(bb, id))
         return;
 
-    draw_list->AddRect(start_pos, end_pos, border_col);
-    
+    if (border) {
+        draw_list->AddRect(start_pos, end_pos, border_col);
+    }
+
     float pos_x = start_pos.x;
-    
     for (uint32_t i = 0; i < count; i++) {
         float channel_pos_x = pos_x;
         pos_x += channel_size;

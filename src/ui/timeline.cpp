@@ -70,9 +70,11 @@ inline void draw_clip(ImDrawList* draw_list, ImVector<ClipContentDrawCmd>& clip_
         double mip_index = (std::log(scale_x * 0.5) * log_base4) * 0.5; // Scale -> Index
         uint32_t index = std::clamp((uint32_t)mip_index, 0u, sample_peaks->mipmap_count - 1);
         double mult = std::pow(4.0, (double)index - 1.0);
-        double mip_scale = std::pow(4.0, 2.0 * (mip_index - (double)index)) * 8.0 * mult; // Index -> Mip Scale
+        double mip_scale =
+            std::pow(4.0, 2.0 * (mip_index - (double)index)) * 8.0 * mult; // Index -> Mip Scale
         // double mip_index = std::log(scale_x * 0.5) * log_base4; // Scale -> Index
-        // double mip_scale = std::pow(4.0, (mip_index - (double)index)) * 2.0; // Index -> Mip Scale
+        // double mip_scale = std::pow(4.0, (mip_index - (double)index)) * 2.0; // Index -> Mip
+        // Scale
 
         double waveform_start = start_sample_pos * inv_scale_x;
         double waveform_len = ((double)asset->sample_instance.count - waveform_start) * inv_scale_x;
@@ -488,8 +490,8 @@ inline void GuiTimeline::render_track_controls() {
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2());
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(track_color_width - 2.0f, 2.0f));
         ImGui::BeginChild("##track_control",
-                          ImVec2(clamped_separator_pos - track_color_width, track->height), false,
-                          track_control_window_flags);
+                          ImVec2(clamped_separator_pos - track_color_width - 10.0f, track->height),
+                          0, track_control_window_flags);
 
         {
             bool parameter_updated = false;
@@ -543,6 +545,11 @@ inline void GuiTimeline::render_track_controls() {
         }
 
         ImGui::EndChild();
+        ImGui::SameLine();
+
+        controls::vu_meter("##timeline_vu_meter", ImVec2(10.0f, track->height), 2, track->vu_meter,
+                           false);
+
         ImGui::PopID();
         ImGui::Unindent(track_color_width);
 
@@ -788,7 +795,8 @@ void GuiTimeline::render_track_lanes() {
         priv_draw_list->_ResetForNewFrame();
         priv_draw_list->PushTextureID(ImGui::GetIO().Fonts->TexID);
         priv_draw_list->PushClipRect(view_min, view_max);
-        ImU32 dark_grid_color = (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.4f);
+        ImU32 dark_grid_color =
+            (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.4f);
 
         // Draw four bars length guidestrip
         float four_bars = (float)(16.0 * ppq / view_scale);
