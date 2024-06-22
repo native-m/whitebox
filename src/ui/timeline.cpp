@@ -516,16 +516,13 @@ inline void GuiTimeline::render_track_controls() {
 
             bool mute = track->ui_parameter_state.mute;
             if (ImGui::SmallButton("M")) {
-                track->ui_parameter_state.mute = !mute;
-                track->ui_param_changes.push({
-                    .id = TrackParameter_Mute,
-                    .sample_offset = 0,
-                    .value = (double)track->ui_parameter_state.mute,
-                });
+                track->set_mute(!mute);
             }
 
             ImGui::SameLine(0.0f, 2.0f);
-            ImGui::SmallButton("S");
+            if (ImGui::SmallButton("S")) {
+                g_engine.solo_track(id);
+            }
             ImGui::SameLine(0.0f, 2.0f);
 
             if (mute) {

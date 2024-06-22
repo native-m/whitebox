@@ -62,6 +62,15 @@ Track::~Track() {
     }
 }
 
+void Track::set_mute(bool mute) {
+    ui_parameter_state.mute = mute;
+    ui_param_changes.push({
+        .id = TrackParameter_Mute,
+        .sample_offset = 0,
+        .value = (double)ui_parameter_state.mute,
+    });
+}
+
 Clip* Track::add_audio_clip(const std::string& name, double min_time, double max_time,
                             const AudioClip& clip_info, double beat_duration) {
     Clip* clip = (Clip*)clip_allocator.allocate();

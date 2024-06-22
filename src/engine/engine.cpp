@@ -98,6 +98,27 @@ void Engine::move_track(uint32_t from_slot, uint32_t to_slot) {
     tracks[to_slot] = tmp;
 }
 
+void Engine::solo_track(uint32_t slot) {
+    bool mute = false;
+    if (tracks[slot]->ui_parameter_state.solo) {
+        tracks[slot]->ui_parameter_state.solo = false;
+    } else {
+        tracks[slot]->ui_parameter_state.solo = true;
+        tracks[slot]->set_mute(false);
+        mute = true;
+    }
+
+    for (uint32_t i = 0; i < tracks.size(); i++) {
+        if (i == slot) {
+            continue;
+        }
+        if (tracks[i]->ui_parameter_state.solo) {
+            tracks[i]->ui_parameter_state.solo = false;
+        }
+        tracks[i]->set_mute(mute);
+    }
+}
+
 Clip* Engine::add_audio_clip_from_file(Track* track, const std::filesystem::path& path,
                                        double min_time) {
     SampleAsset* asset = g_sample_table.load_sample_from_file(path);

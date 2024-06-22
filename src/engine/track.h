@@ -30,6 +30,7 @@ struct TrackParameterState {
     float volume;
     float pan;
     bool mute;
+    bool solo;
 };
 
 struct Track {
