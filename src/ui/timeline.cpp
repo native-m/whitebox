@@ -698,7 +698,7 @@ void GuiTimeline::render_track_lanes() {
     bool mouse_move = false;
 
     if (timeline_hovered && mouse_wheel_h != 0.0f) {
-        scroll_horizontal(mouse_wheel_h, song_length, -timeline_width);
+        scroll_horizontal(mouse_wheel_h, song_length, -view_scale * 64.0);
     }
 
     if (mouse_pos.x != last_mouse_pos.x || mouse_pos.y != last_mouse_pos.y) {
