@@ -144,7 +144,7 @@ if (imgui_ADDED)
     target_link_libraries(imgui-sdl2
         PUBLIC SDL2::SDL2-static imgui imgui-backends)
 
-    if(MSVC)
+    if(WIN32)
         set(IMGUI_BACKEND_D3D11_SOURCES
             "${imgui_SOURCE_DIR}/backends/imgui_impl_dx11.cpp"
             "${imgui_SOURCE_DIR}/backends/imgui_impl_dx11.h")
