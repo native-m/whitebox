@@ -17,6 +17,15 @@ enum class TimelineEditAction {
     ShowClipContextMenu,
 };
 
+enum class ClipHover {
+    None,
+    All,
+    LeftHandle,
+    RightHandle,
+    FadeStartHandle,
+    FadeEndHandle,
+};
+
 struct SelectionRange {
     Track* track;
     double min;
@@ -37,8 +46,9 @@ struct GuiTimeline {
     bool force_redraw = false;
     uint32_t color_spin = 0;
     ImDrawList* main_draw_list {};
-    ImDrawList* priv_draw_list {};
-    ImDrawData priv_draw_data;
+    ImDrawList* layer1_draw_list {};
+    ImDrawList* layer2_draw_list {};
+    ImDrawData layer_draw_data;
     std::shared_ptr<Framebuffer> timeline_fb {};
     ImVector<ClipContentDrawCmd> clip_content_cmds;
 
@@ -84,6 +94,7 @@ struct GuiTimeline {
     Track* hovered_track = nullptr;
     float hovered_track_y = 0.0f;
     float hovered_track_height = 60.0f;
+    ClipHover hover_state {};
 
     // Context menu stuff...
     Track* context_menu_track {};

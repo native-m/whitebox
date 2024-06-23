@@ -1034,6 +1034,7 @@ void RendererVK::draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) {
         int32_t y0 = std::max((int32_t)clip.min_bb.y, 0);
         int32_t x1 = std::min((int32_t)clip.max_bb.x, fb_width);
         int32_t y1 = std::min((int32_t)clip.max_bb.y, fb_height);
+        uint32_t vertex_count = clip.draw_count * 2;
 
         VkRect2D rect {
             .offset = {x0, y0},
@@ -1058,15 +1059,15 @@ void RendererVK::draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) {
         vkCmdPushConstants(current_cb_, waveform_layout,
                            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                            sizeof(ClipContentDrawCmdVK), &draw_cmd);
-        vkCmdDraw(current_cb_, clip.draw_count, 1, 0, 0);
+        vkCmdDraw(current_cb_, vertex_count, 1, 0, 0);
 
         vkCmdBindPipeline(current_cb_, VK_PIPELINE_BIND_POINT_GRAPHICS, waveform_aa);
-        vkCmdDraw(current_cb_, clip.draw_count * 3, 1, 0, 0);
+        vkCmdDraw(current_cb_, vertex_count * 3, 1, 0, 0);
         draw_cmd.is_min = 1;
         vkCmdPushConstants(current_cb_, waveform_layout,
                            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                            sizeof(ClipContentDrawCmdVK), &draw_cmd);
-        vkCmdDraw(current_cb_, clip.draw_count * 3, 1, 0, 0);
+        vkCmdDraw(current_cb_, vertex_count * 3, 1, 0, 0);
     }
 
     VkRect2D scissor = {
