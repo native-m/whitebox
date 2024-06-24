@@ -16,9 +16,20 @@ enum class ClipType {
     Midi,
 };
 
+enum class ClipHover {
+    None,
+    All,
+    LeftHandle,
+    RightHandle,
+    FadeStartHandle,
+    FadeEndHandle,
+};
+
 struct AudioClip {
     SampleAsset* asset;
     double start_sample_pos;
+    double fade_start;
+    double fade_end;
 };
 
 struct MidiClip {
@@ -32,6 +43,7 @@ struct Clip {
     ClipType type {};
     std::string name {};
     ImColor color {};
+    ClipHover hover_state {};
     mutable std::atomic_bool deleted {};
 
     // Time placement in beat units

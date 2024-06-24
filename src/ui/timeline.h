@@ -17,15 +17,6 @@ enum class TimelineEditAction {
     ShowClipContextMenu,
 };
 
-enum class ClipHover {
-    None,
-    All,
-    LeftHandle,
-    RightHandle,
-    FadeStartHandle,
-    FadeEndHandle,
-};
-
 struct SelectionRange {
     Track* track;
     double min;
@@ -94,7 +85,6 @@ struct GuiTimeline {
     Track* hovered_track = nullptr;
     float hovered_track_y = 0.0f;
     float hovered_track_height = 60.0f;
-    ClipHover hover_state {};
 
     // Context menu stuff...
     Track* context_menu_track {};

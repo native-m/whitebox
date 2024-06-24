@@ -15,10 +15,10 @@ namespace wb {
 
 inline void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
                       ImVector<ClipContentDrawCmd>& clip_content_cmds, const Clip* clip,
-                      ClipHover hover, float timeline_width, float offset_y, float min_draw_x,
-                      double min_x, double max_x, double clip_scale, double sample_scale,
-                      double start_sample_pos, float track_pos_y, float track_height,
-                      const ImColor& track_color, ImFont* font, const ImColor& text_color) {
+                      float timeline_width, float offset_y, float min_draw_x, double min_x,
+                      double max_x, double clip_scale, double sample_scale, double start_sample_pos,
+                      float track_pos_y, float track_height, const ImColor& track_color,
+                      ImFont* font, const ImColor& text_color) {
     constexpr ImDrawListFlags draw_list_aa_flags = ImDrawListFlags_AntiAliasedFill |
                                                    ImDrawListFlags_AntiAliasedLinesUseTex |
                                                    ImDrawListFlags_AntiAliasedLines;
@@ -103,12 +103,20 @@ inline void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list
             layer2_draw_list->PushClipRect(clip_content_min, clip_content_max, true);
             layer2_draw_list->AddLine(clip_content_min, clip_content_max, border_color, 3.5f);
             layer2_draw_list->AddLine(clip_content_min, clip_content_max, content_color, 1.5f);
+
+            if (clip->hover_state == ClipHover::All) {
+                layer2_draw_list->AddCircle(clip_content_min, 6.0f, border_color, 0, 3.5f);
+                layer2_draw_list->AddCircleFilled(clip_content_min, 6.0f, content_color);
+                layer2_draw_list->AddCircle(ImVec2(clip_content_max.x, clip_content_min.y), 6.0f,
+                                            border_color, 0, 3.5f);
+                layer2_draw_list->AddCircleFilled(ImVec2(clip_content_max.x, clip_content_min.y),
+                                                  6.0f, content_color);
+            }
+
             layer2_draw_list->PopClipRect();
 
-            if (hover != ClipHover::None) {
-                switch (hover) {
-                    case ClipHover::All:
-                        break;
+            if (clip->hover_state != ClipHover::None) {
+                switch (clip->hover_state) {
                     case ClipHover::LeftHandle: {
                         ImVec2 min_bb(min_x, track_pos_y);
                         ImVec2 max_bb(max_x, track_pos_y + track_height);
@@ -990,16 +998,15 @@ void GuiTimeline::render_track_lanes() {
                 }
             }
 
-            if (hover_state != current_hover_state) {
-                hover_state = current_hover_state;
+            if (clip->hover_state != current_hover_state) {
+                clip->hover_state = current_hover_state;
                 force_redraw = true;
-                Log::debug("redraw");
             }
 
             double start_sample_pos = (double)clip->audio.start_sample_pos;
 
             if (redraw) {
-                draw_clip(layer1_draw_list, layer2_draw_list, clip_content_cmds, clip, hover_state,
+                draw_clip(layer1_draw_list, layer2_draw_list, clip_content_cmds, clip,
                           timeline_width, offset_y, timeline_view_pos.x, min_pos_x, max_pos_x,
                           clip_scale, sample_scale, start_sample_pos, track_pos_y, track->height,
                           track->color, font, text_color);
@@ -1116,8 +1123,8 @@ void GuiTimeline::render_track_lanes() {
 
         if (min_pos_x < timeline_end_x && max_pos_x > timeline_view_pos.x) {
             draw_clip(layer1_draw_list, layer2_draw_list, clip_content_cmds, edited_clip,
-                      ClipHover::All, timeline_width, offset_y, timeline_view_pos.x, min_pos_x,
-                      max_pos_x, clip_scale, sample_scale, start_sample_pos, hovered_track_y,
+                      timeline_width, offset_y, timeline_view_pos.x, min_pos_x, max_pos_x,
+                      clip_scale, sample_scale, start_sample_pos, hovered_track_y,
                       hovered_track_height, edited_track->color, font, text_color);
         }
 
