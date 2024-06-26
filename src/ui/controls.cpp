@@ -104,7 +104,7 @@ void vu_meter(const char* str_id, const ImVec2& size, uint32_t count, VUMeter* c
     float inner_height = inner_end_y - inner_start_y;
     float channel_size = size.x / (float)count;
     auto draw_list = GImGui->CurrentWindow->DrawList;
-    auto border_col = ImGui::GetColorU32(ImGuiCol_Border);
+    ImU32 border_col;
     ImGuiID id = ImGui::GetID(str_id);
 
     ImGui::ItemSize(bb);
@@ -112,7 +112,10 @@ void vu_meter(const char* str_id, const ImVec2& size, uint32_t count, VUMeter* c
         return;
 
     if (border) {
+        border_col = ImGui::GetColorU32(ImGuiCol_Border);
         draw_list->AddRect(start_pos, end_pos, border_col);
+    } else {
+        border_col = ImGui::GetColorU32(ImGuiCol_ResizeGripHovered);
     }
 
     float pos_x = start_pos.x;
@@ -120,9 +123,18 @@ void vu_meter(const char* str_id, const ImVec2& size, uint32_t count, VUMeter* c
         float channel_pos_x = pos_x;
         pos_x += channel_size;
 
-        float level_height = (1.0 - channels[i].get_value()) * inner_height;
-        draw_list->AddRectFilled(ImVec2(channel_pos_x + 1.0f, level_height + start_pos.y + 1.0f),
-                                 ImVec2(pos_x - 1.0f, end_pos.y - 1.0f), channel_color);
+        if (!border) {
+            draw_list->AddRectFilled(ImVec2(channel_pos_x + 1.0, start_pos.y + 1.0),
+                                     ImVec2(pos_x - 1.0, end_pos.y - 1.0), border_col);
+        }
+
+        float level = channels[i].get_value();
+        if (level > 0.0) {
+            float level_height = (1.0 - level) * inner_height;
+            draw_list->AddRectFilled(
+                ImVec2(channel_pos_x + 1.0f, level_height + start_pos.y + 1.0f),
+                ImVec2(pos_x - 1.0f, end_pos.y - 1.0f), channel_color);
+        }
     }
 }
 
