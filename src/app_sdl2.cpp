@@ -111,14 +111,18 @@ void AppSDL2::handle_events(SDL_Event& event) {
 
     switch (event.type) {
         case SDL_WINDOWEVENT: {
-            if (event.window.windowID != window_id) {
-                if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-                    g_renderer->resize_swapchain();
-                    break;
-                }
-                if (event.window.event == SDL_WINDOWEVENT_CLOSE) {
-                    running = false;
-                    break;
+            if (event.window.windowID == window_id) {
+                switch (event.window.event) {
+                    case SDL_WINDOWEVENT_RESIZED:
+                        g_renderer->resize_swapchain();
+                        break;
+                    case SDL_WINDOWEVENT_CLOSE:
+                        running = false;
+                        break;
+                    case SDL_WINDOWEVENT_MINIMIZED: {
+                        wait_until_restored();
+                        break;
+                    }
                 }
             }
             break;
@@ -139,6 +143,18 @@ void AppSDL2::handle_events(SDL_Event& event) {
     }
 
     ImGui_ImplSDL2_ProcessEvent(&event);
+}
+
+void AppSDL2::wait_until_restored() {
+    SDL_Event next_event;
+    while (SDL_WaitEvent(&next_event)) {
+        if (next_event.type == SDL_WINDOWEVENT) {
+            if (next_event.window.windowID == window_id &&
+                next_event.window.event == SDL_WINDOWEVENT_RESTORED) {
+                break;
+            }
+        }
+    }
 }
 
 } // namespace wb

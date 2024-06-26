@@ -108,7 +108,6 @@ void App::run() {
         g_renderer->finish_draw();
         g_renderer->end_frame();
         g_renderer->present();
-
         // ImGui::UpdatePlatformWindows();
         // ImGui::RenderPlatformWindowsDefault();
     }
