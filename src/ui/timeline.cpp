@@ -1079,11 +1079,13 @@ void GuiTimeline::render_track_lanes() {
                     min_time = max_time - (1.0 / grid_scale);
 
                 double rel_offset = edited_clip->relative_start_time;
+                double old_rel_offset = rel_offset;
                 if (old_min < min_time)
                     rel_offset -= old_min - min_time;
                 else
                     rel_offset += min_time - old_min;
-                Log::debug("{}", rel_offset);
+                if (rel_offset < 0.0)
+                    min_time = min_time - rel_offset;
                 rel_offset = std::max(rel_offset, 0.0);
                 hovered_track_y = edited_track_pos_y;
 
