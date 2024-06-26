@@ -532,7 +532,7 @@ inline void GuiTimeline::render_track_controls() {
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2());
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(track_color_width - 2.0f, 2.0f));
         ImGui::BeginChild("##track_control",
-                          ImVec2(clamped_separator_pos - track_color_width - 10.0f, track->height),
+                          ImVec2(clamped_separator_pos - track_color_width - 11.0f, track->height),
                           0, track_control_window_flags);
 
         {
@@ -913,10 +913,13 @@ void GuiTimeline::render_track_lanes() {
                                        ImVec2(timeline_end_x, track_pos_y + height + 2.0f));
         bool hovering_current_track = timeline_hovered && hovering_track_rect;
 
-        if (left_mouse_down && hovering_current_track) {
-            hovered_track = track;
-            hovered_track_y = track_pos_y;
-            hovered_track_height = height;
+        if (!any_of(edit_action, TimelineEditAction::ClipResizeLeft,
+                    TimelineEditAction::ClipResizeRight)) {
+            if (left_mouse_down && hovering_current_track) {
+                hovered_track = track;
+                hovered_track_y = track_pos_y;
+                hovered_track_height = height;
+            }
         }
 
         // Register start position of selection

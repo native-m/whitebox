@@ -1,9 +1,14 @@
 #pragma once
 
-#include <type_traits>
 #include <cstring>
+#include <type_traits>
 
 namespace wb {
+
+template <typename T, typename... Args>
+inline bool any_of(T value, T cmp, Args... cmp_args) {
+    return value == cmp || ((value == cmp_args) || ...);
+}
 
 template <typename T>
 inline void relocate_by_copy(T* begin_ptr, T* end_ptr, T* dst_ptr) {
