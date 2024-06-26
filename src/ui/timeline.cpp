@@ -35,8 +35,8 @@ inline void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list
                                       : text_color;
 
     // Draw clip background and its header
-    float min_x2 = (float)std::round(min_x);
-    float max_x2 = (float)std::round(max_x);
+    float min_x2 = (float)math::round(min_x);
+    float max_x2 = (float)math::round(max_x);
     float font_size = font->FontSize;
     float clip_title_max_y = track_pos_y + font_size + 4.0f;
     ImColor bg_color = color_adjust_alpha(clip->color, 0.35f);
@@ -64,7 +64,6 @@ inline void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list
     static constexpr double log_base4 = 1.0 / 1.3862943611198906; // 1.0 / log(4.0)
     if (asset) {
         SamplePeaks* sample_peaks = asset->peaks.get();
-
         double scale_x = sample_scale * (double)asset->sample_instance.sample_rate;
         double inv_scale_x = 1.0 / scale_x;
         double mip_index = (std::log(scale_x * 0.5) * log_base4) * 0.5; // Scale -> Index
@@ -77,32 +76,33 @@ inline void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list
         // Scale
 
         double waveform_start = start_sample_pos * inv_scale_x;
-        double waveform_len = ((double)asset->sample_instance.count - waveform_start) * inv_scale_x;
+        double waveform_len =
+            ((double)asset->sample_instance.count - start_sample_pos) * inv_scale_x;
         double rel_min_x = min_x - (double)min_draw_x;
         double rel_max_x = max_x - (double)min_draw_x;
-        double min_pos_x = std::max(rel_min_x, 0.0);
+        double min_pos_x = math::max(rel_min_x, 0.0);
         double max_pos_x =
-            std::min(std::min(rel_max_x, rel_min_x + waveform_len), (double)(timeline_width + 2.0));
-        double draw_count = std::max(max_pos_x - min_pos_x, 0.0);
-        double start_idx = std::max(-rel_min_x, 0.0) + waveform_start;
+            math::min(math::min(rel_max_x, rel_min_x + waveform_len), (double)(timeline_width + 2.0));
+        double draw_count = math::max(max_pos_x - min_pos_x, 0.0);
+        double start_idx = math::max(-rel_min_x, 0.0) + waveform_start;
 
         if (draw_count) {
             ImU32 content_color = color_brighten(clip->color, 0.85f);
 
             clip_content_cmds.push_back({
                 .peaks = sample_peaks,
-                .min_bb = ImVec2(std::round((float)min_pos_x), clip_content_min.y - offset_y),
-                .max_bb = ImVec2(std::round((float)max_pos_x), clip_content_max.y - offset_y),
+                .min_bb = ImVec2(math::round((float)min_pos_x), clip_content_min.y - offset_y),
+                .max_bb = ImVec2(math::round((float)max_pos_x), clip_content_max.y - offset_y),
                 .color = content_color,
                 .scale_x = (float)mip_scale,
                 .mip_index = index,
-                .start_idx = (uint32_t)std::round(start_idx),
+                .start_idx = (uint32_t)math::round(start_idx),
                 .draw_count = (uint32_t)draw_count + 2,
             });
 
             layer2_draw_list->PushClipRect(clip_content_min, clip_content_max, true);
-            layer2_draw_list->AddLine(clip_content_min, clip_content_max, border_color, 3.5f);
-            layer2_draw_list->AddLine(clip_content_min, clip_content_max, content_color, 1.5f);
+            // layer2_draw_list->AddLine(clip_content_min, clip_content_max, border_color, 3.5f);
+            // layer2_draw_list->AddLine(clip_content_min, clip_content_max, content_color, 1.5f);
 
             if (clip->hover_state == ClipHover::All) {
                 layer2_draw_list->AddCircle(clip_content_min, 6.0f, border_color, 0, 3.5f);
