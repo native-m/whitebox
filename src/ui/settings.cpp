@@ -169,7 +169,7 @@ void GuiSettings::render() {
                     uint32_t min_buffer_size =
                         period_to_buffer_size(g_audio_io->min_period, current_sample_rate_value);
 
-                    while (min_buffer_size <= 4096) {
+                    while (min_buffer_size <= 8192) {
                         const bool is_selected = min_buffer_size == current_buffer_size;
                         double period_ms = period_to_ms(
                             buffer_size_to_period(min_buffer_size, current_sample_rate_value));
