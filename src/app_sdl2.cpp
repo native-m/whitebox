@@ -4,8 +4,11 @@
 #include "ui/file_dropper.h"
 #include <SDL.h>
 #include <SDL_syswm.h>
-#include <dwmapi.h>
 #include <imgui_impl_sdl2.h>
+
+#ifdef WB_PLATFORM_WINDOWS
+#include <dwmapi.h>
+#endif
 
 namespace wb {
 
