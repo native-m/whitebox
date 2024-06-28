@@ -19,6 +19,15 @@
       }
     },
     {
+      "name": "windows-base-clang",
+      "hidden": true,
+      "inherits": "windows-base",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang-cl.exe",
+        "CMAKE_CXX_COMPILER": "clang-cl.exe"
+      }
+    },
+    {
       "name": "x64-debug",
       "displayName": "x64 Debug",
       "inherits": "windows-base",
@@ -39,11 +48,11 @@
       }
     },
     {
-      "name": "x86-debug",
-      "displayName": "x86 Debug",
-      "inherits": "windows-base",
+      "name": "x64-debug-clang",
+      "displayName": "x64 Debug Clang",
+      "inherits": "windows-base-clang",
       "architecture": {
-        "value": "x86",
+        "value": "x64",
         "strategy": "external"
       },
       "cacheVariables": {
@@ -51,9 +60,9 @@
       }
     },
     {
-      "name": "x86-release",
-      "displayName": "x86 Release",
-      "inherits": "x86-debug",
+      "name": "x64-release-clang",
+      "displayName": "x64 Release Clang",
+      "inherits": "x64-debug-clang",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
       }
