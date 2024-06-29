@@ -6,7 +6,6 @@ AudioIO* g_audio_io;
 
 extern AudioIO* create_audio_io_wasapi();
 extern AudioIO* create_audio_io_pulseaudio();
-extern AudioIO* create_audio_io_pulseaudio2();
 extern AudioIO* create_audio_io_asio();
 
 void init_audio_io(AudioIOType type) {
@@ -16,7 +15,7 @@ void init_audio_io(AudioIOType type) {
             g_audio_io = create_audio_io_wasapi();
             break;
         case AudioIOType::PulseAudio:
-            g_audio_io = create_audio_io_pulseaudio2();
+            g_audio_io = create_audio_io_pulseaudio();
             break;
         default:
             assert(false && "Unimplemented Audio IO");

@@ -74,7 +74,8 @@
       "binaryDir": "${sourceDir}/out/build/${presetName}",
       "installDir": "${sourceDir}/out/install/${presetName}",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug"
+        "CMAKE_BUILD_TYPE": "Debug",
+        "WB_VST3_SDK_PATH": "../vst3sdk"
       },
       "condition": {
         "type": "equals",
