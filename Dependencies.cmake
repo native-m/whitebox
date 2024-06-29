@@ -95,6 +95,14 @@ CPMAddPackage(
 )
 
 CPMAddPackage(
+    NAME                midi_parser
+    GITHUB_REPOSITORY   abique/midi-parser
+    GIT_TAG             ddc815b44c0cb05fa133f9630355f715daabb380
+    VERSION             1.0.0
+    DOWNLOAD_ONLY       YES
+)
+
+CPMAddPackage(
     NAME                nativefiledialog-extended
     GITHUB_REPOSITORY   btzy/nativefiledialog-extended
     VERSION             1.1.0
@@ -185,6 +193,11 @@ endif()
 if (VulkanMemoryAllocator_ADDED)
     add_library(VulkanMemoryAllocator INTERFACE)
     target_include_directories(VulkanMemoryAllocator INTERFACE "${VulkanMemoryAllocator_SOURCE_DIR}/include")
+endif()
+
+if (midi_parser_ADDED)
+    add_library(midi-parser "${midi_parser_SOURCE_DIR}/src/midi-parser.c")
+    target_include_directories(midi-parser PUBLIC "${midi_parser_SOURCE_DIR}/include")
 endif()
 
 # VST3 Stuff

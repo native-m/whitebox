@@ -1,8 +1,9 @@
 #pragma once
 
-#include "common.h"
 #include "algorithm.h"
+#include "common.h"
 #include "types.h"
+#include <iterator>
 #include <memory>
 #include <utility>
 
@@ -58,6 +59,17 @@ struct Vector {
         intern_ = std::exchange(other.intern_, {});
         return *this;
     }
+
+    /*template <std::input_iterator Iterator>
+    inline void assign(Iterator first, Iterator last) {
+        if constexpr (std::random_access_iterator<Iterator> && std::contiguous_iterator<Iterator>) {
+            auto length = last - first;
+            resize(0);
+            reserve(length);
+            T* data_ptr = intern_.data;
+
+        }
+    }*/
 
     inline bool empty() const { return intern_.size == 0; }
     inline size_t size() const { return intern_.size; }

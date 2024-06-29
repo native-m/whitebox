@@ -87,6 +87,8 @@ set(WB_SOURCES
     "src/ui/layout.h"
     "src/ui/mixer.cpp"
     "src/ui/mixer.h"
+    "src/ui/piano_roll.cpp"
+    "src/ui/piano_roll.h"
     "src/ui/popup_state_manager.h"
     "src/ui/settings.cpp"
     "src/ui/settings.h"
@@ -122,6 +124,7 @@ set(WB_LINK_LIBRARIES
     imgui-freetype
     imgui-vulkan
     sndfile
+    midi-parser
     nfd
     vst3-sdk-hosting)
 

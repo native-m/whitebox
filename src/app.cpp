@@ -13,6 +13,7 @@
 #include "ui/file_dropper.h"
 #include "ui/font.h"
 #include "ui/mixer.h"
+#include "ui/piano_roll.h"
 #include "ui/settings.h"
 #include "ui/timeline.h"
 #include <imgui.h>
@@ -101,6 +102,7 @@ void App::run() {
         g_browser.render();
         g_mixer.render();
         g_timeline.render();
+        g_piano_roll.render();
 
         ImGui::Render();
         g_renderer->begin_draw(nullptr, {0.0f, 0.0f, 0.0f, 1.0f});

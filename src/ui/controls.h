@@ -127,9 +127,7 @@ static bool hseparator_resizer(T id, float* size, float default_size, float min_
         }
 
         if (is_separator_active) {
-            // auto drag_pos = states->GetFloatRef(ImGui::GetID("separator_drag_pos"));
             auto drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left, 1.0f);
-            float prev_size = *size;
             ImGui::ResetMouseDragDelta(ImGuiMouseButton_Left);
             *size = std::clamp(*size + drag_delta.y, min_size, max_size);
             color = ImGuiCol_SeparatorActive;
