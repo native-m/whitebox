@@ -182,6 +182,8 @@ void SettingsData::save_settings_data() {
             audio.emplace("type", "pulseaudio");
             break;
 #endif
+        default:
+            break;
     }
 
     uint32_t sample_rate_value = get_sample_rate_value(audio_sample_rate);

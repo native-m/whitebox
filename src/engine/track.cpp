@@ -337,6 +337,8 @@ void Track::process(AudioBuffer<float>& output_buffer, double sample_rate, bool 
                     case EventType::PlaySample:
                         Log::debug("Play {} {}", event->time, event->buffer_offset);
                         break;
+                    default:
+                        break;
                 }
                 current_event = *event;
                 start_sample += event_length;

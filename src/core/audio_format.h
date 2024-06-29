@@ -87,6 +87,8 @@ inline static const char* get_audio_format_string(AudioFormat format) {
             return "32-bit uint";
         case AudioFormat::F32:
             return "32-bit float";
+        default:
+            break;
     }
     return "Unknown Format";
 }

@@ -212,6 +212,8 @@ static void summarize_for_mipmaps_impl(AudioFormat sample_format, size_t sample_
             }
             break;
         }
+        default:
+            break;
     }
 }
 
