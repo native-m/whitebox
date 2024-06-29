@@ -118,8 +118,8 @@ struct Vector {
                         relocate_by_move(intern_.data + idx, intern_.data + intern_.size,
                                          new_data + idx + 1);
                     } else if constexpr (std::copy_constructible<T>) {
-                        relocate_by_move(intern_.data, intern_.data + idx, new_data);
-                        relocate_by_move(intern_.data + idx, intern_.data + intern_.size,
+                        relocate_by_copy(intern_.data, intern_.data + idx, new_data);
+                        relocate_by_copy(intern_.data + idx, intern_.data + intern_.size,
                                          new_data + idx + 1);
                     }
                 }
