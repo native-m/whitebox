@@ -516,10 +516,11 @@ inline void GuiTimeline::render_track_controls() {
 
     int id = 0;
     for (auto track : g_engine.tracks) {
+        float height = track->height;
         ImVec2 tmp_item_spacing = style.ItemSpacing;
         ImVec2 track_color_min = ImGui::GetCursorScreenPos();
         ImVec2 track_color_max =
-            ImVec2(track_color_min.x + track_color_width, track_color_min.y + track->height);
+            ImVec2(track_color_min.x + track_color_width, track_color_min.y + height);
 
         // Draw track color
         if (ImGui::IsRectVisible(track_color_min, track_color_max)) {
@@ -532,7 +533,7 @@ inline void GuiTimeline::render_track_controls() {
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2());
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(track_color_width - 2.0f, 2.0f));
         ImGui::BeginChild("##track_control",
-                          ImVec2(clamped_separator_pos - track_color_width - 11.0f, track->height),
+                          ImVec2(clamped_separator_pos - track_color_width - 11.0f, height),
                           0, track_control_window_flags);
 
         {
@@ -589,7 +590,7 @@ inline void GuiTimeline::render_track_controls() {
         ImGui::EndChild();
         ImGui::SameLine();
 
-        controls::vu_meter("##timeline_vu_meter", ImVec2(10.0f, track->height), 2, track->vu_meter,
+        controls::vu_meter("##timeline_vu_meter", ImVec2(10.0f, height), 2, track->vu_meter,
                            false);
 
         ImGui::PopID();
@@ -956,7 +957,7 @@ void GuiTimeline::render_track_lanes() {
                 continue;
 
             ImVec2 min_bb(min_pos_x_in_pixel, track_pos_y);
-            ImVec2 max_bb(max_pos_x_in_pixel, track_pos_y + track->height);
+            ImVec2 max_bb(max_pos_x_in_pixel, track_pos_y + height);
             // ImVec4 fine_scissor_rect(min_bb.x, min_bb.y, max_bb.x, max_bb.y);
             bool hovering_left_side = false;
             bool hovering_right_side = false;
@@ -1011,7 +1012,7 @@ void GuiTimeline::render_track_lanes() {
             if (redraw) {
                 draw_clip(layer1_draw_list, layer2_draw_list, clip_content_cmds, clip,
                           timeline_width, offset_y, timeline_view_pos.x, min_pos_x, max_pos_x,
-                          clip_scale, sample_scale, start_sample_pos, track_pos_y, track->height,
+                          clip_scale, sample_scale, start_sample_pos, track_pos_y, height,
                           track->color, font, text_color);
             }
         }
@@ -1046,7 +1047,7 @@ void GuiTimeline::render_track_lanes() {
             }
         }
 
-        track_pos_y += track->height;
+        track_pos_y += height;
 
         if (redraw) {
             layer1_draw_list->AddLine(

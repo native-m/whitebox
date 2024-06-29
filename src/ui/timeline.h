@@ -23,8 +23,7 @@ struct SelectionRange {
     double max;
 };
 
-struct TargetSelectionRange
-{
+struct TargetSelectionRange {
     uint32_t start_track;
     uint32_t end_track;
     double min;
