@@ -162,16 +162,15 @@ void vu_meter(const char* str_id, const ImVec2& size, uint32_t count, VUMeter* c
         if (level > min_amplitude) {
             float level_db = math::linear_to_db(level);
             float level_norm = math::normalize_value(level_db, min_db, max_db);
-            float pos_y = start_pos.y + 1.0;
 
             for (const auto& range : vu_ranges) {
                 if (level_norm < range.min)
                     break;
                 float level_start = (1.0f - range.min) * inner_height;
                 float level_height = (1.0f - std::min(level_norm, range.max)) * inner_height;
-                draw_list->AddRectFilled(
-                    ImVec2(channel_pos_x + 1.0f, level_height + pos_y),
-                    ImVec2(pos_x - 1.0f, level_start + start_pos.y + 1.0f), range.color);
+                draw_list->AddRectFilled(ImVec2(channel_pos_x + 1.0f, level_height + inner_start_y),
+                                         ImVec2(pos_x - 1.0f, level_start + inner_start_y),
+                                         range.color);
             }
         }
     }
