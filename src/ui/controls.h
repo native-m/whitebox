@@ -223,7 +223,7 @@ bool param_drag_db(const char* str_id, float* value, float speed = 0.1f, float m
                    ImGuiSliderFlags flags = ImGuiSliderFlags_Vertical);
 bool param_slider_db(AudioParameterList& param_list, uint32_t id,
                      const SliderProperties& properties, const char* str_id, const ImVec2& size,
-                     const ImColor& color, float min_db = -70.0f, float max_db = 7.0f,
+                     const ImColor& color, float min_db = -72.0f, float max_db = 6.0f,
                      const char* format = "%.2fdB");
 bool mixer_label(const char* caption, const float height, const ImColor& color);
 void vu_meter(const char* str_id, const ImVec2& size, uint32_t count, VUMeter* channels,

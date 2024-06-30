@@ -94,7 +94,7 @@ bool mixer_label(const char* caption, const float height, const ImColor& color) 
 void vu_meter(const char* str_id, const ImVec2& size, uint32_t count, VUMeter* channels,
               bool border) {
     static const ImU32 channel_color = ImColor(121, 166, 91);
-    static constexpr float min_db = -50.0f;
+    static constexpr float min_db = -40.0f;
     static constexpr float max_db = 6.0f;
     static const float min_amplitude = math::db_to_linear(min_db);
     static const float max_amplitude = math::db_to_linear(max_db);
