@@ -96,6 +96,10 @@ bool mixer_label(const char* caption, const float height, const ImColor& color) 
 void vu_meter(const char* str_id, const ImVec2& size, uint32_t count, VUMeter* channels,
               bool border) {
     static const ImU32 channel_color = ImColor(121, 166, 91);
+    static constexpr float min_db = -50.0f;
+    static constexpr float max_db = 7.0f;
+    static const float min_amplitude = math::db_to_linear(min_db);
+    static const float max_amplitude = math::db_to_linear(max_db);
     ImVec2 start_pos = ImGui::GetCursorScreenPos();
     ImVec2 end_pos = start_pos + size;
     ImRect bb(start_pos, end_pos);
@@ -128,9 +132,12 @@ void vu_meter(const char* str_id, const ImVec2& size, uint32_t count, VUMeter* c
                                      ImVec2(pos_x - 1.0, end_pos.y - 1.0), border_col);
         }
 
-        float level = channels[i].get_value();
-        if (level > 0.0) {
-            float level_height = (1.0 - level) * inner_height;
+
+        float level = clamp(channels[i].get_value(), min_amplitude, max_amplitude);
+        if (level > min_amplitude) {
+            float level_db = math::linear_to_db(level);
+            float level_norm = math::normalize_value(level_db, min_db, max_db);
+            float level_height = (1.0f - level_norm) * inner_height;
             draw_list->AddRectFilled(
                 ImVec2(channel_pos_x + 1.0f, level_height + start_pos.y + 1.0f),
                 ImVec2(pos_x - 1.0f, end_pos.y - 1.0f), channel_color);

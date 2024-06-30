@@ -28,7 +28,7 @@ struct VUMeter {
         if (new_level > current_level) {
             current_level = new_level;
         } else {
-            float update_rate = 1.0f - std::exp(-1.0f / (frame_rate * 0.1f));
+            float update_rate = 1.0f - std::exp(-1.0f / (frame_rate * 0.075f));
             current_level += (new_level - current_level) * update_rate;
         }
     }
