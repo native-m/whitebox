@@ -50,9 +50,12 @@ void GuiBrowser::render_item(const std::filesystem::path& root_path, BrowserItem
 
     if (item.type == BrowserItem::Directory) {
         ImGui::PushID((const void*)item.name.data());
-        bool directory_open = ImGui::TreeNodeEx("##browser_item", ImGuiTreeNodeFlags_SpanFullWidth,
-                                                (const char*)item.name.data());
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(GImGui->Style.FramePadding.x, 2.0f));
+        bool directory_open = ImGui::TreeNodeEx(
+            "##browser_item", ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_FramePadding,
+            (const char*)item.name.data());
         bool dir_activated = ImGui::IsItemActivated();
+        ImGui::PopStyleVar();
 
         if (dir_activated) {
             if (!directory_open) {
@@ -78,11 +81,13 @@ void GuiBrowser::render_item(const std::filesystem::path& root_path, BrowserItem
 
         ImGui::PopID();
     } else {
-        constexpr ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_Leaf |
-                                             ImGuiTreeNodeFlags_NoTreePushOnOpen |
-                                             ImGuiTreeNodeFlags_SpanFullWidth;
+        constexpr ImGuiTreeNodeFlags flags =
+            ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen |
+            ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_FramePadding;
         ImGui::PushID((const void*)item.name.data());
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(GImGui->Style.FramePadding.x, 2.0f));
         ImGui::TreeNodeEx("##browser_item", flags, (const char*)item.name.data());
+        ImGui::PopStyleVar();
 
         if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
             // TODO: show item context menu
