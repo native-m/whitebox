@@ -122,10 +122,10 @@ void Track::resize_clip(Clip* clip, double relative_pos, double min_length, doub
             rel_offset -= old_min - new_min;
         else
             rel_offset += new_min - old_min;
-        
+
         if (rel_offset < 0.0)
             new_min = new_min - rel_offset;
-        
+
         clip->min_time = new_min;
         clip->relative_start_time = std::max(rel_offset, 0.0);
 
@@ -213,12 +213,26 @@ void Track::update(Clip* updated_clip, double beat_duration) {
 Clip* Track::find_next_clip(double time_pos, uint32_t hint) {
     auto begin = clips.begin();
     auto end = clips.end();
-    while (begin != end && time_pos >= (*begin)->max_time) {
-        begin++;
+
+    if (end - begin <= 64) {
+        while (begin != end && time_pos >= (*begin)->max_time) {
+            begin++;
+        }
+        if (begin == end) {
+            return nullptr;
+        }
+        return *begin;
     }
-    if (begin == end)
+
+    auto clip = binary_search(begin, end, time_pos, [](Clip* clip, double time_pos) {
+        return time_pos >= clip->max_time;
+    });
+
+    if (clip == end) {
         return nullptr;
-    return *begin;
+    }
+
+    return *clip;
 }
 
 void Track::prepare_play(double time_pos) {
@@ -284,7 +298,7 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
                         .sample = &next_clip->audio.asset->sample_instance,
                     },
             });
-            
+
             auto new_next_clip = clips.begin() + (next_clip->id + 1);
             if (new_next_clip != clips.end()) {
                 playback_state.next_clip = *new_next_clip;

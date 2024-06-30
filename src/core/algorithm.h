@@ -10,6 +10,21 @@ inline bool any_of(T value, T cmp, Args... cmp_args) {
     return value == cmp || ((value == cmp_args) || ...);
 }
 
+template <typename T, typename ValT, typename CompareFn>
+inline T binary_search(T begin, T end, ValT value, CompareFn comp_fn) {
+    using DiffType = std::iterator_traits<T>::difference_type;
+    DiffType left = -1;
+    DiffType right = end - begin;
+
+    while (right - left > 1) {
+        DiffType middle = (left + right) >> 1;
+        DiffType& side = (comp_fn(begin[middle], value) ? left : right);
+        side = middle;
+    }
+
+    return begin + right;
+}
+
 template <typename T>
 inline void relocate_by_copy(T* begin_ptr, T* end_ptr, T* dst_ptr) {
     while (begin_ptr != end_ptr) {

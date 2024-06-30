@@ -1111,7 +1111,7 @@ void RendererVK::render_draw_data(ImDrawData* draw_data) {
         VK_CHECK(vkMapMemory(device_, rb->VertexBufferMemory, 0, rb->VertexBufferSize, 0,
                              (void**)&cmd_buf.immediate_vtx));
         cmd_buf.immediate_vtx_offset = 0;
-        //Log::debug("Resizing immediate vertex buffer: {}", frame_id_);
+        // Log::debug("Resizing immediate vertex buffer: {}", frame_id_);
     }
 
     if (rb->IndexBuffer == VK_NULL_HANDLE || rb->IndexBufferSize < index_size) {
@@ -1120,7 +1120,7 @@ void RendererVK::render_draw_data(ImDrawData* draw_data) {
         VK_CHECK(vkMapMemory(device_, rb->IndexBufferMemory, 0, rb->IndexBufferSize, 0,
                              (void**)&cmd_buf.immediate_idx));
         cmd_buf.immediate_idx_offset = 0;
-        //Log::debug("Resizing immediate index buffer: {}", frame_id_);
+        // Log::debug("Resizing immediate index buffer: {}", frame_id_);
     }
 
     ImDrawVert* vtx_dst = cmd_buf.immediate_vtx + cmd_buf.immediate_vtx_offset;
