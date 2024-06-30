@@ -1,4 +1,5 @@
 #include "controls.h"
+#include "core/color.h"
 #include "core/debug.h"
 #include "core/math.h"
 #include "core/queue.h"
@@ -91,13 +92,40 @@ bool mixer_label(const char* caption, const float height, const ImColor& color) 
     return true;
 }
 
+struct VUMeterRange {
+    float max;
+    float min;
+    ImU32 color;
+};
+
+static constexpr float min_vu_db = -45.0f;
+static constexpr float max_vu_db = 6.0f;
+static VUMeterRange vu_ranges[] = {
+    {
+        math::normalize_value(-12.0f, min_vu_db, max_vu_db),
+        math::normalize_value(-45.0f, min_vu_db, max_vu_db),
+        color_adjust_contrast(ImColor(64, 255, 91), 0.7f),
+    },
+    {
+        math::normalize_value(0.0f, min_vu_db, max_vu_db),
+        math::normalize_value(-12.0f, min_vu_db, max_vu_db),
+        color_adjust_contrast(ImColor(255, 254, 65), 0.7f),
+    },
+    {
+        math::normalize_value(6.0f, min_vu_db, max_vu_db),
+        math::normalize_value(0.0f, min_vu_db, max_vu_db),
+        color_adjust_contrast(ImColor(254, 65, 1), 0.7f),
+    },
+};
+
 void vu_meter(const char* str_id, const ImVec2& size, uint32_t count, VUMeter* channels,
               bool border) {
     static const ImU32 channel_color = ImColor(121, 166, 91);
-    static constexpr float min_db = -40.0f;
+    static constexpr float min_db = -45.0f;
     static constexpr float max_db = 6.0f;
     static const float min_amplitude = math::db_to_linear(min_db);
     static const float max_amplitude = math::db_to_linear(max_db);
+
     ImVec2 start_pos = ImGui::GetCursorScreenPos();
     ImVec2 end_pos = start_pos + size;
     ImRect bb(start_pos, end_pos);
@@ -130,15 +158,21 @@ void vu_meter(const char* str_id, const ImVec2& size, uint32_t count, VUMeter* c
                                      ImVec2(pos_x - 1.0, end_pos.y - 1.0), border_col);
         }
 
-
         float level = clamp(channels[i].get_value(), min_amplitude, max_amplitude);
         if (level > min_amplitude) {
             float level_db = math::linear_to_db(level);
             float level_norm = math::normalize_value(level_db, min_db, max_db);
-            float level_height = (1.0f - level_norm) * inner_height;
-            draw_list->AddRectFilled(
-                ImVec2(channel_pos_x + 1.0f, level_height + start_pos.y + 1.0f),
-                ImVec2(pos_x - 1.0f, end_pos.y - 1.0f), channel_color);
+            float pos_y = start_pos.y + 1.0;
+
+            for (const auto& range : vu_ranges) {
+                if (level_norm < range.min)
+                    break;
+                float level_start = (1.0f - range.min) * inner_height;
+                float level_height = (1.0f - std::min(level_norm, range.max)) * inner_height;
+                draw_list->AddRectFilled(
+                    ImVec2(channel_pos_x + 1.0f, level_height + pos_y),
+                    ImVec2(pos_x - 1.0f, level_start + start_pos.y + 1.0f), range.color);
+            }
         }
     }
 }
