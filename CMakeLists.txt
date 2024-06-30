@@ -17,6 +17,13 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED 20)
 option(WB_VST3_SDK_PATH "Path to VST3 SDK")
 
+include(CheckIPOSupported)
+check_ipo_supported(RESULT WB_IPO_SUPPORTED OUTPUT output)
+
+if (WB_IPO_SUPPORTED)
+    message("WB: IPO is supported by the toolchain!")
+endif()
+
 include(Dependencies.cmake)
 
 enable_testing()
@@ -152,6 +159,10 @@ add_executable(whitebox "src/main.cpp")
 target_link_libraries(whitebox whitebox-lib)
 add_dependencies(whitebox wb-assets)
 set_target_properties(whitebox PROPERTIES CXX_STANDARD 20)
+
+if (WB_IPO_SUPPORTED)
+    set_property(TARGET whitebox PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+endif()
 
 #set_property(TARGET whitebox-lib whitebox PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
