@@ -1,15 +1,12 @@
 #include "engine.h"
-#include "track.h"
 #include "core/debug.h"
 #include "core/math.h"
+#include "track.h"
 #include <numbers>
 
 namespace wb {
 
 Engine::~Engine() {
-    for (auto track : tracks) {
-        delete track;
-    }
 }
 
 void Engine::set_bpm(double bpm) {
@@ -22,7 +19,7 @@ void Engine::set_bpm(double bpm) {
 
 void Engine::set_playhead_position(double beat_position) {
     // TODO: Allow playhead dragging.
-    //assert(!playing && "Dragging playhead while playing is not allowed yet!");
+    // assert(!playing && "Dragging playhead while playing is not allowed yet!");
     editor_lock.lock();
     playhead_start = beat_position;
     playhead = playhead_start;

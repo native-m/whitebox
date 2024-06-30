@@ -294,13 +294,14 @@ void App::render_control_bar() {
 }
 
 void App::shutdown() {
-    NFD::Quit();
     g_settings_data.save_settings_data();
     Log::info("Closing application...");
     g_timeline.shutdown();
     shutdown_audio_io();
+    g_engine.clear_all();
     g_sample_table.shutdown();
     shutdown_renderer();
+    NFD::Quit();
 }
 
 void App::options_window() {
