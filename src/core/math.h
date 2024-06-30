@@ -47,13 +47,29 @@ inline T fract(T x) {
 }
 
 template <std::floating_point T>
-inline T db_to_linear(T x) {
+inline T exponential_ease(T x, T y) {
+    if (abs(y) < T(0.01)) {
+        return x;
+    }
+    return (std::exp(x * y) - T(1.0)) / std::exp(x);
+}
+
+template <std::floating_point T>
+inline T db_to_linear(T x, T threshold = -72.0f) {
+    if (x <= threshold) {
+        return 0.0f;
+    }
     return std::pow(T(10), T((double)x * 0.05));
 }
 
 template <std::floating_point T>
 inline T linear_to_db(T x) {
     return T(20) * std::log10(std::abs(x));
+}
+
+template <std::floating_point T>
+inline T normalize_value(T value, T min_val, T max_val) {
+    return (min_val - value) / (min_val - max_val);
 }
 
 } // namespace math
