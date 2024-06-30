@@ -27,6 +27,7 @@ struct TrackPlaybackState {
 };
 
 struct TrackParameterState {
+    float volume_db; // UI-part only
     float volume;
     float pan;
     bool mute;
@@ -60,7 +61,7 @@ struct Track {
           const TrackParameterState& track_param);
     ~Track();
 
-    void set_volume(float volume);
+    void set_volume(float db);
     void set_pan(float pan);
     void set_mute(bool mute);
 

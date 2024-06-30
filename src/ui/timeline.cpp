@@ -549,14 +549,9 @@ inline void GuiTimeline::render_track_controls() {
             ImGui::SameLine(0.0f, 6.0f);
             ImGui::Text((const char*)track->name.c_str());
 
-            float volume = track->ui_parameter_state.volume;
+            float volume = track->ui_parameter_state.volume_db;
             if (controls::param_drag_db("Vol.", &volume)) {
-                track->ui_parameter_state.volume = volume;
-                track->ui_param_changes.push({
-                    .id = TrackParameter_Volume,
-                    .sample_offset = 0,
-                    .value = (double)volume,
-                });
+                track->set_volume(volume);
             }
 
             bool mute = track->ui_parameter_state.mute;

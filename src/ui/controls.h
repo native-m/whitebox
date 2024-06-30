@@ -218,8 +218,8 @@ static bool slider2(const SliderProperties& properties, const char* str_id, cons
 }
 
 void song_position();
-bool param_drag_db(const char* str_id, float* value, float speed = 0.1f, float min_db = -70.0f,
-                   float max_db = 7.0f, const char* format = "%.2fdB",
+bool param_drag_db(const char* str_id, float* value, float speed = 0.1f, float min_db = -72.0f,
+                   float max_db = 6.0f, const char* format = "%.2fdB",
                    ImGuiSliderFlags flags = ImGuiSliderFlags_Vertical);
 bool param_slider_db(AudioParameterList& param_list, uint32_t id,
                      const SliderProperties& properties, const char* str_id, const ImVec2& size,

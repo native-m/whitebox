@@ -40,17 +40,15 @@ bool param_drag_db(const char* str_id, float* value, float speed, float min_db, 
                    const char* format, ImGuiSliderFlags flags) {
     char tmp[16] {};
     const char* str_value = tmp;
-    flags |= ImGuiSliderFlags_AlwaysClamp; // | ImGuiSliderFlags_Logarithmic |
-                                           // ImGuiSliderFlags_NoRoundToFormat;
+    flags |= ImGuiSliderFlags_AlwaysClamp;
 
-    if (*value > 0.0f) {
-        float db_value = math::linear_to_db(*value);
-        fmt::format_to(tmp, "{:.2f}db", db_value);
+    if (*value > min_db) {
+        str_value = "%.2fdb";
     } else {
         str_value = "-INFdB";
     }
 
-    return ImGui::DragFloat(str_id, value, 0.005f, 0.0f, 1.0f, str_value, flags);
+    return ImGui::DragFloat(str_id, value, 0.1f, min_db, max_db, str_value, flags);
 }
 
 bool param_slider_db(AudioParameterList& param_list, uint32_t id,
@@ -97,7 +95,7 @@ void vu_meter(const char* str_id, const ImVec2& size, uint32_t count, VUMeter* c
               bool border) {
     static const ImU32 channel_color = ImColor(121, 166, 91);
     static constexpr float min_db = -50.0f;
-    static constexpr float max_db = 7.0f;
+    static constexpr float max_db = 6.0f;
     static const float min_amplitude = math::db_to_linear(min_db);
     static const float max_amplitude = math::db_to_linear(max_db);
     ImVec2 start_pos = ImGui::GetCursorScreenPos();
