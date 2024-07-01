@@ -104,23 +104,37 @@ static VUMeterRange vu_ranges[] = {
     {
         math::normalize_value(-12.0f, min_vu_db, max_vu_db),
         math::normalize_value(-45.0f, min_vu_db, max_vu_db),
-        color_adjust_contrast(ImColor(64, 255, 91), 0.7f),
+        ImColor(105, 221, 56),
     },
     {
         math::normalize_value(0.0f, min_vu_db, max_vu_db),
         math::normalize_value(-12.0f, min_vu_db, max_vu_db),
-        color_adjust_contrast(ImColor(255, 254, 65), 0.7f),
+        ImColor(195, 255, 70),
     },
     {
         math::normalize_value(6.0f, min_vu_db, max_vu_db),
         math::normalize_value(0.0f, min_vu_db, max_vu_db),
-        color_adjust_contrast(ImColor(254, 65, 1), 0.7f),
+        ImColor(255, 83, 79),
     },
 };
 
-void vu_meter(const char* str_id, const ImVec2& size, uint32_t count, VUMeter* channels,
-              bool border) {
-    static const ImU32 channel_color = ImColor(121, 166, 91);
+void level_meter_options() {
+    int i = 0;
+    for (auto& range : vu_ranges) {
+        ImGui::PushID(i);
+        ImVec4 col = ImGui::ColorConvertU32ToFloat4(range.color);
+        ImGui::Text("Color %i", i);
+        if (ImGui::ColorEdit3("Color", (float*)&col)) {
+            range.color = ImGui::ColorConvertFloat4ToU32(col);
+        }
+        ImGui::PopID();
+        i++;
+    }
+}
+
+void level_meter(const char* str_id, const ImVec2& size, uint32_t count, VUMeter* channels,
+                 LevelMeterColorMode color_mode, bool border) {
+    // static const ImU32 channel_color = ImColor(121, 166, 91);
     static constexpr float min_db = -45.0f;
     static constexpr float max_db = 6.0f;
     static const float min_amplitude = math::db_to_linear(min_db);
@@ -150,6 +164,7 @@ void vu_meter(const char* str_id, const ImVec2& size, uint32_t count, VUMeter* c
 
     float pos_x = start_pos.x;
     for (uint32_t i = 0; i < count; i++) {
+        float level = clamp(channels[i].get_value(), min_amplitude, max_amplitude);
         float channel_pos_x = pos_x;
         pos_x += channel_size;
 
@@ -158,19 +173,35 @@ void vu_meter(const char* str_id, const ImVec2& size, uint32_t count, VUMeter* c
                                      ImVec2(pos_x - 1.0, end_pos.y - 1.0), border_col);
         }
 
-        float level = clamp(channels[i].get_value(), min_amplitude, max_amplitude);
         if (level > min_amplitude) {
             float level_db = math::linear_to_db(level);
             float level_norm = math::normalize_value(level_db, min_db, max_db);
-
-            for (const auto& range : vu_ranges) {
-                if (level_norm < range.min)
-                    break;
-                float level_start = (1.0f - range.min) * inner_height;
-                float level_height = (1.0f - std::min(level_norm, range.max)) * inner_height;
-                draw_list->AddRectFilled(ImVec2(channel_pos_x + 1.0f, level_height + inner_start_y),
-                                         ImVec2(pos_x - 1.0f, level_start + inner_start_y),
-                                         range.color);
+            switch (color_mode) {
+                case LevelMeterColorMode::Normal: {
+                    for (const auto& range : vu_ranges) {
+                        if (level_norm < range.min)
+                            break;
+                        float level_start = (1.0f - range.min) * inner_height;
+                        float level_height =
+                            (1.0f - std::min(level_norm, range.max)) * inner_height;
+                        draw_list->AddRectFilled(
+                            ImVec2(channel_pos_x + 1.0f, level_height + inner_start_y),
+                            ImVec2(pos_x - 1.0f, level_start + inner_start_y), range.color);
+                    }
+                } break;
+                case LevelMeterColorMode::Line: {
+                    ImU32 color = 0;
+                    for (const auto& range : vu_ranges) {
+                        if (level_norm <= range.max) {
+                            color = range.color;
+                            break;
+                        }
+                    }
+                    float level_height = (1.0f - level_norm) * inner_height;
+                    draw_list->AddRectFilled(
+                        ImVec2(channel_pos_x + 1.0f, level_height + inner_start_y),
+                        ImVec2(pos_x - 1.0f, end_pos.y - 1.0f), color);
+                } break;
             }
         }
     }

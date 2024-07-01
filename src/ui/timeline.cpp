@@ -81,8 +81,8 @@ inline void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list
         double rel_min_x = min_x - (double)min_draw_x;
         double rel_max_x = max_x - (double)min_draw_x;
         double min_pos_x = math::max(rel_min_x, 0.0);
-        double max_pos_x =
-            math::min(math::min(rel_max_x, rel_min_x + waveform_len), (double)(timeline_width + 2.0));
+        double max_pos_x = math::min(math::min(rel_max_x, rel_min_x + waveform_len),
+                                     (double)(timeline_width + 2.0));
         double draw_count = math::max(max_pos_x - min_pos_x, 0.0);
         double start_idx = math::max(-rel_min_x, 0.0) + waveform_start;
 
@@ -533,8 +533,8 @@ inline void GuiTimeline::render_track_controls() {
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2());
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(track_color_width - 2.0f, 2.0f));
         ImGui::BeginChild("##track_control",
-                          ImVec2(clamped_separator_pos - track_color_width - 11.0f, height),
-                          0, track_control_window_flags);
+                          ImVec2(clamped_separator_pos - track_color_width - 11.0f, height), 0,
+                          track_control_window_flags);
 
         {
             bool parameter_updated = false;
@@ -585,8 +585,8 @@ inline void GuiTimeline::render_track_controls() {
         ImGui::EndChild();
         ImGui::SameLine();
 
-        controls::vu_meter("##timeline_vu_meter", ImVec2(10.0f, height), 2, track->vu_meter,
-                           false);
+        controls::level_meter("##timeline_vu_meter", ImVec2(10.0f, height), 2, track->level_meter,
+                              track->level_meter_color, false);
 
         ImGui::PopID();
         ImGui::Unindent(track_color_width);

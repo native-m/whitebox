@@ -93,7 +93,7 @@ void App::run() {
         float framerate = GImGui->IO.Framerate;
         // Update vu meters
         for (auto track : g_engine.tracks) {
-            for (auto& vu_channel : track->vu_meter) {
+            for (auto& vu_channel : track->level_meter) {
                 vu_channel.update(framerate);
             }
         }

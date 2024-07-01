@@ -50,7 +50,9 @@ struct Track {
     Event current_event {};
     size_t samples_processed {};
 
-    VUMeter vu_meter[2] {};
+    LevelMeterColorMode level_meter_color {};
+    VUMeter level_meter[2] {};
+
     TrackParameterState ui_parameter_state {}; // UI-side state
     TrackParameterState parameter_state {};    // Audio-side state
     ParamChanges param_changes;

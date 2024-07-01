@@ -226,8 +226,9 @@ bool param_slider_db(AudioParameterList& param_list, uint32_t id,
                      const ImColor& color, float min_db = -72.0f, float max_db = 6.0f,
                      const char* format = "%.2fdB");
 bool mixer_label(const char* caption, const float height, const ImColor& color);
-void vu_meter(const char* str_id, const ImVec2& size, uint32_t count, VUMeter* channels,
-              bool border = true);
+void level_meter_options();
+void level_meter(const char* str_id, const ImVec2& size, uint32_t count, VUMeter* channels,
+                 LevelMeterColorMode color_mode, bool border = true);
 void render_test_controls();
 extern bool g_test_control_shown;
 

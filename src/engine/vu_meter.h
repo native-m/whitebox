@@ -6,6 +6,11 @@
 #include <atomic>
 
 namespace wb {
+enum class LevelMeterColorMode {
+    Normal,
+    Line,
+};
+
 struct VUMeter {
     std::atomic<float> level;
     float current_level = 0.0f;

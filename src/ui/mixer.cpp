@@ -29,6 +29,13 @@ void GuiMixer::render() {
             ImGui::MenuItem("Save mixer track state...");
             ImGui::EndMenu();
         }
+        if (ImGui::BeginMenu("View")) {
+            if (ImGui::BeginMenu("Level meter")) {
+                controls::level_meter_options();
+                ImGui::EndMenu();
+            }
+            ImGui::EndMenu();
+        }
         ImGui::EndMenuBar();
     }
 
@@ -56,8 +63,30 @@ void GuiMixer::render() {
         }*/
 
         ImGui::SetCursorPos(ImGui::GetCursorPos() + ImVec2(0.0f, 10.0f));
-        controls::vu_meter("##mixer_vu_meter", ImVec2(18.0f, size.y - 20.0f), 2, track->vu_meter);
+        controls::level_meter("##mixer_vu_meter", ImVec2(18.0f, size.y - 20.0f), 2,
+                              track->level_meter, track->level_meter_color);
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
+            ImGui::OpenPopup("LEVEL_METER_MENU");
+        }
         ImGui::SameLine();
+
+        if (ImGui::BeginPopup("LEVEL_METER_MENU")) {
+            ImGui::MenuItem("Color mode", nullptr, nullptr, false);
+            ImGui::Separator();
+
+            bool meter_color_normal = track->level_meter_color == LevelMeterColorMode::Normal;
+            bool meter_color_line = track->level_meter_color == LevelMeterColorMode::Line;
+
+            if (ImGui::MenuItem("Normal", nullptr, &meter_color_normal)) {
+                track->level_meter_color = LevelMeterColorMode::Normal;
+            }
+
+            if (ImGui::MenuItem("Line", nullptr, &meter_color_line)) {
+                track->level_meter_color = LevelMeterColorMode::Line;
+            }
+
+            ImGui::EndPopup();
+        }
 
         ImGui::PopID();
         id++;
