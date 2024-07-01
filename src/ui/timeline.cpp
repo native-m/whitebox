@@ -1297,7 +1297,7 @@ void GuiTimeline::recalculate_song_length() {
     }
 
     if (max_length > 10000.0) {
-        max_length += g_engine.ppq * 4;
+        max_length += g_engine.ppq * 14;
         min_hscroll = min_hscroll * song_length / max_length;
         max_hscroll = max_hscroll * song_length / max_length;
         song_length = max_length;
