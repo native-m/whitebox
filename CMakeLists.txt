@@ -54,6 +54,8 @@ set(WB_SOURCES
     "src/core/types.h"
     "src/core/vector.h"
     
+    "src/engine/assets_table.cpp"
+    "src/engine/assets_table.h"
     "src/engine/audio_io.cpp"
     "src/engine/audio_io.h"
     "src/engine/audio_io_wasapi.cpp"
@@ -68,8 +70,6 @@ set(WB_SOURCES
     "src/engine/sample.cpp"
     "src/engine/sample.h"
     "src/engine/sample_peaks.h"
-    "src/engine/sample_table.cpp"
-    "src/engine/sample_table.h"
     "src/engine/track.cpp"
     "src/engine/track.h"
     "src/engine/vu_meter.h"

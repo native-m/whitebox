@@ -5,7 +5,7 @@
 
 namespace wb {
 
-Vector<MidiNote> load_notes_from_smf0(const std::filesystem::path& path) {
+Vector<MidiNote> load_notes_from_file(const std::filesystem::path& path) {
     std::ifstream file(path, std::ios::binary);
     if (!file.is_open()) {
         return {};

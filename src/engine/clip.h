@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core/common.h"
-#include "sample_table.h"
+#include "assets_table.h"
 #include <atomic>
 #include <imgui.h>
 #include <string>
@@ -33,6 +33,7 @@ struct AudioClip {
 };
 
 struct MidiClip {
+    MidiAsset* asset;
     uint32_t msg;
 };
 

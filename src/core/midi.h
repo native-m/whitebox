@@ -10,7 +10,6 @@ struct MidiNote {
     double min_time;
     double max_time;
     uint32_t id;
-    uint16_t channel;
     uint16_t note_number;
     float velocity;
 };
@@ -21,5 +20,7 @@ struct MidiNoteState {
     float velocity;
 };
 
-Vector<MidiNote> load_notes_from_smf0(const std::filesystem::path& path);
+using MidiNoteBuffer = Vector<MidiNote>;
+
+Vector<MidiNote> load_notes_from_file(const std::filesystem::path& path);
 } // namespace wb
