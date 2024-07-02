@@ -414,12 +414,11 @@ inline void GuiTimeline::render_time_ruler() {
     }
 
     ImFont* font = ImGui::GetFont();
+    ImU32 time_point_color = ImGui::GetColorU32(ImGuiCol_Text);
     double division = math::max(std::exp2(math::round(std::log2(view_scale / 8.0))), 1.0);
-    // Log::debug("{}", division / 4.0);
     double inv_view_scale = 1.0 / view_scale;
     double bar = 4.0 * g_engine.ppq * inv_view_scale;
     float grid_inc_x = (float)(bar * division);
-    // float grid_inc_x = (float)g_engine.ppq * 4.0f / (float)view_scale;
     float inv_grid_inc_x = 1.0f / grid_inc_x;
     float scroll_pos_x = (float)std::round((min_hscroll * song_length) * inv_view_scale);
     float gridline_pos_x = cursor_pos.x - std::fmod(scroll_pos_x, grid_inc_x);
@@ -442,11 +441,12 @@ inline void GuiTimeline::render_time_ruler() {
     uint32_t step = (uint32_t)division;
     for (int i = 0; i <= line_count; i++) {
         char digits[24] {};
+        int bar_point = i + count_offset;
         float rounded_gridline_pos_x = std::round(gridline_pos_x);
-        fmt::format_to_n(digits, sizeof(digits), "{}", (i + count_offset) * step + 1);
+        fmt::format_to_n(digits, sizeof(digits), "{}", bar_point * step + 1);
         draw_list->AddText(ImVec2(rounded_gridline_pos_x + 4.0f,
                                   cursor_pos.y + style.FramePadding.y * 2.0f - 2.0f),
-                           ImGui::GetColorU32(ImGuiCol_Text), digits);
+                           time_point_color, digits);
         draw_list->AddLine(ImVec2(rounded_gridline_pos_x, tick_pos_y - 8.0f),
                            ImVec2(rounded_gridline_pos_x, tick_pos_y - 3.0f), col);
         gridline_pos_x += grid_inc_x;

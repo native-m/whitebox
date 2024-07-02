@@ -188,7 +188,8 @@ void level_meter(const char* str_id, const ImVec2& size, uint32_t count, VUMeter
                             ImVec2(channel_pos_x + 1.0f, level_height + inner_start_y),
                             ImVec2(pos_x - 1.0f, level_start + inner_start_y), range.color);
                     }
-                } break;
+                    break;
+                }
                 case LevelMeterColorMode::Line: {
                     ImU32 color = 0;
                     for (const auto& range : vu_ranges) {
@@ -201,7 +202,8 @@ void level_meter(const char* str_id, const ImVec2& size, uint32_t count, VUMeter
                     draw_list->AddRectFilled(
                         ImVec2(channel_pos_x + 1.0f, level_height + inner_start_y),
                         ImVec2(pos_x - 1.0f, end_pos.y - 1.0f), color);
-                } break;
+                    break;
+                }
             }
         }
     }
