@@ -1,5 +1,6 @@
 #include "midi.h"
 #include "debug.h"
+#include "math.h"
 #include <fstream>
 #include <midi-parser.h>
 
@@ -16,6 +17,14 @@ Vector<MidiNote> load_notes_from_file(const std::filesystem::path& path) {
         return {};
     }
 
+    char magic_code[4];
+    file.read(magic_code, 4);
+    if (std::memcmp(magic_code, "MThd", 4)) {
+        return {};
+    }
+
+    file.seekg(0);
+
     Vector<MidiNote> notes;
     Vector<uint8_t> bytes(size);
     file.read((char*)bytes.data(), size);
@@ -28,6 +37,7 @@ Vector<MidiNote> load_notes_from_file(const std::filesystem::path& path) {
 
     Vector<MidiNoteState> note_state;
     double time_division = 0;
+    double length = 0;
     uint64_t tick = 0;
     bool running = true;
     note_state.resize(128);
@@ -56,14 +66,17 @@ Vector<MidiNote> load_notes_from_file(const std::filesystem::path& path) {
                         if (!state.on) {
                             break;
                         }
+                        double min_time = (double)state.last_tick * time_division;
+                        double max_time = (double)tick * time_division;
                         notes.push_back(MidiNote {
-                            .min_time = (double)state.last_tick * time_division,
-                            .max_time = (double)tick * time_division,
+                            .min_time = min_time,
+                            .max_time = max_time,
                             .note_number = parser.midi.param1,
                             .velocity = state.velocity,
                         });
                         state.on = false;
                         state.last_tick = tick;
+                        length = math::max(length, max_time);
                         break;
                     }
                     default:
@@ -83,6 +96,10 @@ Vector<MidiNote> load_notes_from_file(const std::filesystem::path& path) {
             default:
                 break;
         }
+    }
+
+    if (length < 0) {
+        return {};
     }
 
     return notes;
