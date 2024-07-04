@@ -1038,7 +1038,7 @@ void GuiTimeline::render_track_lanes() {
 
                 g_engine.edit_lock();
                 auto sample_asset =
-                    g_engine.add_audio_clip_from_file(track, file_path, mouse_at_gridline);
+                    g_engine.add_clip_from_file(track, file_path, mouse_at_gridline);
                 if (!sample_asset)
                     Log::info("Failed to add new clip from file");
                 g_engine.edit_unlock();

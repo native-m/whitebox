@@ -37,7 +37,7 @@ struct MidiAsset {
 
 struct SampleTable {
     std::unordered_map<uint64_t, SampleAsset> samples;
-    SampleAsset* load_sample_from_file(const std::filesystem::path& path);
+    SampleAsset* load_from_file(const std::filesystem::path& path);
     void destroy_sample(uint64_t hash);
     void shutdown();
 };
@@ -51,4 +51,5 @@ struct MidiTable {
 };
 
 extern SampleTable g_sample_table;
+extern MidiTable g_midi_table;
 } // namespace wb

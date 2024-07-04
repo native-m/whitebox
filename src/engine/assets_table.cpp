@@ -9,7 +9,7 @@ void SampleAsset::release() {
         sample_table->destroy_sample(hash);
 }
 
-SampleAsset* SampleTable::load_sample_from_file(const std::filesystem::path& path) {
+SampleAsset* SampleTable::load_from_file(const std::filesystem::path& path) {
     size_t hash = std::hash<std::filesystem::path> {}(path);
 
     auto item = samples.find(hash);
@@ -86,6 +86,5 @@ void MidiTable::shutdown() {
 
 SampleTable g_sample_table;
 MidiTable g_midi_table;
-
 
 } // namespace wb
