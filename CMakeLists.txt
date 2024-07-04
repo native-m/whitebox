@@ -61,6 +61,7 @@ set(WB_SOURCES
     "src/engine/audio_io_wasapi.cpp"
     "src/engine/audio_io_pulseaudio.cpp"
     "src/engine/clip.h"
+    "src/engine/clip_edit.h"
     "src/engine/engine.cpp"
     "src/engine/engine.h"
     "src/engine/event.h"

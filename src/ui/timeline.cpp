@@ -4,6 +4,7 @@
 #include "core/color.h"
 #include "core/debug.h"
 #include "core/math.h"
+#include "engine/clip_edit.h"
 #include "engine/engine.h"
 #include "engine/track.h"
 #include "forms.h"
@@ -1067,45 +1068,36 @@ void GuiTimeline::render_track_lanes() {
         double min_time = edited_clip->min_time;
         double max_time = edited_clip->max_time;
         double start_sample_pos = (double)edited_clip->audio.start_sample_pos;
+        double relative_pos = mouse_at_gridline - initial_time_pos;
 
         switch (edit_action) {
             case TimelineEditAction::ClipMove: {
-                double new_min_time =
-                    std::max(min_time + mouse_at_gridline - initial_time_pos, 0.0);
-                max_time = new_min_time + (max_time - min_time);
+                auto [new_min_time, new_max_time] = calc_move_clip(edited_clip, relative_pos);
                 min_time = new_min_time;
+                max_time = new_max_time;
                 break;
             }
             case TimelineEditAction::ClipResizeLeft: {
-                double old_min = min_time;
-                min_time = std::max(min_time + mouse_at_gridline - initial_time_pos, 0.0);
-                if (min_time >= max_time)
-                    min_time = max_time - (1.0 / grid_scale);
-
-                double rel_offset = edited_clip->relative_start_time;
-                double old_rel_offset = rel_offset;
-                if (old_min < min_time)
-                    rel_offset -= old_min - min_time;
-                else
-                    rel_offset += min_time - old_min;
-                if (rel_offset < 0.0)
-                    min_time = min_time - rel_offset;
-                rel_offset = std::max(rel_offset, 0.0);
-                hovered_track_y = edited_track_pos_y;
-
+                double min_length = 1.0 / grid_scale;
+                auto [new_min_time, new_max_time, rel_offset] =
+                    calc_resize_clip(edited_clip, relative_pos, min_length, true);
                 if (edited_clip->type == ClipType::Audio) {
                     SampleAsset* asset = edited_clip->audio.asset;
                     start_sample_pos = beat_to_samples(
                         rel_offset, (double)asset->sample_instance.sample_rate, beat_duration);
                 }
-                break;
-            }
-            case TimelineEditAction::ClipResizeRight:
-                max_time = std::max(max_time + mouse_at_gridline - initial_time_pos, 0.0);
-                if (max_time <= min_time)
-                    max_time = min_time + (1.0 / grid_scale);
+                min_time = new_min_time;
                 hovered_track_y = edited_track_pos_y;
                 break;
+            }
+            case TimelineEditAction::ClipResizeRight: {
+                double min_length = 1.0 / grid_scale;
+                auto [new_min_time, new_max_time, rel_offset] =
+                    calc_resize_clip(edited_clip, relative_pos, min_length, false);
+                max_time = new_max_time;
+                hovered_track_y = edited_track_pos_y;
+                break;
+            }
             case TimelineEditAction::ClipDuplicate: {
                 float highlight_pos = (float)mouse_at_gridline; // Snap to grid
                 float length = (float)(edited_clip->max_time - edited_clip->min_time);
