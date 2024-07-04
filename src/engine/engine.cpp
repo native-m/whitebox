@@ -116,24 +116,30 @@ void Engine::solo_track(uint32_t slot) {
     }
 }
 
-Clip* Engine::add_audio_clip_from_file(Track* track, const std::filesystem::path& path,
-                                       double min_time) {
-    SampleAsset* asset = g_sample_table.load_sample_from_file(path);
-    if (!asset)
-        return nullptr;
+Clip* Engine::add_clip_from_file(Track* track, const std::filesystem::path& path, double min_time) {
+    bool is_midi = false;
+    Clip* clip = nullptr;
 
-    double sample_rate = (double)asset->sample_instance.sample_rate;
-    double clip_length = samples_to_beat(asset->sample_instance.count, sample_rate, beat_duration);
-    double max_time = min_time + math::uround(clip_length * ppq) / ppq;
+    if (SampleAsset* sample_asset = g_sample_table.load_from_file(path)) {
+        double sample_rate = (double)sample_asset->sample_instance.sample_rate;
+        double clip_length =
+            samples_to_beat(sample_asset->sample_instance.count, sample_rate, beat_duration);
+        double max_time = min_time + math::uround(clip_length * ppq) / ppq;
+        clip = track->add_audio_clip(path.filename().string(), min_time, max_time,
+                                     {.asset = sample_asset}, beat_duration);
+        if (!clip) {
+            sample_asset->release();
+            return nullptr;
+        }
 
-    Clip* clip = track->add_audio_clip(path.filename().string(), min_time, max_time,
-                                       {.asset = asset}, beat_duration);
-    if (!clip) {
-        asset->release();
-        return nullptr;
+        return clip;
+    }
+    
+    if (MidiAsset* midi_asset = g_midi_table.load_from_file(path)) {
+        assert(false && "Unimplemented");
     }
 
-    return clip;
+    return nullptr;
 }
 
 void Engine::delete_clip(Track* track, Clip* clip) {

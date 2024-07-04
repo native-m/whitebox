@@ -5,9 +5,9 @@
 #include "core/audio_buffer.h"
 #include "core/memory.h"
 #include "core/vector.h"
-#include "vu_meter.h"
 #include "event.h"
 #include "param_changes.h"
+#include "vu_meter.h"
 #include <imgui.h>
 #include <unordered_set>
 
@@ -56,7 +56,8 @@ struct Track {
     TrackParameterState ui_parameter_state {}; // UI-side state
     TrackParameterState parameter_state {};    // Audio-side state
     ParamChanges param_changes;
-    ConcurrentQueue<ParamChange> ui_param_changes; // This handles UI to audio thread parameter state transfer
+    ConcurrentQueue<ParamChange>
+        ui_param_changes; // This handles UI to audio thread parameter state transfer
 
     Track();
     Track(const std::string& name, const ImColor& color, float height, bool shown,
@@ -79,6 +80,19 @@ struct Track {
      */
     Clip* add_audio_clip(const std::string& name, double min_time, double max_time,
                          const AudioClip& clip_info, double beat_duration);
+
+    /**
+     * @brief Add midi clip into the track.
+     *
+     * @param name Name of the clip.
+     * @param min_time Start time in beats.
+     * @param max_time End time in beats.
+     * @param clip_info Audio clip data.
+     * @param beat_duration Duration of the beat in seconds.
+     * @return A pointer to the new clip.
+     */
+    Clip* add_midi_clip(const std::string& name, double min_time, double max_time,
+                        const MidiClip& clip_info, double beat_duration);
 
     /**
      * @brief Create a new clip from existing clip.

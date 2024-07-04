@@ -29,7 +29,7 @@ bool ProjectFile::read_project(Engine& engine, SampleTable& sample_table) {
     for (size_t i = 0; i < sample_count; i++) {
         std::string sample_file;
         read_text_(sample_file);
-        auto sample = sample_table.load_sample_from_file(sample_file);
+        auto sample = sample_table.load_from_file(sample_file);
         sample->ref_count = 0; // Begin with 0 to prevent the memory leak
         sample_asset.push_back(sample);
     }
