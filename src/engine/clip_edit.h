@@ -57,4 +57,10 @@ static inline ClipResizeResult calc_resize_clip(Clip* clip, double relative_pos,
         .rel_offset = math::max(rel_offset, 0.0),
     };
 }
+
+static inline double calc_shift_clip(Clip* clip, double relative_pos) {
+    double rel_offset = clip->relative_start_time;
+    return math::max(rel_offset - relative_pos, 0.0);
+}
+
 } // namespace wb

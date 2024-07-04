@@ -984,12 +984,17 @@ void GuiTimeline::render_track_lanes() {
                     ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
                     current_hover_state = ClipHover::RightHandle;
                 } else if (clip_rect.Contains(mouse_pos)) {
-                    if (left_mouse_clicked)
-                        edit_action = !ImGui::IsKeyDown(ImGuiKey_LeftShift)
-                                          ? TimelineEditAction::ClipMove
-                                          : TimelineEditAction::ClipDuplicate;
-                    else if (right_mouse_clicked)
+                    if (left_mouse_clicked) {
+                        if (ImGui::IsKeyDown(ImGuiKey_LeftShift)) {
+                            edit_action = TimelineEditAction::ClipDuplicate;
+                        } else if (ImGui::IsKeyDown(ImGuiKey_ModAlt)) {
+                            edit_action = TimelineEditAction::ClipShift;
+                        } else {
+                            edit_action = TimelineEditAction::ClipMove;
+                        }
+                    } else if (right_mouse_clicked) {
                         edit_action = TimelineEditAction::ShowClipContextMenu;
+                    }
                     ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
                     current_hover_state = ClipHover::All;
                 }
@@ -1098,6 +1103,15 @@ void GuiTimeline::render_track_lanes() {
                 hovered_track_y = edited_track_pos_y;
                 break;
             }
+            case TimelineEditAction::ClipShift: {
+                double rel_offset = calc_shift_clip(edited_clip, relative_pos);
+                if (edited_clip->type == ClipType::Audio) {
+                    SampleAsset* asset = edited_clip->audio.asset;
+                    start_sample_pos = beat_to_samples(
+                        rel_offset, (double)asset->sample_instance.sample_rate, beat_duration);
+                }
+                break;
+            }
             case TimelineEditAction::ClipDuplicate: {
                 float highlight_pos = (float)mouse_at_gridline; // Snap to grid
                 float length = (float)(edited_clip->max_time - edited_clip->min_time);
@@ -1167,11 +1181,11 @@ void GuiTimeline::render_track_lanes() {
 
     // Release edit action
     if (edit_action != TimelineEditAction::None) {
+        double relative_pos = mouse_at_gridline - initial_time_pos;
         g_engine.edit_lock();
         switch (edit_action) {
             case TimelineEditAction::ClipMove:
                 if (!left_mouse_down) {
-                    double relative_pos = mouse_at_gridline - initial_time_pos;
                     if (edited_track == hovered_track) {
                         edited_track->move_clip(edited_clip, relative_pos, beat_duration);
                     } else if (hovered_track != nullptr) {
@@ -1189,7 +1203,6 @@ void GuiTimeline::render_track_lanes() {
                 break;
             case TimelineEditAction::ClipResizeLeft:
                 if (!left_mouse_down) {
-                    double relative_pos = mouse_at_gridline - initial_time_pos;
                     edited_track->resize_clip(edited_clip, relative_pos, 1.0 / grid_scale,
                                               beat_duration, true);
                     finish_edit_action();
@@ -1199,13 +1212,26 @@ void GuiTimeline::render_track_lanes() {
                 break;
             case TimelineEditAction::ClipResizeRight:
                 if (!left_mouse_down) {
-                    double relative_pos = mouse_at_gridline - initial_time_pos;
                     edited_track->resize_clip(edited_clip, relative_pos, 1.0 / grid_scale,
                                               beat_duration, false);
                     finish_edit_action();
                     force_redraw = true;
                 }
                 ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+                break;
+            case TimelineEditAction::ClipShift:
+                if (!left_mouse_down) {
+                    double rel_offset = calc_shift_clip(edited_clip, relative_pos);
+                    edited_clip->relative_start_time = rel_offset;
+                    if (edited_clip->type == ClipType::Audio) {
+                        SampleAsset* asset = edited_clip->audio.asset;
+                        edited_clip->audio.start_sample_pos = beat_to_samples(
+                            rel_offset, (double)asset->sample_instance.sample_rate, beat_duration);
+                    }
+                    finish_edit_action();
+                    force_redraw = true;
+                }
+                ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
                 break;
             case TimelineEditAction::ClipDuplicate:
                 if (!left_mouse_down) {

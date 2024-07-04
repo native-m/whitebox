@@ -13,6 +13,7 @@ enum class TimelineEditAction {
     ClipMove,
     ClipResizeLeft,
     ClipResizeRight,
+    ClipShift,
     ClipDuplicate,
     ShowClipContextMenu,
 };
