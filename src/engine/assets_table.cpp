@@ -56,14 +56,11 @@ MidiAsset* MidiTable::load_from_file(const std::filesystem::path& path) {
     if (buffer.size() > 0) {
         return nullptr;
     }
-
     MidiAsset* asset = create_midi();
     if (!asset) {
         return nullptr;
     }
-
     asset->channels[0] = std::move(buffer);
-
     return asset;
 }
 

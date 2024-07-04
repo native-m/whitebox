@@ -3,6 +3,7 @@
 #include "core/common.h"
 #include "core/vector.h"
 #include "core/memory.h"
+#include "core/midi.h"
 #include "sample.h"
 #include <filesystem>
 #include <optional>
@@ -30,7 +31,9 @@ struct MidiAsset {
     static constexpr uint32_t max_channels = 16;
     MidiTable* midi_table;
     std::array<MidiNoteBuffer, max_channels> channels;
+    double max_length;
     uint32_t ref_count = 1;
+
     inline void add_ref() noexcept { ++ref_count; }
     void release();
 };

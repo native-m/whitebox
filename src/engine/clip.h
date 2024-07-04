@@ -106,8 +106,9 @@ struct Clip {
         audio = clip_info;
     }
 
-    inline void as_midi_clip() {
+    inline void init_as_midi_clip(const MidiClip& clip_info) {
         type = ClipType::Midi;
+        midi = clip_info;
     }
 
     inline void mark_deleted() { deleted.store(true, std::memory_order_release); }
