@@ -2,7 +2,7 @@
 
 #include "core/common.h"
 #include "engine.h"
-#include "sample_table.h"
+#include "assets_table.h"
 #include <fstream>
 
 namespace wb {

@@ -2,7 +2,8 @@
 #include "core/debug.h"
 #include "core/math.h"
 #include "core/queue.h"
-#include "sample_table.h"
+#include "assets_table.h"
+#include "clip_edit.h"
 #include <algorithm>
 
 #ifndef _NDEBUG
@@ -94,6 +95,18 @@ Clip* Track::add_audio_clip(const std::string& name, double min_time, double max
     return clip;
 }
 
+Clip* Track::add_midi_clip(const std::string& name, double min_time, double max_time,
+                           const MidiClip& clip_info, double beat_duration) {
+    Clip* clip = (Clip*)clip_allocator.allocate();
+    if (!clip)
+        return nullptr;
+    new (clip) Clip(name, color, min_time, max_time);
+    clip->init_as_midi_clip(clip_info);
+    clips.push_back(clip);
+    update(clip, beat_duration);
+    return clip;
+}
+
 Clip* Track::duplicate_clip(Clip* clip_to_duplicate, double min_time, double max_time,
                             double beat_duration) {
     Clip* clip = (Clip*)clip_allocator.allocate();
@@ -110,9 +123,12 @@ Clip* Track::duplicate_clip(Clip* clip_to_duplicate, double min_time, double max
 void Track::move_clip(Clip* clip, double relative_pos, double beat_duration) {
     if (relative_pos == 0.0)
         return;
-    double new_pos = std::max(clip->min_time + relative_pos, 0.0);
+    auto [min_time, max_time] = calc_move_clip(clip, relative_pos);
+    clip->min_time = min_time;
+    clip->max_time = max_time;
+    /*double new_pos = std::max(clip->min_time + relative_pos, 0.0);
     clip->max_time = new_pos + (clip->max_time - clip->min_time);
-    clip->min_time = new_pos;
+    clip->min_time = new_pos;*/
     update(clip, beat_duration);
 }
 
@@ -121,26 +137,12 @@ void Track::resize_clip(Clip* clip, double relative_pos, double min_length, doub
     if (relative_pos == 0.0)
         return;
 
+    auto [min_time, max_time, rel_offset] =
+        calc_resize_clip(clip, relative_pos, min_length, is_min);
+
     if (is_min) {
-        // Compute new minimum time
-        double old_min = clip->min_time;
-        double new_min = std::max(clip->min_time + relative_pos, 0.0);
-        if (new_min >= clip->max_time)
-            new_min = clip->max_time - min_length;
-
-        double rel_offset = clip->relative_start_time;
-        if (old_min < new_min)
-            rel_offset -= old_min - new_min;
-        else
-            rel_offset += new_min - old_min;
-
-        if (rel_offset < 0.0)
-            new_min = new_min - rel_offset;
-
-        clip->min_time = new_min;
-        clip->relative_start_time = std::max(rel_offset, 0.0);
-
-        // For audio, we also need to adjust the sample starting point
+        clip->min_time = min_time;
+        clip->relative_start_time = rel_offset;
         if (clip->type == ClipType::Audio) {
             SampleAsset* asset = clip->audio.asset;
             clip->audio.start_sample_pos =
@@ -148,10 +150,7 @@ void Track::resize_clip(Clip* clip, double relative_pos, double min_length, doub
                                 (double)asset->sample_instance.sample_rate, beat_duration);
         }
     } else {
-        double new_max = std::max(clip->max_time + relative_pos, 0.0);
-        if (new_max <= clip->min_time)
-            new_max = clip->min_time + min_length;
-        clip->max_time = new_max;
+        clip->max_time = max_time;
     }
 
     update(clip, beat_duration);
