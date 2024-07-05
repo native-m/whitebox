@@ -27,7 +27,7 @@ enum class ClipHover {
 
 struct AudioClip {
     SampleAsset* asset;
-    double start_sample_pos;
+    double sample_offset;
     double fade_start;
     double fade_end;
 };
@@ -114,6 +114,10 @@ struct Clip {
     inline void mark_deleted() { deleted.store(true, std::memory_order_release); }
 
     inline bool is_deleted() const { return deleted.load(std::memory_order_relaxed); }
+
+    inline bool is_audio() const { return type == ClipType::Audio; }
+
+    inline bool is_midi() const { return type == ClipType::Midi; }
 };
 
 } // namespace wb

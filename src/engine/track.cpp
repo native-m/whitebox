@@ -145,7 +145,7 @@ void Track::resize_clip(Clip* clip, double relative_pos, double min_length, doub
         clip->relative_start_time = rel_offset;
         if (clip->type == ClipType::Audio) {
             SampleAsset* asset = clip->audio.asset;
-            clip->audio.start_sample_pos =
+            clip->audio.sample_offset =
                 beat_to_samples(clip->relative_start_time,
                                 (double)asset->sample_instance.sample_rate, beat_duration);
         }
@@ -192,7 +192,7 @@ void Track::update(Clip* updated_clip, double beat_duration) {
 
                         if (clip->type == ClipType::Audio) {
                             SampleAsset* asset = clip->audio.asset;
-                            clip->audio.start_sample_pos = beat_to_samples(
+                            clip->audio.sample_offset = beat_to_samples(
                                 clip->relative_start_time,
                                 (double)asset->sample_instance.sample_rate, beat_duration);
                         }
@@ -296,7 +296,7 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
         if (time_pos >= min_time && time_pos < max_time) {
             double relative_start_time = time_pos - min_time;
             double sample_pos = beat_to_samples(relative_start_time, sample_rate, beat_duration);
-            uint64_t sample_offset = (uint64_t)(sample_pos + next_clip->audio.start_sample_pos);
+            uint64_t sample_offset = (uint64_t)(sample_pos + next_clip->audio.sample_offset);
 
             event_buffer.push_back({
                 .type = EventType::PlaySample,
