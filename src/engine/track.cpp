@@ -1,9 +1,9 @@
 #include "track.h"
+#include "assets_table.h"
+#include "clip_edit.h"
 #include "core/debug.h"
 #include "core/math.h"
 #include "core/queue.h"
-#include "assets_table.h"
-#include "clip_edit.h"
 #include <algorithm>
 
 #ifndef _NDEBUG
@@ -269,11 +269,13 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
     if (current_clip) {
         double max_time = math::uround(current_clip->max_time * ppq) * inv_ppq;
         if (time_pos >= max_time || current_clip->is_deleted()) {
-            event_buffer.push_back({
-                .type = EventType::StopSample,
-                .buffer_offset = buffer_offset,
-                .time = time_pos,
-            });
+            if (current_clip->is_audio()) {
+                event_buffer.push_back({
+                    .type = EventType::StopSample,
+                    .buffer_offset = buffer_offset,
+                    .time = time_pos,
+                });
+            }
             playback_state.current_clip = nullptr;
         }
     }
@@ -291,23 +293,34 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
     if (next_clip) {
         double min_time = math::uround(next_clip->min_time * ppq) * inv_ppq;
         double max_time = math::uround(next_clip->max_time * ppq) * inv_ppq;
-        assert(next_clip->type == ClipType::Audio);
 
         if (time_pos >= min_time && time_pos < max_time) {
             double relative_start_time = time_pos - min_time;
-            double sample_pos = beat_to_samples(relative_start_time, sample_rate, beat_duration);
-            uint64_t sample_offset = (uint64_t)(sample_pos + next_clip->audio.sample_offset);
 
-            event_buffer.push_back({
-                .type = EventType::PlaySample,
-                .buffer_offset = buffer_offset,
-                .time = time_pos,
-                .audio =
-                    {
-                        .sample_offset = sample_offset,
-                        .sample = &next_clip->audio.asset->sample_instance,
-                    },
-            });
+            switch (next_clip->type) {
+                case ClipType::Audio: {
+                    double sample_pos =
+                        beat_to_samples(relative_start_time, sample_rate, beat_duration);
+                    uint64_t sample_offset =
+                        (uint64_t)(sample_pos + next_clip->audio.sample_offset);
+                    event_buffer.push_back({
+                        .type = EventType::PlaySample,
+                        .buffer_offset = buffer_offset,
+                        .time = time_pos,
+                        .audio =
+                            {
+                                .sample_offset = sample_offset,
+                                .sample = &next_clip->audio.asset->sample_instance,
+                            },
+                    });
+                    break;
+                }
+                case ClipType::Midi: {
+                    break;
+                }
+                default:
+                    break;
+            }
 
             auto new_next_clip = clips.begin() + (next_clip->id + 1);
             if (new_next_clip != clips.end()) {

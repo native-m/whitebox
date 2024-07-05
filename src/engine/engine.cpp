@@ -136,7 +136,14 @@ Clip* Engine::add_clip_from_file(Track* track, const std::filesystem::path& path
     }
     
     if (MidiAsset* midi_asset = g_midi_table.load_from_file(path)) {
-        assert(false && "Unimplemented");
+        clip = track->add_midi_clip("", min_time, min_time + midi_asset->data.max_length,
+                                    {.asset = midi_asset}, beat_duration);
+        if (!clip) {
+            midi_asset->release();
+            return nullptr;
+        }
+
+        return clip;
     }
 
     return nullptr;

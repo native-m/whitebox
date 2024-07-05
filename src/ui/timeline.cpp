@@ -41,6 +41,7 @@ inline void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list
     float font_size = font->FontSize;
     float clip_title_max_y = track_pos_y + font_size + 4.0f;
     ImColor bg_color = color_adjust_alpha(clip->color, 0.35f);
+    ImU32 content_color = color_brighten(clip->color, 0.85f);
     ImVec2 clip_title_min_bb(min_x2, track_pos_y);
     ImVec2 clip_title_max_bb(max_x2, clip_title_max_y);
     ImVec2 clip_content_min(min_x2, clip_title_max_y);
@@ -61,83 +62,123 @@ inline void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list
         ImVec2(std::max(clip_title_min_bb.x, min_draw_x) + 4.0f, track_pos_y + 2.0f),
         text_color_adjusted, str, str + clip->name.size(), 0.0f, &clip_label_rect);
 
-    SampleAsset* asset = clip->audio.asset;
     static constexpr double log_base4 = 1.0 / 1.3862943611198906; // 1.0 / log(4.0)
-    if (asset) {
-        SamplePeaks* sample_peaks = asset->peaks.get();
-        double scale_x = sample_scale * (double)asset->sample_instance.sample_rate;
-        double inv_scale_x = 1.0 / scale_x;
-        double mip_index = (std::log(scale_x * 0.5) * log_base4) * 0.5; // Scale -> Index
-        uint32_t index = std::clamp((uint32_t)mip_index, 0u, sample_peaks->mipmap_count - 1);
-        double mult = std::pow(4.0, (double)index - 1.0);
-        double mip_scale =
-            std::pow(4.0, 2.0 * (mip_index - (double)index)) * 8.0 * mult; // Index -> Mip Scale
-        // double mip_index = std::log(scale_x * 0.5) * log_base4; // Scale -> Index
-        // double mip_scale = std::pow(4.0, (mip_index - (double)index)) * 2.0; // Index -> Mip
-        // Scale
+    switch (clip->type) {
+        case ClipType::Audio: {
+            SampleAsset* asset = clip->audio.asset;
+            if (asset) {
+                SamplePeaks* sample_peaks = asset->peaks.get();
+                double scale_x = sample_scale * (double)asset->sample_instance.sample_rate;
+                double inv_scale_x = 1.0 / scale_x;
+                double mip_index = (std::log(scale_x * 0.5) * log_base4) * 0.5; // Scale -> Index
+                uint32_t index =
+                    std::clamp((uint32_t)mip_index, 0u, sample_peaks->mipmap_count - 1);
+                double mult = std::pow(4.0, (double)index - 1.0);
+                double mip_scale = std::pow(4.0, 2.0 * (mip_index - (double)index)) * 8.0 *
+                                   mult; // Index -> Mip Scale
+                // double mip_index = std::log(scale_x * 0.5) * log_base4; // Scale -> Index
+                // double mip_scale = std::pow(4.0, (mip_index - (double)index)) * 2.0; // Index ->
+                // Mip Scale
 
-        double waveform_start = sample_offset * inv_scale_x;
-        double waveform_len =
-            ((double)asset->sample_instance.count - sample_offset) * inv_scale_x;
-        double rel_min_x = min_x - (double)min_draw_x;
-        double rel_max_x = max_x - (double)min_draw_x;
-        double min_pos_x = math::max(rel_min_x, 0.0);
-        double max_pos_x = math::min(math::min(rel_max_x, rel_min_x + waveform_len),
-                                     (double)(timeline_width + 2.0));
-        double draw_count = math::max(max_pos_x - min_pos_x, 0.0);
-        double start_idx = math::max(-rel_min_x, 0.0) + waveform_start;
+                double waveform_start = sample_offset * inv_scale_x;
+                double waveform_len =
+                    ((double)asset->sample_instance.count - sample_offset) * inv_scale_x;
+                double rel_min_x = min_x - (double)min_draw_x;
+                double rel_max_x = max_x - (double)min_draw_x;
+                double min_pos_x = math::max(rel_min_x, 0.0);
+                double max_pos_x = math::min(math::min(rel_max_x, rel_min_x + waveform_len),
+                                             (double)(timeline_width + 2.0));
+                double draw_count = math::max(max_pos_x - min_pos_x, 0.0);
+                double start_idx = math::max(-rel_min_x, 0.0) + waveform_start;
 
-        if (draw_count) {
-            ImU32 content_color = color_brighten(clip->color, 0.85f);
-
-            clip_content_cmds.push_back({
-                .peaks = sample_peaks,
-                .min_bb = ImVec2(math::round((float)min_pos_x), clip_content_min.y - offset_y),
-                .max_bb = ImVec2(math::round((float)max_pos_x), clip_content_max.y - offset_y),
-                .color = content_color,
-                .scale_x = (float)mip_scale,
-                .mip_index = index,
-                .start_idx = (uint32_t)math::round(start_idx),
-                .draw_count = (uint32_t)draw_count + 2,
-            });
-
-            layer2_draw_list->PushClipRect(clip_content_min, clip_content_max, true);
-            // layer2_draw_list->AddLine(clip_content_min, clip_content_max, border_color, 3.5f);
-            // layer2_draw_list->AddLine(clip_content_min, clip_content_max, content_color, 1.5f);
-
-            if (clip->hover_state == ClipHover::All) {
-                layer2_draw_list->AddCircle(clip_content_min, 6.0f, border_color, 0, 3.5f);
-                layer2_draw_list->AddCircleFilled(clip_content_min, 6.0f, content_color);
-                layer2_draw_list->AddCircle(ImVec2(clip_content_max.x, clip_content_min.y), 6.0f,
-                                            border_color, 0, 3.5f);
-                layer2_draw_list->AddCircleFilled(ImVec2(clip_content_max.x, clip_content_min.y),
-                                                  6.0f, content_color);
-            }
-
-            layer2_draw_list->PopClipRect();
-
-            if (clip->hover_state != ClipHover::None) {
-                switch (clip->hover_state) {
-                    case ClipHover::LeftHandle: {
-                        ImVec2 min_bb(min_x, track_pos_y);
-                        ImVec2 max_bb(max_x, track_pos_y + track_height);
-                        layer2_draw_list->AddLine(ImVec2(min_bb.x + 1.0f, min_bb.y),
-                                                  ImVec2(min_bb.x + 1.0f, max_bb.y),
-                                                  ImGui::GetColorU32(ImGuiCol_ButtonActive), 3.0f);
-                        break;
-                    }
-                    case ClipHover::RightHandle: {
-                        ImVec2 min_bb(min_x, track_pos_y);
-                        ImVec2 max_bb(max_x, track_pos_y + track_height);
-                        layer2_draw_list->AddLine(ImVec2(max_bb.x - 2.0f, min_bb.y),
-                                                  ImVec2(max_bb.x - 2.0f, max_bb.y),
-                                                  ImGui::GetColorU32(ImGuiCol_ButtonActive), 3.0f);
-                        break;
-                    }
-                    default:
-                        break;
+                if (draw_count) {
+                    clip_content_cmds.push_back({
+                        .peaks = sample_peaks,
+                        .min_bb =
+                            ImVec2(math::round((float)min_pos_x), clip_content_min.y - offset_y),
+                        .max_bb =
+                            ImVec2(math::round((float)max_pos_x), clip_content_max.y - offset_y),
+                        .color = content_color,
+                        .scale_x = (float)mip_scale,
+                        .mip_index = index,
+                        .start_idx = (uint32_t)math::round(start_idx),
+                        .draw_count = (uint32_t)draw_count + 2,
+                    });
                 }
             }
+            break;
+        }
+        case ClipType::Midi: {
+            MidiAsset* asset = clip->midi.asset;
+            uint32_t min_note = asset->data.min_note;
+            uint32_t max_note = asset->data.max_note;
+            uint32_t view_height = (asset->data.max_note + 1) - min_note;
+            if (view_height < 4)
+                view_height = 12;
+            float note_height = (clip_content_max.y - clip_content_min.y) / (float)view_height;
+            float max_draw_x = min_draw_x + timeline_width;
+            if (asset) {
+                uint32_t channel_count = asset->data.channel_count;
+                for (uint32_t i = 0; i < channel_count; i++) {
+                    const MidiNoteBuffer& buffer = asset->data.channels[i];
+                    for (size_t j = 0; j < buffer.size(); j++) {
+                        const MidiNote& note = buffer[j];
+                        float pos_y = (float)(max_note - note.note_number) * note_height;
+                        float min_pos_x = min_x2 + (float)math::round(note.min_time * clip_scale);
+                        float max_pos_x = min_x2 + (float)math::round(note.max_time * clip_scale);
+                        if (min_pos_x > max_draw_x)
+                            break;
+                        if (max_pos_x < min_draw_x)
+                            continue;
+                        ImVec2 a(min_pos_x + 0.25f, clip_content_min.y + pos_y);
+                        ImVec2 b(max_pos_x - 0.25f, a.y + note_height);
+                        layer1_draw_list->PathLineTo(a);
+                        layer1_draw_list->PathLineTo(ImVec2(b.x, a.y));
+                        layer1_draw_list->PathLineTo(b);
+                        layer1_draw_list->PathLineTo(ImVec2(a.x, b.y));
+                        layer1_draw_list->PathFillConvex(content_color);
+                    }
+                }
+            }
+            break;
+        }
+    }
+
+    layer2_draw_list->PushClipRect(clip_content_min, clip_content_max, true);
+    // layer2_draw_list->AddLine(clip_content_min, clip_content_max, border_color, 3.5f);
+    // layer2_draw_list->AddLine(clip_content_min, clip_content_max, content_color, 1.5f);
+
+    if (clip->hover_state == ClipHover::All) {
+        layer2_draw_list->AddCircle(clip_content_min, 6.0f, border_color, 0, 3.5f);
+        layer2_draw_list->AddCircleFilled(clip_content_min, 6.0f, content_color);
+        layer2_draw_list->AddCircle(ImVec2(clip_content_max.x, clip_content_min.y), 6.0f,
+                                    border_color, 0, 3.5f);
+        layer2_draw_list->AddCircleFilled(ImVec2(clip_content_max.x, clip_content_min.y), 6.0f,
+                                          content_color);
+    }
+
+    layer2_draw_list->PopClipRect();
+
+    if (clip->hover_state != ClipHover::None) {
+        switch (clip->hover_state) {
+            case ClipHover::LeftHandle: {
+                ImVec2 min_bb(min_x, track_pos_y);
+                ImVec2 max_bb(max_x, track_pos_y + track_height);
+                layer2_draw_list->AddLine(ImVec2(min_bb.x + 1.0f, min_bb.y),
+                                          ImVec2(min_bb.x + 1.0f, max_bb.y),
+                                          ImGui::GetColorU32(ImGuiCol_ButtonActive), 3.0f);
+                break;
+            }
+            case ClipHover::RightHandle: {
+                ImVec2 min_bb(min_x, track_pos_y);
+                ImVec2 max_bb(max_x, track_pos_y + track_height);
+                layer2_draw_list->AddLine(ImVec2(max_bb.x - 2.0f, min_bb.y),
+                                          ImVec2(max_bb.x - 2.0f, max_bb.y),
+                                          ImGui::GetColorU32(ImGuiCol_ButtonActive), 3.0f);
+                break;
+            }
+            default:
+                break;
         }
     }
 }
@@ -794,7 +835,7 @@ void GuiTimeline::render_track_lanes() {
 
     if (auto payload = ImGui::GetDragDropPayload()) {
         if (payload->IsDataType("WB_FILEDROP")) {
-            redraw = true;   
+            redraw = true;
         }
     }
 
@@ -1167,7 +1208,7 @@ void GuiTimeline::render_track_lanes() {
         layer_draw_data.AddDrawList(layer1_draw_list);
         g_renderer->render_draw_data(&layer_draw_data);
 
-        g_renderer->draw_clip_content(clip_content_cmds);
+        g_renderer->draw_waveforms(clip_content_cmds);
 
         layer_draw_data.Clear();
         layer_draw_data.DisplayPos = view_min;
