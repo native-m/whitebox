@@ -70,7 +70,7 @@ void App::run() {
             }
         }
 
-        ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(),
+        ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(),
                                      ImGuiDockNodeFlags_PassthruCentralNode);
 
         ImVec2 frame_padding = GImGui->Style.FramePadding;
