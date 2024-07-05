@@ -781,8 +781,7 @@ void GuiTimeline::render_track_lanes() {
     bool dragging_file = false;
     BrowserFilePayload item_drop {};
     if (ImGui::BeginDragDropTarget()) {
-        constexpr ImGuiDragDropFlags drag_drop_flags =
-            ImGuiDragDropFlags_AcceptPeekOnly | ImGuiDragDropFlags_AcceptNoDrawDefaultRect;
+        constexpr ImGuiDragDropFlags drag_drop_flags = ImGuiDragDropFlags_AcceptPeekOnly;
         if (ImGui::AcceptDragDropPayload("WB_FILEDROP", drag_drop_flags)) {
             auto drop_payload = ImGui::AcceptDragDropPayload(
                 "WB_FILEDROP", ImGuiDragDropFlags_AcceptNoDrawDefaultRect);
@@ -790,8 +789,13 @@ void GuiTimeline::render_track_lanes() {
                 std::memcpy(&item_drop, drop_payload->Data, drop_payload->DataSize);
             dragging_file = true;
         }
-        redraw = true;
         ImGui::EndDragDropTarget();
+    }
+
+    if (auto payload = ImGui::GetDragDropPayload()) {
+        if (payload->IsDataType("WB_FILEDROP")) {
+            redraw = true;   
+        }
     }
 
     float timeline_end_x = timeline_view_pos.x + timeline_width;
@@ -1034,9 +1038,6 @@ void GuiTimeline::render_track_lanes() {
                        track_pos_y + height),
                 ImGui::GetColorU32(ImGuiCol_Border));
 
-            if (item_drop.item)
-                force_redraw = true;
-
             // We have file dropped
             if (item_drop.item) {
                 std::filesystem::path file_path =
@@ -1050,6 +1051,7 @@ void GuiTimeline::render_track_lanes() {
                 g_engine.edit_unlock();
 
                 Log::info("Dropped at: {}", mouse_at_gridline);
+                force_redraw = true;
             }
         }
 
