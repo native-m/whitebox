@@ -3,10 +3,11 @@
 #include "math.h"
 #include <fstream>
 #include <midi-parser.h>
+#include <limits>
 
 namespace wb {
 
-Vector<MidiNote> load_notes_from_file(const std::filesystem::path& path) {
+bool load_notes_from_file(MidiData& result, const std::filesystem::path& path) {
     std::ifstream file(path, std::ios::binary);
     if (!file.is_open()) {
         return {};
@@ -39,6 +40,8 @@ Vector<MidiNote> load_notes_from_file(const std::filesystem::path& path) {
     double time_division = 0;
     double length = 0;
     uint64_t tick = 0;
+    uint32_t min_note = std::numeric_limits<uint32_t>::max();
+    uint32_t max_note = 0u;
     bool running = true;
     note_state.resize(128);
 
@@ -76,6 +79,8 @@ Vector<MidiNote> load_notes_from_file(const std::filesystem::path& path) {
                         });
                         state.on = false;
                         state.last_tick = tick;
+                        min_note = math::min((uint32_t)parser.midi.param1, min_note);
+                        max_note = math::max((uint32_t)parser.midi.param1, max_note);
                         length = math::max(length, max_time);
                         break;
                     }
@@ -102,6 +107,11 @@ Vector<MidiNote> load_notes_from_file(const std::filesystem::path& path) {
         return {};
     }
 
-    return notes;
+    result.max_length = length;
+    result.min_note = min_note;
+    result.max_note = max_note;
+    result.add_channel(std::move(notes));
+
+    return true;
 }
 } // namespace wb

@@ -28,10 +28,8 @@ struct SampleAsset {
 };
 
 struct MidiAsset {
-    static constexpr uint32_t max_channels = 16;
     MidiTable* midi_table;
-    std::array<MidiNoteBuffer, max_channels> channels;
-    double max_length;
+    MidiData data {};
     uint32_t ref_count = 1;
 
     inline void add_ref() noexcept { ++ref_count; }

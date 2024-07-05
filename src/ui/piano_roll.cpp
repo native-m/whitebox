@@ -23,7 +23,7 @@ const char* note_scale[] = {
 
 void GuiPianoRoll::open_midi_file() {
     if (auto file = open_file_dialog({{"Standard MIDI File", "mid"}})) {
-        midi_note = load_notes_from_file(file.value());
+        assert(false);
     }
 }
 void GuiPianoRoll::render() {

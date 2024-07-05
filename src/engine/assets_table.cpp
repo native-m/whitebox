@@ -12,15 +12,15 @@ void SampleAsset::release() {
 SampleAsset* SampleTable::load_from_file(const std::filesystem::path& path) {
     size_t hash = std::hash<std::filesystem::path> {}(path);
 
+    auto new_sample {Sample::load_file(path)};
+    if (!new_sample)
+        return {};
+
     auto item = samples.find(hash);
     if (item != samples.end()) {
         item->second.add_ref();
         return &item->second;
     }
-
-    auto new_sample {Sample::load_file(path)};
-    if (!new_sample)
-        return {};
 
     auto sample_peaks {
         g_renderer->create_sample_peaks(new_sample.value(), SamplePeaksPrecision::High)};
@@ -52,15 +52,16 @@ void MidiAsset::release() {
 }
 
 MidiAsset* MidiTable::load_from_file(const std::filesystem::path& path) {
-    MidiNoteBuffer buffer = load_notes_from_file(path);
-    if (buffer.size() > 0) {
-        return nullptr;
-    }
     MidiAsset* asset = create_midi();
     if (!asset) {
         return nullptr;
     }
-    asset->channels[0] = std::move(buffer);
+
+    if (!load_notes_from_file(asset->data, path)) {
+        destroy(asset);
+        return nullptr;
+    }
+
     return asset;
 }
 

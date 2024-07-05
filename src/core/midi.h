@@ -13,6 +13,7 @@ struct MidiNote {
     uint16_t note_number;
     float velocity;
 };
+using MidiNoteBuffer = Vector<MidiNote>;
 
 struct MidiNoteState {
     bool on;
@@ -20,7 +21,22 @@ struct MidiNoteState {
     float velocity;
 };
 
-using MidiNoteBuffer = Vector<MidiNote>;
+struct MidiData {
+    static constexpr uint32_t max_channels = 16;
+    double max_length = 0.0;
+    std::array<MidiNoteBuffer, max_channels> channels;
+    uint32_t channel_count = 0;
 
-Vector<MidiNote> load_notes_from_file(const std::filesystem::path& path);
+    // These are for rendering, we need to know which is the lowest & highest note in the midi
+    // buffer so that we can calculate the right Y-scale in the timeline.
+    uint32_t min_note = 0;
+    uint32_t max_note = 0;
+
+    inline void add_channel(MidiNoteBuffer&& buffer) {
+        channels[0] = std::move(buffer);
+        channel_count++;
+    }
+};
+
+bool load_notes_from_file(MidiData& result, const std::filesystem::path& path);
 } // namespace wb
