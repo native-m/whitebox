@@ -225,7 +225,7 @@ struct RendererVK : public Renderer {
 
     ImTextureID prepare_as_imgui_texture(const std::shared_ptr<Framebuffer>& framebuffer) override;
 
-    void draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) override;
+    void draw_waveforms(const ImVector<ClipContentDrawCmd>& clips) override;
 
     void render_draw_data(ImDrawData* draw_data) override;
 

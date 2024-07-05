@@ -386,7 +386,7 @@ void RendererD3D11::clear(float r, float g, float b, float a) {
     ctx_->ClearRenderTargetView(current_rtv_, clear_color);
 }
 
-void RendererD3D11::draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) {
+void RendererD3D11::draw_waveforms(const ImVector<ClipContentDrawCmd>& clips) {
     if (clips.Size == 0)
         return;
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/common.h"
+#include "engine/clip.h"
 #include "engine/sample.h"
 #include "engine/sample_peaks.h"
 #include <imgui.h>
@@ -48,7 +49,7 @@ struct Renderer {
     virtual void clear(float r, float g, float b, float a) = 0;
     virtual ImTextureID
     prepare_as_imgui_texture(const std::shared_ptr<Framebuffer>& framebuffer) = 0;
-    virtual void draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) = 0;
+    virtual void draw_waveforms(const ImVector<ClipContentDrawCmd>& clips) = 0;
     virtual void render_draw_data(ImDrawData* draw_data) = 0;
     virtual void present() = 0;
 

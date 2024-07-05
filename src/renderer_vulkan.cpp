@@ -993,7 +993,7 @@ ImTextureID RendererVK::prepare_as_imgui_texture(const std::shared_ptr<Framebuff
     return (ImTextureID)fb->descriptor_set[fb->image_id];
 }
 
-void RendererVK::draw_clip_content(const ImVector<ClipContentDrawCmd>& clips) {
+void RendererVK::draw_waveforms(const ImVector<ClipContentDrawCmd>& clips) {
     VkBuffer current_buffer {};
 
     float fb_width_f32 = (float)fb_width;
