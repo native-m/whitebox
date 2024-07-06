@@ -112,20 +112,25 @@ inline void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list
             MidiAsset* asset = clip->midi.asset;
             uint32_t min_note = asset->data.min_note;
             uint32_t max_note = asset->data.max_note;
-            uint32_t view_height = (asset->data.max_note + 1) - min_note;
-            if (view_height < 4)
-                view_height = 12;
-            float note_height = (clip_content_max.y - clip_content_min.y) / (float)view_height;
-            float min_note_height = math::max(note_height, 2.0f);
+            uint32_t note_range = (asset->data.max_note + 1) - min_note;
+            if (note_range < 4)
+                note_range = 13;
+            float space = clip_content_max.y - clip_content_min.y;
+            float note_height = space / (float)note_range;
+            float max_note_size = math::min(note_height, 15.0f);
+            float min_note_size = math::max(max_note_size, 2.0f);
+            float offset_y =
+                clip_content_min.y + ((space * 0.5f) - (max_note_size * note_range * 0.5f));
             float min_view = math::max(min_x2, min_draw_x);
             float max_view = math::min(max_x2, min_draw_x + timeline_width);
             if (asset) {
                 uint32_t channel_count = asset->data.channel_count;
                 for (uint32_t i = 0; i < channel_count; i++) {
                     const MidiNoteBuffer& buffer = asset->data.channels[i];
+                    bool visible = true;
                     for (size_t j = 0; j < buffer.size(); j++) {
                         const MidiNote& note = buffer[j];
-                        float pos_y = (float)(max_note - note.note_number) * note_height;
+                        float pos_y = (float)(max_note - note.note_number) * max_note_size;
                         float min_pos_x = (float)math::round(min_x + note.min_time * clip_scale);
                         float max_pos_x = (float)math::round(min_x + note.max_time * clip_scale);
                         if (min_pos_x > max_view)
@@ -134,8 +139,8 @@ inline void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list
                             continue;
                         min_pos_x = math::max(min_pos_x, min_view);
                         max_pos_x = math::min(max_pos_x, max_view);
-                        ImVec2 a(min_pos_x, clip_content_min.y + pos_y + 0.5f);
-                        ImVec2 b(max_pos_x - 0.5f, a.y + min_note_height - 0.5f);
+                        ImVec2 a(min_pos_x, offset_y + pos_y + 0.5f);
+                        ImVec2 b(max_pos_x - 0.5f, a.y + min_note_size - 0.5f);
                         layer1_draw_list->PathLineTo(a);
                         layer1_draw_list->PathLineTo(ImVec2(b.x, a.y));
                         layer1_draw_list->PathLineTo(b);
