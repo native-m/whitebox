@@ -116,7 +116,9 @@ inline void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list
             if (view_height < 4)
                 view_height = 12;
             float note_height = (clip_content_max.y - clip_content_min.y) / (float)view_height;
-            float max_draw_x = min_draw_x + timeline_width;
+            float min_note_height = math::max(note_height, 2.0f);
+            float min_view = math::max(min_x2, min_draw_x);
+            float max_view = math::min(max_x2, min_draw_x + timeline_width);
             if (asset) {
                 uint32_t channel_count = asset->data.channel_count;
                 for (uint32_t i = 0; i < channel_count; i++) {
@@ -124,14 +126,16 @@ inline void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list
                     for (size_t j = 0; j < buffer.size(); j++) {
                         const MidiNote& note = buffer[j];
                         float pos_y = (float)(max_note - note.note_number) * note_height;
-                        float min_pos_x = min_x2 + (float)math::round(note.min_time * clip_scale);
-                        float max_pos_x = min_x2 + (float)math::round(note.max_time * clip_scale);
-                        if (min_pos_x > max_draw_x)
-                            break;
-                        if (max_pos_x < min_draw_x)
+                        float min_pos_x = (float)math::round(min_x + note.min_time * clip_scale);
+                        float max_pos_x = (float)math::round(min_x + note.max_time * clip_scale);
+                        if (min_pos_x > max_view)
                             continue;
-                        ImVec2 a(min_pos_x + 0.25f, clip_content_min.y + pos_y);
-                        ImVec2 b(max_pos_x - 0.25f, a.y + note_height);
+                        if (max_pos_x < min_view)
+                            continue;
+                        min_pos_x = math::max(min_pos_x, min_view);
+                        max_pos_x = math::min(max_pos_x, max_view);
+                        ImVec2 a(min_pos_x, clip_content_min.y + pos_y + 0.5f);
+                        ImVec2 b(max_pos_x - 0.5f, a.y + min_note_height - 0.5f);
                         layer1_draw_list->PathLineTo(a);
                         layer1_draw_list->PathLineTo(ImVec2(b.x, a.y));
                         layer1_draw_list->PathLineTo(b);
@@ -927,7 +931,7 @@ void GuiTimeline::render_track_lanes() {
         int count_offset = (uint32_t)(scroll_pos_x * inv_grid_inc_x);
         for (int i = 0; i <= gridline_count; i++) {
             gridline_pos_x += grid_inc_x;
-            float gridline_pos_x_pixel = std::floor(gridline_pos_x);
+            float gridline_pos_x_pixel = std::round(gridline_pos_x);
             uint32_t grid_id = i + count_offset + 1;
             layer1_draw_list->AddLine(ImVec2(gridline_pos_x_pixel, offset_y),
                                       ImVec2(gridline_pos_x_pixel, offset_y + area_size.y),
@@ -975,6 +979,14 @@ void GuiTimeline::render_track_lanes() {
             target_sel_range.start_track = i;
             target_sel_range.min = mouse_at_gridline;
             selecting_range = true;
+        }
+
+        float next_pos_y = track_pos_y + height;
+
+        if (redraw) {
+            layer1_draw_list->AddLine(
+                ImVec2(timeline_view_pos.x, next_pos_y + 0.5f),
+                ImVec2(timeline_view_pos.x + timeline_width, next_pos_y + 0.5f), grid_color, 2.0f);
         }
 
         for (size_t j = 0; j < track->clips.size(); j++) {
@@ -1096,15 +1108,7 @@ void GuiTimeline::render_track_lanes() {
             }
         }
 
-        track_pos_y += height;
-
-        if (redraw) {
-            layer1_draw_list->AddLine(
-                ImVec2(timeline_view_pos.x, track_pos_y + 0.5f),
-                ImVec2(timeline_view_pos.x + timeline_width, track_pos_y + 0.5f), grid_color, 2.0f);
-        }
-
-        track_pos_y += 2.0f;
+        track_pos_y = next_pos_y + 2.0f;
     }
 
     if (has_deleted_clips) {

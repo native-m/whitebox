@@ -38,7 +38,7 @@ inline T uround(T x) {
 
 template <std::floating_point T>
 inline T round(T x) {
-    return math::trunc(x + (x > T(0) ? 0.5 : -0.5));
+    return math::trunc(x + (x < T(0) ? -0.5 : 0.5));
 }
 
 template <std::floating_point T>
