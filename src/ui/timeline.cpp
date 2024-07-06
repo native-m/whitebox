@@ -118,7 +118,7 @@ inline void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list
             float space = clip_content_max.y - clip_content_min.y;
             float note_height = space / (float)note_range;
             float max_note_size = math::min(note_height, 15.0f);
-            float min_note_size = math::max(max_note_size, 2.0f);
+            float min_note_size = math::max(max_note_size, 2.5f);
             float offset_y =
                 clip_content_min.y + ((space * 0.5f) - (max_note_size * note_range * 0.5f));
             float min_view = math::max(min_x2, min_draw_x);
@@ -130,17 +130,18 @@ inline void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list
                     bool visible = true;
                     for (size_t j = 0; j < buffer.size(); j++) {
                         const MidiNote& note = buffer[j];
-                        float pos_y = (float)(max_note - note.note_number) * max_note_size;
                         float min_pos_x = (float)math::round(min_x + note.min_time * clip_scale);
                         float max_pos_x = (float)math::round(min_x + note.max_time * clip_scale);
+                        float pos_y =
+                            offset_y + (float)(max_note - note.note_number) * max_note_size;
                         if (min_pos_x > max_view)
                             continue;
                         if (max_pos_x < min_view)
                             continue;
                         min_pos_x = math::max(min_pos_x, min_view);
                         max_pos_x = math::min(max_pos_x, max_view);
-                        ImVec2 a(min_pos_x, offset_y + pos_y + 0.5f);
-                        ImVec2 b(max_pos_x - 0.5f, a.y + min_note_size - 0.5f);
+                        ImVec2 a(min_pos_x + 0.5f, pos_y);
+                        ImVec2 b(max_pos_x, pos_y + min_note_size - 0.5f);
                         layer1_draw_list->PathLineTo(a);
                         layer1_draw_list->PathLineTo(ImVec2(b.x, a.y));
                         layer1_draw_list->PathLineTo(b);
