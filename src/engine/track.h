@@ -6,6 +6,7 @@
 #include "core/memory.h"
 #include "core/vector.h"
 #include "event.h"
+#include "event_list.h"
 #include "param_changes.h"
 #include "vu_meter.h"
 #include <imgui.h>
@@ -44,11 +45,12 @@ struct Track {
     Vector<Clip*> clips;
     std::unordered_set<uint32_t> deleted_clip_ids;
 
-    Vector<Event> event_buffer;
     TrackPlaybackState playback_state {};
-    Event last_event {};
-    Event current_event {};
+    Vector<AudioEvent> audio_event_buffer;
+    AudioEvent current_audio_event {};
     size_t samples_processed {};
+
+    MidiEventList midi_event_list;
 
     LevelMeterColorMode level_meter_color {};
     VUMeter level_meter[2] {};
@@ -186,7 +188,7 @@ struct Track {
 
     void render_sample(AudioBuffer<float>& output_buffer, uint32_t buffer_offset,
                        uint32_t num_samples, double sample_rate);
-    void update_playback_state(Event& event);
+    void update_playback_state(AudioEvent& event);
     void stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uint32_t buffer_offset,
                        uint32_t num_samples, size_t sample_offset);
     void flush_deleted_clips();

@@ -10,8 +10,6 @@ enum class EventType {
     None,
     StopSample,
     PlaySample,
-    StopMidi,
-    PlayMidi,
 };
 
 enum class MidiMessageType {
@@ -50,7 +48,7 @@ struct MidiControlChangeEvent {
     uint32_t data;
 };
 
-struct MidiMessageEvent {
+struct MidiEvent {
     MidiMessageType type;
     union {
         MidiNoteOnEvent note_on;
@@ -61,23 +59,11 @@ struct MidiMessageEvent {
 };
 
 struct AudioEvent {
-    size_t sample_offset;
-    Sample* sample;
-};
-
-struct MidiEvent {
-    double time_offset;
-};
-
-struct Event {
     EventType type;
     uint32_t buffer_offset;
     double time;
-
-    union {
-        AudioEvent audio;
-        MidiEvent midi;
-    };
+    size_t sample_offset;
+    Sample* sample;
 };
 
 } // namespace wb

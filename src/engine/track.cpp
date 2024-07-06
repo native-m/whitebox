@@ -247,15 +247,15 @@ Clip* Track::find_next_clip(double time_pos, uint32_t hint) {
 
 void Track::prepare_play(double time_pos) {
     Clip* next_clip = find_next_clip(time_pos);
-    playback_state.current_clip = nullptr;
-    playback_state.next_clip = next_clip;
+    event_state.current_clip = nullptr;
+    event_state.next_clip = next_clip;
 }
 
 void Track::stop() {
-    current_event = {
+    current_audio_event = {
         .type = EventType::None,
     };
-    event_buffer.resize(0);
+    audio_event_buffer.resize(0);
 }
 
 void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_duration,
@@ -263,20 +263,25 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
     if (clips.size() == 0)
         return;
 
-    Clip* current_clip = playback_state.current_clip;
-    Clip* next_clip = playback_state.next_clip;
+    Clip* current_clip = event_state.current_clip;
+    Clip* next_clip = event_state.next_clip;
 
     if (current_clip) {
         double max_time = math::uround(current_clip->max_time * ppq) * inv_ppq;
         if (time_pos >= max_time || current_clip->is_deleted()) {
             if (current_clip->is_audio()) {
-                event_buffer.push_back({
+                audio_event_buffer.push_back({
                     .type = EventType::StopSample,
                     .buffer_offset = buffer_offset,
                     .time = time_pos,
                 });
             }
-            playback_state.current_clip = nullptr;
+
+            if (current_clip->is_midi()) {
+            }
+
+            event_state.current_clip = nullptr;
+        } else {
         }
     }
 
@@ -287,7 +292,7 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
         } else {
             next_clip = nullptr;
         }
-        playback_state.next_clip = next_clip;
+        event_state.next_clip = next_clip;
     }
 
     if (next_clip) {
@@ -303,19 +308,17 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
                         beat_to_samples(relative_start_time, sample_rate, beat_duration);
                     uint64_t sample_offset =
                         (uint64_t)(sample_pos + next_clip->audio.sample_offset);
-                    event_buffer.push_back({
+                    audio_event_buffer.push_back({
                         .type = EventType::PlaySample,
                         .buffer_offset = buffer_offset,
                         .time = time_pos,
-                        .audio =
-                            {
-                                .sample_offset = sample_offset,
-                                .sample = &next_clip->audio.asset->sample_instance,
-                            },
+                        .sample_offset = sample_offset,
+                        .sample = &next_clip->audio.asset->sample_instance,
                     });
                     break;
                 }
                 case ClipType::Midi: {
+
                     break;
                 }
                 default:
@@ -324,11 +327,11 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
 
             auto new_next_clip = clips.begin() + (next_clip->id + 1);
             if (new_next_clip != clips.end()) {
-                playback_state.next_clip = *new_next_clip;
+                event_state.next_clip = *new_next_clip;
             } else {
-                playback_state.next_clip = nullptr;
+                event_state.next_clip = nullptr;
             }
-            playback_state.current_clip = next_clip;
+            event_state.current_clip = next_clip;
         }
     }
 }
@@ -360,8 +363,8 @@ void Track::process(AudioBuffer<float>& output_buffer, double sample_rate, bool 
     }
 
     if (playing) {
-        Event* event = event_buffer.begin();
-        Event* end = event_buffer.end();
+        AudioEvent* event = audio_event_buffer.begin();
+        AudioEvent* end = audio_event_buffer.end();
         uint32_t start_sample = 0;
         while (start_sample < output_buffer.n_samples) {
             if (event != end) {
@@ -377,7 +380,7 @@ void Track::process(AudioBuffer<float>& output_buffer, double sample_rate, bool 
                     default:
                         break;
                 }
-                current_event = *event;
+                current_audio_event = *event;
                 start_sample += event_length;
                 event++;
             } else {
@@ -397,19 +400,19 @@ void Track::process(AudioBuffer<float>& output_buffer, double sample_rate, bool 
 
 void Track::render_sample(AudioBuffer<float>& output_buffer, uint32_t buffer_offset,
                           uint32_t num_samples, double sample_rate) {
-    switch (current_event.type) {
+    switch (current_audio_event.type) {
         case EventType::None:
         case EventType::StopSample:
             samples_processed = 0;
             break;
         case EventType::PlaySample: {
-            Sample* sample = current_event.audio.sample;
-            size_t sample_offset = samples_processed + current_event.audio.sample_offset;
+            Sample* sample = current_audio_event.sample;
+            size_t sample_offset = samples_processed + current_audio_event.sample_offset;
             if (sample_offset >= sample->count)
                 break;
             uint32_t min_num_samples =
                 std::min(num_samples, (uint32_t)(sample->count - sample_offset));
-            stream_sample(output_buffer, current_event.audio.sample, buffer_offset, min_num_samples,
+            stream_sample(output_buffer, current_audio_event.sample, buffer_offset, min_num_samples,
                           sample_offset);
             samples_processed += min_num_samples;
             break;
@@ -419,7 +422,7 @@ void Track::render_sample(AudioBuffer<float>& output_buffer, uint32_t buffer_off
     }
 }
 
-void Track::update_playback_state(Event& event) {
+void Track::update_playback_state(AudioEvent& event) {
     // TODO: Should put something here...
 }
 
@@ -495,10 +498,10 @@ void Track::flush_deleted_clips() {
     for (auto clip : clips) {
         if (clip->is_deleted()) {
             // Make sure we don't touch this deleted clip
-            if (clip == playback_state.next_clip)
-                playback_state.next_clip = nullptr;
-            if (clip == playback_state.current_clip)
-                playback_state.current_clip = nullptr;
+            if (clip == event_state.next_clip)
+                event_state.next_clip = nullptr;
+            if (clip == event_state.current_clip)
+                event_state.current_clip = nullptr;
             clip->~Clip();
             clip_allocator.free(clip);
             continue;

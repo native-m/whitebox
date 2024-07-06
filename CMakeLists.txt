@@ -65,6 +65,7 @@ set(WB_SOURCES
     "src/engine/engine.cpp"
     "src/engine/engine.h"
     "src/engine/event.h"
+    "src/engine/event_list.h"
     "src/engine/param_changes.h"
     "src/engine/project.cpp"
     "src/engine/project.h"
