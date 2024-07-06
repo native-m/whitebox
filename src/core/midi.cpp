@@ -2,8 +2,8 @@
 #include "debug.h"
 #include "math.h"
 #include <fstream>
-#include <midi-parser.h>
 #include <limits>
+#include <midi-parser.h>
 
 namespace wb {
 
@@ -106,6 +106,9 @@ bool load_notes_from_file(MidiData& result, const std::filesystem::path& path) {
     if (length < 0) {
         return {};
     }
+
+    std::sort(notes.begin(), notes.end(),
+              [](const MidiNote& a, const MidiNote& b) { return a.min_time < b.min_time; });
 
     result.max_length = length;
     result.min_note = min_note;
