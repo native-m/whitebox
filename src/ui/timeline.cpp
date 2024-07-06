@@ -109,25 +109,34 @@ inline void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list
             break;
         }
         case ClipType::Midi: {
+            static constexpr float min_note_size_px = 2.5f;
+            static constexpr float max_note_size_px = 10.0f;
             MidiAsset* asset = clip->midi.asset;
             uint32_t min_note = asset->data.min_note;
             uint32_t max_note = asset->data.max_note;
             uint32_t note_range = (asset->data.max_note + 1) - min_note;
+
             if (note_range < 4)
                 note_range = 13;
-            float space = clip_content_max.y - clip_content_min.y;
-            float note_height = space / (float)note_range;
-            float max_note_size = math::min(note_height, 15.0f);
-            float min_note_size = math::max(max_note_size, 2.5f);
-            float offset_y =
-                clip_content_min.y + ((space * 0.5f) - (max_note_size * note_range * 0.5f));
+
+            float view_height = clip_content_max.y - clip_content_min.y;
+            float note_height = view_height / (float)note_range;
+            float max_note_size = math::min(note_height, max_note_size_px);
+            float min_note_size = math::max(max_note_size, min_note_size_px);
             float min_view = math::max(min_x2, min_draw_x);
             float max_view = math::min(max_x2, min_draw_x + timeline_width);
+            float offset_y =
+                clip_content_min.y + ((view_height * 0.5f) - (max_note_size * note_range * 0.5f));
+
+            // Fix note overflow
+            if (view_height < math::round(min_note_size * note_range)) {
+                max_note_size = (view_height - 2.0f) / (float)(note_range - 1u);
+            }
+
             if (asset) {
                 uint32_t channel_count = asset->data.channel_count;
                 for (uint32_t i = 0; i < channel_count; i++) {
                     const MidiNoteBuffer& buffer = asset->data.channels[i];
-                    bool visible = true;
                     for (size_t j = 0; j < buffer.size(); j++) {
                         const MidiNote& note = buffer[j];
                         float min_pos_x = (float)math::round(min_x + note.min_time * clip_scale);
