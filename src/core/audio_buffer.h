@@ -20,9 +20,9 @@ struct AudioBuffer {
     T* internal_channel_buffers[internal_buffer_capacity] {};
     T** channel_buffers {};
 
-    AudioBuffer() : channel_buffers(internal_channel_buffers) {}
+    inline AudioBuffer() : channel_buffers(internal_channel_buffers) {}
 
-    AudioBuffer(uint32_t sample_count, uint32_t channel_count) :
+    inline AudioBuffer(uint32_t sample_count, uint32_t channel_count) :
         n_samples(sample_count),
         n_channels(channel_count),
         channel_buffers(internal_channel_buffers) {
@@ -34,7 +34,7 @@ struct AudioBuffer {
         }
     }
 
-    ~AudioBuffer() {
+    inline ~AudioBuffer() {
         for (uint32_t i = 0; i < n_channels; i++) {
             free_aligned(channel_buffers[i]);
             channel_buffers[i] = nullptr;
@@ -43,23 +43,31 @@ struct AudioBuffer {
             std::free(channel_buffers);
     }
 
-    T* get_write_pointer(uint32_t channel, uint32_t sample_offset = 0) {
+    inline T* get_write_pointer(uint32_t channel, uint32_t sample_offset = 0) {
         assert(channel < n_channels && "Channel out of range");
         return channel_buffers[channel] + sample_offset;
     }
 
-    const T* get_read_pointer(uint32_t channel, uint32_t sample_offset = 0) const {
+    inline const T* get_read_pointer(uint32_t channel, uint32_t sample_offset = 0) const {
         assert(channel < n_channels && "Channel out of range");
         return channel_buffers[channel] + sample_offset;
     }
 
-    void clear() {
+    inline void set_sample(uint32_t channel, uint32_t sample_offset, T sample) const {
+        channel_buffers[channel][sample_offset] = sample;
+    }
+
+    inline void mix_sample(uint32_t channel, uint32_t sample_offset, T sample) const {
+        channel_buffers[channel][sample_offset] += sample;
+    }
+
+    inline void clear() {
         for (uint32_t i = 0; i < n_channels; i++) {
             std::memset(channel_buffers[i], 0, n_samples * sizeof(T));
         }
     }
 
-    void mix(const AudioBuffer<T>& other) {
+    inline void mix(const AudioBuffer<T>& other) {
         assert(n_samples == other.n_samples);
         for (uint32_t i = 0; i < n_channels; i++) {
             const float* other_buffer = other.channel_buffers[i];
@@ -70,7 +78,7 @@ struct AudioBuffer {
         }
     }
 
-    void resize(uint32_t samples, bool clear = false) {
+    inline void resize(uint32_t samples, bool clear = false) {
         if (samples == n_samples)
             return;
 
@@ -99,7 +107,7 @@ struct AudioBuffer {
         n_samples = samples;
     }
 
-    void resize_channel(uint32_t channel_count) {
+    inline void resize_channel(uint32_t channel_count) {
         assert(n_samples != 0);
         if (channel_count == n_channels)
             return;
@@ -121,7 +129,7 @@ struct AudioBuffer {
         }
     }
 
-    void resize_channel_array_(uint32_t channel_count) {
+    inline void resize_channel_array_(uint32_t channel_count) {
         if (channel_count < channel_capacity) {
             n_channels = channel_count;
             return;
