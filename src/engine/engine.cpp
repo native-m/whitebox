@@ -165,6 +165,7 @@ void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
         editor_lock.lock();
         for (auto track : tracks) {
             track->audio_event_buffer.resize(0);
+            track->midi_event_list.clear();
         }
 
         // Record a sequence of events from track clips.

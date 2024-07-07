@@ -12,7 +12,7 @@ enum class EventType {
     PlaySample,
 };
 
-enum class MidiMessageType {
+enum class MidiEventType {
     NoteOn,
     NoteOff,
     PolyPressure,
@@ -49,7 +49,9 @@ struct MidiControlChangeEvent {
 };
 
 struct MidiEvent {
-    MidiMessageType type;
+    MidiEventType type;
+    uint32_t buffer_offset;
+    double time;
     union {
         MidiNoteOnEvent note_on;
         MidiNoteOffEvent note_off;

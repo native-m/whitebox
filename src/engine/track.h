@@ -3,13 +3,17 @@
 #include "audio_param.h"
 #include "clip.h"
 #include "core/audio_buffer.h"
+#include "core/bit_manipulation.h"
 #include "core/memory.h"
 #include "core/vector.h"
 #include "event.h"
 #include "event_list.h"
 #include "param_changes.h"
 #include "vu_meter.h"
+#include <array>
 #include <imgui.h>
+#include <numbers>
+#include <random>
 #include <unordered_set>
 
 namespace wb {
@@ -21,10 +25,91 @@ enum TrackParameter {
     TrackParameter_Max,
 };
 
-struct TrackPlaybackState {
+struct MidiVoice {
+    double max_time;
+    float velocity;
+    uint16_t channel;
+    uint16_t note_number;
+};
+
+struct MidiVoiceState {
+    static constexpr uint32_t max_voices = sizeof(uint64_t) * 8;
+    std::array<MidiVoice, max_voices> voices;
+    uint64_t voice_mask;
+
+    inline void add_voice(MidiVoice&& voice) {
+        int free_voice = std::countr_one(~voice_mask) - 1; // find free voice
+        voices[free_voice] = std::move(voice);
+        voice_mask |= 1ull << free_voice;
+    }
+};
+
+struct SynthVoice {
+    double phase;
+    double frequency;
+    float volume;
+    uint16_t note_number;
+};
+
+struct TestSynth {
+    static constexpr uint32_t max_voices = sizeof(uint64_t) * 8;
+    std::array<SynthVoice, max_voices> voices;
+    std::random_device rd {};
+    uint64_t voice_mask;
+
+    inline void add_voice(const MidiEvent& voice) {
+        int free_voice = std::countr_one(~voice_mask) - 1;
+        std::uniform_real_distribution<double> dis(0.0, 2.0);
+        voices[free_voice] = {
+            .phase = dis(rd),
+            .frequency = get_midi_frequency(voice.note_on.note_number),
+            .volume = voice.note_on.velocity,
+            .note_number = voice.note_on.note_number,
+        };
+        voice_mask |= 1ull << free_voice;
+    }
+
+    inline void remove_note(uint16_t note_number) {
+        uint64_t active_voice_bits = voice_mask;
+        while (active_voice_bits) {
+            int active_voice = next_set_bits(active_voice_bits);
+            SynthVoice& voice = voices[active_voice];
+            if (voice.note_number == note_number)
+                voice_mask &= ~(1ull << active_voice);
+        }
+    }
+
+    inline void render(AudioBuffer<float>& output_buffer, double sample_rate,
+                       uint32_t buffer_offset, uint32_t length) {
+        if (!voice_mask || length == 0)
+            return;
+
+        uint32_t count = buffer_offset + length;
+        for (uint32_t i = buffer_offset; i < count; i++) {
+            float sample = 0.0f;
+            uint64_t active_voice_bits = voice_mask;
+
+            while (active_voice_bits) {
+                int active_voice = next_set_bits(active_voice_bits);
+                SynthVoice& voice = voices[active_voice];
+                sample += (float)(voice.phase >= 1.0 ? 1.0f : -1.0f) * voice.volume * 0.5f;
+                voice.phase += voice.frequency / sample_rate;
+                if (voice.phase >= 2.0)
+                    voice.phase -= 2.0;
+            }
+
+            for (uint32_t c = 0; c < output_buffer.n_channels; c++) {
+                output_buffer.mix_sample(c, i, sample);
+            }
+        }
+    }
+};
+
+struct TrackEventState {
     Clip* current_clip;
     Clip* next_clip;
     double last_start_clip_position;
+    uint32_t midi_note_idx;
 };
 
 struct TrackParameterState {
@@ -45,12 +130,14 @@ struct Track {
     Vector<Clip*> clips;
     std::unordered_set<uint32_t> deleted_clip_ids;
 
-    TrackPlaybackState playback_state {};
+    TrackEventState event_state {};
     Vector<AudioEvent> audio_event_buffer;
     AudioEvent current_audio_event {};
     size_t samples_processed {};
 
+    MidiVoiceState midi_voice_state {};
     MidiEventList midi_event_list;
+    TestSynth test_synth {};
 
     LevelMeterColorMode level_meter_color {};
     VUMeter level_meter[2] {};
@@ -177,6 +264,9 @@ struct Track {
     void process_event(uint32_t buffer_offset, double time_pos, double beat_duration,
                        double sample_rate, double ppq, double inv_ppq);
 
+    void process_midi_event(Clip* clip, uint32_t buffer_offset, double time_pos,
+                            double beat_duration, double ppq, double inv_ppq);
+
     /**
      * @brief Process audio block.
      *
@@ -191,6 +281,9 @@ struct Track {
     void update_playback_state(AudioEvent& event);
     void stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uint32_t buffer_offset,
                        uint32_t num_samples, size_t sample_offset);
+
+    void process_test_synth(AudioBuffer<float>& output_buffer, double sample_rate, bool playing);
+
     void flush_deleted_clips();
 };
 

@@ -7,6 +7,10 @@
 
 namespace wb {
 
+static const char* note_scale[] = {
+    "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
+};
+
 bool load_notes_from_file(MidiData& result, const std::filesystem::path& path) {
     std::ifstream file(path, std::ios::binary);
     if (!file.is_open()) {
@@ -117,4 +121,13 @@ bool load_notes_from_file(MidiData& result, const std::filesystem::path& path) {
 
     return true;
 }
+
+const char* get_midi_note_scale(uint16_t note_number) {
+    return note_scale[note_number % 12];
+}
+
+int get_midi_note_octave(uint16_t note_number) {
+    return note_number / 12;
+}
+
 } // namespace wb

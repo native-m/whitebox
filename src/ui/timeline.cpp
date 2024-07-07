@@ -169,6 +169,8 @@ inline void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list
             }
             break;
         }
+        default:
+            break;
     }
 
     layer2_draw_list->PushClipRect(clip_content_min, clip_content_max, true);

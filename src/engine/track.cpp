@@ -249,6 +249,8 @@ void Track::prepare_play(double time_pos) {
     Clip* next_clip = find_next_clip(time_pos);
     event_state.current_clip = nullptr;
     event_state.next_clip = next_clip;
+    event_state.midi_note_idx = 0;
+    midi_voice_state.voice_mask = 0;
 }
 
 void Track::stop() {
@@ -256,6 +258,7 @@ void Track::stop() {
         .type = EventType::None,
     };
     audio_event_buffer.resize(0);
+    midi_event_list.clear();
 }
 
 void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_duration,
@@ -278,10 +281,17 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
             }
 
             if (current_clip->is_midi()) {
+                process_midi_event(current_clip, buffer_offset, time_pos, beat_duration, ppq,
+                                   inv_ppq);
+                event_state.midi_note_idx = 0;
             }
 
             event_state.current_clip = nullptr;
         } else {
+            if (current_clip->is_midi()) {
+                process_midi_event(current_clip, buffer_offset, time_pos, beat_duration, ppq,
+                                   inv_ppq);
+            }
         }
     }
 
@@ -318,7 +328,8 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
                     break;
                 }
                 case ClipType::Midi: {
-
+                    process_midi_event(next_clip, buffer_offset, time_pos, beat_duration, ppq,
+                                       inv_ppq);
                     break;
                 }
                 default:
@@ -334,6 +345,75 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
             event_state.current_clip = next_clip;
         }
     }
+}
+
+void Track::process_midi_event(Clip* clip, uint32_t buffer_offset, double time_pos,
+                               double beat_duration, double ppq, double inv_ppq) {
+    MidiAsset* asset = clip->midi.asset;
+    const MidiNoteBuffer& buffer = asset->data.channels[0];
+    double time_offset = clip->min_time;
+
+    uint64_t active_voice_bits = midi_voice_state.voice_mask;
+    uint64_t inactive_voice_bits = 0;
+    while (active_voice_bits) {
+        int active_voice = next_set_bits(active_voice_bits);
+        const MidiVoice& voice = midi_voice_state.voices[active_voice];
+        double max_time = voice.max_time;
+        if (time_pos >= max_time) {
+            inactive_voice_bits |= 1ull << active_voice;
+            midi_event_list.add_event({
+                .type = MidiEventType::NoteOff,
+                .buffer_offset = buffer_offset,
+                .time = max_time,
+                .note_off =
+                    {
+                        .channel = 0,
+                        .note_number = voice.note_number,
+                        .velocity = voice.velocity,
+                    },
+            });
+            //char note_str[8] {};
+            //fmt::format_to_n(note_str, std::size(note_str), "{}{}",
+            //                 get_midi_note_scale(voice.note_number),
+            //                 get_midi_note_octave(voice.note_number));
+            //Log::debug("Note off: {}", note_str);
+        }
+    }
+    midi_voice_state.voice_mask &= ~inactive_voice_bits;
+
+    while (event_state.midi_note_idx < buffer.size()) {
+        const MidiNote& note = buffer[event_state.midi_note_idx];
+        double min_time = math::uround((time_offset + note.min_time) * ppq) * inv_ppq;
+        if (min_time > time_pos) {
+            break;
+        }
+        double max_time = math::uround((time_offset + note.max_time) * ppq) * inv_ppq;
+        midi_voice_state.add_voice({
+            .max_time = max_time,
+            .velocity = note.velocity,
+            .channel = 0,
+            .note_number = note.note_number,
+        });
+        midi_event_list.add_event({
+            .type = MidiEventType::NoteOn,
+            .buffer_offset = buffer_offset,
+            .time = min_time,
+            .note_on =
+                {
+                    .channel = 0,
+                    .note_number = note.note_number,
+                    .velocity = note.velocity,
+                },
+        });
+        //char note_str[8] {};
+        //fmt::format_to_n(note_str, std::size(note_str), "{}{}",
+        //                 get_midi_note_scale(note.note_number),
+        //                 get_midi_note_octave(note.note_number));
+        //Log::debug("Note on: {} {} -> {} at {}", note_str, min_time, max_time, time_pos);
+        event_state.midi_note_idx++;
+    }
+
+    // Log::debug("{:b}", midi_voice_state.voice_mask);
 }
 
 void Track::process(AudioBuffer<float>& output_buffer, double sample_rate, bool playing) {
@@ -390,6 +470,8 @@ void Track::process(AudioBuffer<float>& output_buffer, double sample_rate, bool 
             }
         }
     }
+
+    process_test_synth(output_buffer, sample_rate, playing);
 
     for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
         level_meter[i].push_samples(output_buffer, i);
@@ -488,6 +570,51 @@ void Track::stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uin
         default:
             assert(false && "Unsupported format");
             break;
+    }
+}
+
+void Track::process_test_synth(AudioBuffer<float>& output_buffer, double sample_rate,
+                               bool playing) {
+    uint32_t event_idx = 0;
+    uint32_t event_count = midi_event_list.size();
+    uint32_t start_sample = 0;
+    uint32_t next_buffer_offset = 0;
+    while (start_sample < output_buffer.n_samples) {
+        if (event_idx < event_count) {
+            for (uint32_t i = event_idx; i < event_count; i++) {
+                MidiEvent& event = midi_event_list.get_event(i);
+                if (start_sample > event.buffer_offset) {
+                    break;
+                }
+                next_buffer_offset = event.buffer_offset;
+            }
+
+            uint32_t event_length = next_buffer_offset - start_sample;
+            test_synth.render(output_buffer, sample_rate, start_sample, event_length);
+
+            for (; event_idx < event_count; event_idx++) {
+                MidiEvent& event = midi_event_list.get_event(event_idx);
+                if (start_sample > event.buffer_offset) {
+                    break;
+                }
+                switch (event.type) {
+                    case MidiEventType::NoteOn:
+                        test_synth.add_voice(event);
+                        break;
+                    case MidiEventType::NoteOff:
+                        test_synth.remove_note(event.note_off.note_number);
+                        break;
+                    default:
+                        break;
+                }
+            }
+
+            start_sample += event_length;
+        } else {
+            test_synth.render(output_buffer, sample_rate, start_sample,
+                              output_buffer.n_samples - start_sample);
+            start_sample = output_buffer.n_samples;
+        }
     }
 }
 

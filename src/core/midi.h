@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "vector.h"
+#include "math.h"
 #include <array>
 #include <filesystem>
 
@@ -39,4 +40,10 @@ struct MidiData {
 };
 
 bool load_notes_from_file(MidiData& result, const std::filesystem::path& path);
+const char* get_midi_note_scale(uint16_t note_number);
+int get_midi_note_octave(uint16_t note_number);
+
+static inline double get_midi_frequency(uint16_t note_number) {
+    return 440.0f * std::pow(2.0, (double)(note_number - 69) / 12.0);
+}
 } // namespace wb
