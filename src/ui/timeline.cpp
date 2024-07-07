@@ -35,23 +35,31 @@ inline void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list
                                       ? ImColor(0.0f, 0.0f, 0.0f, 1.0f - bg_contrast_ratio * 0.45f)
                                       : text_color;
 
+
+    bool is_active = clip->is_active();
+    ImColor color = is_active ? clip->color : color_adjust_alpha(clip->color, 0.75f);
     // Draw clip background and its header
     float min_x2 = (float)math::round(min_x);
     float max_x2 = (float)math::round(max_x);
     float font_size = font->FontSize;
     float clip_title_max_y = track_pos_y + font_size + 4.0f;
-    ImColor bg_color = color_adjust_alpha(clip->color, 0.35f);
-    ImU32 content_color = color_brighten(clip->color, 0.85f);
+    ImColor bg_color = color_adjust_alpha(color, color.Value.w * 0.35f);
+    ImU32 content_color =
+        is_active ? color_brighten(color, 0.85f) : color_premul_alpha(color_brighten(color, 0.85f));
     ImVec2 clip_title_min_bb(min_x2, track_pos_y);
     ImVec2 clip_title_max_bb(max_x2, clip_title_max_y);
     ImVec2 clip_content_min(min_x2, clip_title_max_y);
     ImVec2 clip_content_max(max_x2, track_pos_y + track_height);
     ImDrawListFlags tmp_flags = layer1_draw_list->Flags;
     layer1_draw_list->Flags = layer1_draw_list->Flags & ~draw_list_aa_flags;
-    layer1_draw_list->AddRectFilled(clip_title_min_bb, clip_title_max_bb, clip->color);
+    layer1_draw_list->AddRectFilled(clip_title_min_bb, clip_title_max_bb, color);
     layer1_draw_list->AddRectFilled(clip_content_min, clip_content_max, bg_color);
     layer1_draw_list->AddRect(clip_title_min_bb, clip_title_max_bb, border_color);
     layer1_draw_list->Flags = tmp_flags;
+
+    if (!is_active) {
+        text_color_adjusted = color_adjust_alpha(text_color_adjusted, 0.75f);
+    }
 
     // Draw clip label
     const char* str = clip->name.c_str();
@@ -753,6 +761,18 @@ inline void GuiTimeline::clip_context_menu() {
                     break;
             }
             ImGui::EndMenu();
+        }
+
+        if (!context_menu_clip->is_active()) {
+            if (ImGui::MenuItem("Activate Clip")) {
+                context_menu_clip->set_active(true);
+                force_redraw = true;
+            }
+        } else {
+            if (ImGui::MenuItem("Deactivate Clip")) {
+                context_menu_clip->set_active(false);
+                force_redraw = true;
+            }
         }
 
         if (ImGui::MenuItem("Delete")) {

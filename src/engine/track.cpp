@@ -268,7 +268,7 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
 
     if (current_clip) {
         double max_time = math::uround(current_clip->max_time * ppq) * inv_ppq;
-        if (time_pos >= max_time || current_clip->is_deleted()) {
+        if (time_pos >= max_time || current_clip->is_deleted() || !current_clip->is_active()) {
             if (current_clip->is_audio()) {
                 audio_event_buffer.push_back({
                     .type = EventType::StopSample,
@@ -299,7 +299,7 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
         double min_time = math::uround(next_clip->min_time * ppq) * inv_ppq;
         double max_time = math::uround(next_clip->max_time * ppq) * inv_ppq;
 
-        if (time_pos >= min_time && time_pos < max_time) {
+        if (time_pos >= min_time && time_pos < max_time && next_clip->is_active()) {
             double relative_start_time = time_pos - min_time;
 
             switch (next_clip->type) {
