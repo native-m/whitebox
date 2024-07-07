@@ -285,7 +285,7 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
         }
     }
 
-    while (next_clip && next_clip->is_deleted()) {
+    while (next_clip && (next_clip->is_deleted() || !next_clip->is_active())) {
         auto new_next_clip = clips.begin() + (next_clip->id + 1);
         if (new_next_clip != clips.end()) {
             next_clip = *new_next_clip;
