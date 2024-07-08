@@ -1,9 +1,9 @@
 #pragma once
 
 #include "common.h"
-#include <thread>
 #include <atomic>
 #include <chrono>
+#include <thread>
 
 namespace wb {
 
@@ -36,8 +36,12 @@ void accurate_sleep_ns(int64_t timeout_ns);
 
 template <typename T, typename Period>
 inline void accurate_sleep(const std::chrono::duration<T, Period>& duration) {
-    auto nano = std::chrono::duration_cast<std::chrono::nanoseconds>(duration);
-    accurate_sleep_ns(nano.count());
+    if constexpr (std::same_as<T, std::chrono::nanoseconds::rep>) {
+        accurate_sleep_ns(duration.count());
+    } else {
+        auto nano = std::chrono::duration_cast<std::chrono::nanoseconds>(duration);
+        accurate_sleep_ns(nano.count());
+    }
 }
 
 } // namespace wb

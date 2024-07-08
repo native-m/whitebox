@@ -5,6 +5,7 @@
 #include <vector>
 #include <thread>
 #include <mutex>
+#include <chrono>
 
 #include "vk_stub.h"
 
@@ -160,6 +161,7 @@ struct RendererVK : public Renderer {
     uint32_t present_queue_index_;
     VkQueue graphics_queue_;
     VkQueue present_queue_;
+    std::chrono::time_point<std::chrono::high_resolution_clock> start_time_;
 
     VkRenderPass fb_render_pass_ {};
     FramebufferVK main_framebuffer_ {};

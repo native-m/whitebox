@@ -2,10 +2,12 @@
 #include "app_sdl2.h"
 #include "core/debug.h"
 #include "core/defer.h"
+#include "core/thread.h"
 #include <SDL.h>
 #include <SDL_syswm.h>
 #include <SDL_vulkan.h>
 #include <VkBootstrap.h>
+#include <chrono>
 
 #define IMGUI_IMPL_VULKAN_NO_PROTOTYPES
 
@@ -785,6 +787,8 @@ void RendererVK::resize_swapchain() {
 }
 
 void RendererVK::new_frame() {
+    start_time_ = std::chrono::high_resolution_clock::now();
+
     FrameSync& frame_sync = frame_sync_[sync_id_];
     vkAcquireNextImageKHR(device_, swapchain_, UINT64_MAX, frame_sync.image_acquire_semaphore,
                           nullptr, &sc_image_index_);
@@ -810,8 +814,6 @@ void RendererVK::new_frame() {
     current_cb_ = cmd_buf.cmd_buffer;
     cmd_buf.immediate_vtx_offset = 0;
     cmd_buf.immediate_idx_offset = 0;
-
-    // Log::debug("Begin frame: {}", frame_id_);
 }
 
 void RendererVK::end_frame() {
@@ -863,7 +865,8 @@ void RendererVK::begin_draw(const std::shared_ptr<Framebuffer>& framebuffer,
     VkImageMemoryBarrier barrier;
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     barrier.pNext = nullptr;
-    barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    barrier.dstAccessMask =
+        VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
     barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     barrier.srcQueueFamilyIndex = graphics_queue_index_;
     barrier.dstQueueFamilyIndex = graphics_queue_index_;
@@ -1247,26 +1250,42 @@ void RendererVK::present() {
         .pImageIndices = &sc_image_index_,
     };
 
-    // VkPresentIdKHR present_id {
-    //     .sType = VK_STRUCTURE_TYPE_PRESENT_ID_KHR,
-    //     .swapchainCount = 1,
-    // };
+    VkPresentIdKHR present_id {
+        .sType = VK_STRUCTURE_TYPE_PRESENT_ID_KHR,
+        .swapchainCount = 1,
+    };
 
-    // if (has_present_id) {
-    //     present_id.pPresentIds = &present_id_;
-    //     present_info.pNext = &present_id;
-    //     present_id_ += 1;
-    // }
+    if (has_present_id) {
+        // present_id.pPresentIds = &present_id_;
+        // present_info.pNext = &present_id;
+        //  Log::debug("{}", present_id_);
+    }
 
     VkResult result = vkQueuePresentKHR(graphics_queue_, &present_info);
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
         vkDeviceWaitIdle(device_);
         init_swapchain_();
+        return;
     }
 
-    // if (has_present_wait && has_present_id) {
-    //     VK_CHECK(vkWaitForPresentKHR(device_, swapchain_, present_id_, UINT64_MAX));
-    // }
+    // Log::debug("{}", (uint32_t)result);
+
+    if (has_present_wait && has_present_id) {
+        // constexpr auto timeout =
+        //     std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::seconds(1)).count();
+        // VK_CHECK(vkWaitForPresentKHR(device_, swapchain_, present_id_, timeout));
+        // present_id_ += 1;
+    }
+
+    // Frame limit
+    auto frame_time = std::chrono::high_resolution_clock::now() - start_time_;
+    static constexpr auto target_rate = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::duration<double>(1.0 / 61.5)); // Slightly deviated for accomodating time drift
+    
+    if (frame_time < target_rate) {
+        auto wait_time = target_rate - frame_time;
+        accurate_sleep(wait_time);
+    }
 }
 
 bool RendererVK::init_swapchain_() {
@@ -1276,7 +1295,7 @@ bool RendererVK::init_swapchain_() {
     auto swapchain_result = swapchain_builder.set_old_swapchain(swapchain_)
                                 .set_desired_min_image_count(2)
                                 .set_required_min_image_count(VULKAN_MAX_BUFFER_SIZE)
-                                .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
+                                .set_desired_present_mode(VK_PRESENT_MODE_IMMEDIATE_KHR)
                                 .set_desired_format({VK_FORMAT_B8G8R8A8_UNORM})
                                 .set_composite_alpha_flags(VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR)
                                 .build();
@@ -1309,6 +1328,7 @@ bool RendererVK::init_swapchain_() {
 
     frame_latency_ = (uint32_t)swapchain_images.size();
     sync_count_ = frame_latency_ + 1;
+    present_id_ = 0;
     swapchain_ = new_swapchain.swapchain;
     main_framebuffer_.width = new_swapchain.extent.width;
     main_framebuffer_.height = new_swapchain.extent.height;
