@@ -472,7 +472,7 @@ inline void GuiTimeline::render_time_ruler() {
         zooming_on_ruler = true;
 
     if (zooming_on_ruler) {
-        auto drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Middle);
+        auto drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Middle, 0.0f);
         zoom(mouse_pos.x, cursor_pos.x, view_scale, drag_delta.y * 0.1f);
         view_scale = calc_view_scale();
         ImGui::ResetMouseDragDelta(ImGuiMouseButton_Middle);
