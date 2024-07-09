@@ -1280,7 +1280,7 @@ void RendererVK::present() {
     // Frame limit
     auto frame_time = std::chrono::high_resolution_clock::now() - start_time_;
     static constexpr auto target_rate = std::chrono::duration_cast<std::chrono::nanoseconds>(
-        std::chrono::duration<double>(1.0 / 61.5)); // Slightly deviated for accomodating time drift
+        std::chrono::duration<double>(1.0 / 63.0)); // Slightly deviated for accomodating time drift
     
     if (frame_time < target_rate) {
         auto wait_time = target_rate - frame_time;
@@ -1295,7 +1295,7 @@ bool RendererVK::init_swapchain_() {
     auto swapchain_result = swapchain_builder.set_old_swapchain(swapchain_)
                                 .set_desired_min_image_count(2)
                                 .set_required_min_image_count(VULKAN_MAX_BUFFER_SIZE)
-                                .set_desired_present_mode(VK_PRESENT_MODE_IMMEDIATE_KHR)
+                                .set_desired_present_mode(VK_PRESENT_MODE_MAILBOX_KHR)
                                 .set_desired_format({VK_FORMAT_B8G8R8A8_UNORM})
                                 .set_composite_alpha_flags(VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR)
                                 .build();
