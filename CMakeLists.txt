@@ -125,6 +125,7 @@ set(WB_SOURCES
 set(WB_LINK_LIBRARIES
     SDL2-static
     spdlog::spdlog
+    ctre::ctre
     Vulkan::Headers
     VulkanMemoryAllocator
     volk_headers
