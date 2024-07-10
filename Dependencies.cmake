@@ -64,6 +64,16 @@ CPMAddPackage(
 )
 
 CPMAddPackage(
+    NAME                compile-time-regular-expressions
+    VERSION             3.9.0
+    GITHUB_REPOSITORY   hanickadot/compile-time-regular-expressions
+    OPTIONS             "CTRE_BUILD_TESTS OFF"
+                        "CTRE_BUILD_PACKAGE OFF"
+                        "CTRE_BUILD_PACKAGE_DEB OFF"
+                        "CTRE_BUILD_PACKAGE_RPM OFF"
+)
+
+CPMAddPackage(
     NAME                spdlog
     VERSION             1.13.0
     GITHUB_REPOSITORY   gabime/spdlog
@@ -85,7 +95,7 @@ CPMAddPackage(
 CPMAddPackage(
     NAME                libsndfile
     GITHUB_REPOSITORY   libsndfile/libsndfile
-    GIT_TAG             1.1.0
+    GIT_TAG             1.2.2
     OPTIONS             "BUILD_PROGRAMS OFF"
                         "BUILD_EXAMPLES OFF"
                         "BUILD_TESTING OFF"

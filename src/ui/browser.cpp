@@ -1,7 +1,7 @@
 #include "browser.h"
 #include "controls.h"
+#include "core/algorithm.h"
 #include "file_dropper.h"
-#include <ctre.hpp>
 #include <nfd.hpp>
 
 namespace fs = std::filesystem;
@@ -30,7 +30,6 @@ void GuiBrowser::sort_directory() {
 }
 
 void GuiBrowser::glob_path(const std::filesystem::path& path, BrowserItem& item) {
-    static constexpr auto pattern = ctll::fixed_string {"(?i)^.*\\.(wav|wave|aiff|aif|aifc|iff|8svx|16svx|snd)$"};
     item.dir_items.emplace();
     item.file_items.emplace();
     for (const auto& dir_entry :
@@ -39,12 +38,15 @@ void GuiBrowser::glob_path(const std::filesystem::path& path, BrowserItem& item)
             BrowserItem& child_item = item.dir_items->emplace_back(
                 BrowserItem::Directory, &item, dir_entry.path().filename().generic_u8string());
         } else if (dir_entry.is_regular_file()) {
-            std::u8string filename = dir_entry.path().filename().generic_u8string();
-            if (!ctre::match<pattern>(filename)) {
+            std::filesystem::path filename {dir_entry.path().filename()};
+            std::filesystem::path ext {filename.extension()};
+            if (!any_of(ext, ".wav", ".wave", ".aiff", ".mid", ".midi", ".aifc", ".aif", ".iff",
+                        ".8svx")) {
                 continue;
             }
-            BrowserItem& child_item = item.file_items->emplace_back(
-                BrowserItem::File, &item, std::move(filename), FileSize(dir_entry.file_size()));
+            BrowserItem& child_item =
+                item.file_items->emplace_back(BrowserItem::File, &item, filename.generic_u8string(),
+                                              FileSize(dir_entry.file_size()));
         }
     }
 }

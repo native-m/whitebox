@@ -5,8 +5,8 @@
 
 namespace wb {
 
-template <typename T, typename... Args>
-inline bool any_of(T value, T cmp, Args... cmp_args) {
+template <typename T, typename Tcmp, typename... Args>
+inline bool any_of(T value, Tcmp cmp, Args... cmp_args) {
     return value == cmp || ((value == cmp_args) || ...);
 }
 
