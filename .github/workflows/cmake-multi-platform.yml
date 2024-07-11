@@ -55,7 +55,11 @@ jobs:
         echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
 
     - name: Checkout VST 3 SDK
-      run: git clone https://github.com/steinbergmedia/vst3sdk.git vendor/vst3sdk
+      uses: actions/checkout@v4
+      with:
+        repository: steinbergmedia/vst3sdk
+        path: './vendor/vst3sdk'
+        submodules: true
 
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
@@ -65,7 +69,7 @@ jobs:
         -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
         -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-        -DWB_VST3_SDK_PATH=vendor/vst3sdk
+        -DWB_VST3_SDK_PATH:PATH="${{ github.workspace }}/vendor/vst3sdk"
         -S ${{ github.workspace }}
 
     - name: Build
