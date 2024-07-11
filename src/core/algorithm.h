@@ -2,6 +2,7 @@
 
 #include <cstring>
 #include <type_traits>
+#include <iterator>
 
 namespace wb {
 
