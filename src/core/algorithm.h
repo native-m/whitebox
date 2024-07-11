@@ -12,7 +12,7 @@ inline bool any_of(T value, Tcmp cmp, Args... cmp_args) {
 
 template <typename T, typename ValT, typename CompareFn>
 inline T binary_search(T begin, T end, ValT value, CompareFn comp_fn) {
-    using DiffType = std::iterator_traits<T>::difference_type;
+    using DiffType = typename std::iterator_traits<T>::difference_type;
     DiffType left = -1;
     DiffType right = end - begin;
 
