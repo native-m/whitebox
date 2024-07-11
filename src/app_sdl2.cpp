@@ -39,14 +39,16 @@ void AppSDL2::init() {
     SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
 
 #ifdef WB_PLATFORM_WINDOWS
+#define DWM_ATTRIBUTE_USE_IMMERSIVE_DARK_MODE 20
+#define DWM_ATTRIBUTE_CAPTION_COLOR 35
     SDL_SysWMinfo wm_info {};
     SDL_VERSION(&wm_info.version);
     SDL_GetWindowWMInfo(new_window, &wm_info);
     BOOL dark_mode = true;
     ImU32 title_bar_color = ImColor(0.15f, 0.15f, 0.15f, 1.00f) & 0x00FFFFFF;
-    ::DwmSetWindowAttribute(wm_info.info.win.window, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark_mode,
-                            sizeof(dark_mode));
-    ::DwmSetWindowAttribute(wm_info.info.win.window, DWMWA_CAPTION_COLOR, &title_bar_color,
+    ::DwmSetWindowAttribute(wm_info.info.win.window, DWM_ATTRIBUTE_USE_IMMERSIVE_DARK_MODE,
+                            &dark_mode, sizeof(dark_mode));
+    ::DwmSetWindowAttribute(wm_info.info.win.window, DWM_ATTRIBUTE_CAPTION_COLOR, &title_bar_color,
                             sizeof(title_bar_color));
 #endif
 
