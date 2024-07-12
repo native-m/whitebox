@@ -44,6 +44,6 @@ const char* get_midi_note_scale(uint16_t note_number);
 int get_midi_note_octave(uint16_t note_number);
 
 static inline double get_midi_frequency(uint16_t note_number) {
-    return 440.0f * std::pow(2.0, (double)(note_number - 69) / 12.0);
+    return 440.0f * std::exp2((double)(note_number - 69) / 12.0);
 }
 } // namespace wb

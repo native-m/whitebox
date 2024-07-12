@@ -272,20 +272,22 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
     if (current_clip) {
         double max_time = math::uround(current_clip->max_time * ppq) * inv_ppq;
         if (time_pos >= max_time || current_clip->is_deleted() || !current_clip->is_active()) {
-            if (current_clip->is_audio()) {
-                audio_event_buffer.push_back({
-                    .type = EventType::StopSample,
-                    .buffer_offset = buffer_offset,
-                    .time = time_pos,
-                });
+            switch (current_clip->type) {
+                case ClipType::Audio:
+                    audio_event_buffer.push_back({
+                        .type = EventType::StopSample,
+                        .buffer_offset = buffer_offset,
+                        .time = time_pos,
+                    });
+                    break;
+                case ClipType::Midi:
+                    stop_midi_notes(current_clip, buffer_offset, time_pos, beat_duration, ppq,
+                                    inv_ppq);
+                    event_state.midi_note_idx = 0;
+                    break;
+                default:
+                    break;
             }
-
-            if (current_clip->is_midi()) {
-                process_midi_event(current_clip, buffer_offset, time_pos, beat_duration, ppq,
-                                   inv_ppq);
-                event_state.midi_note_idx = 0;
-            }
-
             event_state.current_clip = nullptr;
         } else {
             if (current_clip->is_midi()) {
@@ -372,11 +374,11 @@ void Track::process_midi_event(Clip* clip, uint32_t buffer_offset, double time_p
                         .velocity = voice.velocity,
                     },
             });
-            //char note_str[8] {};
-            //fmt::format_to_n(note_str, std::size(note_str), "{}{}",
-            //                 get_midi_note_scale(voice.note_number),
-            //                 get_midi_note_octave(voice.note_number));
-            //Log::debug("Note off: {}", note_str);
+            // char note_str[8] {};
+            // fmt::format_to_n(note_str, std::size(note_str), "{}{}",
+            //                  get_midi_note_scale(voice.note_number),
+            //                  get_midi_note_octave(voice.note_number));
+            // Log::debug("Note off: {}", note_str);
         }
     }
     midi_voice_state.voice_mask &= ~inactive_voice_bits;
@@ -405,15 +407,38 @@ void Track::process_midi_event(Clip* clip, uint32_t buffer_offset, double time_p
                     .velocity = note.velocity,
                 },
         });
-        //char note_str[8] {};
-        //fmt::format_to_n(note_str, std::size(note_str), "{}{}",
-        //                 get_midi_note_scale(note.note_number),
-        //                 get_midi_note_octave(note.note_number));
-        //Log::debug("Note on: {} {} -> {} at {}", note_str, min_time, max_time, time_pos);
+        // char note_str[8] {};
+        // fmt::format_to_n(note_str, std::size(note_str), "{}{}",
+        //                  get_midi_note_scale(note.note_number),
+        //                  get_midi_note_octave(note.note_number));
+        // Log::debug("Note on: {} {} -> {} at {}", note_str, min_time, max_time, time_pos);
         event_state.midi_note_idx++;
     }
 
     // Log::debug("{:b}", midi_voice_state.voice_mask);
+}
+
+void Track::stop_midi_notes(Clip* clip, uint32_t buffer_offset, double time_pos,
+                            double beat_duration, double ppq, double inv_ppq) {
+    uint64_t active_voice_bits = midi_voice_state.voice_mask;
+    uint64_t inactive_voice_bits = 0;
+    while (active_voice_bits) {
+        int active_voice = next_set_bits(active_voice_bits);
+        inactive_voice_bits |= 1ull << active_voice;
+        const MidiVoice& voice = midi_voice_state.voices[active_voice];
+        midi_event_list.add_event({
+            .type = MidiEventType::NoteOff,
+            .buffer_offset = buffer_offset,
+            .time = time_pos,
+            .note_off =
+                {
+                    .channel = 0,
+                    .note_number = voice.note_number,
+                    .velocity = voice.velocity,
+                },
+        });
+    }
+    midi_voice_state.voice_mask &= ~inactive_voice_bits;
 }
 
 void Track::process(AudioBuffer<float>& output_buffer, double sample_rate, bool playing) {

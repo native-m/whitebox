@@ -48,11 +48,14 @@ struct SynthVoice {
     double phase;
     double frequency;
     float volume;
+    float amp;
+    float current_amp;
     uint16_t note_number;
 };
 
 struct TestSynth {
     static constexpr uint32_t max_voices = sizeof(uint64_t) * 8;
+    const float env_speed = (float)(5.0 / 44100.0);
     std::array<SynthVoice, max_voices> voices;
     std::random_device rd {};
     uint64_t voice_mask;
@@ -64,6 +67,7 @@ struct TestSynth {
             .phase = dis(rd),
             .frequency = get_midi_frequency(voice.note_on.note_number),
             .volume = voice.note_on.velocity,
+            .amp = 1.0f,
             .note_number = voice.note_on.note_number,
         };
         voice_mask |= 1ull << free_voice;
@@ -92,8 +96,11 @@ struct TestSynth {
             while (active_voice_bits) {
                 int active_voice = next_set_bits(active_voice_bits);
                 SynthVoice& voice = voices[active_voice];
-                sample += (float)(voice.phase >= 1.0 ? 1.0f : -1.0f) * voice.volume * 0.5f;
+                //double osc = std::sin(voice.phase * std::numbers::pi);
+                double osc = voice.phase >= 1.0 ? 1.0f : -1.0f;
+                sample += (float)osc * voice.amp * voice.volume * 0.5f;
                 voice.phase += voice.frequency / sample_rate;
+                voice.amp = std::max(voice.amp - env_speed, 0.0f);
                 if (voice.phase >= 2.0)
                     voice.phase -= 2.0;
             }
@@ -266,6 +273,9 @@ struct Track {
 
     void process_midi_event(Clip* clip, uint32_t buffer_offset, double time_pos,
                             double beat_duration, double ppq, double inv_ppq);
+
+    void stop_midi_notes(Clip* clip, uint32_t buffer_offset, double time_pos, double beat_duration,
+                         double ppq, double inv_ppq);
 
     /**
      * @brief Process audio block.
