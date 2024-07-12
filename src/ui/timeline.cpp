@@ -918,7 +918,7 @@ void GuiTimeline::render_track_lanes() {
     double mouse_at_gridline =
         std::round(mouse_at_time_pos * (double)grid_scale) / (double)grid_scale;
 
-    ImU32 grid_color = (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.7f);
+    ImU32 grid_color = (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.85f);
     ImColor text_color = ImGui::GetStyleColorVec4(ImGuiCol_Text);
     double timeline_scroll_offset_x = (double)timeline_view_pos.x - scroll_pos_x;
     float timeline_scroll_offset_x_f32 = (float)timeline_scroll_offset_x;
@@ -937,8 +937,11 @@ void GuiTimeline::render_track_lanes() {
     redraw = redraw || (mouse_move && edit_action != TimelineEditAction::None) || dragging_file;
 
     if (redraw) {
-        ImU32 dark_grid_color =
-            (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.4f);
+        ImU32 beat_grid_color =
+            (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.28f);
+
+        ImU32 bar_grid_color =
+            (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.5f);
 
         clip_content_cmds.resize(0);
         layer1_draw_list->_ResetForNewFrame();
@@ -970,9 +973,9 @@ void GuiTimeline::render_track_lanes() {
         double bar = 4.0 * beat;
         double division = std::exp2(std::round(std::log2(view_scale / 5.0)));
         float grid_inc_x = (float)(beat * division);
+        float inv_grid_inc_x = 1.0f / grid_inc_x;
         uint32_t lines_per_bar = std::max((uint32_t)((float)bar / grid_inc_x), 1u);
         uint32_t lines_per_beat = std::max((uint32_t)((float)beat / grid_inc_x), 1u);
-        float inv_grid_inc_x = 1.0f / grid_inc_x;
         float gridline_pos_x = timeline_view_pos.x - std::fmod((float)scroll_pos_x, grid_inc_x);
         int gridline_count = (uint32_t)(timeline_width * inv_grid_inc_x);
         int count_offset = (uint32_t)(scroll_pos_x * inv_grid_inc_x);
@@ -980,10 +983,16 @@ void GuiTimeline::render_track_lanes() {
             gridline_pos_x += grid_inc_x;
             float gridline_pos_x_pixel = std::round(gridline_pos_x);
             uint32_t grid_id = i + count_offset + 1;
+            ImU32 line_color = grid_color;
+            if (grid_id % lines_per_bar) {
+                line_color = bar_grid_color;
+            }
+            if (grid_id % lines_per_beat) {
+                line_color = beat_grid_color;
+            }
             layer1_draw_list->AddLine(ImVec2(gridline_pos_x_pixel, offset_y),
                                       ImVec2(gridline_pos_x_pixel, offset_y + area_size.y),
-                                      (grid_id % lines_per_beat) ? dark_grid_color : grid_color,
-                                      grid_id % lines_per_bar ? 1.0f : 2.0f);
+                                      line_color, 1.0f);
         }
     }
 
