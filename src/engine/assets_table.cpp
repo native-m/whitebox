@@ -28,7 +28,7 @@ SampleAsset* SampleTable::load_from_file(const std::filesystem::path& path) {
         return {};
 
     auto asset =
-        samples.try_emplace(hash, this, hash, 1, std::move(*new_sample), std::move(sample_peaks));
+        samples.try_emplace(hash, this, hash, 1u, std::move(*new_sample), std::move(sample_peaks));
 
     return &asset.first->second;
 }

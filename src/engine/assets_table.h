@@ -19,7 +19,7 @@ struct MidiTable;
 struct SampleAsset {
     SampleTable* sample_table;
     uint64_t hash;
-    uint32_t ref_count = 1;
+    uint32_t ref_count = 1u;
     Sample sample_instance;
     std::shared_ptr<SamplePeaks> peaks;
 
