@@ -622,8 +622,14 @@ inline void GuiTimeline::render_track_controls() {
             controls::collapse_button("##track_collapse", &track->shown);
             ImGui::PopStyleVar();
 
-            ImGui::SameLine(0.0f, 6.0f);
-            ImGui::Text((const char*)track->name.c_str());
+            ImGui::SameLine(0.0f, 5.0f);
+            if (track->name.size() > 0) {
+                ImGui::Text(track->name.c_str(), nullptr, false, false);
+            } else {
+                ImGui::BeginDisabled();
+                ImGui::Text("(unnamed)", nullptr, false, false);
+                ImGui::EndDisabled();
+            }
 
             float volume = track->ui_parameter_state.volume_db;
             if (controls::param_drag_db("Vol.", &volume)) {
@@ -683,7 +689,11 @@ inline void GuiTimeline::render_track_controls() {
 
 inline void GuiTimeline::track_context_menu(Track& track, int track_id) {
     if (ImGui::BeginPopup("track_context_menu")) {
-        ImGui::MenuItem(track.name.c_str(), nullptr, false, false);
+        if (track.name.size() > 0) {
+            ImGui::MenuItem(track.name.c_str(), nullptr, false, false);
+        } else {
+            ImGui::MenuItem("(unnamed)", nullptr, false, false);
+        }
         ImGui::Separator();
 
         if (ImGui::BeginMenu("Rename")) {
