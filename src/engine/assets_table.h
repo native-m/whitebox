@@ -34,6 +34,7 @@ struct MidiAsset {
 
     inline void add_ref() noexcept { ++ref_count; }
     void release();
+    uint32_t find_first_note(double pos, uint32_t channel);
 };
 
 struct SampleTable {

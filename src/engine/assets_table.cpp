@@ -1,6 +1,7 @@
 #include "assets_table.h"
-#include "renderer.h"
+#include "core/algorithm.h"
 #include "core/midi.h"
+#include "renderer.h"
 
 namespace wb {
 
@@ -49,6 +50,33 @@ void SampleTable::shutdown() {
 void MidiAsset::release() {
     if (ref_count-- == 1)
         midi_table->destroy(this);
+}
+
+uint32_t MidiAsset::find_first_note(double pos, uint32_t channel) {
+    const MidiNoteBuffer& buffer = data.channels[channel];
+    auto begin = buffer.begin();
+    auto end = buffer.end();
+
+    while (begin != end && pos >= begin->max_time) {
+        begin++;
+    }
+    if (begin == end) {
+        return (uint32_t)(-1);
+    }
+    return begin - buffer.begin();
+
+    /*uint32_t left = 0;
+    uint32_t right = buffer.size();
+
+    while (left < right) {
+        uint32_t middle = (left + right) >> 1;
+        bool comparison = buffer[middle].max_time < pos;
+        uint32_t& side = (comparison ? left : right);
+        middle += (uint32_t)comparison;
+        side = middle;
+    }
+
+    return left;*/
 }
 
 MidiAsset* MidiTable::load_from_file(const std::filesystem::path& path) {

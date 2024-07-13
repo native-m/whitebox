@@ -251,6 +251,13 @@ void Track::prepare_play(double time_pos) {
     event_state.next_clip = next_clip;
     event_state.midi_note_idx = 0;
     midi_voice_state.voice_mask = 0;
+
+    if (next_clip && next_clip->is_midi()) {
+        double clip_pos = time_pos - next_clip->min_time;
+        if (clip_pos >= 0.0) {
+            event_state.midi_note_idx = next_clip->midi.asset->find_first_note(clip_pos, 0);
+        }
+    }
 }
 
 void Track::stop() {
@@ -374,28 +381,31 @@ void Track::process_midi_event(Clip* clip, uint32_t buffer_offset, double time_p
                         .velocity = voice.velocity,
                     },
             });
-            // char note_str[8] {};
-            // fmt::format_to_n(note_str, std::size(note_str), "{}{}",
-            //                  get_midi_note_scale(voice.note_number),
-            //                  get_midi_note_octave(voice.note_number));
-            // Log::debug("Note off: {}", note_str);
         }
     }
     midi_voice_state.voice_mask &= ~inactive_voice_bits;
 
     while (event_state.midi_note_idx < buffer.size()) {
         const MidiNote& note = buffer[event_state.midi_note_idx];
+        
         double min_time = math::uround((time_offset + note.min_time) * ppq) * inv_ppq;
         if (min_time > time_pos) {
             break;
         }
+        
         double max_time = math::uround((time_offset + note.max_time) * ppq) * inv_ppq;
+        if (max_time < time_pos) {
+            event_state.midi_note_idx++;
+            continue;
+        }
+
         midi_voice_state.add_voice({
             .max_time = max_time,
             .velocity = note.velocity,
             .channel = 0,
             .note_number = note.note_number,
         });
+
         midi_event_list.add_event({
             .type = MidiEventType::NoteOn,
             .buffer_offset = buffer_offset,
@@ -407,11 +417,13 @@ void Track::process_midi_event(Clip* clip, uint32_t buffer_offset, double time_p
                     .velocity = note.velocity,
                 },
         });
-        // char note_str[8] {};
-        // fmt::format_to_n(note_str, std::size(note_str), "{}{}",
-        //                  get_midi_note_scale(note.note_number),
-        //                  get_midi_note_octave(note.note_number));
-        // Log::debug("Note on: {} {} -> {} at {}", note_str, min_time, max_time, time_pos);
+
+        char note_str[8] {};
+        fmt::format_to_n(note_str, std::size(note_str), "{}{}",
+                         get_midi_note_scale(note.note_number),
+                         get_midi_note_octave(note.note_number));
+        Log::debug("Note on: {} {} -> {} at {}", note_str, min_time, max_time, time_pos);
+
         event_state.midi_note_idx++;
     }
 
