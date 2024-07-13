@@ -134,7 +134,7 @@ Clip* Engine::add_clip_from_file(Track* track, const std::filesystem::path& path
 
         return clip;
     }
-    
+
     if (MidiAsset* midi_asset = g_midi_table.load_from_file(path)) {
         clip = track->add_midi_clip("", min_time, min_time + midi_asset->data.max_length,
                                     {.asset = midi_asset}, beat_duration);
@@ -160,7 +160,7 @@ void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
 
     if (currently_playing) {
         double inv_ppq = 1.0 / ppq;
-        double current_beat_duration = 0.0;
+        double current_beat_duration = beat_duration.load(std::memory_order_relaxed);
 
         editor_lock.lock();
         for (auto track : tracks) {
@@ -169,20 +169,22 @@ void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
         }
 
         // Record a sequence of events from track clips.
-        do {
+        while (playhead < playhead_ui.load(std::memory_order_relaxed) +
+                              (buffer_duration / current_beat_duration)) {
             double position = std::round(playhead * ppq) * inv_ppq;
             uint32_t buffer_offset =
                 (uint32_t)((uint64_t)sample_position % output_buffer.n_samples);
-            current_beat_duration = beat_duration.load(std::memory_order_relaxed);
             for (auto track : tracks) {
                 track->process_event(buffer_offset, position, current_beat_duration, sample_rate,
                                      ppq, inv_ppq);
             }
             playhead += inv_ppq;
             sample_position += beat_to_samples(inv_ppq, sample_rate, current_beat_duration);
-        } while (playhead < playhead_ui + (buffer_duration / current_beat_duration));
+            current_beat_duration = beat_duration.load(std::memory_order_relaxed);
+        }
 
-        playhead_ui.store(playhead_ui + (buffer_duration / current_beat_duration),
+        playhead_ui.store(playhead_ui.load(std::memory_order_relaxed) +
+                              (buffer_duration / current_beat_duration),
                           std::memory_order_release);
         editor_lock.unlock();
     }
