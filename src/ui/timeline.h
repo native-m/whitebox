@@ -37,8 +37,9 @@ struct GuiTimeline {
     bool force_redraw = false;
     uint32_t color_spin = 0;
     ImDrawList* main_draw_list {};
-    ImDrawList* layer1_draw_list {};
-    ImDrawList* layer2_draw_list {};
+    ImDrawList* layer1_draw_list {}; // Clip header & background
+    ImDrawList* layer2_draw_list {}; // Clip controls
+    ImDrawList* layer3_draw_list {}; // Drag & drop
     ImDrawData layer_draw_data;
     std::shared_ptr<Framebuffer> timeline_fb {};
     ImVector<ClipContentDrawCmd> clip_content_cmds;

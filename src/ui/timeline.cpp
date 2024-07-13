@@ -231,6 +231,7 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
 void GuiTimeline::init() {
     layer1_draw_list = new ImDrawList(ImGui::GetDrawListSharedData());
     layer2_draw_list = new ImDrawList(ImGui::GetDrawListSharedData());
+    layer3_draw_list = new ImDrawList(ImGui::GetDrawListSharedData());
     g_engine.add_on_bpm_change_listener(
         [this](double bpm, double beat_duration) { force_redraw = true; });
 }
@@ -238,6 +239,7 @@ void GuiTimeline::init() {
 void GuiTimeline::shutdown() {
     delete layer1_draw_list;
     delete layer2_draw_list;
+    delete layer3_draw_list;
     timeline_fb.reset();
 }
 
@@ -966,6 +968,9 @@ void GuiTimeline::render_track_lanes() {
         layer2_draw_list->_ResetForNewFrame();
         layer2_draw_list->PushTextureID(ImGui::GetIO().Fonts->TexID);
         layer2_draw_list->PushClipRect(view_min, view_max);
+        layer3_draw_list->_ResetForNewFrame();
+        layer3_draw_list->PushTextureID(ImGui::GetIO().Fonts->TexID);
+        layer3_draw_list->PushClipRect(view_min, view_max);
 
         // Draw four bars length guidestrip
         float four_bars = (float)(16.0 * ppq / view_scale);
@@ -1156,7 +1161,7 @@ void GuiTimeline::render_track_lanes() {
         if (hovering_track_rect && dragging_file) {
             // Highlight drop target
             float highlight_pos = (float)mouse_at_gridline; // Snap to grid
-            layer1_draw_list->AddRectFilled(
+            layer3_draw_list->AddRectFilled(
                 ImVec2(timeline_scroll_offset_x_f32 + highlight_pos * (float)clip_scale,
                        track_pos_y),
                 ImVec2(timeline_scroll_offset_x_f32 + (highlight_pos + 1.0f) * (float)clip_scale,
@@ -1235,15 +1240,15 @@ void GuiTimeline::render_track_lanes() {
                 break;
             }
             case TimelineEditAction::ClipDuplicate: {
-                float highlight_pos = (float)mouse_at_gridline; // Snap to grid
-                float length = (float)(edited_clip->max_time - edited_clip->min_time);
+                double highlight_pos = mouse_at_gridline; // Snap to grid
+                double length = edited_clip->max_time - edited_clip->min_time;
                 float duplicate_pos_y = hovered_track_y;
                 hovered_track_y = edited_track_pos_y;
-                layer1_draw_list->AddRectFilled(
-                    ImVec2(timeline_scroll_offset_x_f32 + highlight_pos * (float)clip_scale,
+                layer3_draw_list->AddRectFilled(
+                    ImVec2(timeline_scroll_offset_x_f32 + (float)(highlight_pos * clip_scale),
                            duplicate_pos_y),
                     ImVec2(timeline_scroll_offset_x_f32 +
-                               (highlight_pos + length) * (float)clip_scale,
+                               (float)((highlight_pos + length) * clip_scale),
                            duplicate_pos_y + edited_track->height),
                     ImGui::GetColorU32(ImGuiCol_Border));
                 break;
@@ -1267,6 +1272,9 @@ void GuiTimeline::render_track_lanes() {
     }
 
     if (redraw) {
+        layer3_draw_list->PopClipRect();
+        layer3_draw_list->PopTextureID();
+
         layer2_draw_list->PopClipRect();
         layer2_draw_list->PopTextureID();
 
@@ -1296,6 +1304,15 @@ void GuiTimeline::render_track_lanes() {
         layer_draw_data.FramebufferScale.y = 1.0f;
         layer_draw_data.OwnerViewport = owner_viewport;
         layer_draw_data.AddDrawList(layer2_draw_list);
+        g_renderer->render_draw_data(&layer_draw_data);
+
+        layer_draw_data.Clear();
+        layer_draw_data.DisplayPos = view_min;
+        layer_draw_data.DisplaySize = timeline_area;
+        layer_draw_data.FramebufferScale.x = 1.0f;
+        layer_draw_data.FramebufferScale.y = 1.0f;
+        layer_draw_data.OwnerViewport = owner_viewport;
+        layer_draw_data.AddDrawList(layer3_draw_list);
         g_renderer->render_draw_data(&layer_draw_data);
 
         g_renderer->finish_draw();
