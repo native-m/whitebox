@@ -12,14 +12,21 @@
 #include "popup_state_manager.h"
 #include <fmt/format.h>
 
+#define DEBUG_MIDI_CLIPS 0
+
+#ifdef NDEBUG
+#undef DEBUG_MIDI_CLIPS
+#define DEBUG_MIDI_CLIPS 0
+#endif
+
 namespace wb {
 
-inline void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
-                      ImVector<ClipContentDrawCmd>& clip_content_cmds, const Clip* clip,
-                      float timeline_width, float offset_y, float min_draw_x, double min_x,
-                      double max_x, double clip_scale, double sample_scale, double sample_offset,
-                      float track_pos_y, float track_height, const ImColor& track_color,
-                      ImFont* font, const ImColor& text_color) {
+void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
+               ImVector<ClipContentDrawCmd>& clip_content_cmds, const Clip* clip,
+               float timeline_width, float offset_y, float min_draw_x, double min_x, double max_x,
+               double clip_scale, double sample_scale, double relative_start_time,
+               double sample_offset, float track_pos_y, float track_height,
+               const ImColor& track_color, ImFont* font, const ImColor& text_color) {
     constexpr ImDrawListFlags draw_list_aa_flags = ImDrawListFlags_AntiAliasedFill |
                                                    ImDrawListFlags_AntiAliasedLinesUseTex |
                                                    ImDrawListFlags_AntiAliasedLines;
@@ -35,10 +42,8 @@ inline void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list
                                       ? ImColor(0.0f, 0.0f, 0.0f, 1.0f - bg_contrast_ratio * 0.45f)
                                       : text_color;
 
-
     bool is_active = clip->is_active();
     ImColor color = is_active ? clip->color : color_adjust_alpha(clip->color, 0.75f);
-    // Draw clip background and its header
     float min_x2 = (float)math::round(min_x);
     float max_x2 = (float)math::round(max_x);
     float font_size = font->FontSize;
@@ -51,6 +56,8 @@ inline void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list
     ImVec2 clip_content_min(min_x2, clip_title_max_y);
     ImVec2 clip_content_max(max_x2, track_pos_y + track_height);
     ImDrawListFlags tmp_flags = layer1_draw_list->Flags;
+
+    // Draw clip background and its header
     layer1_draw_list->Flags = layer1_draw_list->Flags & ~draw_list_aa_flags;
     layer1_draw_list->AddRectFilled(clip_title_min_bb, clip_title_max_bb, color);
     layer1_draw_list->AddRectFilled(clip_content_min, clip_content_max, bg_color);
@@ -117,14 +124,15 @@ inline void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list
             break;
         }
         case ClipType::Midi: {
-            static constexpr float min_note_size_px = 2.5f;
-            static constexpr float max_note_size_px = 10.0f;
+            constexpr float min_note_size_px = 2.5f;
+            constexpr float max_note_size_px = 10.0f;
+            constexpr uint32_t min_note_range = 4;
             MidiAsset* asset = clip->midi.asset;
             uint32_t min_note = asset->data.min_note;
             uint32_t max_note = asset->data.max_note;
             uint32_t note_range = (asset->data.max_note + 1) - min_note;
 
-            if (note_range < 4)
+            if (note_range < min_note_range)
                 note_range = 13;
 
             float view_height = clip_content_max.y - clip_content_min.y;
@@ -143,22 +151,30 @@ inline void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list
 
             if (asset) {
                 uint32_t channel_count = asset->data.channel_count;
+                min_x -= relative_start_time * clip_scale;
                 for (uint32_t i = 0; i < channel_count; i++) {
                     const MidiNoteBuffer& buffer = asset->data.channels[i];
                     for (size_t j = 0; j < buffer.size(); j++) {
                         const MidiNote& note = buffer[j];
                         float min_pos_x = (float)math::round(min_x + note.min_time * clip_scale);
                         float max_pos_x = (float)math::round(min_x + note.max_time * clip_scale);
+                        if (min_pos_x >= max_view)
+                            continue;
+                        if (max_pos_x <= min_view)
+                            continue;
                         float pos_y =
                             offset_y + (float)(max_note - note.note_number) * max_note_size;
-                        if (min_pos_x > max_view)
-                            continue;
-                        if (max_pos_x < min_view)
-                            continue;
                         min_pos_x = math::max(min_pos_x, min_view);
                         max_pos_x = math::min(max_pos_x, max_view);
+                        // if (min_pos_x == max_pos_x)
+                        //     continue;
                         ImVec2 a(min_pos_x + 0.5f, pos_y);
                         ImVec2 b(max_pos_x, pos_y + min_note_size - 0.5f);
+#if DEBUG_MIDI_CLIPS == 1
+                        char c[32] {};
+                        fmt::format_to_n(c, std::size(c), "ID: {}", j);
+                        layer2_draw_list->AddText(a - ImVec2(0.0f, 13.0f), 0xFFFFFFFF, c);
+#endif
                         layer1_draw_list->PathLineTo(a);
                         layer1_draw_list->PathLineTo(ImVec2(b.x, a.y));
                         layer1_draw_list->PathLineTo(b);
@@ -1126,13 +1142,13 @@ void GuiTimeline::render_track_lanes() {
                 force_redraw = true;
             }
 
-            double sample_offset = clip->is_audio() ? (double)clip->audio.sample_offset : 0.0;
-
             if (redraw) {
+                double sample_offset = clip->is_audio() ? (double)clip->audio.sample_offset : 0.0;
+                double relative_start_time = clip->relative_start_time;
                 draw_clip(layer1_draw_list, layer2_draw_list, clip_content_cmds, clip,
                           timeline_width, offset_y, timeline_view_pos.x, min_pos_x, max_pos_x,
-                          clip_scale, sample_scale, sample_offset, track_pos_y, height,
-                          track->color, font, text_color);
+                          clip_scale, sample_scale, relative_start_time, sample_offset, track_pos_y,
+                          height, track->color, font, text_color);
             }
         }
 
@@ -1177,6 +1193,7 @@ void GuiTimeline::render_track_lanes() {
         double max_time = edited_clip->max_time;
         double sample_offset = (double)edited_clip->audio.sample_offset;
         double relative_pos = mouse_at_gridline - initial_time_pos;
+        double relative_start_time = edited_clip->relative_start_time;
 
         switch (edit_action) {
             case TimelineEditAction::ClipMove: {
@@ -1194,6 +1211,7 @@ void GuiTimeline::render_track_lanes() {
                     sample_offset = beat_to_samples(
                         rel_offset, (double)asset->sample_instance.sample_rate, beat_duration);
                 }
+                relative_start_time = rel_offset;
                 min_time = new_min_time;
                 hovered_track_y = edited_track_pos_y;
                 break;
@@ -1208,6 +1226,7 @@ void GuiTimeline::render_track_lanes() {
             }
             case TimelineEditAction::ClipShift: {
                 double rel_offset = calc_shift_clip(edited_clip, relative_pos);
+                relative_start_time = rel_offset;
                 if (edited_clip->type == ClipType::Audio) {
                     SampleAsset* asset = edited_clip->audio.asset;
                     sample_offset = beat_to_samples(
@@ -1239,7 +1258,7 @@ void GuiTimeline::render_track_lanes() {
         if (min_pos_x < timeline_end_x && max_pos_x > timeline_view_pos.x) {
             draw_clip(layer1_draw_list, layer2_draw_list, clip_content_cmds, edited_clip,
                       timeline_width, offset_y, timeline_view_pos.x, min_pos_x, max_pos_x,
-                      clip_scale, sample_scale, sample_offset, hovered_track_y,
+                      clip_scale, sample_scale, relative_start_time, sample_offset, hovered_track_y,
                       hovered_track_height, edited_track->color, font, text_color);
         }
 

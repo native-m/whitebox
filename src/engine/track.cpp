@@ -251,13 +251,6 @@ void Track::prepare_play(double time_pos) {
     event_state.next_clip = next_clip;
     event_state.midi_note_idx = 0;
     midi_voice_state.voice_mask = 0;
-
-    if (next_clip && next_clip->is_midi()) {
-        double clip_pos = time_pos - next_clip->min_time;
-        if (clip_pos >= 0.0) {
-            event_state.midi_note_idx = next_clip->midi.asset->find_first_note(clip_pos, 0);
-        }
-    }
 }
 
 void Track::stop() {
@@ -337,6 +330,11 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
                     break;
                 }
                 case ClipType::Midi: {
+                    double clip_pos = time_pos - next_clip->min_time;
+                    if (clip_pos >= 0.0) {
+                        event_state.midi_note_idx = next_clip->midi.asset->find_first_note(
+                            clip_pos + next_clip->relative_start_time, 0);
+                    }
                     process_midi_event(next_clip, buffer_offset, time_pos, beat_duration, ppq,
                                        inv_ppq);
                     break;
@@ -360,7 +358,7 @@ void Track::process_midi_event(Clip* clip, uint32_t buffer_offset, double time_p
                                double beat_duration, double ppq, double inv_ppq) {
     MidiAsset* asset = clip->midi.asset;
     const MidiNoteBuffer& buffer = asset->data.channels[0];
-    double time_offset = clip->min_time;
+    double time_offset = clip->min_time - clip->relative_start_time;
 
     uint64_t active_voice_bits = midi_voice_state.voice_mask;
     uint64_t inactive_voice_bits = 0;
@@ -387,12 +385,12 @@ void Track::process_midi_event(Clip* clip, uint32_t buffer_offset, double time_p
 
     while (event_state.midi_note_idx < buffer.size()) {
         const MidiNote& note = buffer[event_state.midi_note_idx];
-        
+
         double min_time = math::uround((time_offset + note.min_time) * ppq) * inv_ppq;
         if (min_time > time_pos) {
             break;
         }
-        
+
         double max_time = math::uround((time_offset + note.max_time) * ppq) * inv_ppq;
         if (max_time < time_pos) {
             event_state.midi_note_idx++;
