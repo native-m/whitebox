@@ -274,8 +274,7 @@ struct Track {
     void process_midi_event(Clip* clip, uint32_t buffer_offset, double time_pos,
                             double beat_duration, double ppq, double inv_ppq);
 
-    void stop_midi_notes(Clip* clip, uint32_t buffer_offset, double time_pos, double beat_duration,
-                         double ppq, double inv_ppq);
+    void stop_midi_notes(uint32_t buffer_offset, double time_pos);
 
     /**
      * @brief Process audio block.

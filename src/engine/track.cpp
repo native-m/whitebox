@@ -281,8 +281,7 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
                     });
                     break;
                 case ClipType::Midi:
-                    stop_midi_notes(current_clip, buffer_offset, time_pos, beat_duration, ppq,
-                                    inv_ppq);
+                    stop_midi_notes(buffer_offset, time_pos);
                     event_state.midi_note_idx = 0;
                     break;
                 default:
@@ -428,8 +427,7 @@ void Track::process_midi_event(Clip* clip, uint32_t buffer_offset, double time_p
     // Log::debug("{:b}", midi_voice_state.voice_mask);
 }
 
-void Track::stop_midi_notes(Clip* clip, uint32_t buffer_offset, double time_pos,
-                            double beat_duration, double ppq, double inv_ppq) {
+void Track::stop_midi_notes(uint32_t buffer_offset, double time_pos) {
     uint64_t active_voice_bits = midi_voice_state.voice_mask;
     uint64_t inactive_voice_bits = 0;
     while (active_voice_bits) {

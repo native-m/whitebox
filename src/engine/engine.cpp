@@ -158,15 +158,19 @@ void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
     double buffer_duration = (double)output_buffer.n_samples / sample_rate;
     bool currently_playing = playing.load(std::memory_order_relaxed);
 
+    editor_lock.lock();
+
+    for (auto track : tracks) {
+        track->audio_event_buffer.resize(0);
+        track->midi_event_list.clear();
+        if (track->midi_voice_state.voice_mask != 0 && !currently_playing) {
+            track->stop_midi_notes(0, playhead_ui.load(std::memory_order_relaxed));
+        }
+    }
+
     if (currently_playing) {
         double inv_ppq = 1.0 / ppq;
         double current_beat_duration = beat_duration.load(std::memory_order_relaxed);
-
-        editor_lock.lock();
-        for (auto track : tracks) {
-            track->audio_event_buffer.resize(0);
-            track->midi_event_list.clear();
-        }
 
         // Record a sequence of events from track clips.
         while (playhead < playhead_ui.load(std::memory_order_relaxed) +
@@ -186,8 +190,8 @@ void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
         playhead_ui.store(playhead_ui.load(std::memory_order_relaxed) +
                               (buffer_duration / current_beat_duration),
                           std::memory_order_release);
-        editor_lock.unlock();
     }
+    editor_lock.unlock();
 
     output_buffer.clear();
 
