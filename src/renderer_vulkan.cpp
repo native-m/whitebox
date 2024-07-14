@@ -3,6 +3,7 @@
 #include "core/debug.h"
 #include "core/defer.h"
 #include "core/thread.h"
+#include "vsync_provider.h"
 #include <SDL.h>
 #include <SDL_syswm.h>
 #include <SDL_vulkan.h>
@@ -24,7 +25,7 @@ extern "C" {
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_vulkan.h>
 
-#define VULKAN_LOG_RESOURCE_DISPOSAL 1
+#define VULKAN_LOG_RESOURCE_DISPOSAL 0
 
 #ifdef NDEBUG
 #undef VULKAN_LOG_RESOURCE_DISPOSAL
@@ -787,8 +788,6 @@ void RendererVK::resize_swapchain() {
 }
 
 void RendererVK::new_frame() {
-    start_time_ = std::chrono::high_resolution_clock::now();
-
     FrameSync& frame_sync = frame_sync_[sync_id_];
     vkAcquireNextImageKHR(device_, swapchain_, UINT64_MAX, frame_sync.image_acquire_semaphore,
                           nullptr, &sc_image_index_);
@@ -1250,41 +1249,13 @@ void RendererVK::present() {
         .pImageIndices = &sc_image_index_,
     };
 
-    VkPresentIdKHR present_id {
-        .sType = VK_STRUCTURE_TYPE_PRESENT_ID_KHR,
-        .swapchainCount = 1,
-    };
-
-    if (has_present_id) {
-        // present_id.pPresentIds = &present_id_;
-        // present_info.pNext = &present_id;
-        //  Log::debug("{}", present_id_);
-    }
+    g_vsync_provider->wait_for_vblank();
 
     VkResult result = vkQueuePresentKHR(graphics_queue_, &present_info);
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
         vkDeviceWaitIdle(device_);
         init_swapchain_();
         return;
-    }
-
-    // Log::debug("{}", (uint32_t)result);
-
-    if (has_present_wait && has_present_id) {
-        // constexpr auto timeout =
-        //     std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::seconds(1)).count();
-        // VK_CHECK(vkWaitForPresentKHR(device_, swapchain_, present_id_, timeout));
-        // present_id_ += 1;
-    }
-
-    // Frame limit
-    auto frame_time = std::chrono::high_resolution_clock::now() - start_time_;
-    static constexpr auto target_rate = std::chrono::duration_cast<std::chrono::nanoseconds>(
-        std::chrono::duration<double>(1.0 / 63.0)); // Slightly deviated for accomodating time drift
-    
-    if (frame_time < target_rate) {
-        auto wait_time = target_rate - frame_time;
-        accurate_sleep(wait_time);
     }
 }
 
@@ -1369,6 +1340,8 @@ bool RendererVK::init_swapchain_() {
 
         VK_CHECK(vkCreateFence(device_, &fence_info, nullptr, &fences_[i]));
     }
+
+    g_vsync_provider->wait_for_vblank();
 
     return true;
 }
@@ -1732,28 +1705,6 @@ Renderer* RendererVK::create(App* app) {
         .features = physical_device.features,
     };
 
-    VkPhysicalDevicePresentIdFeaturesKHR present_id_features {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_FEATURES_KHR,
-        .presentId = true,
-    };
-
-    VkPhysicalDevicePresentWaitFeaturesKHR present_wait_features {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_WAIT_FEATURES_KHR,
-        .presentWait = true,
-    };
-
-    bool has_present_id = false;
-    if (physical_device.enable_extension_if_present(VK_KHR_PRESENT_ID_EXTENSION_NAME)) {
-        has_present_id = true;
-        features.pNext = &present_id_features;
-    }
-
-    bool has_present_wait = false;
-    if (physical_device.enable_extension_if_present(VK_KHR_PRESENT_WAIT_EXTENSION_NAME)) {
-        has_present_wait = true;
-        present_id_features.pNext = &present_wait_features;
-    }
-
     vkGetPhysicalDeviceFeatures2(physical_device, &features);
 
     auto device_builder = vkb::DeviceBuilder(physical_device).add_pNext(&features);
@@ -1804,9 +1755,6 @@ Renderer* RendererVK::create(App* app) {
         vkb::destroy_instance(instance);
         return nullptr;
     }
-
-    renderer->has_present_id = has_present_id;
-    renderer->has_present_wait = has_present_wait;
 
     if (!renderer->init()) {
         vkb::destroy_device(device);

@@ -117,6 +117,8 @@ set(WB_SOURCES
     "src/renderer_d3d11.h"
     "src/renderer_vulkan.cpp"
     "src/renderer_vulkan.h"
+    "src/vsync_provider.cpp"
+    "src/vsync_provider.h"
     "src/settings_data.cpp"
     "src/settings_data.h"
     "src/vk_stub.cpp"
