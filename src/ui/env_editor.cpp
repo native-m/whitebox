@@ -159,7 +159,7 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
         if (ImGui::MenuItem("Copy value")) {
             char str[32] {};
             const EnvelopePoint& point = points[point_idx];
-            std::format_to_n(str, sizeof(str), "{}", point.y);
+            fmt::format_to_n(str, sizeof(str), "{}", point.y);
             ImGui::SetClipboardText(str);
         }
 

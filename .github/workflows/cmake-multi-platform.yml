@@ -93,7 +93,10 @@ jobs:
       run: ctest --build-config ${{ matrix.build_type }}
 
     - name: Install artifact
-      run: cmake --install ${{ steps.strings.outputs.build-output-dir }} --prefix ${{ github.workspace }}/install
+      run: >
+        cmake --install ${{ steps.strings.outputs.build-output-dir }}
+        --prefix ${{ github.workspace }}/install
+        --component whitebox
 
     - name: Archive build artifact
       uses: actions/upload-artifact@v4
