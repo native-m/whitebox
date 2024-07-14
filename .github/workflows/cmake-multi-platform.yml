@@ -102,6 +102,6 @@ jobs:
     - name: Archive build artifact
       uses: actions/upload-artifact@v4
       with:
-        name: whitebox-${{ github.ref_name }}-${{ github.run_id }}
+        name: whitebox-${{ matrix.os }}-${{ matrix.cpp_compiler }}-${{ github.ref_name }}-${{ github.run_id }}
         path: ${{ github.workspace }}/install
       
