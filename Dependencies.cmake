@@ -9,6 +9,7 @@ CPMAddPackage(
                         "SDL_TESTS OFF"
                         "SDL_TEST_LIBRARY OFF"
                         "SDL_DISABLE_INSTALL ON"
+    EXCLUDE_FROM_ALL
 )
 
 CPMAddPackage(
@@ -61,6 +62,7 @@ CPMAddPackage(
     GIT_TAG             10.2.1
     GITHUB_REPOSITORY   fmtlib/fmt
     OPTIONS             "FMT_INSTALL OFF"
+    EXCLUDE_FROM_ALL
 )
 
 CPMAddPackage(
@@ -71,6 +73,7 @@ CPMAddPackage(
                         "CTRE_BUILD_PACKAGE OFF"
                         "CTRE_BUILD_PACKAGE_DEB OFF"
                         "CTRE_BUILD_PACKAGE_RPM OFF"
+    EXCLUDE_FROM_ALL
 )
 
 CPMAddPackage(
@@ -90,6 +93,10 @@ CPMAddPackage(
                         "FT_DISABLE_PNG TRUE"
                         "FT_DISABLE_HARFBUZZ TRUE"
                         "FT_DISABLE_BROTLI TRUE"
+                        "SKIP_INSTALL_HEADERS TRUE"
+                        "SKIP_INSTALL_LIBRARIES TRUE"
+                        "SKIP_INSTALL_ALL TRUE"
+    EXCLUDE_FROM_ALL
 )
 
 CPMAddPackage(
@@ -100,8 +107,11 @@ CPMAddPackage(
                         "BUILD_EXAMPLES OFF"
                         "BUILD_TESTING OFF"
                         "ENABLE_CPACK OFF"
+                        "ENABLE_BOW_DOCS OFF"
                         "ENABLE_PACKAGE_CONFIG OFF"
                         "INSTALL_PKGCONFIG_MODULE OFF"
+                        "INSTALL_MANPAGES OFF"
+    EXCLUDE_FROM_ALL
 )
 
 CPMAddPackage(

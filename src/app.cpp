@@ -42,6 +42,7 @@ void App::init() {
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     // io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
     io.ConfigViewportsNoTaskBarIcon = false;
+    io.IniFilename = ".whitebox/ui.ini";
 
     init_font_assets();
     apply_theme(ImGui::GetStyle());

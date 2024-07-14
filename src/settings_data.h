@@ -14,6 +14,7 @@ struct SettingsData {
     uint32_t audio_buffer_size = 128;
     bool audio_exclusive_mode = false;
 
+    SettingsData();
     void load_settings_data();
     void load_default_settings();
     void save_settings_data();

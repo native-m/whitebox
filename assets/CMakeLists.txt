@@ -50,3 +50,4 @@ wb_add_asset_file("RobotoMono-Regular.ttf")
 wb_add_asset_file("MaterialSymbolsRoundedInstanced.ttf")
 
 add_custom_target(wb-assets DEPENDS ${WB_ASSET_DEPENDENCIES})
+set(WB_ASSET_INSTALL_FILES "${WB_ASSET_DEPENDENCIES}" PARENT_SCOPE)

@@ -26,6 +26,12 @@ static const std::filesystem::path userpath {std::filesystem::current_path()};
 static const std::filesystem::path devpath {std::filesystem::current_path()};
 static const std::filesystem::path settings_file_path {devpath / ".whitebox" / "settings.json"};
 
+SettingsData::SettingsData() {
+    if (!std::filesystem::is_directory(devpath / ".whitebox")) {
+        std::filesystem::create_directory(devpath / ".whitebox");
+    }
+}
+
 void SettingsData::load_settings_data() {
     Log::info("Loading user settings...");
 

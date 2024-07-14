@@ -11,12 +11,15 @@ endif()
 
 #set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
-project("whitebox")
+project("whitebox" VERSION 0.1.0)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED 20)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
 option(WB_VST3_SDK_PATH "Path to VST3 SDK")
+option(WB_ENABLE_INSTALL "Enable install" OFF)
+option(WB_ENABLE_PACKAGING "Enable packaging with CPack" OFF)
 
 include(CheckIPOSupported)
 check_ipo_supported(RESULT WB_IPO_SUPPORTED OUTPUT output)
@@ -26,9 +29,17 @@ if (WB_IPO_SUPPORTED)
     set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
 endif()
 
+if (WB_ENABLE_INSTALL)
+    set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
+    set(CMAKE_INSTALL_DEBUG_LIBRARIES ON)
+    include(InstallRequiredSystemLibraries)
+endif()
+
 include(Dependencies.cmake)
 
 enable_testing()
+
+set(WB_ASSET_DEPENDENCIES "")
 add_subdirectory(assets)
 
 set(WB_SOURCES
@@ -131,7 +142,6 @@ set(WB_SOURCES
 set(WB_LINK_LIBRARIES
     SDL2-static
     spdlog::spdlog
-    ctre::ctre
     Vulkan::Headers
     VulkanMemoryAllocator
     volk_headers
@@ -171,7 +181,34 @@ target_link_libraries(whitebox whitebox-lib)
 add_dependencies(whitebox wb-assets)
 set_target_properties(whitebox PROPERTIES CXX_STANDARD 20)
 
+add_subdirectory(test)
+
+if (WB_ENABLE_INSTALL)
+    install(TARGETS whitebox
+        RUNTIME DESTINATION "."
+        COMPONENT whitebox)
+    install(PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}
+        DESTINATION "."
+        COMPONENT whitebox)
+    install(FILES ${WB_ASSET_INSTALL_FILES}
+        DESTINATION assets
+        COMPONENT whitebox)
+endif ()
+
+if (WB_ENABLE_PACKAGING)
+    set(CPACK_PACKAGE_NAME "whitebox")
+    set(CPACK_PACKAGE_VENDOR "Whitebox Developers")
+    set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Whitebox DAW"
+        CACHE STRING "Free & open-source digital audio workstation"
+    )
+    set(CPACK_COMPONENT_UNSPECIFIED_REQUIRED FALSE)
+    set(CPACK_COMPONENT_UNSPECIFIED_DISABLED TRUE)
+    set(CPACK_COMPONENTS_ALL whitebox)
+    set(CPACK_PACKAGE_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
+    set(CPACK_PACKAGE_VERSION_MINOR ${PROJECT_VERSION_MINOR})
+    set(CPACK_PACKAGE_VERSION_PATCH ${PROJECT_VERSION_PATCH})
+    include(CPack)
+endif ()
 
 #set_property(TARGET whitebox-lib whitebox PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
-add_subdirectory(test)
