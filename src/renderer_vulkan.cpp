@@ -1267,6 +1267,8 @@ bool RendererVK::init_swapchain_() {
                                 .set_desired_min_image_count(2)
                                 .set_required_min_image_count(VULKAN_MAX_BUFFER_SIZE)
                                 .set_desired_present_mode(VK_PRESENT_MODE_MAILBOX_KHR)
+                                .add_fallback_present_mode(VK_PRESENT_MODE_IMMEDIATE_KHR)
+                                .add_fallback_present_mode(VK_PRESENT_MODE_FIFO_KHR)
                                 .set_desired_format({VK_FORMAT_B8G8R8A8_UNORM})
                                 .set_composite_alpha_flags(VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR)
                                 .build();
