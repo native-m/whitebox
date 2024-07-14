@@ -16,6 +16,7 @@
 #include "ui/piano_roll.h"
 #include "ui/settings.h"
 #include "ui/timeline.h"
+#include "ui/env_editor.h"
 #include <imgui.h>
 
 using namespace std::literals::chrono_literals;
@@ -103,6 +104,7 @@ void App::run() {
         g_mixer.render();
         g_timeline.render();
         g_piano_roll.render();
+        g_env_window.render();
 
         ImGui::Render();
         g_renderer->begin_draw(nullptr, {0.0f, 0.0f, 0.0f, 1.0f});
