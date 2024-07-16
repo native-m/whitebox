@@ -10,7 +10,6 @@
       "cacheVariables": {
         "CMAKE_C_COMPILER": "cl.exe",
         "CMAKE_CXX_COMPILER": "cl.exe",
-        "WB_VST3_SDK_PATH": "../vst3sdk",
         "WB_ENABLE_INSTALL": true,
         "WB_ENABLE_PACKAGING": true
       },
@@ -27,7 +26,6 @@
       "cacheVariables": {
         "CMAKE_C_COMPILER": "clang.exe",
         "CMAKE_CXX_COMPILER": "clang.exe",
-        "WB_VST3_SDK_PATH": "../vst3sdk"
       },
       "condition": {
         "type": "equals",

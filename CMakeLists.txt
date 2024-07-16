@@ -17,21 +17,15 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED 20)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-option(WB_VST3_SDK_PATH "Path to VST3 SDK")
 option(WB_ENABLE_INSTALL "Enable install" OFF)
 option(WB_ENABLE_PACKAGING "Enable packaging with CPack" OFF)
 
 include(CheckIPOSupported)
 check_ipo_supported(RESULT WB_IPO_SUPPORTED OUTPUT output)
 
-if (WB_IPO_SUPPORTED)
-    message("WB: IPO is supported by the toolchain!")
-    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
-endif()
-
 if (WB_ENABLE_INSTALL)
     set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
-    set(CMAKE_INSTALL_DEBUG_LIBRARIES ON)
+    set(CMAKE_INSTALL_DEBUG_LIBRARIES TRUE)
     include(InstallRequiredSystemLibraries)
 endif()
 
@@ -166,6 +160,10 @@ target_link_libraries(whitebox-lib PUBLIC ${WB_LINK_LIBRARIES})
 target_include_directories(whitebox-lib PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 set_target_properties(whitebox-lib PROPERTIES CXX_STANDARD 20)
 
+if (WB_IPO_SUPPORTED)
+    set_target_properties(whitebox-lib PROPERTIES INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+endif()
+
 if (UNIX AND NOT APPLE)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(LIBPULSE REQUIRED IMPORTED_TARGET libpulse)
@@ -180,6 +178,10 @@ add_executable(whitebox "src/main.cpp")
 target_link_libraries(whitebox whitebox-lib)
 add_dependencies(whitebox wb-assets)
 set_target_properties(whitebox PROPERTIES CXX_STANDARD 20)
+
+if (WB_IPO_SUPPORTED)
+    set_target_properties(whitebox PROPERTIES INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+endif()
 
 add_subdirectory(test)
 
