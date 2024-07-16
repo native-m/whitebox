@@ -16,27 +16,27 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED 20)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+option(WB_BUILD_TEST "Build test programs" ON)
 option(WB_ENABLE_INSTALL "Enable install" OFF)
 cmake_dependent_option(WB_ENABLE_PACKAGING "Enable packaging with CPack" OFF "WB_ENABLE_INSTALL" OFF)
 
 include(CheckIPOSupported)
 check_ipo_supported(RESULT WB_IPO_SUPPORTED OUTPUT output)
 
+if (WB_BUILD_TEST)
+    enable_testing()
+endif()
+
 if (WB_ENABLE_INSTALL)
+    if (CMAKE_BUILD_TYPE MATCHES "[Dd]ebug")
+        set(CMAKE_INSTALL_DEBUG_LIBRARIES ${WB_INSTALL_DEBUG_SYSTEM_LIBARIES})
+        set(CMAKE_INSTALL_DEBUG_LIBRARIES_ONLY ${WB_INSTALL_DEBUG_SYSTEM_LIBARIES})
+    endif()
     set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
-    set(CMAKE_INSTALL_DEBUG_LIBRARIES
-        $<$<CONFIG:Debug>:ON>
-        $<$<CONFIG:Release>:OFF>
-        $<$<CONFIG:RelWithDebInfo>:OFF>
-        $<$<CONFIG:MinSizeRel>:OFF>)
     include(InstallRequiredSystemLibraries)
 endif()
 
 include(Dependencies.cmake)
-
-enable_testing()
-
-set(WB_ASSET_DEPENDENCIES "")
 add_subdirectory(assets)
 
 set(WB_SOURCES
@@ -186,7 +186,9 @@ if (WB_IPO_SUPPORTED)
     set_target_properties(whitebox PROPERTIES INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
 endif()
 
-add_subdirectory(test)
+if (WB_BUILD_TEST)
+    add_subdirectory(test)
+endif()
 
 if (WB_ENABLE_INSTALL)
     install(TARGETS whitebox
