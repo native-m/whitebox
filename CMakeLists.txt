@@ -9,23 +9,26 @@ if (MSVC AND POLICY CMP0141)
   set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
 endif()
 
-#set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-
 project("whitebox" VERSION 0.1.0)
+include(CMakeDependentOption)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED 20)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(WB_ENABLE_INSTALL "Enable install" OFF)
-option(WB_ENABLE_PACKAGING "Enable packaging with CPack" OFF)
+cmake_dependent_option(WB_ENABLE_PACKAGING "Enable packaging with CPack" OFF "WB_ENABLE_INSTALL" OFF)
 
 include(CheckIPOSupported)
 check_ipo_supported(RESULT WB_IPO_SUPPORTED OUTPUT output)
 
 if (WB_ENABLE_INSTALL)
     set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
-    set(CMAKE_INSTALL_DEBUG_LIBRARIES TRUE)
+    set(CMAKE_INSTALL_DEBUG_LIBRARIES
+        $<$<CONFIG:Debug>:ON>
+        $<$<CONFIG:Release>:OFF>
+        $<$<CONFIG:RelWithDebInfo>:OFF>
+        $<$<CONFIG:MinSizeRel>:OFF>)
     include(InstallRequiredSystemLibraries)
 endif()
 
