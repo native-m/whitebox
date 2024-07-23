@@ -47,6 +47,9 @@ void SampleTable::shutdown() {
 
 //
 
+MidiAsset::MidiAsset(MidiTable* table) : midi_table(table) {
+}
+
 void MidiAsset::release() {
     if (ref_count-- == 1)
         midi_table->destroy(this);
@@ -98,16 +101,24 @@ MidiAsset* MidiTable::create_midi() {
     if (!ptr) {
         return nullptr;
     }
-    return new (ptr) MidiAsset();
+    MidiAsset* asset = new (ptr) MidiAsset(this);
+    allocated_assets.push_tracked_resource(asset);
+    return asset;
 }
 
 void MidiTable::destroy(MidiAsset* asset) {
     assert(asset != nullptr);
+    asset->remove_tracked_resource();
     asset->~MidiAsset();
     midi_assets.free(asset);
 }
 
 void MidiTable::shutdown() {
+    while (auto asset = allocated_assets.pop_tracked_resource()) {
+        auto midi_asset = static_cast<MidiAsset*>(asset);
+        midi_asset->~MidiAsset();
+        midi_assets.free(midi_asset);
+    }
 }
 
 SampleTable g_sample_table;

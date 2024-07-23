@@ -96,6 +96,8 @@ struct Clip {
                     audio.asset->release();
                 break;
             case ClipType::Midi:
+                if (midi.asset)
+                    midi.asset->release();
                 break;
             default:
                 WB_UNREACHABLE();

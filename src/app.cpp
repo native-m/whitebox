@@ -303,6 +303,7 @@ void App::shutdown() {
     shutdown_audio_io();
     g_engine.clear_all();
     g_sample_table.shutdown();
+    g_midi_table.shutdown();
     shutdown_renderer();
     NFD::Quit();
 }
