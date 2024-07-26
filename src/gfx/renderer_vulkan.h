@@ -2,9 +2,9 @@
 
 #include "renderer.h"
 #include <deque>
-#include <vector>
-#include <thread>
 #include <mutex>
+#include <thread>
+#include <vector>
 
 #include "vk_stub.h"
 
@@ -69,6 +69,13 @@ struct CommandBufferVK {
     uint32_t immediate_idx_offset;
     uint32_t total_vtx_count;
     uint32_t total_idx_count;
+
+    VkBuffer polygon_buffer;
+    VkDeviceSize polygon_buffer_size;
+    VkDeviceMemory polygon_buffer_mem;
+    ImVec2* polygon_vtx;
+    uint32_t polygon_vtx_offset;
+    uint32_t polygon_vtx_count;
 };
 
 struct FrameSync {
@@ -111,12 +118,27 @@ struct ResourceDisposalVK {
     void flush(VkDevice device, VmaAllocator allocator, uint32_t frame_id_dispose);
 };
 
+struct PipelineResourceLayoutVK {
+    VkDescriptorSetLayout set_layout[2] {};
+    VkPipelineLayout layout {};
+
+    void destroy(VkDevice device) {
+        for (auto ds_layout : set_layout) {
+            if (ds_layout) {
+                vkDestroyDescriptorSetLayout(device, ds_layout, nullptr);
+            }
+        }
+        vkDestroyPipelineLayout(device, layout, nullptr);
+    }
+};
+
 struct DescriptorStreamChunkVK {
     VkDescriptorPool pool;
     uint32_t max_descriptors;
     uint32_t num_uniform_buffers;
     uint32_t num_storage_buffers;
     uint32_t num_sampled_images;
+    uint32_t num_storage_images;
     uint32_t max_descriptor_sets;
     uint32_t num_descriptor_sets;
     DescriptorStreamChunkVK* next;
@@ -131,7 +153,8 @@ struct DescriptorStreamVK {
     VkDescriptorSet allocate_descriptor_set(VkDevice device, VkDescriptorSetLayout layout,
                                             uint32_t num_uniform_buffers,
                                             uint32_t num_storage_buffers,
-                                            uint32_t num_sampled_images);
+                                            uint32_t num_sampled_images,
+                                            uint32_t num_storage_images);
     DescriptorStreamChunkVK* create_chunk(VkDevice device, uint32_t max_descriptor_sets,
                                           uint32_t max_descriptors);
     void reset(VkDevice device, uint32_t frame_id);
@@ -182,19 +205,28 @@ struct RendererVK : public Renderer {
     VkCommandBuffer current_cb_ {};
     FramebufferVK* current_framebuffer_ {};
 
+    VkImage winding_img[VULKAN_MAX_BUFFER_SIZE] {};
+    VkImageView winding_img_views[VULKAN_MAX_BUFFER_SIZE] {};
+    VmaAllocation winding_img_alloc[VULKAN_MAX_BUFFER_SIZE] {};
+
     ResourceDisposalVK resource_disposal_;
     ImVector<VkDescriptorBufferInfo> buffer_descriptor_writes_;
     ImVector<VkWriteDescriptorSet> write_descriptor_sets_;
 
-    VkDescriptorSetLayout waveform_set_layout;
-    VkPipelineLayout waveform_layout;
+    PipelineResourceLayoutVK waveform_layout;
     VkPipeline waveform_fill;
     VkPipeline waveform_aa;
+
+    PipelineResourceLayoutVK vector_ras_layout;
+    VkPipeline vector_ras {};
+    VkPipeline vector_fill {};
 
     float vp_width = 0.0f;
     float vp_height = 0.0f;
     int32_t fb_width = 0;
     int32_t fb_height = 0;
+    int32_t v_width = 0;
+    int32_t v_height = 0;
 
     RendererVK(VkInstance instance, VkDebugUtilsMessengerEXT debug_messenger,
                VkPhysicalDevice physical_device, VkDevice device, VkSurfaceKHR surface,
@@ -225,9 +257,15 @@ struct RendererVK : public Renderer {
 
     ImTextureID prepare_as_imgui_texture(const std::shared_ptr<Framebuffer>& framebuffer) override;
 
+    void fill_polygon(const ImVec2* points, uint32_t count) override;
+
+    void fill_path(const Path& path, uint32_t color) override;
+
     void draw_waveforms(const ImVector<ClipContentDrawCmd>& clips) override;
 
-    void render_draw_data(ImDrawData* draw_data) override;
+    void render_draw_command_list(DrawCommandList* command_list) override;
+
+    void render_imgui_draw_data(ImDrawData* draw_data) override;
 
     void present() override;
 
@@ -241,13 +279,13 @@ struct RendererVK : public Renderer {
                                   VkCommandBuffer command_buffer,
                                   ImGui_ImplVulkan_FrameRenderBuffers* rb, int fb_width,
                                   int fb_height);
-
     void init_pipelines();
     void destroy_pipelines();
 
     VkPipeline create_pipeline(const char* vs, const char* fs, VkPipelineLayout layout,
                                const VkPipelineVertexInputStateCreateInfo* vertex_input,
-                               VkPrimitiveTopology primitive_topology, bool enable_blending);
+                               VkPrimitiveTopology primitive_topology, bool enable_blending,
+                               bool disable_color_writes);
 
     static Renderer* create(App* app);
 };

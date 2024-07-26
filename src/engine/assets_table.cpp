@@ -1,7 +1,7 @@
 #include "assets_table.h"
 #include "core/algorithm.h"
 #include "core/midi.h"
-#include "renderer.h"
+#include "gfx/renderer.h"
 
 namespace wb {
 

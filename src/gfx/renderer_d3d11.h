@@ -89,8 +89,11 @@ struct RendererD3D11 : public Renderer {
     void finish_draw() override;
     void clear(float r, float g, float b, float a) override;
     ImTextureID prepare_as_imgui_texture(const std::shared_ptr<Framebuffer>& framebuffer) override;
+    void fill_polygon(const ImVec2* points, uint32_t count) override {};
+    void fill_path(const Path& path, uint32_t color) override;
     void draw_waveforms(const ImVector<ClipContentDrawCmd>& clips) override;
-    void render_draw_data(ImDrawData* draw_data) override;
+    void render_draw_command_list(DrawCommandList* command_list) override {}
+    void render_imgui_draw_data(ImDrawData* draw_data) override;
     void present() override;
     static Renderer* create(App* app);
 };

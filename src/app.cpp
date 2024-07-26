@@ -4,11 +4,12 @@
 #include "engine/audio_io.h"
 #include "engine/engine.h"
 #include "engine/project.h"
-#include "renderer.h"
+#include "gfx/renderer.h"
 #include "settings_data.h"
 #include "ui/IconsMaterialSymbols.h"
 #include "ui/browser.h"
 #include "ui/controls.h"
+#include "ui/env_editor.h"
 #include "ui/file_dialog.h"
 #include "ui/file_dropper.h"
 #include "ui/font.h"
@@ -16,7 +17,6 @@
 #include "ui/piano_roll.h"
 #include "ui/settings.h"
 #include "ui/timeline.h"
-#include "ui/env_editor.h"
 #include <imgui.h>
 
 using namespace std::literals::chrono_literals;
@@ -53,6 +53,11 @@ void App::init() {
 }
 
 void App::run() {
+    DrawCommandList cmd_list;
+    cmd_list.set_color(ImColor(1.0f, 0.0f, 0.0f, 1.0f));
+    cmd_list.draw_triangle_filled(ImVec2(50.0f, 50.0f), ImVec2(100.0f, 50.0f),
+                                  ImVec2(100.0f, 70.0f));
+
     while (running) {
         new_frame();
 
@@ -109,7 +114,8 @@ void App::run() {
 
         ImGui::Render();
         g_renderer->begin_draw(nullptr, {0.0f, 0.0f, 0.0f, 1.0f});
-        g_renderer->render_draw_data(ImGui::GetDrawData());
+        g_renderer->render_imgui_draw_data(ImGui::GetDrawData());
+        g_renderer->render_draw_command_list(&cmd_list);
         g_renderer->finish_draw();
         g_renderer->end_frame();
         g_renderer->present();

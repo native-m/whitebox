@@ -1,6 +1,6 @@
 #include "app_sdl2.h"
 #include "core/debug.h"
-#include "renderer.h"
+#include "gfx/renderer.h"
 #include "ui/file_dropper.h"
 #include <SDL.h>
 #include <SDL_syswm.h>

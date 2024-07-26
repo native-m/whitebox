@@ -1293,7 +1293,7 @@ void GuiTimeline::render_track_lanes() {
         layer_draw_data.FramebufferScale.y = 1.0f;
         layer_draw_data.OwnerViewport = owner_viewport;
         layer_draw_data.AddDrawList(layer1_draw_list);
-        g_renderer->render_draw_data(&layer_draw_data);
+        g_renderer->render_imgui_draw_data(&layer_draw_data);
 
         g_renderer->draw_waveforms(clip_content_cmds);
 
@@ -1304,7 +1304,7 @@ void GuiTimeline::render_track_lanes() {
         layer_draw_data.FramebufferScale.y = 1.0f;
         layer_draw_data.OwnerViewport = owner_viewport;
         layer_draw_data.AddDrawList(layer2_draw_list);
-        g_renderer->render_draw_data(&layer_draw_data);
+        g_renderer->render_imgui_draw_data(&layer_draw_data);
 
         layer_draw_data.Clear();
         layer_draw_data.DisplayPos = view_min;
@@ -1313,7 +1313,7 @@ void GuiTimeline::render_track_lanes() {
         layer_draw_data.FramebufferScale.y = 1.0f;
         layer_draw_data.OwnerViewport = owner_viewport;
         layer_draw_data.AddDrawList(layer3_draw_list);
-        g_renderer->render_draw_data(&layer_draw_data);
+        g_renderer->render_imgui_draw_data(&layer_draw_data);
 
         g_renderer->finish_draw();
     }

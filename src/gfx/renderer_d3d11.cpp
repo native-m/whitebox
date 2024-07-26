@@ -386,6 +386,9 @@ void RendererD3D11::clear(float r, float g, float b, float a) {
     ctx_->ClearRenderTargetView(current_rtv_, clear_color);
 }
 
+void RendererD3D11::fill_path(const Path& path, uint32_t color) {
+}
+
 void RendererD3D11::draw_waveforms(const ImVector<ClipContentDrawCmd>& clips) {
     if (clips.Size == 0)
         return;
@@ -459,7 +462,7 @@ void RendererD3D11::draw_waveforms(const ImVector<ClipContentDrawCmd>& clips) {
     }
 }
 
-void RendererD3D11::render_draw_data(ImDrawData* draw_data) {
+void RendererD3D11::render_imgui_draw_data(ImDrawData* draw_data) {
     ImGui_ImplDX11_RenderDrawData(draw_data);
 }
 

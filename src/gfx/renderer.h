@@ -1,15 +1,23 @@
 #pragma once
 
 #include "core/common.h"
+#include "core/vector.h"
 #include "engine/clip.h"
 #include "engine/sample.h"
 #include "engine/sample_peaks.h"
+#include "draw.h"
 #include <imgui.h>
 #include <memory>
 
 namespace wb {
 
 struct App;
+
+enum class PathCommand {
+    MoveTo,
+    LineTo,
+    Close,
+};
 
 struct ClipContentDrawCmd {
     SamplePeaks* peaks;
@@ -31,6 +39,29 @@ struct Framebuffer {
     virtual ImTextureID as_imgui_texture_id() const = 0;
 };
 
+struct Path {
+    Vector<ImVec2> lines;
+    Vector<PathCommand> cmd;
+    float first_x = 0;
+    float first_y = 0;
+    float last_x = 0;
+    float last_y = 0;
+
+    void move_to(float x, float y) {
+        lines.emplace_back(x, y);
+        cmd.emplace_back(PathCommand::MoveTo);
+    }
+
+    void line_to(float x, float y) {
+        lines.emplace_back(x, y);
+        cmd.emplace_back(PathCommand::LineTo);
+    }
+
+    void close() { cmd.emplace_back(PathCommand::Close); }
+
+    void clear(bool fast_clear = true) { lines.resize(0); }
+};
+
 struct Renderer {
     float vp_width {};
     float vp_height {};
@@ -49,8 +80,11 @@ struct Renderer {
     virtual void clear(float r, float g, float b, float a) = 0;
     virtual ImTextureID
     prepare_as_imgui_texture(const std::shared_ptr<Framebuffer>& framebuffer) = 0;
+    virtual void fill_polygon(const ImVec2* points, uint32_t count) = 0;
+    virtual void fill_path(const Path& path, uint32_t color) = 0;
     virtual void draw_waveforms(const ImVector<ClipContentDrawCmd>& clips) = 0;
-    virtual void render_draw_data(ImDrawData* draw_data) = 0;
+    virtual void render_draw_command_list(DrawCommandList* command_list) = 0;
+    virtual void render_imgui_draw_data(ImDrawData* draw_data) = 0;
     virtual void present() = 0;
 
     inline void clear(const ImColor& color) {
