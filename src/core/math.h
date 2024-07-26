@@ -51,7 +51,7 @@ inline T exponential_ease(T x, T y) {
     if (abs(y) < T(0.01)) {
         return x;
     }
-    return (std::exp(x * y) - T(1.0)) / std::exp(x);
+    return (std::exp(x * y) - T(1.0)) / (std::exp(y) - T(1.0));
 }
 
 template <std::floating_point T>
