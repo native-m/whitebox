@@ -12,8 +12,8 @@ layout(push_constant) uniform DrawCmd {
     uint offset;
 };
 
-layout(location = 0) out vec2 tangent;
-layout(location = 1) out vec2 bound;
+layout(location = 0) out vec4 v2point;
+layout(location = 1) out vec2 tangent;
 layout(location = 2) out float dir;
 
 void main() {
@@ -35,7 +35,7 @@ void main() {
     float y = ((index >> (index / 3 + 1)) & 1) == 1 ? max(v1.y, v0.y) + 0.5 : min_bb.y - 0.5;
 
     tangent = normalize(v1 - v0);
-    bound = vec2(v0.x, v1.x);
+    v2point = vec4(v0, v1);
 
     gl_Position.x = x * inv_viewport.x - 1.0f;
     gl_Position.y = y * inv_viewport.y - 1.0f;
