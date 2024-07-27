@@ -4,7 +4,7 @@ layout(location = 0) in vec4 v2point;
 layout(location = 1) in vec2 tangent;
 layout(location = 2) in float dir;
 
-layout(set = 1, binding = 0, r32i) restrict uniform iimage2D winding_img;
+layout(set = 0, binding = 1, r32i) restrict uniform iimage2D winding_img;
 
 float signed_area(vec2 p, vec2 t) {
     vec2 v0 = v2point.xy;
