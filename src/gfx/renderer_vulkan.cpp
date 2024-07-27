@@ -165,6 +165,19 @@ void ResourceDisposalVK::dispose_framebuffer(FramebufferVK* obj) {
 #endif
 }
 
+void ResourceDisposalVK::dispose_image(ImageVK* obj) {
+    std::scoped_lock lock(mtx);
+    img.push_back(ImageDisposalVK {
+        .frame_id = current_frame_id,
+        .allocation = obj->allocation,
+        .image = obj->image,
+        .view = obj->view,
+    });
+#if VULKAN_LOG_RESOURCE_DISPOSAL
+    Log::debug("Enqueuing image disposal: frame_id {}", current_frame_id);
+#endif
+}
+
 void ResourceDisposalVK::dispose_immediate_buffer(VkDeviceMemory buffer_memory, VkBuffer buffer) {
     std::scoped_lock lock(mtx);
     imm_buffer.push_back({current_frame_id, buffer_memory, buffer});
@@ -175,6 +188,29 @@ void ResourceDisposalVK::dispose_immediate_buffer(VkDeviceMemory buffer_memory, 
 
 void ResourceDisposalVK::flush(VkDevice device, VmaAllocator allocator, uint32_t frame_id_dispose) {
     std::scoped_lock lock(mtx);
+
+    while (!buffer.empty()) {
+        auto [frame_id, allocation, buf] = buffer.front();
+        if (frame_id != frame_id_dispose && frame_id_dispose != FRAME_ID_DISPOSE_ALL)
+            break;
+        vmaDestroyBuffer(allocator, buf, allocation);
+        buffer.pop_front();
+#if VULKAN_LOG_RESOURCE_DISPOSAL
+        Log::debug("Buffer disposed: {:x}, frame_id {}", (uint64_t)buf, frame_id);
+#endif
+    }
+
+    while (!img.empty()) {
+        auto [frame_id, allocation, image, view] = img.front();
+        if (frame_id != frame_id_dispose && frame_id_dispose != FRAME_ID_DISPOSE_ALL)
+            break;
+        vkDestroyImageView(device, view, nullptr);
+        vmaDestroyImage(allocator, image, allocation);
+        img.pop_front();
+#if VULKAN_LOG_RESOURCE_DISPOSAL
+        Log::debug("Image disposed: {:x}, frame_id: {}", (uint64_t)image, frame_id);
+#endif
+    }
 
     while (!fb.empty()) {
         auto [frame_id, allocation, image, view, framebuffer] = fb.front();
@@ -198,17 +234,6 @@ void ResourceDisposalVK::flush(VkDevice device, VmaAllocator allocator, uint32_t
         imm_buffer.pop_front();
 #if VULKAN_LOG_RESOURCE_DISPOSAL
         Log::debug("Immediate buffer disposed: {:x}, frame_id: {}", (uint64_t)buffer, frame_id);
-#endif
-    }
-
-    while (!buffer.empty()) {
-        auto [frame_id, allocation, buf] = buffer.front();
-        if (frame_id != frame_id_dispose && frame_id_dispose != FRAME_ID_DISPOSE_ALL)
-            break;
-        vmaDestroyBuffer(allocator, buf, allocation);
-        buffer.pop_front();
-#if VULKAN_LOG_RESOURCE_DISPOSAL
-        Log::debug("Buffer disposed: {:x}, frame_id {}", (uint64_t)buf, frame_id);
 #endif
     }
 }
@@ -372,6 +397,7 @@ RendererVK::~RendererVK() {
         vkDestroyFence(device_, fences_[i], nullptr);
         vkDestroyFramebuffer(device_, main_framebuffer_.framebuffer[i], nullptr);
         vkDestroyImageView(device_, main_framebuffer_.view[i], nullptr);
+        resource_disposal_.dispose_image(&winding_images_[i]);
 
         ImGui_ImplVulkan_FrameRenderBuffers& rb = render_buffers_[i];
         resource_disposal_.dispose_immediate_buffer(rb.VertexBufferMemory, rb.VertexBuffer);
@@ -863,6 +889,54 @@ void RendererVK::begin_draw(const std::shared_ptr<Framebuffer>& framebuffer,
     FramebufferVK* fb =
         (!framebuffer) ? &main_framebuffer_ : static_cast<FramebufferVK*>(framebuffer.get());
 
+    ImageVK& winding_image = winding_images_[frame_id_];
+    if (winding_image.image == VK_NULL_HANDLE || winding_image.width < fb->width ||
+        winding_image.height < fb->height) {
+        if (winding_image.image) {
+            resource_disposal_.dispose_image(&winding_image);
+        }
+
+        VkImageCreateInfo image_info {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+            .imageType = VK_IMAGE_TYPE_2D,
+            .format = VK_FORMAT_R32_SINT,
+            .extent = {(uint32_t)fb->width, (uint32_t)fb->height, 1u},
+            .mipLevels = 1,
+            .arrayLayers = 1,
+            .samples = VK_SAMPLE_COUNT_1_BIT,
+            .tiling = VK_IMAGE_TILING_OPTIMAL,
+            .usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        };
+
+        VmaAllocationCreateInfo alloc_info {
+            .usage = VMA_MEMORY_USAGE_UNKNOWN,
+            .requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            .preferredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        };
+
+        VkImageViewCreateInfo view_info {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .viewType = VK_IMAGE_VIEW_TYPE_2D,
+            .format = image_info.format,
+            .subresourceRange =
+                {
+                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .baseMipLevel = 0,
+                    .levelCount = 1,
+                    .baseArrayLayer = 0,
+                    .layerCount = 1,
+                },
+        };
+
+        VK_CHECK(vmaCreateImage(allocator_, &image_info, &alloc_info, &winding_image.image,
+                                &winding_image.allocation, nullptr));
+        view_info.image = winding_image.image;
+        VK_CHECK(vkCreateImageView(device_, &view_info, nullptr, &winding_image.view));
+        winding_image.width = fb->width;
+        winding_image.height = fb->height;
+    }
+
     fb->image_id = (fb->image_id + 1) % frame_latency_;
     uint32_t image_id = fb->image_id;
 
@@ -878,6 +952,34 @@ void RendererVK::begin_draw(const std::shared_ptr<Framebuffer>& framebuffer,
         .clearValueCount = 1,
         .pClearValues = &vk_clear_color,
     };
+
+    VkImageMemoryBarrier image_barrier {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+        .dstAccessMask =
+            VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT,
+        .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .newLayout = VK_IMAGE_LAYOUT_GENERAL,
+        .srcQueueFamilyIndex = graphics_queue_index_,
+        .dstQueueFamilyIndex = graphics_queue_index_,
+        .image = winding_image.image,
+        .subresourceRange =
+            {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+    };
+
+    vkCmdPipelineBarrier(current_cb_, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+                         0, nullptr, 0, nullptr, 1, &image_barrier);
+
+    VkClearColorValue color_value {};
+    vkCmdClearColorImage(current_cb_, winding_image.image, VK_IMAGE_LAYOUT_GENERAL, &color_value, 1,
+                         &image_barrier.subresourceRange);
 
     VkImageMemoryBarrier barrier;
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -1107,8 +1209,9 @@ void RendererVK::render_draw_command_list(DrawCommandList* command_list) {
     if (command_list->commands_.size() == 0)
         return;
 
-    uint32_t required_vtx_count = command_list->vtx_offset_;
     CommandBufferVK& cmd_buf = cmd_buf_[frame_id_];
+    ImageVK& winding_image = winding_images_[frame_id_];
+    uint32_t required_vtx_count = command_list->vtx_offset_;
     uint32_t new_vtx_count = cmd_buf.polygon_vtx_offset + required_vtx_count;
     if (cmd_buf.polygon_buffer == VK_NULL_HANDLE || new_vtx_count > cmd_buf.total_vtx_count) {
         ImGui_ImplVulkan_Data* bd = (ImGui_ImplVulkan_Data*)ImGui::GetIO().BackendRendererUserData;
@@ -1133,7 +1236,7 @@ void RendererVK::render_draw_command_list(DrawCommandList* command_list) {
     VK_CHECK(vkFlushMappedMemoryRanges(device_, 1, &range));
 
     VkDescriptorSet polygon_buffer_descriptor = descriptor_stream_.allocate_descriptor_set(
-        device_, vector_ras_layout.set_layout[0], 0, 1, 0, 0);
+        device_, vector_ras_layout.set_layout[0], 0, 1, 0, 1);
 
     VkDescriptorBufferInfo buffer_descriptor {
         .buffer = cmd_buf.polygon_buffer,
@@ -1141,17 +1244,32 @@ void RendererVK::render_draw_command_list(DrawCommandList* command_list) {
         .range = VK_WHOLE_SIZE,
     };
 
-    VkWriteDescriptorSet write_descriptor {
-        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-        .dstSet = polygon_buffer_descriptor,
-        .dstBinding = 0,
-        .descriptorCount = 1,
-        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-        .pBufferInfo = &buffer_descriptor,
+    VkDescriptorImageInfo image_descriptor {
+        .imageView = winding_image.view,
+        .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+    };
+
+    VkWriteDescriptorSet write_descriptor[2] = {
+        {
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = polygon_buffer_descriptor,
+            .dstBinding = 0,
+            .descriptorCount = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .pBufferInfo = &buffer_descriptor,
+        },
+        {
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = polygon_buffer_descriptor,
+            .dstBinding = 1,
+            .descriptorCount = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+            .pImageInfo = &image_descriptor,
+        },
     };
 
     cmd_buf.polygon_vtx_offset += new_vtx_count;
-    vkUpdateDescriptorSets(device_, 1, &write_descriptor, 0, nullptr);
+    vkUpdateDescriptorSets(device_, 2, write_descriptor, 0, nullptr);
     vkCmdBindDescriptorSets(current_cb_, VK_PIPELINE_BIND_POINT_GRAPHICS, vector_ras_layout.layout,
                             0, 1, &polygon_buffer_descriptor, 0, nullptr);
 
@@ -1587,21 +1705,21 @@ void RendererVK::init_pipelines() {
         vk_create_pipeline_layout(device_, sizeof(VectorDrawCmdVK),
                                   {
                                       {
+                                          .binding = 0,
                                           .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                                           .descriptorCount = 1,
                                           .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
                                       },
-                                  }/*,
-                                  {
                                       {
+                                          .binding = 1,
                                           .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                                           .descriptorCount = 1,
                                           .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
                                       },
-                                  }*/);
+                                  });
 
     vector_ras = create_pipeline("assets/ras.vs.spv", "assets/ras.fs.spv", vector_ras_layout.layout,
-                                 nullptr, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, false, false);
+                                 nullptr, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, false, true);
 }
 
 void RendererVK::destroy_pipelines() {

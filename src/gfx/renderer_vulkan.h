@@ -78,6 +78,14 @@ struct CommandBufferVK {
     uint32_t polygon_vtx_count;
 };
 
+struct ImageVK {
+    VkImage image;
+    VkImageView view;
+    VmaAllocation allocation;
+    uint32_t width;
+    uint32_t height;
+};
+
 struct FrameSync {
     VkSemaphore image_acquire_semaphore;
     VkSemaphore render_finished_semaphore;
@@ -87,6 +95,13 @@ struct BufferDisposalVK {
     uint32_t frame_id;
     VmaAllocation allocation;
     VkBuffer buffer;
+};
+
+struct ImageDisposalVK {
+    uint32_t frame_id;
+    VmaAllocation allocation;
+    VkImage image;
+    VkImageView view;
 };
 
 struct FramebufferDisposalVK {
@@ -108,12 +123,14 @@ struct ImmediateBufferDisposalVK {
 struct ResourceDisposalVK {
     uint32_t current_frame_id {};
     std::deque<BufferDisposalVK> buffer;
+    std::deque<ImageDisposalVK> img;
     std::deque<FramebufferDisposalVK> fb;
     std::deque<ImmediateBufferDisposalVK> imm_buffer;
     std::mutex mtx;
 
     void dispose_buffer(VmaAllocation allocation, VkBuffer buf);
     void dispose_framebuffer(FramebufferVK* obj);
+    void dispose_image(ImageVK* obj);
     void dispose_immediate_buffer(VkDeviceMemory buffer_memory, VkBuffer buffer);
     void flush(VkDevice device, VmaAllocator allocator, uint32_t frame_id_dispose);
 };
@@ -204,10 +221,7 @@ struct RendererVK : public Renderer {
     FrameSync* current_frame_sync_ {};
     VkCommandBuffer current_cb_ {};
     FramebufferVK* current_framebuffer_ {};
-
-    VkImage winding_img[VULKAN_MAX_BUFFER_SIZE] {};
-    VkImageView winding_img_views[VULKAN_MAX_BUFFER_SIZE] {};
-    VmaAllocation winding_img_alloc[VULKAN_MAX_BUFFER_SIZE] {};
+    ImageVK winding_images_[VULKAN_MAX_BUFFER_SIZE] {};
 
     ResourceDisposalVK resource_disposal_;
     ImVector<VkDescriptorBufferInfo> buffer_descriptor_writes_;
