@@ -23,16 +23,16 @@ void main() {
     vec2 v1 = vertex_input.points[instance + 1];
     
     if (v1.x < v0.x) {
-        float tmp_v0_x = v0.x;
-        v0.x = v1.x;
-        v1.x = tmp_v0_x;
-        dir = -1.0;
-    } else {
+        vec2 tmp_v0 = v0;
+        v0 = v1;
+        v1 = tmp_v0;
         dir = 1.0;
+    } else {
+        dir = -1.0;
     }
 
-    float x = (index & 1) == 1 ? v1.x + 0.5 : v0.x - 0.5;
-    float y = ((index >> (index / 3 + 1)) & 1) == 1 ? max(v1.y, v0.y) + 0.5 : min_bb.y - 0.5;
+    float x = (index & 1) == 1 ? v1.x + 0.55 : v0.x - 0.55;
+    float y = ((index >> (index / 3 + 1)) & 1) == 1 ? max(v1.y, v0.y) + 0.55 : min_bb.y - 0.55;
 
     tangent = normalize(v1 - v0);
     v2point = vec4(v0, v1);
