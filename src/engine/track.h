@@ -15,6 +15,7 @@
 #include <numbers>
 #include <random>
 #include <unordered_set>
+#include <optional>
 
 namespace wb {
 
@@ -115,6 +116,8 @@ struct TestSynth {
 struct TrackEventState {
     Clip* current_clip;
     Clip* next_clip;
+    std::optional<uint32_t> current_clip_idx;
+    std::optional<uint32_t> next_clip_idx;
     double last_start_clip_position;
     uint32_t midi_note_idx;
 };
@@ -243,16 +246,16 @@ struct Track {
      *
      * @param time_pos Search starting position in beats.
      * @param hint Hint Clip ID to speed up search.
-     * @return A pointer to clip.
+     * @return A pointer to clip id.
      */
-    Clip* find_next_clip(double time_pos, uint32_t hint = WB_INVALID_CLIP_ID);
+    std::optional<uint32_t> find_next_clip(double time_pos, uint32_t hint = WB_INVALID_CLIP_ID);
 
     /**
      * @brief Prepare track for playback.
      *
      * @param time_pos Starting point of the playback.
      */
-    void prepare_play(double time_pos);
+    void reset_playback_state(double time_pos);
 
     /**
      * @brief Stop playback.
@@ -293,7 +296,7 @@ struct Track {
 
     void process_test_synth(AudioBuffer<float>& output_buffer, double sample_rate, bool playing);
 
-    void flush_deleted_clips();
+    void flush_deleted_clips(double time_pos);
 };
 
 } // namespace wb

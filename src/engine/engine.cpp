@@ -44,7 +44,7 @@ void Engine::play() {
     Log::debug("-------------- Playing --------------");
     editor_lock.lock();
     for (auto track : tracks) {
-        track->prepare_play(playhead_start);
+        track->reset_playback_state(playhead_start);
     }
     playhead_updated.store(false, std::memory_order_release);
     sample_position = 0;
@@ -205,7 +205,7 @@ void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
         delete_lock.lock();
         for (auto track : tracks) {
             Log::debug("Deleting pending clips for track: {} ...", (uintptr_t)track);
-            track->flush_deleted_clips();
+            track->flush_deleted_clips(playhead);
         }
         delete_lock.unlock();
         has_deleted_clips.store(false, std::memory_order_relaxed);

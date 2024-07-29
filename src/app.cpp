@@ -115,7 +115,6 @@ void App::run() {
         ImGui::Render();
         g_renderer->begin_draw(nullptr, {0.0f, 0.0f, 0.0f, 1.0f});
         g_renderer->render_imgui_draw_data(ImGui::GetDrawData());
-        g_renderer->render_draw_command_list(&cmd_list);
         g_renderer->finish_draw();
         g_renderer->end_frame();
         g_renderer->present();
