@@ -19,7 +19,7 @@ macro(wb_add_shader_glsl _TARGET _FILE)
         ARGS
             --target-env=vulkan1.0
             -fshader-stage=${_TARGET}
-            -o "${CMAKE_CURRENT_BINARY_DIR}/${_FILE}.spv"
+            -g -o "${CMAKE_CURRENT_BINARY_DIR}/${_FILE}.spv"
             "${CMAKE_CURRENT_SOURCE_DIR}/${_FILE}"
         DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/${_FILE}"
         VERBATIM)
@@ -46,7 +46,9 @@ wb_add_shader_glsl(vertex waveform_aa.vs)
 wb_add_shader_glsl(vertex waveform_fill.vs)
 wb_add_shader_glsl(fragment waveform_aa.fs)
 wb_add_shader_glsl(vertex ras.vs)
+wb_add_shader_glsl(vertex ras_fill.vs)
 wb_add_shader_glsl(fragment ras.fs)
+wb_add_shader_glsl(fragment ras_fill.fs)
 wb_add_asset_file("Inter-Medium.otf")
 wb_add_asset_file("RobotoMono-Regular.ttf")
 wb_add_asset_file("MaterialSymbolsRoundedInstanced.ttf")

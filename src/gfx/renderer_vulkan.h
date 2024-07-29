@@ -82,6 +82,7 @@ struct ImageVK {
     VkImage image;
     VkImageView view;
     VmaAllocation allocation;
+    ImageAccessVK current_access {};
     uint32_t width;
     uint32_t height;
 };

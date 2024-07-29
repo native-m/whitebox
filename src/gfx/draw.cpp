@@ -4,10 +4,7 @@
 namespace wb {
 
 void DrawCommandList::reset() {
-    fill_rect_.Min.x = std::numeric_limits<float>::max();
-    fill_rect_.Min.y = std::numeric_limits<float>::max();
-    fill_rect_.Max.x = std::numeric_limits<float>::min();
-    fill_rect_.Max.y = std::numeric_limits<float>::min();
+    reset_fill_rect();
     vtx_buffer_.resize(0);
 }
 
@@ -29,7 +26,7 @@ void DrawCommandList::add_rect_filled(const ImRect& rect) {
         .type = DrawCommand::Rasterize,
         .rasterize =
             {
-                .fill_rect = clip_rect_,
+                .fill_rect = fill_rect_,
                 .vtx_offset = vtx_offset_,
                 .vtx_count = 5,
             },
@@ -82,6 +79,7 @@ void DrawCommandList::draw_rect_filled(const ImRect& rect) {
                 .color = color_,
             },
     });
+    reset_fill_rect();
 }
 
 void DrawCommandList::draw_triangle_filled(const ImVec2& p0, const ImVec2& p1, const ImVec2& p2) {
@@ -94,6 +92,7 @@ void DrawCommandList::draw_triangle_filled(const ImVec2& p0, const ImVec2& p1, c
                 .color = color_,
             },
     });
+    reset_fill_rect();
 }
 
 void DrawCommandList::draw_polygon(const ImVec2* points, uint32_t count) {
@@ -106,6 +105,7 @@ void DrawCommandList::draw_polygon(const ImVec2* points, uint32_t count) {
                 .color = color_,
             },
     });
+    reset_fill_rect();
 }
 
 ImVec2 draw_simple_text(ImDrawList* draw_list, const char* text, ImVec2 pos, ImU32 text_color) {

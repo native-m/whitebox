@@ -8,7 +8,7 @@ namespace wb {
 
 enum class DrawCommand {
     Rasterize,
-    Fill
+    Fill,
 };
 
 struct DrawRasterizeCmd {
@@ -41,6 +41,7 @@ struct DrawCommandList {
     ImRect fill_rect_;
     uint32_t color_ {};
     uint32_t vtx_offset_ {};
+    uint32_t old_vtx_offset_ {};
 
     DrawCommandList() { reset(); }
 
@@ -55,6 +56,13 @@ struct DrawCommandList {
     void draw_rect_filled(const ImRect& rect);
     void draw_triangle_filled(const ImVec2& p0, const ImVec2& p1, const ImVec2& p2);
     void draw_polygon(const ImVec2* points, uint32_t count);
+
+    void reset_fill_rect() {
+        fill_rect_.Min.x = std::numeric_limits<float>::max();
+        fill_rect_.Min.y = std::numeric_limits<float>::max();
+        fill_rect_.Max.x = std::numeric_limits<float>::min();
+        fill_rect_.Max.y = std::numeric_limits<float>::min();
+    }
 
     inline void push_point(float x, float y) {
         if (x < fill_rect_.Min.x)

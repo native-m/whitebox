@@ -484,12 +484,24 @@ bool RendererVK::init() {
         .pColorAttachments = &att_ref,
     };
 
+    VkSubpassDependency subpass_dependency {
+        .srcSubpass = 0,
+        .srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        .srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+        .dstSubpass = 0,
+        .dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+        .dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT,
+    };
+
     VkRenderPassCreateInfo rp_info {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
         .attachmentCount = 1,
         .pAttachments = &att_desc,
         .subpassCount = 1,
         .pSubpasses = &subpass,
+        .dependencyCount = 1,
+        .pDependencies = &subpass_dependency,
     };
     VK_CHECK(vkCreateRenderPass(device_, &rp_info, nullptr, &fb_render_pass_));
 
@@ -935,7 +947,49 @@ void RendererVK::begin_draw(const std::shared_ptr<Framebuffer>& framebuffer,
         VK_CHECK(vkCreateImageView(device_, &view_info, nullptr, &winding_image.view));
         winding_image.width = fb->width;
         winding_image.height = fb->height;
+        winding_image.current_access = {};
     }
+
+    VkImageMemoryBarrier winding_barrier {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .srcAccessMask = winding_image.current_access.access,
+        .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .oldLayout = winding_image.current_access.layout,
+        .newLayout = VK_IMAGE_LAYOUT_GENERAL,
+        .srcQueueFamilyIndex = graphics_queue_index_,
+        .dstQueueFamilyIndex = graphics_queue_index_,
+        .image = winding_image.image,
+        .subresourceRange =
+            {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+    };
+
+    vkCmdPipelineBarrier(current_cb_, winding_image.current_access.stages,
+                         VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1,
+                         &winding_barrier);
+
+    VkClearColorValue color_value {};
+    vkCmdClearColorImage(current_cb_, winding_image.image, VK_IMAGE_LAYOUT_GENERAL, &color_value, 1,
+                         &winding_barrier.subresourceRange);
+
+    winding_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    winding_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+    winding_barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+    winding_barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+    vkCmdPipelineBarrier(current_cb_, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1,
+                         &winding_barrier);
+
+    winding_image.current_access = {
+        .stages = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        .access = winding_barrier.dstAccessMask,
+        .layout = winding_barrier.newLayout,
+    };
 
     fb->image_id = (fb->image_id + 1) % frame_latency_;
     uint32_t image_id = fb->image_id;
@@ -952,34 +1006,6 @@ void RendererVK::begin_draw(const std::shared_ptr<Framebuffer>& framebuffer,
         .clearValueCount = 1,
         .pClearValues = &vk_clear_color,
     };
-
-    VkImageMemoryBarrier image_barrier {
-        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-        .srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
-        .dstAccessMask =
-            VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT,
-        .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .newLayout = VK_IMAGE_LAYOUT_GENERAL,
-        .srcQueueFamilyIndex = graphics_queue_index_,
-        .dstQueueFamilyIndex = graphics_queue_index_,
-        .image = winding_image.image,
-        .subresourceRange =
-            {
-                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                .baseMipLevel = 0,
-                .levelCount = 1,
-                .baseArrayLayer = 0,
-                .layerCount = 1,
-            },
-    };
-
-    vkCmdPipelineBarrier(current_cb_, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
-                         0, nullptr, 0, nullptr, 1, &image_barrier);
-
-    VkClearColorValue color_value {};
-    vkCmdClearColorImage(current_cb_, winding_image.image, VK_IMAGE_LAYOUT_GENERAL, &color_value, 1,
-                         &image_barrier.subresourceRange);
 
     VkImageMemoryBarrier barrier;
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -1287,9 +1313,32 @@ void RendererVK::render_draw_command_list(DrawCommandList* command_list) {
                                    sizeof(VectorDrawCmdVK), &cmd_data);
                 vkCmdBindPipeline(current_cb_, VK_PIPELINE_BIND_POINT_GRAPHICS, vector_ras);
                 vkCmdDraw(current_cb_, (command.rasterize.vtx_count - 1) * 6, 1, 0, 0);
+
+                VkMemoryBarrier memory_barrier {
+                    .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+                    .srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+                    .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+                };
+                vkCmdPipelineBarrier(current_cb_, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                                     VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                                     VK_DEPENDENCY_BY_REGION_BIT, 1, &memory_barrier, 0, nullptr, 0,
+                                     nullptr);
+
                 break;
             }
             case DrawCommand::Fill: {
+                VectorDrawCmdVK cmd_data {
+                    .inv_viewport = {vp_width, vp_height},
+                    .min_bb = command.fill.fill_rect.Min,
+                    .max_bb = command.fill.fill_rect.Max,
+                    .color = command.fill.color,
+                };
+                vkCmdPushConstants(current_cb_, vector_ras_layout.layout,
+                                   VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                                   sizeof(VectorDrawCmdVK), &cmd_data);
+                vkCmdBindPipeline(current_cb_, VK_PIPELINE_BIND_POINT_GRAPHICS, vector_fill);
+                vkCmdDraw(current_cb_, 4, 1, 0, 0);
+                
                 break;
             }
         }
@@ -1720,6 +1769,10 @@ void RendererVK::init_pipelines() {
 
     vector_ras = create_pipeline("assets/ras.vs.spv", "assets/ras.fs.spv", vector_ras_layout.layout,
                                  nullptr, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, false, true);
+
+    vector_fill = create_pipeline("assets/ras_fill.vs.spv", "assets/ras_fill.fs.spv",
+                                  vector_ras_layout.layout, nullptr,
+                                  VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP, true, false);
 }
 
 void RendererVK::destroy_pipelines() {
@@ -1727,6 +1780,7 @@ void RendererVK::destroy_pipelines() {
     vkDestroyPipeline(device_, waveform_aa, nullptr);
     waveform_layout.destroy(device_);
 
+    vkDestroyPipeline(device_, vector_fill, nullptr);
     vkDestroyPipeline(device_, vector_ras, nullptr);
     vector_ras_layout.destroy(device_);
 }

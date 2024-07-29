@@ -55,8 +55,14 @@ void App::init() {
 void App::run() {
     DrawCommandList cmd_list;
     cmd_list.set_color(ImColor(1.0f, 0.0f, 0.0f, 1.0f));
-    cmd_list.draw_triangle_filled(ImVec2(50.0f, 50.0f), ImVec2(100.0f, 50.0f),
+    cmd_list.draw_rect_filled(ImRect(200.5f, 100.5f, 300.5f, 150.5f));
+    cmd_list.draw_triangle_filled(ImVec2(50.0f, 50.0f), ImVec2(90.0f, 40.0f),
                                   ImVec2(100.0f, 70.0f));
+
+    cmd_list.set_color(ImColor(1.0f, 0.0f, 1.0f, 1.0f));
+    cmd_list.draw_triangle_filled(ImVec2(50.0f, 50.0f) + ImVec2(10.0f, 0.0f),
+                                  ImVec2(90.0f, 40.0f) + ImVec2(10.0f, 0.0f),
+                                  ImVec2(100.0f, 70.0f) + ImVec2(10.0f, 0.0f));
 
     while (running) {
         new_frame();
