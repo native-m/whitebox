@@ -121,6 +121,8 @@ set(WB_SOURCES
     "src/ui/font.cpp"
     "src/ui/font.h"
     "src/ui/forms.h"
+    "src/ui/history.cpp"
+    "src/ui/history.h"
     "src/ui/IconsMaterialSymbols.h"
     "src/ui/layout.h"
     "src/ui/mixer.cpp"
