@@ -294,7 +294,7 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
                 default:
                     break;
             }
-            if (time_pos < min_time) {
+            if (time_pos < min_time || current_clip->is_deleted()) {
                 event_state.next_clip_idx = find_next_clip(time_pos);
                 Log::debug("{}", event_state.next_clip_idx.value_or(WB_INVALID_CLIP_ID));
             }
@@ -683,9 +683,6 @@ void Track::flush_deleted_clips(double time_pos) {
     new_clip_list.reserve(clips.size());
     for (auto clip : clips) {
         if (clip->is_deleted()) {
-            if (clip->id == event_state.current_clip_idx) {
-                reset_playback_state(time_pos);
-            }
             // Make sure we don't touch this deleted clip
             // if (clip == event_state.next_clip)
             //    event_state.next_clip = nullptr;
