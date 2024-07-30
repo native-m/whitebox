@@ -48,8 +48,9 @@ void App::init() {
     apply_theme(ImGui::GetStyle());
     init_renderer(this);
 
-    g_engine.set_bpm(150.0f);
+    g_cmd_manager.init(10);
     g_timeline.init();
+    g_engine.set_bpm(150.0f);
 }
 
 void App::run() {

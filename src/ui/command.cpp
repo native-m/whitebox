@@ -22,6 +22,7 @@ void ClipMoveCmd::undo() {
     g_engine.edit_lock();
     track->move_clip(clip, -relative_pos, beat_duration);
     g_engine.edit_unlock();
+    clip_id = clip->id;
 }
 
 void ClipShiftCmd::execute() {

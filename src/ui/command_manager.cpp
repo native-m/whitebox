@@ -15,6 +15,13 @@ void CommandManager::undo() {
         return;
     HistoryItem& item = items[--pos];
     std::visit([](auto&& data) { data.undo(); }, item.data);
+    signal_all_update_listeners();
+}
+
+void CommandManager::signal_all_update_listeners() {
+    for (auto& listener : on_history_update_listener) {
+        listener();
+    }
 }
 
 } // namespace wb

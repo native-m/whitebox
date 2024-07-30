@@ -1,5 +1,7 @@
 #include "timeline.h"
 #include "browser.h"
+#include "command.h"
+#include "command_manager.h"
 #include "controls.h"
 #include "core/color.h"
 #include "core/debug.h"
@@ -234,6 +236,7 @@ void GuiTimeline::init() {
     layer3_draw_list = new ImDrawList(ImGui::GetDrawListSharedData());
     g_engine.add_on_bpm_change_listener(
         [this](double bpm, double beat_duration) { force_redraw = true; });
+    g_cmd_manager.add_on_history_update_listener([this] { force_redraw = true; });
 }
 
 void GuiTimeline::shutdown() {
