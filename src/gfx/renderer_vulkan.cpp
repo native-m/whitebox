@@ -486,10 +486,10 @@ bool RendererVK::init() {
 
     VkSubpassDependency subpass_dependency {
         .srcSubpass = 0,
-        .srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-        .srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
         .dstSubpass = 0,
+        .srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
         .dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        .srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
         .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
         .dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT,
     };
