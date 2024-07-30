@@ -1139,6 +1139,7 @@ void GuiTimeline::render_track_lanes() {
                 if (edit_action != TimelineEditAction::None) {
                     initial_time_pos = mouse_at_gridline;
                     edited_track = track;
+                    edited_track_id = i;
                     edited_track_pos_y = track_pos_y;
                     edited_clip = clip;
                     continue;
@@ -1324,12 +1325,17 @@ void GuiTimeline::render_track_lanes() {
     // Release edit action
     if (edit_action != TimelineEditAction::None) {
         double relative_pos = mouse_at_gridline - initial_time_pos;
-        g_engine.edit_lock();
         switch (edit_action) {
             case TimelineEditAction::ClipMove:
                 if (!left_mouse_down) {
                     if (edited_track == hovered_track) {
-                        edited_track->move_clip(edited_clip, relative_pos, beat_duration);
+                        ClipMoveCmd cmd = {
+                            .track_id = edited_track_id.value(),
+                            .clip_id = edited_clip->id,
+                            .relative_pos = relative_pos,
+                        };
+                        g_cmd_manager.execute("Move Clip", std::move(cmd));
+                        //edited_track->move_clip(edited_clip, relative_pos, beat_duration);
                     } else if (hovered_track != nullptr) {
                         // Move clip to another track
                         double new_pos = std::max(edited_clip->min_time + relative_pos, 0.0);
@@ -1402,7 +1408,6 @@ void GuiTimeline::render_track_lanes() {
             default:
                 break;
         }
-        g_engine.edit_unlock();
     }
 
     clip_context_menu();
@@ -1441,6 +1446,7 @@ void GuiTimeline::finish_edit_action() {
     hovered_track_height = 60.0f;
     edited_clip = nullptr;
     edited_track = nullptr;
+    edited_track_id.reset();
     edited_track_pos_y = 0.0f;
     edited_clip_min_time = 0.0;
     edited_clip_max_time = 0.0;

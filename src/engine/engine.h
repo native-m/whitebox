@@ -16,7 +16,7 @@ struct Engine {
     std::vector<Track*> tracks;
     Spinlock editor_lock;
     Spinlock delete_lock;
-    
+
     double ppq = 96.0;
     double playhead {};
     double playhead_start {};
@@ -40,9 +40,6 @@ struct Engine {
     void play();
     void stop();
 
-    inline double playhead_pos() const { return playhead_ui.load(std::memory_order_relaxed); }
-    inline bool is_playing() const { return playing.load(std::memory_order_relaxed); }
-
     void edit_lock() { editor_lock.lock(); }
     void edit_unlock() { editor_lock.unlock(); }
 
@@ -51,8 +48,7 @@ struct Engine {
     void move_track(uint32_t from_slot, uint32_t to_slot);
     void solo_track(uint32_t slot);
 
-    Clip* add_clip_from_file(Track* track, const std::filesystem::path& path,
-                                   double min_time);
+    Clip* add_clip_from_file(Track* track, const std::filesystem::path& path, double min_time);
     void delete_clip(Track* track, Clip* clip);
 
     /*
@@ -60,6 +56,14 @@ struct Engine {
         This runs on the audio thread.
     */
     void process(AudioBuffer<float>& output_buffer, double sample_rate);
+
+    inline double playhead_pos() const { return playhead_ui.load(std::memory_order_relaxed); }
+    
+    inline double get_beat_duration() const {
+        return beat_duration.load(std::memory_order_relaxed);
+    }
+
+    inline bool is_playing() const { return playing.load(std::memory_order_relaxed); }
 
     template <typename Fn>
     void add_on_bpm_change_listener(Fn&& fn) {

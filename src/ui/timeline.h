@@ -79,6 +79,7 @@ struct GuiTimeline {
 
     Track* edited_track {};
     Clip* edited_clip {};
+    std::optional<uint32_t> edited_track_id {};
     float edited_track_pos_y;
     double edited_clip_min_time;
     double edited_clip_max_time;

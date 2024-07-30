@@ -8,11 +8,13 @@
 #include "settings_data.h"
 #include "ui/IconsMaterialSymbols.h"
 #include "ui/browser.h"
+#include "ui/command_manager.h"
 #include "ui/controls.h"
 #include "ui/env_editor.h"
 #include "ui/file_dialog.h"
 #include "ui/file_dropper.h"
 #include "ui/font.h"
+#include "ui/history.h"
 #include "ui/mixer.h"
 #include "ui/piano_roll.h"
 #include "ui/settings.h"
@@ -103,6 +105,7 @@ void App::run() {
 
         ImGui::ShowDemoWindow();
         controls::render_test_controls();
+        render_history_window();
 
         float framerate = GImGui->IO.Framerate;
         // Update vu meters
@@ -161,7 +164,9 @@ void App::render_control_bar() {
     save_project = ImGui::Button(ICON_MS_SAVE "##wb_save_project");
 
     ImGui::SameLine(0.0f, 12.0f);
-    ImGui::Button(ICON_MS_UNDO "##wb_undo");
+    if (ImGui::Button(ICON_MS_UNDO "##wb_undo")) {
+        g_cmd_manager.undo();
+    }
     ImGui::SameLine(0.0f, 4.0f);
     ImGui::Button(ICON_MS_REDO "##wb_redo");
 
