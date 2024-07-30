@@ -106,6 +106,10 @@ set(WB_SOURCES
 
     "src/ui/browser.cpp"
     "src/ui/browser.h"
+    "src/ui/command.cpp"
+    "src/ui/command.h"
+    "src/ui/command_manager.cpp"
+    "src/ui/command_manager.h"
     "src/ui/controls.cpp"
     "src/ui/controls.h"
     "src/ui/env_editor.cpp"
