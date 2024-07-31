@@ -1335,7 +1335,6 @@ void GuiTimeline::render_track_lanes() {
                             .relative_pos = relative_pos,
                         };
                         g_cmd_manager.execute("Move Clip", std::move(cmd));
-                        //edited_track->move_clip(edited_clip, relative_pos, beat_duration);
                     } else if (hovered_track != nullptr) {
                         // Move clip to another track
                         double new_pos = std::max(edited_clip->min_time + relative_pos, 0.0);
@@ -1351,8 +1350,14 @@ void GuiTimeline::render_track_lanes() {
                 break;
             case TimelineEditAction::ClipResizeLeft:
                 if (!left_mouse_down) {
-                    edited_track->resize_clip(edited_clip, relative_pos, 1.0 / grid_scale,
-                                              beat_duration, true);
+                    ClipResizeCmd cmd = {
+                        .track_id = edited_track_id.value(),
+                        .clip_id = edited_clip->id,
+                        .left_side = true,
+                        .relative_pos = relative_pos,
+                        .min_length = 1.0 / grid_scale,
+                    };
+                    g_cmd_manager.execute("Resize clip", cmd);
                     finish_edit_action();
                     force_redraw = true;
                 }
@@ -1360,8 +1365,14 @@ void GuiTimeline::render_track_lanes() {
                 break;
             case TimelineEditAction::ClipResizeRight:
                 if (!left_mouse_down) {
-                    edited_track->resize_clip(edited_clip, relative_pos, 1.0 / grid_scale,
-                                              beat_duration, false);
+                    ClipResizeCmd cmd = {
+                        .track_id = edited_track_id.value(),
+                        .clip_id = edited_clip->id,
+                        .left_side = false,
+                        .relative_pos = relative_pos,
+                        .min_length = 1.0 / grid_scale,
+                    };
+                    g_cmd_manager.execute("Resize clip", cmd);
                     finish_edit_action();
                     force_redraw = true;
                 }
@@ -1369,13 +1380,12 @@ void GuiTimeline::render_track_lanes() {
                 break;
             case TimelineEditAction::ClipShift:
                 if (!left_mouse_down) {
-                    double rel_offset = calc_shift_clip(edited_clip, relative_pos);
-                    edited_clip->relative_start_time = rel_offset;
-                    if (edited_clip->type == ClipType::Audio) {
-                        SampleAsset* asset = edited_clip->audio.asset;
-                        edited_clip->audio.sample_offset = beat_to_samples(
-                            rel_offset, (double)asset->sample_instance.sample_rate, beat_duration);
-                    }
+                    ClipShiftCmd cmd = {
+                        .track_id = edited_track_id.value(),
+                        .clip_id = edited_clip->id,
+                        .relative_pos = relative_pos,
+                    };
+                    g_cmd_manager.execute("Shift clip", cmd);
                     finish_edit_action();
                     force_redraw = true;
                 }

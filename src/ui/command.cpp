@@ -56,9 +56,23 @@ void ClipShiftCmd::undo() {
 }
 
 void ClipResizeCmd::execute() {
+    double beat_duration = g_engine.get_beat_duration();
+    Track* track = g_engine.tracks[track_id];
+    Clip* clip = track->clips[clip_id];
+    g_engine.edit_lock();
+    track->resize_clip(clip, relative_pos, min_length, beat_duration, left_side);
+    g_engine.edit_unlock();
+    clip_id = clip->id;
 }
 
 void ClipResizeCmd::undo() {
+    double beat_duration = g_engine.get_beat_duration();
+    Track* track = g_engine.tracks[track_id];
+    Clip* clip = track->clips[clip_id];
+    g_engine.edit_lock();
+    track->resize_clip(clip, -relative_pos, min_length, beat_duration, left_side);
+    g_engine.edit_unlock();
+    clip_id = clip->id;
 }
 
 } // namespace wb

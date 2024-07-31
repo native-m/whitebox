@@ -25,8 +25,9 @@ struct ClipShiftCmd {
 struct ClipResizeCmd {
     uint32_t track_id;
     uint32_t clip_id;
-    bool right_side;
+    bool left_side;
     double relative_pos;
+    double min_length;
 
     void execute();
     void undo();
