@@ -18,6 +18,14 @@ void CommandManager::undo() {
     signal_all_update_listeners();
 }
 
+void CommandManager::redo() {
+    if (pos == size)
+        return;
+    HistoryItem& item = items[pos++];
+    std::visit([](auto&& data) { data.execute(); }, item.data);
+    signal_all_update_listeners();
+}
+
 void CommandManager::signal_all_update_listeners() {
     for (auto& listener : on_history_update_listener) {
         listener();

@@ -168,7 +168,9 @@ void App::render_control_bar() {
         g_cmd_manager.undo();
     }
     ImGui::SameLine(0.0f, 4.0f);
-    ImGui::Button(ICON_MS_REDO "##wb_redo");
+    if (ImGui::Button(ICON_MS_REDO "##wb_redo")) {
+        g_cmd_manager.redo();
+    }
 
     ImGui::SameLine(0.0f, 12.0f);
     if (ImGui::Button(!is_playing ? ICON_MS_PLAY_ARROW "##wb_play" : ICON_MS_PAUSE "##wb_play")) {
