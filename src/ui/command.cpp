@@ -10,19 +10,39 @@ void ClipMoveCmd::execute() {
     Track* track = g_engine.tracks[track_id];
     Clip* clip = track->clips[clip_id];
     g_engine.edit_lock();
-    track->move_clip(clip, relative_pos, beat_duration);
+    if (track_id == target_track_id) {
+        track->move_clip(clip, relative_pos, beat_duration);
+        clip_id = clip->id;
+    } else {
+        Track* target_track = g_engine.tracks[target_track_id];
+        double new_pos = std::max(clip->min_time + relative_pos, 0.0);
+        double length = clip->max_time - clip->min_time;
+        Clip* new_clip =
+            target_track->duplicate_clip(clip, new_pos, new_pos + length, beat_duration);
+        clip_id = new_clip->id;
+        g_engine.delete_clip(track, clip);
+    }
     g_engine.edit_unlock();
-    clip_id = clip->id;
 }
 
 void ClipMoveCmd::undo() {
     double beat_duration = g_engine.get_beat_duration();
-    Track* track = g_engine.tracks[track_id];
+    Track* track = g_engine.tracks[target_track_id];
     Clip* clip = track->clips[clip_id];
     g_engine.edit_lock();
-    track->move_clip(clip, -relative_pos, beat_duration);
+    if (track_id == target_track_id) {
+        track->move_clip(clip, -relative_pos, beat_duration);
+        clip_id = clip->id;
+    } else {
+        Track* target_track = g_engine.tracks[track_id];
+        double new_pos = std::max(clip->min_time - relative_pos, 0.0);
+        double length = clip->max_time - clip->min_time;
+        Clip* new_clip =
+            target_track->duplicate_clip(clip, new_pos, new_pos + length, beat_duration);
+        clip_id = new_clip->id;
+        g_engine.delete_clip(track, clip);
+    }
     g_engine.edit_unlock();
-    clip_id = clip->id;
 }
 
 void ClipShiftCmd::execute() {

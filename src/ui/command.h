@@ -6,6 +6,7 @@ namespace wb
 {
 struct ClipMoveCmd {
     uint32_t track_id;
+    uint32_t target_track_id;
     uint32_t clip_id;
     double relative_pos;
 

@@ -1048,6 +1048,7 @@ void GuiTimeline::render_track_lanes() {
                     TimelineEditAction::ClipResizeRight)) {
             if (left_mouse_down && hovering_current_track) {
                 hovered_track = track;
+                hovered_track_id = i;
                 hovered_track_y = track_pos_y;
                 hovered_track_height = height;
             }
@@ -1328,21 +1329,13 @@ void GuiTimeline::render_track_lanes() {
         switch (edit_action) {
             case TimelineEditAction::ClipMove:
                 if (!left_mouse_down) {
-                    if (edited_track == hovered_track) {
-                        ClipMoveCmd cmd = {
-                            .track_id = edited_track_id.value(),
-                            .clip_id = edited_clip->id,
-                            .relative_pos = relative_pos,
-                        };
-                        g_cmd_manager.execute("Move Clip", std::move(cmd));
-                    } else if (hovered_track != nullptr) {
-                        // Move clip to another track
-                        double new_pos = std::max(edited_clip->min_time + relative_pos, 0.0);
-                        double length = edited_clip->max_time - edited_clip->min_time;
-                        hovered_track->duplicate_clip(edited_clip, new_pos, new_pos + length,
-                                                      beat_duration);
-                        g_engine.delete_clip(edited_track, edited_clip);
-                    }
+                    ClipMoveCmd cmd = {
+                        .track_id = edited_track_id.value(),
+                        .target_track_id = hovered_track_id.value(),
+                        .clip_id = edited_clip->id,
+                        .relative_pos = relative_pos,
+                    };
+                    g_cmd_manager.execute("Move Clip", std::move(cmd));
                     finish_edit_action();
                     force_redraw = true;
                 }
@@ -1456,7 +1449,6 @@ void GuiTimeline::finish_edit_action() {
     hovered_track_height = 60.0f;
     edited_clip = nullptr;
     edited_track = nullptr;
-    edited_track_id.reset();
     edited_track_pos_y = 0.0f;
     edited_clip_min_time = 0.0;
     edited_clip_max_time = 0.0;

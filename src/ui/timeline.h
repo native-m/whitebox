@@ -84,7 +84,8 @@ struct GuiTimeline {
     double edited_clip_min_time;
     double edited_clip_max_time;
 
-    Track* hovered_track = nullptr;
+    Track* hovered_track {};
+    std::optional<uint32_t> hovered_track_id {};
     float hovered_track_y = 0.0f;
     float hovered_track_height = 60.0f;
 
