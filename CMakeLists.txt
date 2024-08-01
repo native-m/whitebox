@@ -50,8 +50,6 @@ set(WB_SOURCES
     "src/core/debug.cpp"
     "src/core/debug.h"
     "src/core/defer.h"
-    "src/core/json.hpp"
-    "src/core/json_fwd.hpp"
     "src/core/math.h"
     "src/core/memory.h"
     "src/core/midi.cpp"
@@ -86,6 +84,9 @@ set(WB_SOURCES
     "src/engine/track.cpp"
     "src/engine/track.h"
     "src/engine/vu_meter.h"
+
+    "src/extern/json.hpp"
+    "src/extern/json_fwd.hpp"
 
     "src/gfx/draw.cpp"
     "src/gfx/draw.h"
