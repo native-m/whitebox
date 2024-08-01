@@ -172,6 +172,11 @@ void App::render_control_bar() {
         g_cmd_manager.redo();
     }
 
+    if (ImGui::IsKeyDown(ImGuiKey_ModCtrl) && ImGui::IsKeyPressed(ImGuiKey_Z) &&
+        !ImGui::GetIO().WantTextInput) {
+        g_cmd_manager.undo();
+    }
+
     ImGui::SameLine(0.0f, 12.0f);
     if (ImGui::Button(!is_playing ? ICON_MS_PLAY_ARROW "##wb_play" : ICON_MS_PAUSE "##wb_play")) {
         if (is_playing) {
