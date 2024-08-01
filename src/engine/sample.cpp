@@ -366,6 +366,9 @@ std::optional<Sample> Sample::load_compressed_file(const std::filesystem::path& 
     for (uint32_t i = 0; i < mp3_file.channels; i++) {
         std::byte* mem = (std::byte*)std::malloc(total_frame_count * sizeof(float));
         if (!mem) {
+            for (auto sample_data : channel_samples) {
+                std::free(sample_data);
+            }
             std::free(buffer_mem);
             drmp3_uninit(&mp3_file);
             return {};
