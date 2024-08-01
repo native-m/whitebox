@@ -1,7 +1,8 @@
 #include "sample.h"
+#include "extern/dr_mp3.h"
 #include <memory>
-#include <utility>
 #include <sndfile.h>
+#include <utility>
 
 namespace wb {
 
@@ -258,8 +259,9 @@ std::optional<Sample> Sample::load_file(const std::filesystem::path& path) noexc
 
     SF_INFO info;
     SNDFILE* file = sf_open(path.generic_string().c_str(), SFM_READ, &info);
-    if (!file)
-        return {};
+    if (!file) {
+        return load_compressed_file(path);
+    }
 
     AudioFormat format = from_sf_format(info.format & SF_FORMAT_SUBMASK);
     if (format == AudioFormat::Unknown)
@@ -299,21 +301,21 @@ std::optional<Sample> Sample::load_file(const std::filesystem::path& path) noexc
         }
         case AudioFormat::I16: {
             int16_t* buffer = (int16_t*)buffer_mem;
-            while (num_frames_read = sf_readf_short(file, buffer, buffer_len_per_channel))
+            while ((num_frames_read = sf_readf_short(file, buffer, buffer_len_per_channel)))
                 num_frames_written = deinterleave_samples(
                     data, buffer, num_frames_read, info.frames, num_frames_written, info.channels);
             break;
         }
         case AudioFormat::I32: {
             int32_t* buffer = (int32_t*)buffer_mem;
-            while (num_frames_read = sf_readf_int(file, buffer, buffer_len_per_channel))
+            while ((num_frames_read = sf_readf_int(file, buffer, buffer_len_per_channel)))
                 num_frames_written = deinterleave_samples(
                     data, buffer, num_frames_read, info.frames, num_frames_written, info.channels);
             break;
         }
         case AudioFormat::F32: {
             float* buffer = (float*)buffer_mem;
-            while (num_frames_read = sf_readf_float(file, buffer, buffer_len_per_channel))
+            while ((num_frames_read = sf_readf_float(file, buffer, buffer_len_per_channel)))
                 num_frames_written = deinterleave_samples(
                     data, buffer, num_frames_read, info.frames, num_frames_written, info.channels);
             break;
@@ -338,6 +340,63 @@ std::optional<Sample> Sample::load_file(const std::filesystem::path& path) noexc
     ret->count = info.frames;
     ret->byte_length = data_size * info.channels;
     ret->sample_data = std::move(data);
+    return ret;
+}
+
+std::optional<Sample> Sample::load_compressed_file(const std::filesystem::path& path) noexcept {
+    if (!std::filesystem::is_regular_file(path))
+        return {};
+
+    drmp3 mp3_file;
+    if (!drmp3_init_file(&mp3_file, path.generic_string().c_str(), nullptr)) {
+        return {};
+    }
+
+    uint64_t num_frames_read = 0;
+    uint64_t buffer_len_per_channel = 1024;
+    float* buffer_mem =
+        (float*)std::malloc(buffer_len_per_channel * mp3_file.channels * sizeof(float));
+    if (!buffer_mem) {
+        drmp3_uninit(&mp3_file);
+        return {};
+    }
+
+    uint64_t total_frame_count = drmp3_get_pcm_frame_count(&mp3_file);
+    std::vector<std::byte*> channel_samples;
+    for (uint32_t i = 0; i < mp3_file.channels; i++) {
+        std::byte* mem = (std::byte*)std::malloc(total_frame_count * sizeof(float));
+        if (!mem) {
+            std::free(buffer_mem);
+            drmp3_uninit(&mp3_file);
+            return {};
+        }
+        channel_samples.push_back(mem);
+    }
+
+    sf_count_t num_frames_written = 0;
+    while (true) {
+        num_frames_read = drmp3_read_pcm_frames_f32(&mp3_file, buffer_len_per_channel, buffer_mem);
+        if (num_frames_read == 0) {
+            break;
+        }
+        num_frames_written =
+            deinterleave_samples(channel_samples, buffer_mem, num_frames_read, total_frame_count,
+                                 num_frames_written, mp3_file.channels);
+    }
+
+    drmp3_uninit(&mp3_file);
+    std::free(buffer_mem);
+
+    std::optional<Sample> ret;
+    ret.emplace();
+    ret->name = path.filename().string();
+    ret->path = path;
+    ret->format = AudioFormat::F32;
+    ret->channels = mp3_file.channels;
+    ret->sample_rate = mp3_file.sampleRate;
+    ret->count = total_frame_count;
+    ret->byte_length = total_frame_count * mp3_file.channels;
+    ret->sample_data = std::move(channel_samples);
     return ret;
 }
 

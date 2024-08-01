@@ -42,5 +42,7 @@ struct Sample {
                                size_t output_offset, size_t* output_count, void* output_data) const;
 
     static std::optional<Sample> load_file(const std::filesystem::path& path) noexcept;
+
+    static std::optional<Sample> load_compressed_file(const std::filesystem::path& path) noexcept;
 };
 } // namespace wb

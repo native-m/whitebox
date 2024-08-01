@@ -153,8 +153,8 @@ if (imgui_ADDED)
     target_compile_definitions(imgui PUBLIC IMGUI_DEFINE_MATH_OPERATORS)
     target_precompile_headers(imgui
         PUBLIC
-            "${imgui_SOURCE_DIR}/imgui.h"
-            "${imgui_SOURCE_DIR}/imgui_internal.h")
+            "$<$<COMPILE_LANGUAGE:CXX>:${imgui_SOURCE_DIR}/imgui.h>"
+            "$<$<COMPILE_LANGUAGE:CXX>:${imgui_SOURCE_DIR}/imgui_internal.h>")
 
     add_library(imgui-backends INTERFACE IMPORTED)
     target_include_directories(imgui-backends INTERFACE "${imgui_SOURCE_DIR}/backends")
