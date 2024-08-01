@@ -85,6 +85,8 @@ set(WB_SOURCES
     "src/engine/track.h"
     "src/engine/vu_meter.h"
 
+    "src/extern/dr_mp3.h"
+    "src/extern/dr_mp3_stub.c"
     "src/extern/json.hpp"
     "src/extern/json_fwd.hpp"
 
