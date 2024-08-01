@@ -162,9 +162,11 @@ set(WB_LINK_LIBRARIES
 
 if (WIN32)
     set(WB_LINK_LIBRARIES ${WB_LINK_LIBRARIES} imgui-d3d11 Avrt Dwmapi)
-else ()
-    set(WB_LINK_LIBRARIES ${WB_LINK_LIBRARIES} xcb X11 X11-xcb)
-endif()
+elseif (UNIX AND NOT APPLE)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(LIBPULSE REQUIRED IMPORTED_TARGET libpulse)
+    set(WB_LINK_LIBRARIES ${WB_LINK_LIBRARIES} PkgConfig::LIBPULSE xcb X11 X11-xcb)
+endif ()
 
 add_library(whitebox-lib STATIC ${WB_SOURCES})
 target_link_libraries(whitebox-lib PUBLIC ${WB_LINK_LIBRARIES})
@@ -176,12 +178,6 @@ set_target_properties(whitebox-lib PROPERTIES
 if (WB_IPO_SUPPORTED)
     set_target_properties(whitebox-lib PROPERTIES INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
 endif()
-
-if (UNIX AND NOT APPLE)
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(LIBPULSE REQUIRED IMPORTED_TARGET libpulse)
-    target_link_libraries(whitebox-lib PRIVATE PkgConfig::LIBPULSE)
-endif ()
 
 if (WIN32)
     target_compile_definitions(whitebox-lib PUBLIC -DUNICODE -D_UNICODE)
