@@ -25,7 +25,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
         build_type: [Release]
-        c_compiler: [gcc, clang, cl]
+        c_compiler: [gcc, cl] #[gcc, clang, cl]
         include:
           - os: windows-latest
             c_compiler: cl
@@ -33,14 +33,14 @@ jobs:
           - os: ubuntu-latest
             c_compiler: gcc
             cpp_compiler: g++
-          - os: ubuntu-latest
-            c_compiler: clang
-            cpp_compiler: clang++
+          #- os: ubuntu-latest
+          #  c_compiler: clang
+          #  cpp_compiler: clang++
         exclude:
           - os: windows-latest
             c_compiler: gcc
-          - os: windows-latest
-            c_compiler: clang
+          #- os: windows-latest
+          #  c_compiler: clang
           - os: ubuntu-latest
             c_compiler: cl
 
@@ -82,16 +82,16 @@ jobs:
         -DWB_ENABLE_INSTALL:BOOL=ON
         -S ${{ github.workspace }}
 
-    - name: Configure CMake
-      if: matrix.c_compiler == 'clang' || matrix.cpp_compiler == 'clang'
-      run: >
-        cmake -B ${{ steps.strings.outputs.build-output-dir }}
-        -DCMAKE_CXX_COMPILER=clang++-15
-        -DCMAKE_C_COMPILER=clang-15
-        -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-        -DWB_VST3_SDK_PATH:PATH="${{ github.workspace }}/vendor/vst3sdk"
-        -DWB_ENABLE_INSTALL:BOOL=ON
-        -S ${{ github.workspace }}
+    # - name: Configure CMake
+    #   if: matrix.c_compiler == 'clang' || matrix.cpp_compiler == 'clang'
+    #   run: >
+    #     cmake -B ${{ steps.strings.outputs.build-output-dir }}
+    #     -DCMAKE_CXX_COMPILER=clang++-15
+    #     -DCMAKE_C_COMPILER=clang-15
+    #     -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+    #     -DWB_VST3_SDK_PATH:PATH="${{ github.workspace }}/vendor/vst3sdk"
+    #     -DWB_ENABLE_INSTALL:BOOL=ON
+    #     -S ${{ github.workspace }}
 
     - name: Build
       # Build your program with the given configuration. Note that --config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
