@@ -108,6 +108,7 @@ CPMAddPackage(
                         "BUILD_TESTING OFF"
                         "ENABLE_CPACK OFF"
                         "ENABLE_BOW_DOCS OFF"
+                        "ENABLE_EXTERNAL_LIBS OFF"
                         "ENABLE_PACKAGE_CONFIG OFF"
                         "INSTALL_PKGCONFIG_MODULE OFF"
                         "INSTALL_MANPAGES OFF"
@@ -127,7 +128,9 @@ CPMAddPackage(
 CPMAddPackage(
     NAME                vorbis
     GITHUB_REPOSITORY   xiph/vorbis
-    VERSION             1.3.7
+    VERSION             1.3.8-alpha
+    # prior to v1.37, does not support checking existing Ogg target
+    GIT_TAG             84c023699cdf023a32fa4ded32019f194afcdad0
     OPTIONS             "INSTALL_CMAKE_PACKAGE_MODULE OFF"
     EXCLUDE_FROM_ALL
 )
