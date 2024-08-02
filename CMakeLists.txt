@@ -159,6 +159,7 @@ set(WB_LINK_LIBRARIES
     imgui-freetype
     imgui-vulkan
     sndfile
+    vorbisfile
     midi-parser
     nfd
     vst3-sdk-hosting)

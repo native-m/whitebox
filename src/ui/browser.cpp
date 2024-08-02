@@ -40,8 +40,8 @@ void GuiBrowser::glob_path(const std::filesystem::path& path, BrowserItem& item)
         } else if (dir_entry.is_regular_file()) {
             std::filesystem::path filename {dir_entry.path().filename()};
             std::filesystem::path ext {filename.extension()};
-            if (!any_of(ext, ".wav", ".wave", ".aiff", ".mp3", ".mid", ".midi", ".aifc", ".aif",
-                        ".iff", ".8svx")) {
+            if (!any_of(ext, ".wav", ".wave", ".aiff", ".mp3", ".ogg", ".mid", ".midi", ".aifc",
+                        ".aif", ".iff", ".8svx")) {
                 continue;
             }
             BrowserItem& child_item =

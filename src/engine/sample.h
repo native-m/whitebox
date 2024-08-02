@@ -44,5 +44,11 @@ struct Sample {
     static std::optional<Sample> load_file(const std::filesystem::path& path) noexcept;
 
     static std::optional<Sample> load_compressed_file(const std::filesystem::path& path) noexcept;
+
+    static std::optional<Sample> load_mp3_file(const std::filesystem::path& path) noexcept;
+
+    static std::optional<Sample> load_flac_file(const std::filesystem::path& path) noexcept;
+
+    static std::optional<Sample> load_ogg_vorbis_file(const std::filesystem::path& path) noexcept;
 };
 } // namespace wb

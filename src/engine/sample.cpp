@@ -1,8 +1,11 @@
 #include "sample.h"
+#include "core/math.h"
+#include "core/debug.h"
 #include "extern/dr_mp3.h"
 #include <memory>
 #include <sndfile.h>
 #include <utility>
+#include <vorbis/vorbisfile.h>
 
 namespace wb {
 
@@ -284,8 +287,8 @@ std::optional<Sample> Sample::load_file(const std::filesystem::path& path) noexc
     }
 
     sf_count_t buffer_len_per_channel = 1024;
-    void* buffer_mem = std::malloc(buffer_len_per_channel * info.channels * sample_size);
-    if (!buffer_mem) {
+    void* decode_buffer = std::malloc(buffer_len_per_channel * info.channels * sample_size);
+    if (!decode_buffer) {
         for (auto allocated_data : data)
             std::free(allocated_data);
         sf_close(file);
@@ -300,21 +303,21 @@ std::optional<Sample> Sample::load_file(const std::filesystem::path& path) noexc
             break;
         }
         case AudioFormat::I16: {
-            int16_t* buffer = (int16_t*)buffer_mem;
+            int16_t* buffer = (int16_t*)decode_buffer;
             while ((num_frames_read = sf_readf_short(file, buffer, buffer_len_per_channel)))
                 num_frames_written = deinterleave_samples(
                     data, buffer, num_frames_read, info.frames, num_frames_written, info.channels);
             break;
         }
         case AudioFormat::I32: {
-            int32_t* buffer = (int32_t*)buffer_mem;
+            int32_t* buffer = (int32_t*)decode_buffer;
             while ((num_frames_read = sf_readf_int(file, buffer, buffer_len_per_channel)))
                 num_frames_written = deinterleave_samples(
                     data, buffer, num_frames_read, info.frames, num_frames_written, info.channels);
             break;
         }
         case AudioFormat::F32: {
-            float* buffer = (float*)buffer_mem;
+            float* buffer = (float*)decode_buffer;
             while ((num_frames_read = sf_readf_float(file, buffer, buffer_len_per_channel)))
                 num_frames_written = deinterleave_samples(
                     data, buffer, num_frames_read, info.frames, num_frames_written, info.channels);
@@ -327,7 +330,7 @@ std::optional<Sample> Sample::load_file(const std::filesystem::path& path) noexc
             break;
     }
 
-    std::free(buffer_mem);
+    std::free(decode_buffer);
     sf_close(file);
 
     std::optional<Sample> ret;
@@ -344,6 +347,16 @@ std::optional<Sample> Sample::load_file(const std::filesystem::path& path) noexc
 }
 
 std::optional<Sample> Sample::load_compressed_file(const std::filesystem::path& path) noexcept {
+    if (auto mp3 = load_mp3_file(path)) {
+        return mp3;
+    }
+    if (auto ogv = load_ogg_vorbis_file(path)) {
+        return ogv;
+    }
+    return {};
+}
+
+std::optional<Sample> Sample::load_mp3_file(const std::filesystem::path& path) noexcept {
     if (!std::filesystem::is_regular_file(path))
         return {};
 
@@ -352,11 +365,10 @@ std::optional<Sample> Sample::load_compressed_file(const std::filesystem::path& 
         return {};
     }
 
-    uint64_t num_frames_read = 0;
     uint64_t buffer_len_per_channel = 1024;
-    float* buffer_mem =
+    float* decode_buffer =
         (float*)std::malloc(buffer_len_per_channel * mp3_file.channels * sizeof(float));
-    if (!buffer_mem) {
+    if (!decode_buffer) {
         drmp3_uninit(&mp3_file);
         return {};
     }
@@ -369,26 +381,28 @@ std::optional<Sample> Sample::load_compressed_file(const std::filesystem::path& 
             for (auto sample_data : channel_samples) {
                 std::free(sample_data);
             }
-            std::free(buffer_mem);
+            std::free(decode_buffer);
             drmp3_uninit(&mp3_file);
             return {};
         }
         channel_samples.push_back(mem);
     }
 
+    uint64_t num_frames_read = 0;
     sf_count_t num_frames_written = 0;
     while (true) {
-        num_frames_read = drmp3_read_pcm_frames_f32(&mp3_file, buffer_len_per_channel, buffer_mem);
+        num_frames_read =
+            drmp3_read_pcm_frames_f32(&mp3_file, buffer_len_per_channel, decode_buffer);
         if (num_frames_read == 0) {
             break;
         }
         num_frames_written =
-            deinterleave_samples(channel_samples, buffer_mem, num_frames_read, total_frame_count,
+            deinterleave_samples(channel_samples, decode_buffer, num_frames_read, total_frame_count,
                                  num_frames_written, mp3_file.channels);
     }
 
     drmp3_uninit(&mp3_file);
-    std::free(buffer_mem);
+    std::free(decode_buffer);
 
     std::optional<Sample> ret;
     ret.emplace();
@@ -400,6 +414,71 @@ std::optional<Sample> Sample::load_compressed_file(const std::filesystem::path& 
     ret->count = total_frame_count;
     ret->byte_length = total_frame_count * mp3_file.channels;
     ret->sample_data = std::move(channel_samples);
+    return ret;
+}
+
+std::optional<Sample> Sample::load_flac_file(const std::filesystem::path& path) noexcept {
+    return std::optional<Sample>();
+}
+
+std::optional<Sample> Sample::load_ogg_vorbis_file(const std::filesystem::path& path) noexcept {
+    if (!std::filesystem::is_regular_file(path))
+        return {};
+
+    OggVorbis_File vf;
+    if (ov_fopen(path.generic_string().c_str(), &vf) != 0) {
+        return {};
+    }
+
+    vorbis_info* info = ov_info(&vf, -1);
+    int channels = math::min(info->channels, 32); // Maximum number of channel is 32
+    uint64_t buffer_len_per_channel = 1024;
+    uint64_t total_frame_count = ov_pcm_total(&vf, -1);
+    std::vector<std::byte*> channel_samples;
+    for (uint32_t i = 0; i < info->channels; i++) {
+        std::byte* mem = (std::byte*)std::malloc(total_frame_count * sizeof(float));
+        if (!mem) {
+            for (auto sample_data : channel_samples) {
+                std::free(sample_data);
+            }
+            ov_clear(&vf);
+            return {};
+        }
+        channel_samples.push_back(mem);
+    }
+
+    uint64_t num_frames_written = 0;
+    int current_bitstream = 0;
+    float** decode_channels = nullptr;
+    while (true) {
+        int ret = ov_read_float(&vf, &decode_channels, buffer_len_per_channel,
+                          &current_bitstream);
+        if (ret == 0) {
+            break;
+        } else if (ret < 0) {
+            Log::error("Failed to decode Ogg Vorbis file. ov_read_float() returned {}", ret);
+            break;
+        }
+        for (int c = 0; c < channels; c++) {
+            float* channel_data = (float*)channel_samples[c];
+            std::memcpy(channel_data + num_frames_written, decode_channels[c], ret * sizeof(float));
+        }
+        num_frames_written += ret;
+    }
+
+    std::optional<Sample> ret;
+    ret.emplace();
+    ret->name = path.filename().string();
+    ret->path = path;
+    ret->format = AudioFormat::F32;
+    ret->channels = channels;
+    ret->sample_rate = info->rate;
+    ret->count = total_frame_count;
+    ret->byte_length = total_frame_count * channels;
+    ret->sample_data = std::move(channel_samples);
+
+    ov_clear(&vf);
+
     return ret;
 }
 

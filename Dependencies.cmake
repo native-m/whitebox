@@ -115,6 +115,24 @@ CPMAddPackage(
 )
 
 CPMAddPackage(
+    NAME                ogg
+    GITHUB_REPOSITORY   xiph/ogg
+    VERSION             1.3.5
+    OPTIONS             "INSTALL_DOCS OFF"
+                        "INSTALL_PKG_CONFIG_MODULE OFF"
+                        "INSTALL_CMAKE_PACKAGE_MODULE OFF"
+    EXCLUDE_FROM_ALL
+)
+
+CPMAddPackage(
+    NAME                vorbis
+    GITHUB_REPOSITORY   xiph/vorbis
+    VERSION             1.3.7
+    OPTIONS             "INSTALL_CMAKE_PACKAGE_MODULE OFF"
+    EXCLUDE_FROM_ALL
+)
+
+CPMAddPackage(
     NAME                midi_parser
     GITHUB_REPOSITORY   abique/midi-parser
     GIT_TAG             ddc815b44c0cb05fa133f9630355f715daabb380
