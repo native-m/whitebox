@@ -13,6 +13,10 @@ void render_history_window() {
         return;
     }
 
+    if (ImGui::Button("Clear All")) {
+        g_cmd_manager.clear_history();
+    }
+
     ImVec2 space = ImGui::GetContentRegionAvail();
 
     if (ImGui::BeginListBox("##history_listbox",

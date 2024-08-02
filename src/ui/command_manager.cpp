@@ -26,6 +26,11 @@ void CommandManager::redo() {
     signal_all_update_listeners();
 }
 
+void CommandManager::clear_history() {
+    pos = 0;
+    size = 0;
+}
+
 void CommandManager::signal_all_update_listeners() {
     for (auto& listener : on_history_update_listener) {
         listener();

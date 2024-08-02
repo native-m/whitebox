@@ -36,6 +36,7 @@ struct CommandManager {
     void init(uint32_t max_items);
     void undo();
     void redo();
+    void clear_history();
     void signal_all_update_listeners();
 
     template <typename T>
