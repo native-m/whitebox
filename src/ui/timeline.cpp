@@ -327,7 +327,7 @@ void GuiTimeline::render() {
 }
 
 // Render separator (resizer) between the track control and the track lane
-inline void GuiTimeline::render_separator() {
+void GuiTimeline::render_separator() {
     ImVec2 content_min = ImGui::GetWindowContentRegionMin();
     ImVec2 content_max = ImGui::GetWindowContentRegionMax();
     ImVec2 area_size = ImVec2(content_max.x - content_min.x, content_max.y - content_min.y);
@@ -369,7 +369,7 @@ inline void GuiTimeline::render_separator() {
     timeline_view_pos.y = layout.main_pos.y;
 }
 
-inline void GuiTimeline::render_track_controls() {
+void GuiTimeline::render_track_controls() {
     constexpr ImGuiWindowFlags track_control_window_flags =
         ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse |
         ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_AlwaysUseWindowPadding;
@@ -480,7 +480,7 @@ inline void GuiTimeline::render_track_controls() {
     ImGui::PopClipRect();
 }
 
-inline void GuiTimeline::track_context_menu(Track& track, int track_id) {
+void GuiTimeline::track_context_menu(Track& track, int track_id) {
     if (ImGui::BeginPopup("track_context_menu")) {
         if (track.name.size() > 0) {
             ImGui::MenuItem(track.name.c_str(), nullptr, false, false);
@@ -534,7 +534,7 @@ inline void GuiTimeline::track_context_menu(Track& track, int track_id) {
     }
 }
 
-inline void GuiTimeline::clip_context_menu() {
+void GuiTimeline::clip_context_menu() {
     if (ImGui::BeginPopup("clip_context_menu")) {
         if (ImGui::BeginMenu("Rename")) {
             FormResult result = rename_form(&context_menu_clip->name, &tmp_name);

@@ -249,7 +249,7 @@ bool TimelineBase::render_time_ruler(double* time_value) {
     return active;
 }
 
-inline void TimelineBase::scroll_horizontal(float drag_delta, double max_length, double direction) {
+void TimelineBase::scroll_horizontal(float drag_delta, double max_length, double direction) {
     double norm_drag_delta = ((double)drag_delta / max_length) * direction;
     if (drag_delta != 0.0f) {
         double new_min_hscroll = min_hscroll + norm_drag_delta;

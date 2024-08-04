@@ -102,10 +102,10 @@ struct GuiTimeline : public TimelineBase {
     Track* add_track();
     void reset();
     void render();
-    inline void render_separator();
-    inline void render_track_controls();
-    inline void track_context_menu(Track& track, int track_id);
-    inline void clip_context_menu();
+    void render_separator();
+    void render_track_controls();
+    void track_context_menu(Track& track, int track_id);
+    void clip_context_menu();
     void render_track_lanes();
     void finish_edit_action();
     void recalculate_song_length();
