@@ -25,6 +25,8 @@ void GuiPianoRoll::render() {
     if (!open)
         return;
 
+    double ppq = g_engine.ppq;
+
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
     ImGui::SetNextWindowSize(ImVec2(640.0f, 480.0f), ImGuiCond_FirstUseEver);
     if (!controls::begin_dockable_window("Piano Roll", &open)) {
@@ -84,15 +86,16 @@ void GuiPianoRoll::render() {
                                ImVec2(min_track_control_size, note_count * note_height_padded));
         ImGui::SameLine(0.0f, 2.0f);
 
+        // Draw piano keys
         float keys_height = note_count_per_oct * note_height_padded;
         float oct_pos_y = main_cursor_pos.y - std::fmod(vscroll, keys_height);
         ImVec2 oct_pos = ImVec2(cursor_pos.x, oct_pos_y);
-        uint32_t oct_count = (uint32_t)math::round(view_height / keys_height);
-        int count_offset =
+        uint32_t oct_count = (uint32_t)math::round(view_height / keys_height) + 1;
+        int key_oct_offset =
             (uint32_t)(max_oct_count - std::floor(vscroll / keys_height)) - oct_count - 1;
         for (int i = oct_count; i >= 0; i--) {
             draw_piano_keys(draw_list, oct_pos, ImVec2(min_track_control_size, note_height),
-                            i + count_offset);
+                            i + key_oct_offset);
         }
 
         double view_scale = calc_view_scale();
@@ -109,19 +112,65 @@ void GuiPianoRoll::render() {
         ImGui::InvisibleButton("PianoRollContent",
                                ImVec2(region_size.x, note_count * note_height_padded));
 
-        ImU32 key_grid_color =
-            (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.85f);
+        double scroll_pos_x = std::round((min_hscroll * song_length) / view_scale);
+        double scroll_offset_x = (double)cursor_pos.x - scroll_pos_x;
+        double clip_scale = ppq * inv_view_scale;
+
+        float four_bars = (float)(16.0 * ppq / view_scale);
+        uint32_t guidestrip_count = (uint32_t)(timeline_width / four_bars) + 2;
+        float guidestrip_pos_x = cursor_pos.x - std::fmod((float)scroll_pos_x, four_bars * 2.0f);
+        ImU32 guidestrip_color =
+            (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.12f);
+        for (uint32_t i = 0; i <= guidestrip_count; i++) {
+            float start_pos_x = guidestrip_pos_x;
+            guidestrip_pos_x += four_bars;
+            if (i % 2) {
+                draw_list->AddRectFilled(ImVec2(start_pos_x, offset_y),
+                                         ImVec2(guidestrip_pos_x, offset_y + region_size.y),
+                                         guidestrip_color);
+            }
+        }
+
+        ImU32 grid_color = (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.65f);
+        ImU32 beat_grid_color =
+            (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.2f);
+        ImU32 bar_grid_color =
+            (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.4f);
+
+        double beat = ppq / view_scale;
+        double bar = 4.0 * beat;
+        double division = std::exp2(std::round(std::log2(view_scale / 5.0)));
+        float grid_inc_x = (float)(beat * division);
+        float inv_grid_inc_x = 1.0f / grid_inc_x;
+        uint32_t lines_per_bar = std::max((uint32_t)((float)bar / grid_inc_x), 1u);
+        uint32_t lines_per_beat = std::max((uint32_t)((float)beat / grid_inc_x), 1u);
+        float gridline_pos_x = cursor_pos.x - std::fmod((float)scroll_pos_x, grid_inc_x);
+        int gridline_count = (uint32_t)(timeline_width * inv_grid_inc_x);
+        int grid_index_offset = (uint32_t)(scroll_pos_x * inv_grid_inc_x);
+        for (int i = 0; i <= gridline_count; i++) {
+            gridline_pos_x += grid_inc_x;
+            float gridline_pos_x_pixel = std::round(gridline_pos_x);
+            uint32_t grid_id = i + grid_index_offset + 1;
+            ImU32 line_color = grid_color;
+            if (grid_id % lines_per_bar) {
+                line_color = bar_grid_color;
+            }
+            if (grid_id % lines_per_beat) {
+                line_color = beat_grid_color;
+            }
+            draw_list->AddLine(ImVec2(gridline_pos_x_pixel, offset_y),
+                               ImVec2(gridline_pos_x_pixel, offset_y + region_size.y), line_color,
+                               1.0f);
+        }
+
+        // Draw horizontal gridline
         float key_pos_y = main_cursor_pos.y - std::fmod(vscroll, note_height_padded);
         uint32_t num_keys = (uint32_t)math::round(view_height / note_height_padded);
         ImVec2 key_pos = ImVec2(cursor_pos.x, key_pos_y - 1.0f);
         for (int i = 0; i <= num_keys; i++) {
-            draw_list->AddLine(key_pos, key_pos + ImVec2(timeline_width, 0.0f), key_grid_color);
+            draw_list->AddLine(key_pos, key_pos + ImVec2(timeline_width, 0.0f), grid_color);
             key_pos.y += note_height_padded;
         }
-
-        double scroll_pos_x = std::round((min_hscroll * song_length) / view_scale);
-        double scroll_offset_x = (double)cursor_pos.x - scroll_pos_x;
-        double clip_scale = g_engine.ppq * inv_view_scale;
 
         static const ImU32 channel_color = ImColor(121, 166, 91);
         auto font = ImGui::GetFont();
@@ -131,10 +180,8 @@ void GuiPianoRoll::render() {
             fmt::format_to_n(note_name, sizeof(note_name), "{}{}", scale, note.note_number / 12);
 
             float pos_y = (float)(131 - note.note_number) * note_height_padded;
-            float min_pos_x =
-                (float)math::round(scroll_offset_x + note.min_time * clip_scale);
-            float max_pos_x =
-                (float)math::round(scroll_offset_x + note.max_time * clip_scale);
+            float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * clip_scale);
+            float max_pos_x = (float)math::round(scroll_offset_x + note.max_time * clip_scale);
             ImVec2 min_bb(min_pos_x, cursor_pos.y + pos_y);
             ImVec2 max_bb(max_pos_x, cursor_pos.y + pos_y + note_height);
             ImVec4 label(min_bb.x, min_bb.y, max_bb.x - 6.0f, max_bb.y);
