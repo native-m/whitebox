@@ -1,5 +1,6 @@
 #include "piano_roll.h"
 #include "controls.h"
+#include "core/color.h"
 #include "engine/engine.h"
 #include "file_dialog.h"
 #include <imgui.h>
@@ -84,14 +85,13 @@ void GuiPianoRoll::render() {
         ImGui::SameLine(0.0f, 2.0f);
 
         float keys_height = note_count_per_oct * note_height_padded;
-        float note_pos_y = main_cursor_pos.y - std::fmod(vscroll, keys_height);
+        float oct_pos_y = main_cursor_pos.y - std::fmod(vscroll, keys_height);
+        ImVec2 oct_pos = ImVec2(cursor_pos.x, oct_pos_y);
         uint32_t oct_count = (uint32_t)math::round(view_height / keys_height);
         int count_offset =
             (uint32_t)(max_oct_count - std::floor(vscroll / keys_height)) - oct_count - 1;
-
-        ImVec2 note_pos = ImVec2(cursor_pos.x, note_pos_y);
         for (int i = oct_count; i >= 0; i--) {
-            draw_piano_keys(draw_list, note_pos, ImVec2(min_track_control_size, note_height),
+            draw_piano_keys(draw_list, oct_pos, ImVec2(min_track_control_size, note_height),
                             i + count_offset);
         }
 
@@ -108,6 +108,16 @@ void GuiPianoRoll::render() {
 
         ImGui::InvisibleButton("PianoRollContent",
                                ImVec2(region_size.x, note_count * note_height_padded));
+
+        ImU32 key_grid_color =
+            (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.85f);
+        float key_pos_y = main_cursor_pos.y - std::fmod(vscroll, note_height_padded);
+        uint32_t num_keys = (uint32_t)math::round(view_height / note_height_padded);
+        ImVec2 key_pos = ImVec2(cursor_pos.x, key_pos_y - 1.0f);
+        for (int i = 0; i <= num_keys; i++) {
+            draw_list->AddLine(key_pos, key_pos + ImVec2(timeline_width, 0.0f), key_grid_color);
+            key_pos.y += note_height_padded;
+        }
 
         double scroll_pos_x = std::round((min_hscroll * song_length) / view_scale);
         double scroll_offset_x = (double)cursor_pos.x - scroll_pos_x;
