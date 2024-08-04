@@ -46,7 +46,7 @@ void GuiPianoRoll::render() {
 
     ImGui::SameLine(0.0f, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 1.0f));
-    if (ImGui::BeginChild("PianoRoll", ImVec2())) {
+    if (ImGui::BeginChild("PianoRoll", ImVec2(), ImGuiChildFlags_AlwaysUseWindowPadding)) {
         ImGui::PopStyleVar();
 
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
@@ -196,13 +196,18 @@ void GuiPianoRoll::render() {
             float pos_y = (float)(131 - note.note_number) * note_height_padded;
             float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * clip_scale);
             float max_pos_x = (float)math::round(scroll_offset_x + note.max_time * clip_scale);
-            ImVec2 min_bb(min_pos_x, cursor_pos.y + pos_y);
-            ImVec2 max_bb(max_pos_x, cursor_pos.y + pos_y + note_height);
-            ImVec4 label(min_bb.x, min_bb.y, max_bb.x - 6.0f, max_bb.y);
-            draw_list->AddRectFilled(min_bb, max_bb, channel_color);
-            draw_list->AddRect(min_bb, max_bb, 0x7F000000);
+            ImVec2 a(min_pos_x, cursor_pos.y + pos_y);
+            ImVec2 b(max_pos_x - 0.5f, cursor_pos.y + pos_y + note_height);
+            ImVec4 label(a.x, a.y, b.x - 4.0f, b.y);
+            draw_list->PathLineTo(a);
+            draw_list->PathLineTo(ImVec2(b.x, a.y));
+            draw_list->PathLineTo(b);
+            draw_list->PathLineTo(ImVec2(a.x, b.y));
+            draw_list->PathFillConvex(channel_color);
+            //draw_list->AddRectFilled(min_bb, max_bb, channel_color);
+            //draw_list->AddRect(min_bb, max_bb, 0x7F000000);
             draw_list->AddText(font, font->FontSize,
-                               ImVec2(std::max(cursor_pos.x, min_pos_x) + 4.0f, min_bb.y + 2.0f),
+                               ImVec2(std::max(cursor_pos.x, min_pos_x) + 4.0f, a.y + 2.0f),
                                0xFFFFFFFF, note_name, nullptr, 0.0f, &label);
         }
 
@@ -233,7 +238,7 @@ void GuiPianoRoll::draw_piano_keys(ImDrawList* draw_list, ImVec2& pos, const ImV
             bg_col = dark_note;
             text_col = white_note;
         } else {
-            bg_col = white_note;
+            bg_col = 0xFFEFEFEF;
             text_col = dark_note;
         }
 

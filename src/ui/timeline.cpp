@@ -14,7 +14,7 @@
 #include "popup_state_manager.h"
 #include <fmt/format.h>
 
-#define DEBUG_MIDI_CLIPS 1
+#define DEBUG_MIDI_CLIPS 0
 
 #ifdef NDEBUG
 #undef DEBUG_MIDI_CLIPS
