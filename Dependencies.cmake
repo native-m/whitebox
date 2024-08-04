@@ -44,7 +44,7 @@ CPMAddPackage(
 
 CPMAddPackage(
     NAME                imgui
-    VERSION             1.90.9-docking
+    VERSION             1.91.0-docking
     GITHUB_REPOSITORY   ocornut/imgui
     DOWNLOAD_ONLY       YES
 )
