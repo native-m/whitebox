@@ -12,15 +12,18 @@ inline bool any_of(T value, Tcmp cmp, Args... cmp_args) {
 }
 
 template <typename T, typename ValT, typename CompareFn>
-inline T binary_search(T begin, T end, ValT value, CompareFn comp_fn) {
+inline T find_lower_bound(T begin, T end, ValT value, CompareFn comp_fn) {
     using DiffType = typename std::iterator_traits<T>::difference_type;
-    DiffType left = -1;
-    DiffType right = end - begin;
+    DiffType left = 0;
+    DiffType right = (end - begin) - 1;
 
-    while (right - left > 1) {
-        DiffType middle = (left + right) >> 1;
-        DiffType& side = (comp_fn(begin[middle], value) ? left : right);
-        side = middle;
+    while (left < right) {
+        DiffType middle = (left + right) >> 1; // In case of compiler being stupid
+        if (comp_fn(begin[middle], value)) {
+            left = middle + 1;
+        } else {
+            right = middle;
+        }
     }
 
     return begin + right;

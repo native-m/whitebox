@@ -234,8 +234,8 @@ std::optional<uint32_t> Track::find_next_clip(double time_pos, uint32_t hint) {
         return (*begin)->id;
     }
 
-    auto clip = binary_search(begin, end, time_pos, [](Clip* clip, double time_pos) {
-        return time_pos >= clip->max_time;
+    auto clip = find_lower_bound(begin, end, time_pos, [](Clip* clip, double time_pos) {
+        return clip->max_time <= time_pos;
     });
 
     if (clip == end) {
