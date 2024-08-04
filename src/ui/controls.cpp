@@ -164,7 +164,7 @@ void level_meter(const char* str_id, const ImVec2& size, uint32_t count, VUMeter
 
     float pos_x = start_pos.x;
     for (uint32_t i = 0; i < count; i++) {
-        float level = clamp(channels[i].get_value(), min_amplitude, max_amplitude);
+        float level = math::clamp(channels[i].get_value(), min_amplitude, max_amplitude);
         float channel_pos_x = pos_x;
         pos_x += channel_size;
 

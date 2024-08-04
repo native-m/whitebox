@@ -60,7 +60,7 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
         point.x += (double)offset.x / scale;
         point.y -= (double)offset.y / (double)view_height;
         point.x = math::max(point.x, 0.0);
-        point.y = clamp(point.y, 0.0, 1.0);
+        point.y = math::clamp(point.y, 0.0, 1.0);
         if (move_index != 0) {
             point.x = math::max(points[move_index - 1].x, point.x);
         }
@@ -81,7 +81,7 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
         px += (double)offset.x / scale;
         py -= (double)offset.y / (double)view_height;
         px = math::max(px, 0.0);
-        py = clamp(py, 0.0, 1.0);
+        py = math::clamp(py, 0.0, 1.0);
         if (num_points - 1 >= 1) {
             px = math::min(points[1].x, px);
         }
@@ -116,7 +116,7 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
             px += (double)offset.x / scale;
             py -= (double)offset.y / (double)view_height;
             px = math::max(points[i - 1].x, px);
-            py = clamp(py, 0.0, 1.0);
+            py = math::clamp(py, 0.0, 1.0);
             if (num_points - 1 >= i + 1) {
                 px = math::min(points[i + 1].x, px);
             }

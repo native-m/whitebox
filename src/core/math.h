@@ -22,6 +22,12 @@ inline T max(T a, T b) {
     return b < a ? a : b;
 }
 
+template <typename T>
+inline T clamp(T x, T min_val, T max_val) {
+    T max_part = x < max_val ? x : max_val;
+    return max_part > min_val ? max_part : min_val;
+}
+
 template <std::floating_point T>
 inline T trunc(T x) {
     if constexpr (std::is_same_v<T, double>) {
@@ -87,12 +93,6 @@ inline bool in_range(T x, T min_val, T max_val) {
 template <typename T>
 inline bool is_multiple_of(T x, T mult) {
     return (x % mult) == 0;
-}
-
-template <typename T>
-inline T clamp(T x, T min_val, T max_val) {
-    T max_part = x < max_val ? x : max_val;
-    return max_part > min_val ? max_part : min_val;
 }
 
 inline static double samples_to_beat(size_t samples, double sample_rate, double beat_duration) {
