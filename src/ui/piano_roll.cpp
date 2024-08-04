@@ -11,8 +11,8 @@ const char* note_scale[] = {
 };
 
 GuiPianoRoll::GuiPianoRoll() {
-    separator_pos = 80.0f;
-    min_track_control_size = 80.0f;
+    separator_pos = 70.0f;
+    min_track_control_size = 70.0f;
 }
 
 void GuiPianoRoll::open_midi_file() {
@@ -57,6 +57,7 @@ void GuiPianoRoll::render() {
         ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
         ImVec2 main_cursor_pos = cursor_pos;
         ImVec2 child_content_size = ImGui::GetContentRegionAvail();
+        float view_height = child_content_size.y;
         ImDrawList* draw_list = ImGui::GetWindowDrawList();
         draw_list->AddLine(
             ImVec2(content_origin.x, content_origin.y - 1.0f),
@@ -73,6 +74,8 @@ void GuiPianoRoll::render() {
                            ImGui::GetColorU32(ImGuiCol_Separator), 2.0f);
 
         static constexpr float note_count = 132.0f;
+        static constexpr float note_count_per_oct = 12.0f;
+        static constexpr float max_oct_count = note_count / note_count_per_oct;
         static constexpr float note_height = 18.0f;
         static constexpr float note_height_padded = note_height + 1.0f;
         cursor_pos = ImGui::GetCursorScreenPos();
@@ -80,9 +83,16 @@ void GuiPianoRoll::render() {
                                ImVec2(min_track_control_size, note_count * note_height_padded));
         ImGui::SameLine(0.0f, 2.0f);
 
-        ImVec2 note_pos = cursor_pos;
-        for (int i = 10; i >= 0; i--) {
-            draw_piano_keys(draw_list, note_pos, ImVec2(min_track_control_size, note_height), i);
+        float keys_height = note_count_per_oct * note_height_padded;
+        float note_pos_y = main_cursor_pos.y - std::fmod(vscroll, keys_height);
+        uint32_t oct_count = (uint32_t)math::round(view_height / keys_height);
+        int count_offset =
+            (uint32_t)(max_oct_count - std::floor(vscroll / keys_height)) - oct_count - 1;
+
+        ImVec2 note_pos = ImVec2(cursor_pos.x, note_pos_y);
+        for (int i = oct_count; i >= 0; i--) {
+            draw_piano_keys(draw_list, note_pos, ImVec2(min_track_control_size, note_height),
+                            i + count_offset);
         }
 
         double view_scale = calc_view_scale();
@@ -100,8 +110,7 @@ void GuiPianoRoll::render() {
                                ImVec2(region_size.x, note_count * note_height_padded));
 
         double scroll_pos_x = std::round((min_hscroll * song_length) / view_scale);
-        double timeline_scroll_offset_x = (double)cursor_pos.x - scroll_pos_x;
-        float timeline_scroll_offset_x_f32 = (float)timeline_scroll_offset_x;
+        double scroll_offset_x = (double)cursor_pos.x - scroll_pos_x;
         double clip_scale = g_engine.ppq * inv_view_scale;
 
         static const ImU32 channel_color = ImColor(121, 166, 91);
@@ -113,9 +122,9 @@ void GuiPianoRoll::render() {
 
             float pos_y = (float)(131 - note.note_number) * note_height_padded;
             float min_pos_x =
-                (float)math::round(timeline_scroll_offset_x + note.min_time * clip_scale);
+                (float)math::round(scroll_offset_x + note.min_time * clip_scale);
             float max_pos_x =
-                (float)math::round(timeline_scroll_offset_x + note.max_time * clip_scale);
+                (float)math::round(scroll_offset_x + note.max_time * clip_scale);
             ImVec2 min_bb(min_pos_x, cursor_pos.y + pos_y);
             ImVec2 max_bb(max_pos_x, cursor_pos.y + pos_y + note_height);
             ImVec4 label(min_bb.x, min_bb.y, max_bb.x - 6.0f, max_bb.y);
@@ -129,7 +138,6 @@ void GuiPianoRoll::render() {
         ImGui::PopClipRect();
 
         ImGui::EndChild();
-
         ImGui::EndChild();
     }
 
