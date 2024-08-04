@@ -237,6 +237,7 @@ void GuiTimeline::init() {
     g_engine.add_on_bpm_change_listener(
         [this](double bpm, double beat_duration) { force_redraw = true; });
     g_cmd_manager.add_on_history_update_listener([this] { force_redraw = true; });
+    min_track_control_size = 100.0f;
 }
 
 void GuiTimeline::shutdown() {
@@ -285,8 +286,13 @@ void GuiTimeline::render() {
         force_redraw = false;
 
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
+    
     render_horizontal_scrollbar();
-    render_time_ruler();
+    double new_playhead_pos = 0.0;
+    if (render_time_ruler(&new_playhead_pos)) {
+        g_engine.set_playhead_position(new_playhead_pos);
+    }
+
     ImGui::PopStyleVar();
 
     ImVec2 content_origin = ImGui::GetCursorScreenPos();
@@ -345,10 +351,11 @@ inline void GuiTimeline::render_separator() {
         separator_pos += drag_delta.x;
         redraw = true;
     } else {
-        separator_pos = std::max(separator_pos, 100.0f);
+        separator_pos = std::max(separator_pos, min_track_control_size);
     }
 
-    float clamped_separator_pos = std::max(separator_pos, 100.0f); // Limit separator to 100px
+    float clamped_separator_pos =
+        std::max(separator_pos, min_track_control_size);
     float separator_x = layout.main_pos.x + clamped_separator_pos + 0.5f;
     /*ImU32 separator_color = (is_separator_hovered || is_separator_active)
                                 ? ImGui::GetColorU32(ImGuiCol_SeparatorHovered)
@@ -368,7 +375,7 @@ inline void GuiTimeline::render_track_controls() {
         ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_AlwaysUseWindowPadding;
 
     static constexpr float track_color_width = 8.0f;
-    float clamped_separator_pos = std::max(separator_pos, 100.0f);
+    float clamped_separator_pos = std::max(separator_pos, min_track_control_size);
     ImVec2 screen_pos = ImGui::GetCursorScreenPos();
     const auto& style = ImGui::GetStyle();
 

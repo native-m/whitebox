@@ -12,7 +12,7 @@ void TimelineBase::render_horizontal_scrollbar() {
     float btn_size_y = font_size + style.FramePadding.y * 2.0f;
     ImVec2 arrow_btn_size =
         ImGui::CalcItemSize(ImVec2(), font_size + style.FramePadding.x * 2.0f, btn_size_y);
-    ImGui::SetCursorPosX(math::max(separator_pos, 100.0f) + 2.0f);
+    ImGui::SetCursorPosX(math::max(separator_pos, min_track_control_size) + 2.0f);
     ImGui::PushButtonRepeat(true);
 
     if (ImGui::Button("<", arrow_btn_size))
@@ -141,13 +141,13 @@ void TimelineBase::render_horizontal_scrollbar() {
     }
 }
 
-void TimelineBase::render_time_ruler() {
+bool TimelineBase::render_time_ruler(double* time_value) {
     ImGuiStyle& style = ImGui::GetStyle();
     auto col = ImGui::GetColorU32(ImGuiCol_Separator, 1.0f);
     auto draw_list = ImGui::GetWindowDrawList();
     auto mouse_pos = ImGui::GetMousePos();
 
-    ImGui::SetCursorPosX(std::max(separator_pos, 100.0f) + 2.0f);
+    ImGui::SetCursorPosX(math::max(separator_pos, min_track_control_size) + 2.0f);
 
     double view_scale = calc_view_scale();
     ImVec2 drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left);
@@ -156,14 +156,21 @@ void TimelineBase::render_time_ruler() {
                        ImGui::GetFontSize() + style.FramePadding.y * 2.0f);
     ImGui::InvisibleButton("##time_ruler_control", size);
 
+    if (timeline_width == 0.0f) {
+        return false;
+    }
+
+    bool active = false;
     if (ImGui::IsItemActivated() || (ImGui::IsItemActive() && std::abs(drag_delta.x) > 0.001f)) {
         double mapped_x_pos =
             (double)(mouse_pos.x - cursor_pos.x) / song_length * view_scale + min_hscroll;
         double mouse_time_pos = mapped_x_pos * song_length * inv_ppq;
         double mouse_time_pos_grid =
             math::max(std::round(mouse_time_pos * grid_scale) / grid_scale, 0.0);
-        g_engine.set_playhead_position(mouse_time_pos_grid);
+        *time_value = mouse_time_pos_grid;
+        //g_engine.set_playhead_position(mouse_time_pos_grid);
         ImGui::ResetMouseDragDelta();
+        active = true;
     }
 
     // Handle zoom scrolling on ruler
@@ -238,6 +245,8 @@ void TimelineBase::render_time_ruler() {
         playhead_color);
 
     draw_list->PopClipRect();
+
+    return active;
 }
 
 inline void TimelineBase::scroll_horizontal(float drag_delta, double max_length, double direction) {

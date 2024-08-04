@@ -17,9 +17,9 @@ struct MidiNote {
 using MidiNoteBuffer = Vector<MidiNote>;
 
 struct MidiNoteState {
-    bool on;
     uint64_t last_tick;
     float velocity;
+    bool on;
 };
 
 struct MidiData {

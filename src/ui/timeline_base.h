@@ -12,6 +12,7 @@ struct TimelineBase {
     double song_length = 10000.0;
     float timeline_width = 0.0f;
     float separator_pos = 150.0f;
+    float min_track_control_size = 100.0f;
     float grid_scale = 4.0f;
 
     bool redraw = false;
@@ -23,7 +24,7 @@ struct TimelineBase {
     static constexpr uint32_t playhead_color = 0xE553A3F9;
 
     void render_horizontal_scrollbar();
-    void render_time_ruler();
+    bool render_time_ruler(double* time_value);
 
     void scroll_horizontal(float drag_delta, double max_length, double direction = 1.0);
     void zoom(float mouse_pos_x, float cursor_pos_x, double view_scale, float mouse_wheel);
