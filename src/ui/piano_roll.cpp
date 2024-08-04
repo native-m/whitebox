@@ -120,7 +120,7 @@ void GuiPianoRoll::render() {
         uint32_t guidestrip_count = (uint32_t)(timeline_width / four_bars) + 2;
         float guidestrip_pos_x = cursor_pos.x - std::fmod((float)scroll_pos_x, four_bars * 2.0f);
         ImU32 guidestrip_color =
-            (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.12f);
+            (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.13f);
         for (uint32_t i = 0; i <= guidestrip_count; i++) {
             float start_pos_x = guidestrip_pos_x;
             guidestrip_pos_x += four_bars;
@@ -131,11 +131,11 @@ void GuiPianoRoll::render() {
             }
         }
 
-        ImU32 grid_color = (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.65f);
+        ImU32 grid_color = (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.55f);
         ImU32 beat_grid_color =
-            (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.2f);
+            (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.15f);
         ImU32 bar_grid_color =
-            (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.4f);
+            (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.3f);
 
         double beat = ppq / view_scale;
         double bar = 4.0 * beat;
@@ -165,10 +165,24 @@ void GuiPianoRoll::render() {
 
         // Draw horizontal gridline
         float key_pos_y = main_cursor_pos.y - std::fmod(vscroll, note_height_padded);
-        uint32_t num_keys = (uint32_t)math::round(view_height / note_height_padded);
+        int num_keys = (int)math::round(view_height / note_height_padded);
+        int key_index_offset = (int)(vscroll / note_height_padded);
         ImVec2 key_pos = ImVec2(cursor_pos.x, key_pos_y - 1.0f);
         for (int i = 0; i <= num_keys; i++) {
+            uint32_t index = i + key_index_offset;
+            uint32_t note_semitone = index % 12;
             draw_list->AddLine(key_pos, key_pos + ImVec2(timeline_width, 0.0f), grid_color);
+            
+            if (note_semitone / 7) {
+                note_semitone++;
+            }
+
+            if (note_semitone % 2 == 0) {
+                draw_list->AddRectFilled(key_pos + ImVec2(0.0f, 1.0f),
+                                         key_pos + ImVec2(timeline_width, note_height_padded),
+                                         guidestrip_color);
+            }
+
             key_pos.y += note_height_padded;
         }
 
@@ -204,6 +218,7 @@ void GuiPianoRoll::render() {
 void GuiPianoRoll::draw_piano_keys(ImDrawList* draw_list, ImVec2& pos, const ImVec2& note_size,
                                    uint32_t oct) {
     ImU32 dark_note = ImGui::GetColorU32(ImGuiCol_FrameBg);
+    ImU32 white_note = ImGui::GetColorU32(ImGuiCol_Text);
     ImU32 separator = ImGui::GetColorU32(ImGuiCol_Separator);
     uint32_t note_id = 11;
     for (int i = 0; i < 13; i++) {
@@ -216,9 +231,9 @@ void GuiPianoRoll::draw_piano_keys(ImDrawList* draw_list, ImVec2& pos, const ImV
 
         if (i % 2) {
             bg_col = dark_note;
-            text_col = 0xFFEFEFEF;
+            text_col = white_note;
         } else {
-            bg_col = 0xFFEFEFEF;
+            bg_col = white_note;
             text_col = dark_note;
         }
 
