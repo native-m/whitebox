@@ -138,6 +138,8 @@ set(WB_SOURCES
     "src/ui/test_controls.cpp"
     "src/ui/timeline.cpp"
     "src/ui/timeline.h"
+    "src/ui/timeline_base.cpp"
+    "src/ui/timeline_base.h"
 
     "src/app.cpp"
     "src/app.h"

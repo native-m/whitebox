@@ -3,6 +3,7 @@
 #include "core/common.h"
 #include "engine/track.h"
 #include "gfx/renderer.h"
+#include "ui/timeline_base.h"
 #include <imgui.h>
 #include <memory>
 
@@ -31,9 +32,8 @@ struct TargetSelectionRange {
     double max;
 };
 
-struct GuiTimeline {
+struct GuiTimeline : public TimelineBase {
     bool open = true;
-    bool redraw = false;
     bool force_redraw = false;
     uint32_t color_spin = 0;
     ImDrawList* main_draw_list {};
@@ -51,31 +51,31 @@ struct GuiTimeline {
     ImVec2 area_size;
     ImVec2 old_timeline_size;
     ImVec2 last_mouse_pos;
-    float timeline_width = 0.0f;
-    float separator_pos = 150.0f;
+    //float timeline_width = 0.0f;
+    //float separator_pos = 150.0f;
 
-    double inv_ppq = 0.0;
+    /*double inv_ppq = 0.0;
     double playhead = 0.0;
     double song_length = 10000.0;
     double last_hscroll = 0.0;
     double min_hscroll = 0.0;
-    double max_hscroll = 0.074081648971430242;
+    double max_hscroll = 0.074081648971430242;*/
     double initial_time_pos = 0.0;
     float vscroll = 0.0f;
     float last_vscroll = 0.0f;
     float scroll_delta_y = 0.0f;
-    float grid_scale = 4.0f;
+    //float grid_scale = 4.0f;
 
     Vector<SelectionRange> selection_ranges;
     TargetSelectionRange target_sel_range;
     TimelineEditAction edit_action;
     bool scrolling = false;
     bool zooming = false;
-    bool zooming_on_ruler = false;
+    bool selecting_range = false;
+    /*bool zooming_on_ruler = false;
     bool grabbing_scroll = false;
     bool resizing_lhs_scroll_grab = false;
-    bool resizing_rhs_scroll_grab = false;
-    bool selecting_range = false;
+    bool resizing_rhs_scroll_grab = false;*/
 
     Track* edited_track {};
     Clip* edited_clip {};
@@ -102,8 +102,6 @@ struct GuiTimeline {
     Track* add_track();
     void reset();
     void render();
-    inline void render_horizontal_scrollbar();
-    inline void render_time_ruler();
     inline void render_separator();
     inline void render_track_controls();
     inline void track_context_menu(Track& track, int track_id);
@@ -111,13 +109,6 @@ struct GuiTimeline {
     void render_track_lanes();
     void finish_edit_action();
     void recalculate_song_length();
-
-    inline void scroll_horizontal(float drag_delta, double max_length, double direction = 1.0);
-    inline void zoom(float mouse_pos_x, float cursor_pos_x, double view_scale, float mouse_wheel);
-
-    inline double calc_view_scale() const {
-        return (max_hscroll - min_hscroll) * song_length / (double)timeline_width;
-    }
 
     inline void redraw_screen() { force_redraw = true; }
 
