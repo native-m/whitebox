@@ -119,7 +119,8 @@ CPMAddPackage(
     NAME                ogg
     GITHUB_REPOSITORY   xiph/ogg
     VERSION             1.3.5
-    OPTIONS             "INSTALL_DOCS OFF"
+    OPTIONS             "BUILD_TESTING OFF"
+                        "INSTALL_DOCS OFF"
                         "INSTALL_PKG_CONFIG_MODULE OFF"
                         "INSTALL_CMAKE_PACKAGE_MODULE OFF"
     EXCLUDE_FROM_ALL
@@ -132,6 +133,7 @@ CPMAddPackage(
     # prior to v1.37, does not support checking existing Ogg target
     GIT_TAG             84c023699cdf023a32fa4ded32019f194afcdad0
     OPTIONS             "INSTALL_CMAKE_PACKAGE_MODULE OFF"
+                        "BUILD_TESTING OFF"
     EXCLUDE_FROM_ALL
 )
 
