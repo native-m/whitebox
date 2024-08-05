@@ -244,15 +244,15 @@ void GuiPianoRoll::render() {
             float pos_y = (float)(131 - note.note_number) * note_height_padded;
             float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * clip_scale);
             float max_pos_x = (float)math::round(scroll_offset_x + note.max_time * clip_scale);
+            if (max_pos_x < cursor_pos.x)
+                continue;
+            if (min_pos_x > end_x)
+                break;
+            
             ImVec2 a(min_pos_x + 0.5f, cursor_pos.y + pos_y + 0.5f);
             ImVec2 b(max_pos_x - 0.5f, cursor_pos.y + pos_y + note_height - 0.5f);
-
             if (a.y > end_y || b.y < main_cursor_pos.y)
                 continue;
-            if (b.x < cursor_pos.x)
-                continue;
-            if (a.x > end_x)
-                break;
 
             ImVec4 label(a.x, a.y, b.x - 4.0f, b.y);
             draw_list->PathLineTo(a);
@@ -297,7 +297,11 @@ void GuiPianoRoll::draw_piano_keys(ImDrawList* draw_list, ImVec2& pos, const ImV
         ImU32 bg_col;
         ImU32 text_col;
 
-        if (i % 2) {
+        if (i == 12) {
+            bg_col = 0xFFAFAFAF;
+            text_col = dark_note;
+        }
+        else if (i % 2) {
             bg_col = dark_note;
             text_col = white_note;
         } else {
