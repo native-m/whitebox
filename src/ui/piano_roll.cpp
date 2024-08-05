@@ -188,6 +188,8 @@ void GuiPianoRoll::render() {
 
         static const ImU32 channel_color = ImColor(121, 166, 91);
         auto font = ImGui::GetFont();
+        float end_x = cursor_pos.x + timeline_width;
+        float end_y = main_cursor_pos.y + view_height;
         for (auto& note : midi_note.channels[0]) {
             char note_name[5] {};
             const char* scale = note_scale[note.note_number % 12];
@@ -196,8 +198,14 @@ void GuiPianoRoll::render() {
             float pos_y = (float)(131 - note.note_number) * note_height_padded;
             float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * clip_scale);
             float max_pos_x = (float)math::round(scroll_offset_x + note.max_time * clip_scale);
-            ImVec2 a(min_pos_x, cursor_pos.y + pos_y);
-            ImVec2 b(max_pos_x - 0.5f, cursor_pos.y + pos_y + note_height);
+            ImVec2 a(min_pos_x + 0.5f, cursor_pos.y + pos_y + 0.5f);
+            ImVec2 b(max_pos_x - 0.5f, cursor_pos.y + pos_y + note_height - 0.5f);
+
+            if (a.y > end_y || b.y < main_cursor_pos.y)
+                continue;
+            if (a.x > end_x || b.x < cursor_pos.x)
+                continue;
+
             ImVec4 label(a.x, a.y, b.x - 4.0f, b.y);
             draw_list->PathLineTo(a);
             draw_list->PathLineTo(ImVec2(b.x, a.y));
