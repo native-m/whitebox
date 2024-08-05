@@ -13,6 +13,7 @@ struct GuiPianoRoll : public TimelineBase {
     float last_vscroll = 0.0f;
     float scroll_delta_y = 0.0f;
     bool scrolling = false;
+    bool force_redraw = false;
 
     GuiPianoRoll();
     void open_midi_file();

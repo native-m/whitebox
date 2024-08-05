@@ -124,6 +124,7 @@ void GuiPianoRoll::render() {
         ImVec2 mouse_pos = ImGui::GetMousePos();
         float mouse_wheel = ImGui::GetIO().MouseWheel;
         float mouse_wheel_h = ImGui::GetIO().MouseWheelH;
+        bool holding_ctrl = ImGui::IsKeyDown(ImGuiKey_ModCtrl);
         bool left_mouse_clicked = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
         bool left_mouse_down = ImGui::IsMouseDown(ImGuiMouseButton_Left);
         bool middle_mouse_clicked = ImGui::IsMouseClicked(ImGuiMouseButton_Middle);
@@ -264,9 +265,14 @@ void GuiPianoRoll::render() {
                                0xFFFFFFFF, note_name, nullptr, 0.0f, &label);
         }
 
-        ImGui::PopClipRect();
+        if (is_hovered && holding_ctrl && mouse_wheel != 0.0f) {
+            zoom(mouse_pos.x, cursor_pos.x, view_scale, mouse_wheel);
+            force_redraw = true;
+        }
 
         last_vscroll = vscroll;
+        
+        ImGui::PopClipRect();
 
         ImGui::EndChild();
         ImGui::EndChild();
