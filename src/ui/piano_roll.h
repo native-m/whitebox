@@ -10,6 +10,9 @@ struct GuiPianoRoll : public TimelineBase {
 
     ImVec2 content_size;
     float vscroll = 0.0f;
+    float last_vscroll = 0.0f;
+    float scroll_delta_y = 0.0f;
+    bool scrolling = false;
 
     GuiPianoRoll();
     void open_midi_file();

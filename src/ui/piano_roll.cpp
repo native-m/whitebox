@@ -71,6 +71,15 @@ void GuiPianoRoll::render() {
         draw_list = ImGui::GetWindowDrawList();
         vscroll = ImGui::GetScrollY();
 
+        ImGuiID scrollbar_id = ImGui::GetWindowScrollbarID(ImGui::GetCurrentWindow(), ImGuiAxis_Y);
+        if (scrolling && scroll_delta_y != 0.0f || ImGui::GetActiveID() == scrollbar_id) {
+            ImGui::SetScrollY(vscroll - scroll_delta_y);
+            redraw = true;
+        }
+
+        if ((last_vscroll - vscroll) != 0.0f)
+            redraw = true;
+
         float separator_x = cursor_pos.x + min_track_control_size + 0.5f;
         draw_list->AddLine(ImVec2(separator_x, cursor_pos.y),
                            ImVec2(separator_x, cursor_pos.y + child_content_size.y),
@@ -112,10 +121,45 @@ void GuiPianoRoll::render() {
         ImGui::InvisibleButton("PianoRollContent",
                                ImVec2(region_size.x, note_count * note_height_padded));
 
+        ImVec2 mouse_pos = ImGui::GetMousePos();
+        float mouse_wheel = ImGui::GetIO().MouseWheel;
+        float mouse_wheel_h = ImGui::GetIO().MouseWheelH;
+        bool left_mouse_clicked = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+        bool left_mouse_down = ImGui::IsMouseDown(ImGuiMouseButton_Left);
+        bool middle_mouse_clicked = ImGui::IsMouseClicked(ImGuiMouseButton_Middle);
+        bool middle_mouse_down = ImGui::IsMouseDown(ImGuiMouseButton_Middle);
+        bool right_mouse_clicked = ImGui::IsMouseDown(ImGuiMouseButton_Right);
+        bool is_hovered = ImGui::IsItemHovered();
+
+        if (is_hovered && mouse_wheel_h != 0.0f) {
+            scroll_horizontal(mouse_wheel_h, song_length, -view_scale * 64.0);
+        }
+
+        // Assign scroll
+        if (middle_mouse_clicked && middle_mouse_down && is_hovered)
+            scrolling = true;
+
+        // Do scroll
+        if (scrolling) {
+            ImVec2 drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Middle, 1.0f);
+            scroll_horizontal(drag_delta.x, song_length, -view_scale);
+            scroll_delta_y = drag_delta.y;
+            if (scroll_delta_y != 0.0f)
+                redraw = true;
+            ImGui::ResetMouseDragDelta(ImGuiMouseButton_Middle);
+        }
+
+        // Release scroll
+        if (!middle_mouse_down) {
+            scrolling = false;
+            scroll_delta_y = 0.0f;
+        }
+
         double scroll_pos_x = std::round((min_hscroll * song_length) / view_scale);
         double scroll_offset_x = (double)cursor_pos.x - scroll_pos_x;
         double clip_scale = ppq * inv_view_scale;
 
+        // Draw guidestripes
         float four_bars = (float)(16.0 * ppq / view_scale);
         uint32_t guidestrip_count = (uint32_t)(timeline_width / four_bars) + 2;
         float guidestrip_pos_x = cursor_pos.x - std::fmod((float)scroll_pos_x, four_bars * 2.0f);
@@ -137,6 +181,7 @@ void GuiPianoRoll::render() {
         ImU32 bar_grid_color =
             (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.3f);
 
+        // Draw vertical gridlines
         double beat = ppq / view_scale;
         double bar = 4.0 * beat;
         double division = std::exp2(std::round(std::log2(view_scale / 5.0)));
@@ -163,7 +208,7 @@ void GuiPianoRoll::render() {
                                1.0f);
         }
 
-        // Draw horizontal gridline
+        // Draw horizontal gridlines
         float key_pos_y = main_cursor_pos.y - std::fmod(vscroll, note_height_padded);
         int num_keys = (int)math::round(view_height / note_height_padded);
         int key_index_offset = (int)(vscroll / note_height_padded);
@@ -220,6 +265,8 @@ void GuiPianoRoll::render() {
         }
 
         ImGui::PopClipRect();
+
+        last_vscroll = vscroll;
 
         ImGui::EndChild();
         ImGui::EndChild();

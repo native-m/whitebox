@@ -188,6 +188,7 @@ bool TimelineBase::render_time_ruler(double* time_value) {
         auto drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Middle, 0.0f);
         zoom(mouse_pos.x, cursor_pos.x, view_scale, drag_delta.y * 0.1f);
         view_scale = calc_view_scale();
+        ImGui::SetMouseCursor(ImGuiMouseCursor_None);
         ImGui::ResetMouseDragDelta(ImGuiMouseButton_Middle);
     }
 
