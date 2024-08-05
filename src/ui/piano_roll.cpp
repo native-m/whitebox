@@ -249,8 +249,10 @@ void GuiPianoRoll::render() {
 
             if (a.y > end_y || b.y < main_cursor_pos.y)
                 continue;
-            if (a.x > end_x || b.x < cursor_pos.x)
+            if (b.x < cursor_pos.x)
                 continue;
+            if (a.x > end_x)
+                break;
 
             ImVec4 label(a.x, a.y, b.x - 4.0f, b.y);
             draw_list->PathLineTo(a);

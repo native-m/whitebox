@@ -160,10 +160,10 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
                         const MidiNote& note = buffer[j];
                         float min_pos_x = (float)math::round(min_x + note.min_time * clip_scale);
                         float max_pos_x = (float)math::round(min_x + note.max_time * clip_scale);
-                        if (min_pos_x >= max_view)
+                        if (max_pos_x < min_view)
                             continue;
-                        if (max_pos_x <= min_view)
-                            continue;
+                        if (min_pos_x > max_view)
+                            break;
                         float pos_y =
                             offset_y + (float)(max_note - note.note_number) * max_note_size;
                         min_pos_x = math::max(min_pos_x, min_view);
