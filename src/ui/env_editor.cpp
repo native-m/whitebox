@@ -23,6 +23,33 @@ void EnvEditorWindow::render() {
 
 EnvEditorWindow g_env_window;
 
+float dist_point_line(const ImVec2& a, const ImVec2& b, const ImVec2& p) {
+    float dx = b.x - a.x;
+    float dy = b.y - a.y;
+    float num = math::abs((dy * p.x - dx * p.y) + (b.x * a.y - b.y * a.x));
+    float den = std::sqrt(dx * dx + dy * dy);
+    return num / den;
+}
+
+void subdivide_curve(ImDrawList* draw_list, const ImVec2& offset, float left, float middle,
+                     float right, float max_x, float max_y) {
+    constexpr float p = 4.0f;
+    constexpr float tolerance = 0.1f;
+
+    float inv_max_x = 1.0f / max_x;
+    float left_y = math::exponential_ease(left * inv_max_x, p) * max_y;
+    float middle_y = math::exponential_ease(middle * inv_max_x, p) * max_y;
+    float right_y = math::exponential_ease(right * inv_max_x, p) * max_y;
+
+    if (dist_point_line(ImVec2(left, left_y), ImVec2(middle, middle_y), ImVec2(right, right_y)) <
+        tolerance) {
+        draw_list->PathLineTo(offset + ImVec2(middle, middle_y));
+    } else {
+        subdivide_curve(draw_list, offset, left, (left + middle) * 0.5f, middle, max_x, max_y);
+        subdivide_curve(draw_list, offset, middle, (middle + right) * 0.5f, right, max_x, max_y);
+    }
+};
+
 void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, double scroll_pos,
                 double scale) {
     ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
@@ -148,6 +175,11 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
         last_pos = pos;
     }
 
+    draw_list->PathLineTo(cursor_pos);
+    subdivide_curve(draw_list, cursor_pos, 0.0f, 100.0f, 200.0f, 200.0f, 200.0f);
+    draw_list->PathLineTo(cursor_pos + ImVec2(200.0f, 200.0f));
+    draw_list->PathStroke(0xFF53A3F9, 0, 1.5f);
+
     bool popup_closed = true;
     if (ImGui::BeginPopup("env_editor_popup")) {
         uint32_t point_idx = state.context_menu_point.value();
@@ -168,7 +200,7 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
             std::string str(ImGui::GetClipboardText());
             point.y = std::stod(str);
         }
-        
+
         popup_closed = false;
         ImGui::EndPopup();
     }
