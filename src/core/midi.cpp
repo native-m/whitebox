@@ -48,6 +48,7 @@ bool load_notes_from_file(MidiData& result, const std::filesystem::path& path) {
     uint32_t max_note = 0u;
     bool running = true;
     note_state.resize(255);
+    uint32_t note_id = 0;
 
     while (running) {
         midi_parser_status status = midi_parse(&parser);
@@ -78,6 +79,7 @@ bool load_notes_from_file(MidiData& result, const std::filesystem::path& path) {
                         notes.push_back(MidiNote {
                             .min_time = min_time,
                             .max_time = max_time,
+                            .id = note_id++,
                             .note_number = parser.midi.param1,
                             .velocity = state.velocity,
                         });
@@ -112,7 +114,7 @@ bool load_notes_from_file(MidiData& result, const std::filesystem::path& path) {
     }
 
     std::sort(notes.begin(), notes.end(),
-              [](const MidiNote& a, const MidiNote& b) { return a.max_time < b.max_time; });
+              [](const MidiNote& a, const MidiNote& b) { return a.min_time < b.min_time; });
 
     result.max_length = length;
     result.min_note = min_note;
