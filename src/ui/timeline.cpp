@@ -14,7 +14,7 @@
 #include "popup_state_manager.h"
 #include <fmt/format.h>
 
-#define DEBUG_MIDI_CLIPS 0
+#define DEBUG_MIDI_CLIPS 1
 
 #ifdef NDEBUG
 #undef DEBUG_MIDI_CLIPS
@@ -286,7 +286,7 @@ void GuiTimeline::render() {
         force_redraw = false;
 
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
-    
+
     render_horizontal_scrollbar();
     double new_playhead_pos = 0.0;
     if (render_time_ruler(&new_playhead_pos)) {
@@ -354,8 +354,7 @@ void GuiTimeline::render_separator() {
         separator_pos = std::max(separator_pos, min_track_control_size);
     }
 
-    float clamped_separator_pos =
-        std::max(separator_pos, min_track_control_size);
+    float clamped_separator_pos = std::max(separator_pos, min_track_control_size);
     float separator_x = layout.main_pos.x + clamped_separator_pos + 0.5f;
     /*ImU32 separator_color = (is_separator_hovered || is_separator_active)
                                 ? ImGui::GetColorU32(ImGuiCol_SeparatorHovered)
@@ -722,8 +721,14 @@ void GuiTimeline::render_track_lanes() {
     ImFont* font = ImGui::GetFont();
     bool holding_ctrl = ImGui::IsKeyDown(ImGuiKey_ModCtrl);
 
+    if (selecting_range) {
+        target_sel_range.max = mouse_at_gridline;
+        redraw = true;
+    }
+
     if (selecting_range && !left_mouse_down) {
         Log::debug("Selection end");
+        target_sel_range.max = mouse_at_gridline;
         selecting_range = false;
     }
 
@@ -826,11 +831,17 @@ void GuiTimeline::render_track_lanes() {
         }
 
         // Register start position of selection
-        if (holding_ctrl && left_mouse_clicked) {
+        if (hovering_current_track && holding_ctrl && left_mouse_clicked) {
             Log::debug("Selection start");
             target_sel_range.start_track = i;
+            target_sel_range.start_pos_y = track_pos_y;
             target_sel_range.min = mouse_at_gridline;
             selecting_range = true;
+        }
+
+        if (hovering_current_track && selecting_range) {
+            target_sel_range.end_track = i;
+            target_sel_range.end_pos_y = track_pos_y + height;
         }
 
         float next_pos_y = track_pos_y + height;
@@ -1048,6 +1059,20 @@ void GuiTimeline::render_track_lanes() {
     }
 
     if (redraw) {
+        if (selecting_range) {
+            static const ImU32 selection_range_fill = ImColor(54, 162, 235, 64);
+            static const ImU32 selection_range_border = ImColor(54, 162, 235);
+            double min_time = math::round(target_sel_range.min * clip_scale);
+            double max_time = math::round(target_sel_range.max * clip_scale);
+            if (max_time < min_time) {
+                std::swap(min_time, max_time);
+            }
+            ImVec2 a(timeline_scroll_offset_x_f32 + (float)min_time, target_sel_range.start_pos_y);
+            ImVec2 b(timeline_scroll_offset_x_f32 + (float)max_time, target_sel_range.end_pos_y);
+            layer3_draw_list->AddRectFilled(a, b, selection_range_fill);
+            layer3_draw_list->AddRect(a, b, selection_range_border);
+        }
+
         layer3_draw_list->PopClipRect();
         layer3_draw_list->PopTextureID();
 

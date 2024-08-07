@@ -28,6 +28,8 @@ struct SelectionRange {
 struct TargetSelectionRange {
     uint32_t start_track;
     uint32_t end_track;
+    float start_pos_y;
+    float end_pos_y;
     double min;
     double max;
 };
