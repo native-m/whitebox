@@ -76,6 +76,7 @@ struct GuiTimeline : public TimelineBase {
     bool scrolling = false;
     bool zooming = false;
     bool selecting_range = false;
+    bool range_selected = false;
     /*bool zooming_on_ruler = false;
     bool grabbing_scroll = false;
     bool resizing_lhs_scroll_grab = false;

@@ -625,6 +625,7 @@ void GuiTimeline::render_track_lanes() {
     ImVec2 mouse_pos = ImGui::GetMousePos();
     float mouse_wheel = ImGui::GetIO().MouseWheel;
     float mouse_wheel_h = ImGui::GetIO().MouseWheelH;
+    bool timeline_clicked = ImGui::IsItemActivated();
     bool left_mouse_clicked = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
     bool left_mouse_down = ImGui::IsMouseDown(ImGuiMouseButton_Left);
     bool middle_mouse_clicked = ImGui::IsMouseClicked(ImGuiMouseButton_Middle);
@@ -721,15 +722,20 @@ void GuiTimeline::render_track_lanes() {
     ImFont* font = ImGui::GetFont();
     bool holding_ctrl = ImGui::IsKeyDown(ImGuiKey_ModCtrl);
 
+    if (range_selected && timeline_clicked) {
+        range_selected = false;
+        redraw = true;
+    }
+
     if (selecting_range) {
         target_sel_range.max = mouse_at_gridline;
         redraw = true;
     }
 
     if (selecting_range && !left_mouse_down) {
-        Log::debug("Selection end");
         target_sel_range.max = mouse_at_gridline;
         selecting_range = false;
+        range_selected = target_sel_range.max != target_sel_range.min;
     }
 
     redraw = redraw || (mouse_move && edit_action != TimelineEditAction::None) || dragging_file;
@@ -832,7 +838,6 @@ void GuiTimeline::render_track_lanes() {
 
         // Register start position of selection
         if (hovering_current_track && holding_ctrl && left_mouse_clicked) {
-            Log::debug("Selection start");
             target_sel_range.start_track = i;
             target_sel_range.start_pos_y = track_pos_y;
             target_sel_range.start_height = height;
@@ -1061,7 +1066,7 @@ void GuiTimeline::render_track_lanes() {
     }
 
     if (redraw) {
-        if (selecting_range) {
+        if (selecting_range || range_selected) {
             static const ImU32 selection_range_fill = ImColor(54, 162, 235, 64);
             static const ImU32 selection_range_border = ImColor(54, 162, 235);
             double min_time = math::round(target_sel_range.min * clip_scale);
