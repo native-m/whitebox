@@ -685,7 +685,7 @@ void GuiTimeline::render_track_lanes() {
     float timeline_end_x = timeline_view_pos.x + timeline_width;
 
     // Scroll automatically when dragging stuff
-    if (edit_action != TimelineEditAction::None || dragging_file) {
+    if (edit_action != TimelineEditAction::None || dragging_file || selecting_range) {
         static constexpr float speed = 0.25f;
         float min_offset = !dragging_file ? timeline_view_pos.x : timeline_view_pos.x + 20.0f;
         float max_offset = !dragging_file ? timeline_end_x : timeline_end_x - 20.0f;
@@ -835,13 +835,15 @@ void GuiTimeline::render_track_lanes() {
             Log::debug("Selection start");
             target_sel_range.start_track = i;
             target_sel_range.start_pos_y = track_pos_y;
+            target_sel_range.start_height = height;
             target_sel_range.min = mouse_at_gridline;
             selecting_range = true;
         }
 
         if (hovering_current_track && selecting_range) {
             target_sel_range.end_track = i;
-            target_sel_range.end_pos_y = track_pos_y + height;
+            target_sel_range.end_pos_y = track_pos_y;
+            target_sel_range.end_height = height;
         }
 
         float next_pos_y = track_pos_y + height;
@@ -1064,13 +1066,21 @@ void GuiTimeline::render_track_lanes() {
             static const ImU32 selection_range_border = ImColor(54, 162, 235);
             double min_time = math::round(target_sel_range.min * clip_scale);
             double max_time = math::round(target_sel_range.max * clip_scale);
+            float start_pos_y = target_sel_range.start_pos_y;
+            float end_pos_y = target_sel_range.end_pos_y;
             if (max_time < min_time) {
                 std::swap(min_time, max_time);
             }
-            ImVec2 a(timeline_scroll_offset_x_f32 + (float)min_time, target_sel_range.start_pos_y);
-            ImVec2 b(timeline_scroll_offset_x_f32 + (float)max_time, target_sel_range.end_pos_y);
-            layer3_draw_list->AddRectFilled(a, b, selection_range_fill);
-            layer3_draw_list->AddRect(a, b, selection_range_border);
+            if (end_pos_y < start_pos_y) {
+                start_pos_y += target_sel_range.start_height;
+                std::swap(start_pos_y, end_pos_y);
+            } else {
+                end_pos_y += target_sel_range.end_height;
+            }
+            ImVec2 a(timeline_scroll_offset_x_f32 + (float)min_time, start_pos_y);
+            ImVec2 b(timeline_scroll_offset_x_f32 + (float)max_time, end_pos_y);
+            layer2_draw_list->AddRectFilled(a, b, selection_range_fill);
+            layer2_draw_list->AddRect(a, b, selection_range_border);
         }
 
         layer3_draw_list->PopClipRect();
