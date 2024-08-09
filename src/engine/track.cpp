@@ -74,6 +74,15 @@ void Track::set_volume(float db) {
     });
 }
 
+void Track::set_pan(float pan) {
+    ui_parameter_state.pan = pan;
+    ui_param_changes.push({
+        .id = TrackParameter_Pan,
+        .sample_offset = 0,
+        .value = (double)ui_parameter_state.pan,
+    });
+}
+
 void Track::set_mute(bool mute) {
     ui_parameter_state.mute = mute;
     ui_param_changes.push({
@@ -137,12 +146,12 @@ void Track::resize_clip(Clip* clip, double relative_pos, double min_length, doub
     if (relative_pos == 0.0)
         return;
 
-    auto [min_time, max_time, rel_offset] =
+    auto [min_time, max_time, start_offset] =
         calc_resize_clip(clip, relative_pos, min_length, is_min);
 
     if (is_min) {
         clip->min_time = min_time;
-        clip->relative_start_time = rel_offset;
+        clip->relative_start_time = start_offset;
         if (clip->type == ClipType::Audio) {
             SampleAsset* asset = clip->audio.asset;
             clip->audio.sample_offset =
@@ -158,6 +167,32 @@ void Track::resize_clip(Clip* clip, double relative_pos, double min_length, doub
 
 void Track::delete_clip(uint32_t id) {
     clips[id]->mark_deleted();
+}
+
+std::optional<ClipQueryResult> Track::query_clip_by_range(double min, double max) const {
+    assert(min <= max && "Minimum value should be less or equal than maximum value");
+    auto begin = clips.begin();
+    auto end = clips.end();
+    if (begin == end)
+        return {};
+    auto first = wb::find_lower_bound(
+        begin, end, min, [](const Clip* clip, double time) { return clip->max_time <= time; });
+    auto last = wb::find_lower_bound(
+        begin, end, max, [](const Clip* clip, double time) { return clip->max_time < time; });
+    uint32_t first_clip = first - begin;
+    uint32_t last_clip = last - begin;
+    double first_offset = min - (*first)->min_time;
+    double last_offset = max - (*last)->min_time;
+    if (first == last && ((min < (*first)->min_time && max < (*first)->min_time) ||
+                          (min > (*first)->max_time && max > (*first)->max_time))) {
+        return {};
+    }
+    return ClipQueryResult {
+        .first = first_clip,
+        .last = last_clip,
+        .first_offset = first_offset,
+        .last_offset = last_offset,
+    };
 }
 
 void Track::update(Clip* updated_clip, double beat_duration) {
@@ -443,7 +478,8 @@ void Track::process_midi_event(Clip* clip, uint32_t buffer_offset, double time_p
         fmt::format_to_n(note_str, std::size(note_str), "{}{}",
                          get_midi_note_scale(note.note_number),
                          get_midi_note_octave(note.note_number));
-        Log::debug("Note on: {} {} -> {} at {}", note_str, min_time, max_time, time_pos);
+        Log::debug("Note on: {} {} {} -> {} at {}", note.id, note_str, min_time, max_time,
+                   time_pos);
 
         event_state.midi_note_idx++;
     }
@@ -559,10 +595,6 @@ void Track::render_sample(AudioBuffer<float>& output_buffer, uint32_t buffer_off
         default:
             break;
     }
-}
-
-void Track::update_playback_state(AudioEvent& event) {
-    // TODO: Should put something here...
 }
 
 void Track::stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uint32_t buffer_offset,

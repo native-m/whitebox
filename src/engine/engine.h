@@ -50,6 +50,7 @@ struct Engine {
 
     Clip* add_clip_from_file(Track* track, const std::filesystem::path& path, double min_time);
     void delete_clip(Track* track, Clip* clip);
+    void trim_track_by_range(Track* track, uint32_t first_clip, uint32_t last_clip, double min, double max, bool dont_sort);
 
     /*
         Process the whole thing.

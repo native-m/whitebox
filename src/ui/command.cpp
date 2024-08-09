@@ -65,12 +65,12 @@ void ClipShiftCmd::undo() {
     Track* track = g_engine.tracks[track_id];
     Clip* clip = track->clips[clip_id];
     g_engine.edit_lock();
-    double rel_offset = calc_shift_clip(clip, -relative_pos);
-    clip->relative_start_time = rel_offset;
+    double start_offset = calc_shift_clip(clip, -relative_pos);
+    clip->relative_start_time = start_offset;
     if (clip->type == ClipType::Audio) {
         SampleAsset* asset = clip->audio.asset;
         clip->audio.sample_offset =
-            beat_to_samples(rel_offset, (double)asset->sample_instance.sample_rate, beat_duration);
+            beat_to_samples(start_offset, (double)asset->sample_instance.sample_rate, beat_duration);
     }
     g_engine.edit_unlock();
 }

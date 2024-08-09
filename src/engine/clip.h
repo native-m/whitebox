@@ -1,7 +1,7 @@
 #pragma once
 
-#include "core/common.h"
 #include "assets_table.h"
+#include "core/common.h"
 #include <atomic>
 #include <imgui.h>
 #include <string>
@@ -87,7 +87,7 @@ struct Clip {
                 midi.asset->add_ref();
                 break;
             default:
-                WB_UNREACHABLE();
+                break;
         }
     }
 

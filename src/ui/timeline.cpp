@@ -724,20 +724,32 @@ void GuiTimeline::render_track_lanes() {
     ImFont* font = ImGui::GetFont();
     bool holding_ctrl = ImGui::IsKeyDown(ImGuiKey_ModCtrl);
 
+    if (ImGui::IsItemFocused()) {
+        if (range_selected) {
+            if (ImGui::IsKeyPressed(ImGuiKey_Delete, false)) {
+                delete_selected_range();
+                redraw = true;
+            }
+        }
+    }
+
     if (range_selected && timeline_clicked) {
         range_selected = false;
         redraw = true;
     }
 
     if (selecting_range) {
-        target_sel_range.max = mouse_at_gridline;
+        target_sel_range.max = math::max(mouse_at_gridline, 0.0);
         redraw = true;
     }
 
     if (selecting_range && !left_mouse_down) {
-        target_sel_range.max = mouse_at_gridline;
+        target_sel_range.max = math::max(mouse_at_gridline, 0.0);
         selecting_range = false;
         range_selected = target_sel_range.max != target_sel_range.min;
+        if (target_sel_range.min > target_sel_range.max) {
+            std::swap(target_sel_range.min, target_sel_range.max);
+        }
     }
 
     redraw = redraw || (mouse_move && edit_action != TimelineEditAction::None) || dragging_file;
@@ -803,7 +815,7 @@ void GuiTimeline::render_track_lanes() {
                                       line_color, 1.0f);
         }
     }
-    
+
     bool has_deleted_clips = g_engine.has_deleted_clips.load(std::memory_order_relaxed);
     float selection_start_y = 0.0f;
     float selection_end_y = 0.0f;
@@ -817,6 +829,17 @@ void GuiTimeline::render_track_lanes() {
     for (uint32_t i = 0; i < g_engine.tracks.size(); i++) {
         Track* track = g_engine.tracks[i];
         float height = track->height;
+
+        if (selecting_range || range_selected) {
+            if (target_sel_range.first_track == i) {
+                selection_start_y = track_pos_y;
+                selection_start_height = height;
+            }
+            if (target_sel_range.last_track == i) {
+                selection_end_y = track_pos_y;
+                selection_end_height = height;
+            }
+        }
 
         if (track_pos_y > timeline_area.y + offset_y) {
             break;
@@ -845,24 +868,13 @@ void GuiTimeline::render_track_lanes() {
 
         // Register start position of selection
         if (hovering_current_track && holding_ctrl && left_mouse_clicked) {
-            target_sel_range.start_track = i;
+            target_sel_range.first_track = i;
             target_sel_range.min = mouse_at_gridline;
             selecting_range = true;
         }
 
         if (hovering_current_track && selecting_range) {
-            target_sel_range.end_track = i;
-        }
-
-        if (selecting_range || range_selected) {
-            if (target_sel_range.start_track == i) {
-                selection_start_y = track_pos_y;
-                selection_start_height = height;
-            }
-            if (target_sel_range.end_track == i) {
-                selection_end_y = track_pos_y;
-                selection_end_height = height;
-            }
+            target_sel_range.last_track = i;
         }
 
         float next_pos_y = track_pos_y + height;
@@ -961,7 +973,7 @@ void GuiTimeline::render_track_lanes() {
                 draw_clip(layer1_draw_list, layer2_draw_list, clip_content_cmds, clip,
                           timeline_width, offset_y, timeline_view_pos.x, min_pos_x, max_pos_x,
                           clip_scale, sample_scale, relative_start_time, sample_offset, track_pos_y,
-                          height, track->color, font, text_color);
+                          height, track->color, text_color, font);
             }
         }
 
@@ -1038,12 +1050,12 @@ void GuiTimeline::render_track_lanes() {
                 break;
             }
             case TimelineEditAction::ClipShift: {
-                double rel_offset = calc_shift_clip(edited_clip, relative_pos);
-                relative_start_time = rel_offset;
+                double start_offset = calc_shift_clip(edited_clip, relative_pos);
+                relative_start_time = start_offset;
                 if (edited_clip->type == ClipType::Audio) {
                     SampleAsset* asset = edited_clip->audio.asset;
                     sample_offset = beat_to_samples(
-                        rel_offset, (double)asset->sample_instance.sample_rate, beat_duration);
+                        start_offset, (double)asset->sample_instance.sample_rate, beat_duration);
                 }
                 break;
             }
@@ -1072,7 +1084,7 @@ void GuiTimeline::render_track_lanes() {
             draw_clip(layer1_draw_list, layer2_draw_list, clip_content_cmds, edited_clip,
                       timeline_width, offset_y, timeline_view_pos.x, min_pos_x, max_pos_x,
                       clip_scale, sample_scale, relative_start_time, sample_offset, hovered_track_y,
-                      hovered_track_height, edited_track->color, font, text_color);
+                      hovered_track_height, edited_track->color, text_color, font);
         }
 
         edited_clip_min_time = min_time;
@@ -1134,14 +1146,6 @@ void GuiTimeline::render_track_lanes() {
         layer_draw_data.FramebufferScale.y = 1.0f;
         layer_draw_data.OwnerViewport = owner_viewport;
         layer_draw_data.AddDrawList(layer2_draw_list);
-        g_renderer->render_imgui_draw_data(&layer_draw_data);
-
-        layer_draw_data.Clear();
-        layer_draw_data.DisplayPos = view_min;
-        layer_draw_data.DisplaySize = timeline_area;
-        layer_draw_data.FramebufferScale.x = 1.0f;
-        layer_draw_data.FramebufferScale.y = 1.0f;
-        layer_draw_data.OwnerViewport = owner_viewport;
         layer_draw_data.AddDrawList(layer3_draw_list);
         g_renderer->render_imgui_draw_data(&layer_draw_data);
 
@@ -1304,6 +1308,33 @@ void GuiTimeline::recalculate_song_length() {
         max_hscroll = max_hscroll * song_length / 10000.0;
         song_length = 10000.0;
     }
+}
+
+void GuiTimeline::delete_selected_range() {
+    double beat_duration = g_engine.beat_duration.load(std::memory_order_relaxed);
+    uint32_t first_track = target_sel_range.first_track;
+    uint32_t last_track = target_sel_range.last_track;
+    Vector<ClipHistory> clip_history;
+    g_engine.edit_lock();
+    for (uint32_t i = first_track; i <= last_track; i++) {
+        Track* track = g_engine.tracks[i];
+        auto query_result = track->query_clip_by_range(target_sel_range.min, target_sel_range.max);
+        if (!query_result) {
+            continue;
+        }
+        Log::debug("first: {} {}, last: {} {}", query_result->first, query_result->first_offset,
+                   query_result->last, query_result->last_offset);
+        /*if (query_result->first == query_result->last) {
+
+        } else {
+            for (uint32_t i = query_result->first; i < query_result->last; i++) {
+
+            }
+        }*/
+        g_engine.trim_track_by_range(track, query_result->first, query_result->last,
+                                     target_sel_range.min, target_sel_range.max, false);
+    }
+    g_engine.edit_unlock();
 }
 
 GuiTimeline g_timeline;

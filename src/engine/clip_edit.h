@@ -13,7 +13,7 @@ struct ClipMoveResult {
 struct ClipResizeResult {
     double min;
     double max;
-    double rel_offset;
+    double start_offset;
 };
 
 static inline ClipMoveResult calc_move_clip(Clip* clip, double relative_pos) {
@@ -33,7 +33,7 @@ static inline ClipResizeResult calc_resize_clip(Clip* clip, double relative_pos,
         return {
             .min = clip->min_time,
             .max = new_max,
-            .rel_offset = clip->relative_start_time,
+            .start_offset = clip->relative_start_time,
         };
     }
 
@@ -42,25 +42,35 @@ static inline ClipResizeResult calc_resize_clip(Clip* clip, double relative_pos,
     if (new_min >= clip->max_time)
         new_min = clip->max_time - min_length;
 
-    double rel_offset = clip->relative_start_time;
+    double start_offset = clip->relative_start_time;
     if (old_min < new_min)
-        rel_offset -= old_min - new_min;
+        start_offset -= old_min - new_min;
     else
-        rel_offset += new_min - old_min;
+        start_offset += new_min - old_min;
 
-    if (rel_offset < 0.0)
-        new_min = new_min - rel_offset;
+    if (start_offset < 0.0)
+        new_min = new_min - start_offset;
 
     return {
         .min = new_min,
         .max = clip->max_time,
-        .rel_offset = math::max(rel_offset, 0.0),
+        .start_offset = math::max(start_offset, 0.0),
     };
 }
 
 static inline double calc_shift_clip(Clip* clip, double relative_pos) {
     double rel_offset = clip->relative_start_time;
     return math::max(rel_offset - relative_pos, 0.0);
+}
+
+static inline void shift_clip_content(Clip* clip, double relative_pos, double beat_duration) {
+    double start_offset = calc_shift_clip(clip, relative_pos);
+    clip->relative_start_time = start_offset;
+    if (clip->type == ClipType::Audio) {
+        SampleAsset* asset = clip->audio.asset;
+        clip->audio.sample_offset = beat_to_samples(
+            start_offset, (double)asset->sample_instance.sample_rate, beat_duration);
+    }
 }
 
 } // namespace wb

@@ -26,8 +26,8 @@ struct SelectionRange {
 };
 
 struct TargetSelectionRange {
-    uint32_t start_track;
-    uint32_t end_track;
+    uint32_t first_track;
+    uint32_t last_track;
     double min;
     double max;
 };
@@ -110,10 +110,10 @@ struct GuiTimeline : public TimelineBase {
     void render_track_lanes();
     void finish_edit_action();
     void recalculate_song_length();
+    
+    void delete_selected_range();
 
     inline void redraw_screen() { force_redraw = true; }
-
-    inline std::pair<int, int> calc_grid_count() const;
 };
 
 extern GuiTimeline g_timeline;

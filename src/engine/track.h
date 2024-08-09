@@ -13,9 +13,9 @@
 #include <array>
 #include <imgui.h>
 #include <numbers>
+#include <optional>
 #include <random>
 #include <unordered_set>
-#include <optional>
 
 namespace wb {
 
@@ -24,6 +24,13 @@ enum TrackParameter {
     TrackParameter_Pan,
     TrackParameter_Mute,
     TrackParameter_Max,
+};
+
+struct ClipQueryResult {
+    uint32_t first;
+    uint32_t last;
+    double first_offset;
+    double last_offset;
 };
 
 struct MidiVoice {
@@ -65,7 +72,7 @@ struct TestSynth {
         int free_voice = std::countr_one(~voice_mask) - 1;
         std::uniform_real_distribution<double> dis(0.0, 2.0);
         voices[free_voice] = {
-            .phase = dis(rd),
+            .phase = 0.0,
             .frequency = get_midi_frequency(voice.note_on.note_number),
             .volume = voice.note_on.velocity,
             .amp = 1.0f,
@@ -97,7 +104,7 @@ struct TestSynth {
             while (active_voice_bits) {
                 int active_voice = next_set_bits(active_voice_bits);
                 SynthVoice& voice = voices[active_voice];
-                //double osc = std::sin(voice.phase * std::numbers::pi);
+                // double osc = std::sin(voice.phase * std::numbers::pi);
                 double osc = voice.phase >= 1.0 ? 1.0f : -1.0f;
                 sample += (float)osc * voice.amp * voice.volume * 0.5f;
                 voice.phase += voice.frequency / sample_rate;
@@ -114,8 +121,6 @@ struct TestSynth {
 };
 
 struct TrackEventState {
-    Clip* current_clip;
-    Clip* next_clip;
     std::optional<uint32_t> current_clip_idx;
     std::optional<uint32_t> next_clip_idx;
     double last_start_clip_position;
@@ -234,6 +239,15 @@ struct Track {
     void delete_clip(uint32_t id);
 
     /**
+     * @brief Query clips within the minimum and maximum time range.
+     *
+     * @param min Minimum time.
+     * @param max Maximum time.
+     * @return ClipQueryResult
+     */
+    std::optional<ClipQueryResult> query_clip_by_range(double min, double max) const;
+
+    /**
      * @brief Update clip ordering and possibly trim or delete overlapping clip.
      *
      * @param clip The updated clip
@@ -290,10 +304,8 @@ struct Track {
 
     void render_sample(AudioBuffer<float>& output_buffer, uint32_t buffer_offset,
                        uint32_t num_samples, double sample_rate);
-    void update_playback_state(AudioEvent& event);
     void stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uint32_t buffer_offset,
                        uint32_t num_samples, size_t sample_offset);
-
     void process_test_synth(AudioBuffer<float>& output_buffer, double sample_rate, bool playing);
 
     void flush_deleted_clips(double time_pos);
