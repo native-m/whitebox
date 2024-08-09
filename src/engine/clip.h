@@ -51,7 +51,7 @@ struct Clip {
     // Time placement in beat units
     double min_time {};
     double max_time {};
-    double relative_start_time = 0.0;
+    double relative_start_time {};
 
     union {
         AudioClip audio;
@@ -83,6 +83,8 @@ struct Clip {
                 audio.asset->add_ref();
                 break;
             case ClipType::Midi:
+                midi = clip.midi;
+                midi.asset->add_ref();
                 break;
             default:
                 WB_UNREACHABLE();
