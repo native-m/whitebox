@@ -14,7 +14,7 @@
 #include "popup_state_manager.h"
 #include <fmt/format.h>
 
-#define DEBUG_MIDI_CLIPS 1
+#define DEBUG_MIDI_CLIPS 0
 
 #ifdef NDEBUG
 #undef DEBUG_MIDI_CLIPS
@@ -28,7 +28,7 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
                float timeline_width, float offset_y, float min_draw_x, double min_x, double max_x,
                double clip_scale, double sample_scale, double relative_start_time,
                double sample_offset, float track_pos_y, float track_height,
-               const ImColor& track_color, ImFont* font, const ImColor& text_color) {
+               const ImColor& track_color, const ImColor& text_color, ImFont* font) {
     constexpr ImDrawListFlags draw_list_aa_flags = ImDrawListFlags_AntiAliasedFill |
                                                    ImDrawListFlags_AntiAliasedLinesUseTex |
                                                    ImDrawListFlags_AntiAliasedLines;
@@ -153,13 +153,15 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
 
             if (asset) {
                 uint32_t channel_count = asset->data.channel_count;
-                min_x -= relative_start_time * clip_scale;
+                double min_start_x = min_x - relative_start_time * clip_scale;
                 for (uint32_t i = 0; i < channel_count; i++) {
                     const MidiNoteBuffer& buffer = asset->data.channels[i];
                     for (size_t j = 0; j < buffer.size(); j++) {
                         const MidiNote& note = buffer[j];
-                        float min_pos_x = (float)math::round(min_x + note.min_time * clip_scale);
-                        float max_pos_x = (float)math::round(min_x + note.max_time * clip_scale);
+                        float min_pos_x =
+                            (float)math::round(min_start_x + note.min_time * clip_scale);
+                        float max_pos_x =
+                            (float)math::round(min_start_x + note.max_time * clip_scale);
                         if (max_pos_x < min_view)
                             continue;
                         if (min_pos_x > max_view)
@@ -209,16 +211,16 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
     if (clip->hover_state != ClipHover::None) {
         switch (clip->hover_state) {
             case ClipHover::LeftHandle: {
-                ImVec2 min_bb(min_x, track_pos_y);
-                ImVec2 max_bb(max_x, track_pos_y + track_height);
+                ImVec2 min_bb(min_x2, track_pos_y);
+                ImVec2 max_bb(max_x2, track_pos_y + track_height);
                 layer2_draw_list->AddLine(ImVec2(min_bb.x + 1.0f, min_bb.y),
                                           ImVec2(min_bb.x + 1.0f, max_bb.y),
                                           ImGui::GetColorU32(ImGuiCol_ButtonActive), 3.0f);
                 break;
             }
             case ClipHover::RightHandle: {
-                ImVec2 min_bb(min_x, track_pos_y);
-                ImVec2 max_bb(max_x, track_pos_y + track_height);
+                ImVec2 min_bb(min_x2, track_pos_y);
+                ImVec2 max_bb(max_x2, track_pos_y + track_height);
                 layer2_draw_list->AddLine(ImVec2(max_bb.x - 2.0f, min_bb.y),
                                           ImVec2(max_bb.x - 2.0f, max_bb.y),
                                           ImGui::GetColorU32(ImGuiCol_ButtonActive), 3.0f);
