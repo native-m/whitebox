@@ -312,8 +312,9 @@ void GuiTimeline::render() {
     vscroll = ImGui::GetScrollY();
 
     ImGuiID scrollbar_id = ImGui::GetWindowScrollbarID(ImGui::GetCurrentWindow(), ImGuiAxis_Y);
-    if (scrolling && scroll_delta_y != 0.0f || ImGui::GetActiveID() == scrollbar_id) {
+    if (scroll_delta_y != 0.0f || ImGui::GetActiveID() == scrollbar_id) {
         ImGui::SetScrollY(vscroll - scroll_delta_y);
+        scroll_delta_y = 0.0f;
         redraw = true;
     }
 
@@ -690,15 +691,25 @@ void GuiTimeline::render_track_lanes() {
     // Scroll automatically when dragging stuff
     if (edit_action != TimelineEditAction::None || dragging_file || selecting_range) {
         static constexpr float speed = 0.25f;
-        float min_offset = !dragging_file ? timeline_view_pos.x : timeline_view_pos.x + 20.0f;
-        float max_offset = !dragging_file ? timeline_end_x : timeline_end_x - 20.0f;
-        if (mouse_pos.x < min_offset) {
-            float distance = min_offset - mouse_pos.x;
+        float min_offset_x = !dragging_file ? timeline_view_pos.x : timeline_view_pos.x + 20.0f;
+        float max_offset_x = !dragging_file ? timeline_end_x : timeline_end_x - 20.0f;
+        float min_offset_y = !dragging_file ? view_min.y : view_min.y + 40.0f;
+        float max_offset_y = !dragging_file ? view_max.y : view_max.y - 40.0f;
+        if (mouse_pos.x < min_offset_x) {
+            float distance = min_offset_x - mouse_pos.x;
             scroll_horizontal(distance * speed, song_length, -view_scale);
         }
-        if (mouse_pos.x > max_offset) {
-            float distance = max_offset - mouse_pos.x;
+        if (mouse_pos.x > max_offset_x) {
+            float distance = max_offset_x - mouse_pos.x;
             scroll_horizontal(distance * speed, song_length, -view_scale);
+        }
+        if (mouse_pos.y < min_offset_y) {
+            float distance = min_offset_y - mouse_pos.y;
+            scroll_delta_y = distance * speed;     
+        }
+        if (mouse_pos.y > max_offset_y) {
+            float distance = max_offset_y - mouse_pos.y;
+            scroll_delta_y = distance * speed;     
         }
         redraw = true;
     }
@@ -825,6 +836,15 @@ void GuiTimeline::render_track_lanes() {
     for (uint32_t i = 0; i < g_engine.tracks.size(); i++) {
         Track* track = g_engine.tracks[i];
         float height = track->height;
+        
+        if (track_pos_y > timeline_area.y + offset_y) {
+            break;
+        }
+
+        if (track_pos_y < offset_y - height - 2.0f) {
+            track_pos_y += height + 2.0f;
+            continue;
+        }
 
         bool hovering_track_rect =
             !scrolling &&
@@ -851,15 +871,6 @@ void GuiTimeline::render_track_lanes() {
 
         if (hovering_current_track && selecting_range) {
             target_sel_range.last_track = i;
-        }
-
-        if (track_pos_y > timeline_area.y + offset_y) {
-            break;
-        }
-
-        if (track_pos_y < offset_y - height - 2.0f) {
-            track_pos_y += height + 2.0f;
-            continue;
         }
 
         float next_pos_y = track_pos_y + height;
