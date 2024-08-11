@@ -830,26 +830,6 @@ void GuiTimeline::render_track_lanes() {
         Track* track = g_engine.tracks[i];
         float height = track->height;
 
-        if (selecting_range || range_selected) {
-            if (target_sel_range.first_track == i) {
-                selection_start_y = track_pos_y;
-                selection_start_height = height;
-            }
-            if (target_sel_range.last_track == i) {
-                selection_end_y = track_pos_y;
-                selection_end_height = height;
-            }
-        }
-
-        if (track_pos_y > timeline_area.y + offset_y) {
-            break;
-        }
-
-        if (track_pos_y < offset_y - height - 2.0f) {
-            track_pos_y += height + 2.0f;
-            continue;
-        }
-
         bool hovering_track_rect =
             !scrolling &&
             ImGui::IsMouseHoveringRect(ImVec2(timeline_view_pos.x, track_pos_y),
@@ -875,6 +855,26 @@ void GuiTimeline::render_track_lanes() {
 
         if (hovering_current_track && selecting_range) {
             target_sel_range.last_track = i;
+        }
+
+        if (selecting_range || range_selected) {
+            if (target_sel_range.first_track == i) {
+                selection_start_y = track_pos_y;
+                selection_start_height = height;
+            }
+            if (target_sel_range.last_track == i) {
+                selection_end_y = track_pos_y;
+                selection_end_height = height;
+            }
+        }
+
+        if (track_pos_y < offset_y - height - 2.0f) {
+            track_pos_y += height + 2.0f;
+            continue;
+        }
+
+        if (track_pos_y > timeline_area.y + offset_y) {
+            break;
         }
 
         float next_pos_y = track_pos_y + height;
