@@ -8,7 +8,13 @@ CPMAddPackage(
     OPTIONS             "SDL_SHARED OFF"
                         "SDL_TESTS OFF"
                         "SDL_TEST_LIBRARY OFF"
-                        "SDL_DISABLE_INSTALL ON"
+                        "SDL2_DISABLE_INSTALL ON"
+                        # Disable unused subsystems
+                        "SDL_ATOMIC OFF"
+                        "SDL_AUDIO OFF" # We have our own audio I/O abstraction
+                        "SDL_RENDER OFF"
+                        "SDL_JOYSTICK OFF"
+                        "SDL_HAPTIC OFF"
     EXCLUDE_FROM_ALL
 )
 
