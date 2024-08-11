@@ -40,6 +40,7 @@ void AppSDL2::init() {
     
     SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
     SDL_AddEventWatch(&event_watcher, this);
+    SDL_GetWindowSize(window, &old_resize_width, &old_resize_height);
 
 #ifdef WB_PLATFORM_WINDOWS
 #define DWM_ATTRIBUTE_USE_IMMERSIVE_DARK_MODE 20
@@ -170,18 +171,22 @@ int AppSDL2::event_watcher(void* userdata, SDL_Event* event) {
             if (event->window.windowID != app->window_id) {
                 break;
             }
+            
+            int32_t w, h;
             switch (event->window.event) {
                 case SDL_WINDOWEVENT_MOVED:
-                    app->render();
-                    Log::debug("Moving...");
+                    SDL_GetWindowSize(app->window, &w, &h);
+                    if (app->old_resize_width == w && app->old_resize_height == h) {
+                        app->render();
+                    }
                     break;
                 case SDL_WINDOWEVENT_RESIZED:
-                    g_renderer->resize_swapchain();
                     app->render();
                     break;
                 default:
                     break;
             }
+
             break;
         }
         default:

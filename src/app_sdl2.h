@@ -14,6 +14,8 @@ struct AppSDL2 : public App {
     SDL_Window* window {};
     uint32_t window_id {};
     std::unordered_map<uint32_t, SDL_Window*> plugin_windows;
+    int32_t old_resize_height = 0;
+    int32_t old_resize_width = 0;
 
     ~AppSDL2();
     void init() override;
