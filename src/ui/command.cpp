@@ -5,6 +5,32 @@
 
 namespace wb {
 
+ClipHistory::ClipHistory() : audio() {
+}
+
+ClipHistory::ClipHistory(const Clip& clip, uint32_t track_id) :
+    clip_id(clip.id),
+    track_id(track_id),
+    type(clip.type),
+    name(clip.name),
+    color(clip.color),
+    min_time(clip.min_time),
+    max_time(clip.max_time),
+    relative_start_time(clip.relative_start_time) {
+    switch (type) {
+        case ClipType::Audio:
+            audio = clip.audio;
+            audio.asset->keep_alive = true;
+            break;
+        case ClipType::Midi:
+            midi = clip.midi;
+            midi.asset->keep_alive = true;
+            break;
+        default:
+            break;
+    }
+}
+
 void ClipMoveCmd::execute() {
     double beat_duration = g_engine.get_beat_duration();
     Track* track = g_engine.tracks[track_id];
@@ -93,6 +119,13 @@ void ClipResizeCmd::undo() {
     track->resize_clip(clip, -relative_pos, min_length, beat_duration, left_side);
     g_engine.edit_unlock();
     clip_id = clip->id;
+}
+
+void ClipDeleteRegionCmd::execute() {
+
+}
+
+void ClipDeleteRegionCmd::undo() {
 }
 
 } // namespace wb

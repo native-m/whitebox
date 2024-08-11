@@ -23,6 +23,7 @@ struct SampleAsset {
     uint32_t ref_count = 1u;
     Sample sample_instance;
     std::shared_ptr<SamplePeaks> peaks;
+    bool keep_alive = false;
 
     inline void add_ref() noexcept { ++ref_count; }
     void release();
@@ -32,6 +33,7 @@ struct MidiAsset : public TrackedResource<MidiAsset> {
     MidiTable* midi_table;
     MidiData data {};
     uint32_t ref_count = 1;
+    bool keep_alive = false;
 
     MidiAsset(MidiTable* table);
     inline void add_ref() noexcept { ++ref_count; }
