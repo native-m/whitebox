@@ -25,7 +25,7 @@ extern "C" {
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_vulkan.h>
 
-#define VULKAN_LOG_RESOURCE_DISPOSAL 1
+#define VULKAN_LOG_RESOURCE_DISPOSAL 0
 
 #ifdef NDEBUG
 #undef VULKAN_LOG_RESOURCE_DISPOSAL
@@ -874,8 +874,8 @@ std::shared_ptr<SamplePeaks> RendererVK::create_sample_peaks(const Sample& sampl
 }
 
 void RendererVK::resize_swapchain() {
-    // vkDeviceWaitIdle(device_);
-    // init_swapchain_();
+    //vkDeviceWaitIdle(device_);
+    //init_swapchain_();
 }
 
 void RendererVK::new_frame() {
@@ -1564,34 +1564,23 @@ bool RendererVK::init_swapchain_() {
     vkb::SwapchainBuilder swapchain_builder(physical_device_, device_, surface_,
                                             graphics_queue_index_, present_queue_index_);
 
-    uint64_t start = SDL_GetTicks64();
     auto swapchain_result = swapchain_builder.set_old_swapchain(swapchain_)
                                 .set_desired_min_image_count(2)
                                 .set_required_min_image_count(VULKAN_MAX_BUFFER_SIZE)
-                                .set_desired_present_mode(VK_PRESENT_MODE_MAILBOX_KHR)
-                                .add_fallback_present_mode(VK_PRESENT_MODE_IMMEDIATE_KHR)
+                                .set_desired_present_mode(VK_PRESENT_MODE_IMMEDIATE_KHR)
                                 .add_fallback_present_mode(VK_PRESENT_MODE_FIFO_KHR)
                                 .set_desired_format({VK_FORMAT_B8G8R8A8_UNORM})
                                 .set_composite_alpha_flags(VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR)
                                 .build();
-    uint64_t elapsed = SDL_GetTicks64() - start;
-    Log::debug("Elapsed {}", elapsed);
-
+    
     if (!swapchain_result) {
         Log::error("Failed to initialize swapchain");
         return false;
     }
 
     if (swapchain_) {
-        /*for (uint32_t i = 0; i < frame_latency_; i++) {
-            vkDestroyFramebuffer(device_, main_framebuffer_.framebuffer[i], nullptr);
-            vkDestroyImageView(device_, main_framebuffer_.view[i], nullptr);
-        }*/
-
         frame_id_ = 0;
         resource_disposal_.dispose_swapchain(swapchain_, &main_framebuffer_);
-        // vkDestroySwapchainKHR(device_, swapchain_, nullptr);
-        //  sync_id_ = 0;
     }
 
     vkb::Swapchain new_swapchain = swapchain_result.value();
