@@ -687,14 +687,17 @@ void GuiTimeline::render_track_lanes() {
     }
 
     float timeline_end_x = timeline_view_pos.x + timeline_width;
+    bool dragging = false;
 
-    // Scroll automatically when dragging stuff
     if (edit_action != TimelineEditAction::None || dragging_file || selecting_range) {
         static constexpr float speed = 0.25f;
-        float min_offset_x = !dragging_file ? timeline_view_pos.x : timeline_view_pos.x + 20.0f;
-        float max_offset_x = !dragging_file ? timeline_end_x : timeline_end_x - 20.0f;
-        float min_offset_y = !dragging_file ? view_min.y : view_min.y + 40.0f;
-        float max_offset_y = !dragging_file ? view_max.y : view_max.y - 40.0f;
+        static constexpr float drag_offset_x = 20.0f;
+        static constexpr float drag_offset_y = 40.0f;
+        float min_offset_x = !dragging_file ? view_min.x : view_min.x + drag_offset_x;
+        float max_offset_x = !dragging_file ? view_max.x : view_max.x - drag_offset_x;
+        float min_offset_y = !dragging_file ? view_min.y : view_min.y + drag_offset_y;
+        float max_offset_y = !dragging_file ? view_max.y : view_max.y - drag_offset_y;
+        // Scroll automatically when dragging stuff
         if (mouse_pos.x < min_offset_x) {
             float distance = min_offset_x - mouse_pos.x;
             scroll_horizontal(distance * speed, song_length, -view_scale);
@@ -705,12 +708,13 @@ void GuiTimeline::render_track_lanes() {
         }
         if (mouse_pos.y < min_offset_y) {
             float distance = min_offset_y - mouse_pos.y;
-            scroll_delta_y = distance * speed;     
+            scroll_delta_y = distance * speed;
         }
         if (mouse_pos.y > max_offset_y) {
             float distance = max_offset_y - mouse_pos.y;
-            scroll_delta_y = distance * speed;     
+            scroll_delta_y = distance * speed;
         }
+        dragging = true;
         redraw = true;
     }
 
@@ -827,6 +831,7 @@ void GuiTimeline::render_track_lanes() {
         }
     }
 
+    float expand_max_y = !dragging ? 0.0f : math::max(mouse_pos.y - view_max.y, 0.0f);
     bool has_deleted_clips = g_engine.has_deleted_clips.load(std::memory_order_relaxed);
 
     if (has_deleted_clips) {
@@ -836,25 +841,27 @@ void GuiTimeline::render_track_lanes() {
     for (uint32_t i = 0; i < g_engine.tracks.size(); i++) {
         Track* track = g_engine.tracks[i];
         float height = track->height;
-        
-        if (track_pos_y > timeline_area.y + offset_y) {
+        float track_view_min_y = offset_y - height - 2.0f;
+        float expand_min_y = !dragging ? 0.0f : math::max(track_view_min_y - mouse_pos.y, 0.0f);
+
+        if (track_pos_y > view_max.y + expand_max_y) {
             break;
         }
 
-        if (track_pos_y < offset_y - height - 2.0f) {
+        if (track_pos_y < track_view_min_y - expand_min_y) {
             track_pos_y += height + 2.0f;
             continue;
         }
 
         bool hovering_track_rect =
-            !scrolling &&
-            ImGui::IsMouseHoveringRect(ImVec2(timeline_view_pos.x, track_pos_y),
-                                       ImVec2(timeline_end_x, track_pos_y + height + 2.0f));
+            !scrolling && ImGui::IsMouseHoveringRect(
+                              ImVec2(timeline_view_pos.x, track_pos_y),
+                              ImVec2(timeline_end_x, track_pos_y + height + 2.0f), !dragging);
         bool hovering_current_track = timeline_hovered && hovering_track_rect;
 
         if (!any_of(edit_action, TimelineEditAction::ClipResizeLeft,
                     TimelineEditAction::ClipResizeRight)) {
-            if (left_mouse_down && hovering_current_track) {
+            if (left_mouse_down && hovering_track_rect) {
                 hovered_track = track;
                 hovered_track_id = i;
                 hovered_track_y = track_pos_y;
