@@ -119,6 +119,12 @@ struct ImmediateBufferDisposalVK {
     VkBuffer buffer;
 };
 
+struct SwapchainDisposalVK
+{
+    uint32_t frame_id;
+    VkSwapchainKHR swapchain;
+};
+
 // GPU resource disposal collector. Vulkan does not allow you to destroy resources while they are
 // being used by the GPU. The solution is to collect first and delete them later at the end of use.
 struct ResourceDisposalVK {
@@ -127,12 +133,14 @@ struct ResourceDisposalVK {
     std::deque<ImageDisposalVK> img;
     std::deque<FramebufferDisposalVK> fb;
     std::deque<ImmediateBufferDisposalVK> imm_buffer;
+    std::deque<SwapchainDisposalVK> swapchains;
     std::mutex mtx;
 
     void dispose_buffer(VmaAllocation allocation, VkBuffer buf);
     void dispose_framebuffer(FramebufferVK* obj);
     void dispose_image(ImageVK* obj);
     void dispose_immediate_buffer(VkDeviceMemory buffer_memory, VkBuffer buffer);
+    void dispose_swapchain(VkSwapchainKHR swapchain, FramebufferVK* fb);
     void flush(VkDevice device, VmaAllocator allocator, uint32_t frame_id_dispose);
 };
 

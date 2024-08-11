@@ -25,7 +25,7 @@ extern "C" {
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_vulkan.h>
 
-#define VULKAN_LOG_RESOURCE_DISPOSAL 0
+#define VULKAN_LOG_RESOURCE_DISPOSAL 1
 
 #ifdef NDEBUG
 #undef VULKAN_LOG_RESOURCE_DISPOSAL
@@ -186,6 +186,26 @@ void ResourceDisposalVK::dispose_immediate_buffer(VkDeviceMemory buffer_memory, 
 #endif
 }
 
+void ResourceDisposalVK::dispose_swapchain(VkSwapchainKHR swapchain, FramebufferVK* swapchain_fb) {
+    std::scoped_lock lock(mtx);
+    for (uint32_t i = 0; i < swapchain_fb->num_buffers; i++) {
+        fb.push_back(FramebufferDisposalVK {
+            .frame_id = 0,
+            .allocation = VK_NULL_HANDLE,
+            .image = VK_NULL_HANDLE,
+            .view = swapchain_fb->view[i],
+            .framebuffer = swapchain_fb->framebuffer[i],
+        });
+    }
+    swapchains.push_back(SwapchainDisposalVK {
+        .frame_id = 0,
+        .swapchain = swapchain,
+    });
+#if VULKAN_LOG_RESOURCE_DISPOSAL
+    Log::debug("Enqueuing swapchain buffer disposal: frame_id {}", current_frame_id);
+#endif
+}
+
 void ResourceDisposalVK::flush(VkDevice device, VmaAllocator allocator, uint32_t frame_id_dispose) {
     std::scoped_lock lock(mtx);
 
@@ -218,7 +238,8 @@ void ResourceDisposalVK::flush(VkDevice device, VmaAllocator allocator, uint32_t
             break;
         vkDestroyFramebuffer(device, framebuffer, nullptr);
         vkDestroyImageView(device, view, nullptr);
-        vmaDestroyImage(allocator, image, allocation);
+        if (image && allocation)
+            vmaDestroyImage(allocator, image, allocation);
         fb.pop_front();
 #if VULKAN_LOG_RESOURCE_DISPOSAL
         Log::debug("Framebuffer disposed: {:x}, frame_id: {}", (uint64_t)framebuffer, frame_id);
@@ -234,6 +255,17 @@ void ResourceDisposalVK::flush(VkDevice device, VmaAllocator allocator, uint32_t
         imm_buffer.pop_front();
 #if VULKAN_LOG_RESOURCE_DISPOSAL
         Log::debug("Immediate buffer disposed: {:x}, frame_id: {}", (uint64_t)buffer, frame_id);
+#endif
+    }
+
+    while (!swapchains.empty()) {
+        auto [frame_id, swapchain] = swapchains.front();
+        if (frame_id != frame_id_dispose && frame_id_dispose != FRAME_ID_DISPOSE_ALL)
+            break;
+        vkDestroySwapchainKHR(device, swapchain, nullptr);
+        swapchains.pop_front();
+#if VULKAN_LOG_RESOURCE_DISPOSAL
+        Log::debug("Swapchain disposed: {:x}, frame_id: {}", (uint64_t)swapchain, frame_id);
 #endif
     }
 }
@@ -395,8 +427,6 @@ RendererVK::~RendererVK() {
 
     for (uint32_t i = 0; i < frame_latency_; i++) {
         vkDestroyFence(device_, fences_[i], nullptr);
-        vkDestroyFramebuffer(device_, main_framebuffer_.framebuffer[i], nullptr);
-        vkDestroyImageView(device_, main_framebuffer_.view[i], nullptr);
         resource_disposal_.dispose_image(&winding_images_[i]);
 
         ImGui_ImplVulkan_FrameRenderBuffers& rb = render_buffers_[i];
@@ -415,14 +445,14 @@ RendererVK::~RendererVK() {
     }
 
     descriptor_stream_.destroy(device_);
-    resource_disposal_.flush(device_, allocator_, FRAME_ID_DISPOSE_ALL);
-    vmaDestroyAllocator(allocator_);
 
     vkDestroyCommandPool(device_, imm_cmd_pool_, nullptr);
     vkDestroySampler(device_, imgui_sampler_, nullptr);
     vkDestroyDescriptorPool(device_, imgui_descriptor_pool_, nullptr);
     vkDestroyRenderPass(device_, fb_render_pass_, nullptr);
-    vkDestroySwapchainKHR(device_, swapchain_, nullptr);
+    resource_disposal_.dispose_swapchain(swapchain_, &main_framebuffer_);
+    resource_disposal_.flush(device_, allocator_, FRAME_ID_DISPOSE_ALL);
+    vmaDestroyAllocator(allocator_);
     vkDestroyDevice(device_, nullptr);
     vkDestroySurfaceKHR(instance_, surface_, nullptr);
     if (debug_messenger_)
@@ -520,11 +550,17 @@ bool RendererVK::init() {
         .commandBufferCount = 1,
     };
 
+    VkFenceCreateInfo fence_info {
+        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+        .flags = VK_FENCE_CREATE_SIGNALED_BIT,
+    };
+
     for (uint32_t i = 0; i < frame_latency_; i++) {
         CommandBufferVK& cmd = cmd_buf_[i];
         VK_CHECK(vkCreateCommandPool(device_, &cmd_pool, nullptr, &cmd.cmd_pool));
         cmd_buf_info.commandPool = cmd.cmd_pool;
         VK_CHECK(vkAllocateCommandBuffers(device_, &cmd_buf_info, &cmd.cmd_buffer));
+        VK_CHECK(vkCreateFence(device_, &fence_info, nullptr, &fences_[i]));
     }
 
     VK_CHECK(vkCreateCommandPool(device_, &cmd_pool, nullptr, &imm_cmd_pool_));
@@ -1338,7 +1374,7 @@ void RendererVK::render_draw_command_list(DrawCommandList* command_list) {
                                    sizeof(VectorDrawCmdVK), &cmd_data);
                 vkCmdBindPipeline(current_cb_, VK_PIPELINE_BIND_POINT_GRAPHICS, vector_fill);
                 vkCmdDraw(current_cb_, 4, 1, 0, 0);
-                
+
                 break;
             }
         }
@@ -1521,7 +1557,6 @@ void RendererVK::present() {
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
         vkDeviceWaitIdle(device_);
         init_swapchain_();
-        return;
     }
 }
 
@@ -1529,6 +1564,7 @@ bool RendererVK::init_swapchain_() {
     vkb::SwapchainBuilder swapchain_builder(physical_device_, device_, surface_,
                                             graphics_queue_index_, present_queue_index_);
 
+    uint64_t start = SDL_GetTicks64();
     auto swapchain_result = swapchain_builder.set_old_swapchain(swapchain_)
                                 .set_desired_min_image_count(2)
                                 .set_required_min_image_count(VULKAN_MAX_BUFFER_SIZE)
@@ -1538,6 +1574,8 @@ bool RendererVK::init_swapchain_() {
                                 .set_desired_format({VK_FORMAT_B8G8R8A8_UNORM})
                                 .set_composite_alpha_flags(VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR)
                                 .build();
+    uint64_t elapsed = SDL_GetTicks64() - start;
+    Log::debug("Elapsed {}", elapsed);
 
     if (!swapchain_result) {
         Log::error("Failed to initialize swapchain");
@@ -1545,20 +1583,15 @@ bool RendererVK::init_swapchain_() {
     }
 
     if (swapchain_) {
-        for (uint32_t i = 0; i < frame_latency_; i++) {
-            vkDestroyFence(device_, fences_[i], nullptr);
+        /*for (uint32_t i = 0; i < frame_latency_; i++) {
             vkDestroyFramebuffer(device_, main_framebuffer_.framebuffer[i], nullptr);
             vkDestroyImageView(device_, main_framebuffer_.view[i], nullptr);
-        }
+        }*/
 
-        // for (auto& sync : frame_sync_) {
-        //     vkDestroySemaphore(device_, sync.image_acquire_semaphore, nullptr);
-        //     vkDestroySemaphore(device_, sync.render_finished_semaphore, nullptr);
-        // }
-
-        vkDestroySwapchainKHR(device_, swapchain_, nullptr);
         frame_id_ = 0;
-        // sync_id_ = 0;
+        resource_disposal_.dispose_swapchain(swapchain_, &main_framebuffer_);
+        // vkDestroySwapchainKHR(device_, swapchain_, nullptr);
+        //  sync_id_ = 0;
     }
 
     vkb::Swapchain new_swapchain = swapchain_result.value();
@@ -1572,6 +1605,7 @@ bool RendererVK::init_swapchain_() {
     main_framebuffer_.width = new_swapchain.extent.width;
     main_framebuffer_.height = new_swapchain.extent.height;
     main_framebuffer_.window_framebuffer = true;
+    main_framebuffer_.num_buffers = frame_latency_;
     main_framebuffer_.image_id = frame_latency_ - 1;
 
     VkFramebufferCreateInfo fb_info {
@@ -1581,11 +1615,6 @@ bool RendererVK::init_swapchain_() {
         .width = main_framebuffer_.width,
         .height = main_framebuffer_.height,
         .layers = 1,
-    };
-
-    VkFenceCreateInfo fence_info {
-        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-        .flags = VK_FENCE_CREATE_SIGNALED_BIT,
     };
 
     VkDebugUtilsObjectNameInfoEXT debug_info {
@@ -1605,8 +1634,6 @@ bool RendererVK::init_swapchain_() {
         fb_info.pAttachments = &swapchain_image_views[i];
         VK_CHECK(
             vkCreateFramebuffer(device_, &fb_info, nullptr, &main_framebuffer_.framebuffer[i]));
-
-        VK_CHECK(vkCreateFence(device_, &fence_info, nullptr, &fences_[i]));
     }
 
     return true;

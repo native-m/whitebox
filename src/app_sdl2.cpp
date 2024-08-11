@@ -1,4 +1,6 @@
 #include "app_sdl2.h"
+#include "app_sdl2.h"
+#include "app_sdl2.h"
 #include "core/debug.h"
 #include "gfx/renderer.h"
 #include "ui/file_dropper.h"
@@ -35,8 +37,9 @@ void AppSDL2::init() {
 
     window_id = SDL_GetWindowID(new_window);
     window = new_window;
-
+    
     SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
+    SDL_AddEventWatch(&event_watcher, this);
 
 #ifdef WB_PLATFORM_WINDOWS
 #define DWM_ATTRIBUTE_USE_IMMERSIVE_DARK_MODE 20
@@ -55,15 +58,13 @@ void AppSDL2::init() {
     App::init();
 }
 
-void AppSDL2::new_frame() {
-    if (!g_file_drop.empty()) {
-        g_file_drop.clear();
-    }
-
+void AppSDL2::process_events() {
     SDL_Event event;
     while (SDL_PollEvent(&event))
         handle_events(event);
+}
 
+void AppSDL2::new_frame() {
     g_renderer->new_frame();
     ImGui_ImplSDL2_NewFrame();
     ImGui::NewFrame();
@@ -160,6 +161,33 @@ void AppSDL2::wait_until_restored() {
             }
         }
     }
+}
+
+int AppSDL2::event_watcher(void* userdata, SDL_Event* event) {
+    AppSDL2* app = (AppSDL2*)userdata;
+    switch (event->type) {
+        case SDL_WINDOWEVENT: {
+            if (event->window.windowID != app->window_id) {
+                break;
+            }
+            switch (event->window.event) {
+                case SDL_WINDOWEVENT_MOVED:
+                    app->render();
+                    Log::debug("Moving...");
+                    break;
+                case SDL_WINDOWEVENT_RESIZED:
+                    g_renderer->resize_swapchain();
+                    app->render();
+                    break;
+                default:
+                    break;
+            }
+            break;
+        }
+        default:
+            break;
+    }
+    return 0;
 }
 
 } // namespace wb

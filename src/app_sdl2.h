@@ -17,11 +17,14 @@ struct AppSDL2 : public App {
 
     ~AppSDL2();
     void init() override;
+    void process_events() override;
     void new_frame() override;
     void add_vst3_view(VST3Host& plug_instance, const char* name, uint32_t width,
                        uint32_t height) override;
     void handle_events(SDL_Event& event);
     void wait_until_restored();
+
+    static int event_watcher(void* userdata, SDL_Event* event);
 };
 
 } // namespace wb

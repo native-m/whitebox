@@ -11,10 +11,12 @@ struct App {
 
     virtual ~App();
     void run();
+    void render();
     void render_control_bar();
     void shutdown();
     void options_window();
     virtual void init();
+    virtual void process_events() = 0;
     virtual void new_frame() = 0;
     virtual void add_vst3_view(VST3Host& plug_instance, const char* name, uint32_t width,
                                uint32_t height) = 0;

@@ -1,4 +1,5 @@
 #include "app.h"
+#include "app.h"
 #include "core/color.h"
 #include "core/debug.h"
 #include "engine/audio_io.h"
@@ -68,68 +69,77 @@ void App::run() {
                                   ImVec2(100.0f, 70.0f) + ImVec2(10.0f, 0.0f));
 
     while (running) {
-        new_frame();
+        process_events();
+        render();
+    }
+}
 
-        if (!g_file_drop.empty()) {
-            if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceExtern)) {
-                ImGui::SetDragDropPayload("ExternalFileDrop", nullptr, 0, ImGuiCond_Once);
-                ImGui::EndDragDropSource();
-            }
+void App::render() {
+    new_frame();
+
+    if (!g_file_drop.empty()) {
+        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceExtern)) {
+            ImGui::SetDragDropPayload("ExternalFileDrop", nullptr, 0, ImGuiCond_Once);
+            ImGui::EndDragDropSource();
         }
+    }
 
-        bool is_playing = g_engine.is_playing();
-        if (!ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Space)) {
-            if (is_playing) {
-                g_engine.stop();
-            } else {
-                g_engine.play();
-            }
+    bool is_playing = g_engine.is_playing();
+    if (!ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Space)) {
+        if (is_playing) {
+            g_engine.stop();
+        } else {
+            g_engine.play();
         }
+    }
 
-        ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(),
-                                     ImGuiDockNodeFlags_PassthruCentralNode);
+    ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(),
+                                 ImGuiDockNodeFlags_PassthruCentralNode);
 
-        ImVec2 frame_padding = GImGui->Style.FramePadding;
-        ImVec2 window_padding = GImGui->Style.WindowPadding;
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 13.0f));
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-        ImGui::PushStyleColor(ImGuiCol_MenuBarBg, ImGui::GetStyleColorVec4(ImGuiCol_TitleBg));
-        if (ImGui::BeginMainMenuBar()) {
-            ImGui::PopStyleVar(4);
-            ImGui::PopStyleColor();
-            render_control_bar();
-            ImGui::EndMainMenuBar();
+    ImVec2 frame_padding = GImGui->Style.FramePadding;
+    ImVec2 window_padding = GImGui->Style.WindowPadding;
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 13.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    ImGui::PushStyleColor(ImGuiCol_MenuBarBg, ImGui::GetStyleColorVec4(ImGuiCol_TitleBg));
+    if (ImGui::BeginMainMenuBar()) {
+        ImGui::PopStyleVar(4);
+        ImGui::PopStyleColor();
+        render_control_bar();
+        ImGui::EndMainMenuBar();
+    }
+
+    ImGui::ShowDemoWindow();
+    controls::render_test_controls();
+    render_history_window();
+
+    float framerate = GImGui->IO.Framerate;
+    // Update vu meters
+    for (auto track : g_engine.tracks) {
+        for (auto& vu_channel : track->level_meter) {
+            vu_channel.update(framerate);
         }
+    }
 
-        ImGui::ShowDemoWindow();
-        controls::render_test_controls();
-        render_history_window();
+    g_settings.render();
+    g_browser.render();
+    g_mixer.render();
+    g_timeline.render();
+    g_piano_roll.render();
+    g_env_window.render();
 
-        float framerate = GImGui->IO.Framerate;
-        // Update vu meters
-        for (auto track : g_engine.tracks) {
-            for (auto& vu_channel : track->level_meter) {
-                vu_channel.update(framerate);
-            }
-        }
+    ImGui::Render();
+    g_renderer->begin_draw(nullptr, {0.0f, 0.0f, 0.0f, 1.0f});
+    g_renderer->render_imgui_draw_data(ImGui::GetDrawData());
+    g_renderer->finish_draw();
+    g_renderer->end_frame();
+    g_renderer->present();
+    // ImGui::UpdatePlatformWindows();
+    // ImGui::RenderPlatformWindowsDefault();
 
-        g_settings.render();
-        g_browser.render();
-        g_mixer.render();
-        g_timeline.render();
-        g_piano_roll.render();
-        g_env_window.render();
-
-        ImGui::Render();
-        g_renderer->begin_draw(nullptr, {0.0f, 0.0f, 0.0f, 1.0f});
-        g_renderer->render_imgui_draw_data(ImGui::GetDrawData());
-        g_renderer->finish_draw();
-        g_renderer->end_frame();
-        g_renderer->present();
-        // ImGui::UpdatePlatformWindows();
-        // ImGui::RenderPlatformWindowsDefault();
+    if (!g_file_drop.empty()) {
+        g_file_drop.clear();
     }
 }
 
