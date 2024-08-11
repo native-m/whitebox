@@ -817,10 +817,6 @@ void GuiTimeline::render_track_lanes() {
     }
 
     bool has_deleted_clips = g_engine.has_deleted_clips.load(std::memory_order_relaxed);
-    float selection_start_y = 0.0f;
-    float selection_end_y = 0.0f;
-    float selection_start_height = 0.0f;
-    float selection_end_height = 0.0f;
 
     if (has_deleted_clips) {
         g_engine.delete_lock.lock();
@@ -857,24 +853,13 @@ void GuiTimeline::render_track_lanes() {
             target_sel_range.last_track = i;
         }
 
-        if (selecting_range || range_selected) {
-            if (target_sel_range.first_track == i) {
-                selection_start_y = track_pos_y;
-                selection_start_height = height;
-            }
-            if (target_sel_range.last_track == i) {
-                selection_end_y = track_pos_y;
-                selection_end_height = height;
-            }
+        if (track_pos_y > timeline_area.y + offset_y) {
+            break;
         }
 
         if (track_pos_y < offset_y - height - 2.0f) {
             track_pos_y += height + 2.0f;
             continue;
-        }
-
-        if (track_pos_y > timeline_area.y + offset_y) {
-            break;
         }
 
         float next_pos_y = track_pos_y + height;
@@ -1093,23 +1078,45 @@ void GuiTimeline::render_track_lanes() {
 
     if (redraw) {
         if (selecting_range || range_selected) {
+            float track_pos_y = timeline_view_pos.y;
+            float selection_start_y = 0.0f;
+            float selection_end_y = 0.0f;
+            float selection_start_height = 0.0f;
+            float selection_end_height = 0.0f;
+
+            for (uint32_t i = 0; i <= target_sel_range.last_track; i++) {
+                Track* track = g_engine.tracks[i];
+                if (selecting_range || range_selected) {
+                    if (target_sel_range.first_track == i) {
+                        selection_start_y = track_pos_y;
+                        selection_start_height = track->height;
+                    }
+                    if (target_sel_range.last_track == i) {
+                        selection_end_y = track_pos_y;
+                        selection_end_height = track->height;
+                    }
+                }
+                track_pos_y += track->height + 2.0f;
+            }
+
             static const ImU32 selection_range_fill = ImColor(28, 150, 237, 64);
             static const ImU32 selection_range_border = ImColor(28, 150, 237, 127);
             double min_time = math::round(target_sel_range.min * clip_scale);
             double max_time = math::round(target_sel_range.max * clip_scale);
-            float start_pos_y = selection_start_y;
-            float end_pos_y = selection_end_y;
+
             if (max_time < min_time) {
                 std::swap(min_time, max_time);
             }
-            if (end_pos_y < start_pos_y) {
-                start_pos_y += selection_start_height;
-                std::swap(start_pos_y, end_pos_y);
+
+            if (selection_end_y < selection_start_y) {
+                selection_start_y += selection_start_height;
+                std::swap(selection_start_y, selection_end_y);
             } else {
-                end_pos_y += selection_end_height;
+                selection_end_y += selection_end_height;
             }
-            ImVec2 a(timeline_scroll_offset_x_f32 + (float)min_time, start_pos_y);
-            ImVec2 b(timeline_scroll_offset_x_f32 + (float)max_time, end_pos_y);
+
+            ImVec2 a(timeline_scroll_offset_x_f32 + (float)min_time, selection_start_y);
+            ImVec2 b(timeline_scroll_offset_x_f32 + (float)max_time, selection_end_y);
             layer1_draw_list->AddRectFilled(a, b, selection_range_fill);
             layer1_draw_list->AddRect(a, b, selection_range_border);
         }

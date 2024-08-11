@@ -1609,8 +1609,6 @@ bool RendererVK::init_swapchain_() {
         VK_CHECK(vkCreateFence(device_, &fence_info, nullptr, &fences_[i]));
     }
 
-    g_vsync_provider->wait_for_vblank();
-
     return true;
 }
 
