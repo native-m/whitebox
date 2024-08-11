@@ -50,6 +50,8 @@ set(WB_SOURCES
     "src/core/debug.cpp"
     "src/core/debug.h"
     "src/core/defer.h"
+    "src/core/fs.cpp"
+    "src/core/fs.h"
     "src/core/math.h"
     "src/core/memory.h"
     "src/core/midi.cpp"

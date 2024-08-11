@@ -1,6 +1,7 @@
 #include "browser.h"
 #include "controls.h"
 #include "core/algorithm.h"
+#include "core/fs.h"
 #include "file_dropper.h"
 #include <nfd.hpp>
 
@@ -64,6 +65,12 @@ void GuiBrowser::render_item(const std::filesystem::path& root_path, BrowserItem
         bool dir_activated = ImGui::IsItemActivated();
         ImGui::PopStyleVar();
 
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
+            context_menu_path = item.get_file_path(root_path);
+            context_menu_path_type = item.type;
+            open_context_menu = true;
+        }
+
         if (dir_activated) {
             if (!directory_open) {
                 auto path_from_root_dir = item.get_file_path(root_path);
@@ -97,7 +104,9 @@ void GuiBrowser::render_item(const std::filesystem::path& root_path, BrowserItem
         ImGui::PopStyleVar();
 
         if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
-            // TODO: show item context menu
+            context_menu_path = item.get_file_path(root_path);
+            context_menu_path_type = item.type;
+            open_context_menu = true;
         }
 
         if (ImGui::BeginDragDropSource()) {
@@ -171,6 +180,30 @@ void GuiBrowser::render() {
         }
     }
     ImGui::PopStyleVar();
+
+    if (open_context_menu) {
+        ImGui::OpenPopup("browser_context_menu");
+        open_context_menu = false;
+    }
+
+    if (ImGui::BeginPopup("browser_context_menu")) {
+        ImGui::MenuItem("Copy Path");
+        if (ImGui::MenuItem("Open Parent Folder")) {
+            explore_folder(context_menu_path.parent_path());
+        }
+
+        if (context_menu_path_type == BrowserItem::Directory) {
+            if (ImGui::MenuItem("Open Directory")) {
+                explore_folder(context_menu_path);
+            }
+        } else {
+            if (ImGui::MenuItem("Locate File")) {
+                locate_file(context_menu_path);
+            }
+        }
+
+        ImGui::EndPopup();
+    }
 
     ImGui::End();
 }

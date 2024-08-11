@@ -76,6 +76,10 @@ struct GuiBrowser {
     std::vector<DirectoryRefItem> directories;
     bool open = true;
 
+    bool open_context_menu = false;
+    std::filesystem::path context_menu_path;
+    BrowserItem::Type context_menu_path_type;
+
     GuiBrowser();
     void add_directory(const std::filesystem::path& path);
     void sort_directory();
