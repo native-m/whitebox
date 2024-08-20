@@ -807,16 +807,16 @@ void GuiTimeline::render_track_lanes() {
         double beat = ppq / view_scale;
         double bar = 4.0 * beat;
         double division = std::exp2(std::round(std::log2(view_scale / 5.0)));
-        float grid_inc_x = (float)(beat * division);
+        double grid_inc_x = beat * division;
         float inv_grid_inc_x = 1.0f / grid_inc_x;
-        uint32_t lines_per_bar = std::max((uint32_t)((float)bar / grid_inc_x), 1u);
-        uint32_t lines_per_beat = std::max((uint32_t)((float)beat / grid_inc_x), 1u);
-        float gridline_pos_x = timeline_view_pos.x - std::fmod((float)scroll_pos_x, grid_inc_x);
+        uint32_t lines_per_bar = std::max((uint32_t)(bar / grid_inc_x), 1u);
+        uint32_t lines_per_beat = std::max((uint32_t)(beat / grid_inc_x), 1u);
+        double gridline_pos_x = (double)timeline_view_pos.x - std::fmod(scroll_pos_x, grid_inc_x);
         int gridline_count = (uint32_t)(timeline_width * inv_grid_inc_x);
         int count_offset = (uint32_t)(scroll_pos_x * inv_grid_inc_x);
         for (int i = 0; i <= gridline_count; i++) {
             gridline_pos_x += grid_inc_x;
-            float gridline_pos_x_pixel = std::round(gridline_pos_x);
+            float gridline_pos_x_pixel = (float)math::round(gridline_pos_x);
             uint32_t grid_id = i + count_offset + 1;
             ImU32 line_color = grid_color;
             if (grid_id % lines_per_bar) {
@@ -856,7 +856,7 @@ void GuiTimeline::render_track_lanes() {
         bool hovering_track_rect =
             !scrolling && ImGui::IsMouseHoveringRect(
                               ImVec2(timeline_view_pos.x, track_pos_y),
-                              ImVec2(timeline_end_x, track_pos_y + height + 2.0f), !dragging);
+                              ImVec2(timeline_end_x, track_pos_y + height + 1.0f), !dragging);
         bool hovering_current_track = timeline_hovered && hovering_track_rect;
 
         if (!any_of(edit_action, TimelineEditAction::ClipResizeLeft,
