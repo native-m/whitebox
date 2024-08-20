@@ -177,10 +177,13 @@ int AppSDL2::event_watcher(void* userdata, SDL_Event* event) {
                 case SDL_WINDOWEVENT_MOVED:
                     SDL_GetWindowSize(app->window, &w, &h);
                     if (app->old_resize_width == w && app->old_resize_height == h) {
+                        app->old_resize_width = w;
+                        app->old_resize_height = h;
                         app->render();
                     }
                     break;
                 case SDL_WINDOWEVENT_RESIZED:
+                    SDL_GetWindowSize(app->window, &app->old_resize_width, &app->old_resize_height);
                     app->render();
                     break;
                 default:
