@@ -5,6 +5,7 @@
 #include "core/common.h"
 #include "core/thread.h"
 #include <functional>
+#include <vector>
 
 namespace wb {
 

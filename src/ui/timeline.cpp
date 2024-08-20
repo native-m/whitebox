@@ -385,8 +385,9 @@ void GuiTimeline::render_track_controls() {
         screen_pos,
         ImVec2(screen_pos.x + clamped_separator_pos, screen_pos.y + area_size.y + vscroll), true);
 
-    int id = 0;
-    for (auto track : g_engine.tracks) {
+    auto& tracks = g_engine.tracks;
+    for (uint32_t i = 0; i < tracks.size(); i++) {
+        Track* track = tracks[i];
         float height = track->height;
         ImVec2 tmp_item_spacing = style.ItemSpacing;
         ImVec2 track_color_min = ImGui::GetCursorScreenPos();
@@ -400,7 +401,7 @@ void GuiTimeline::render_track_controls() {
         }
 
         ImGui::Indent(track_color_width);
-        ImGui::PushID(id);
+        ImGui::PushID(i);
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2());
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(track_color_width - 2.0f, 2.0f));
         ImGui::BeginChild("##track_control",
@@ -438,7 +439,7 @@ void GuiTimeline::render_track_controls() {
 
             ImGui::SameLine(0.0f, 2.0f);
             if (ImGui::SmallButton("S")) {
-                g_engine.solo_track(id);
+                g_engine.solo_track(i);
             }
 
             ImGui::SameLine(0.0f, 2.0f);
@@ -455,7 +456,7 @@ void GuiTimeline::render_track_controls() {
                 tmp_name = track->name;
             }
 
-            track_context_menu(*track, id);
+            track_context_menu(*track, i);
             ImGui::PopStyleVar();
         }
 
@@ -468,11 +469,10 @@ void GuiTimeline::render_track_controls() {
         ImGui::PopID();
         ImGui::Unindent(track_color_width);
 
-        if (controls::hseparator_resizer(id, &track->height, 60.0f, 30.f, 500.f))
+        if (controls::hseparator_resizer(i, &track->height, 60.0f, 30.f, 500.f))
             redraw = true;
 
         ImGui::PopStyleVar();
-        id++;
     }
 
     if (ImGui::Button("Add Track")) {

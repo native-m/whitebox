@@ -76,7 +76,9 @@ Track* Engine::add_track(const std::string& name) {
 }
 
 void Engine::delete_track(uint32_t slot) {
+    Track* track = tracks[slot];
     tracks.erase(tracks.begin() + slot);
+    delete track;
 }
 
 void Engine::move_track(uint32_t from_slot, uint32_t to_slot) {
@@ -212,7 +214,8 @@ void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
 
     editor_lock.lock();
 
-    for (auto track : tracks) {
+    for (uint32_t i = 0; i < tracks.size(); i++) {
+        auto track = tracks[i];
         track->audio_event_buffer.resize(0);
         track->midi_event_list.clear();
         if (track->midi_voice_state.voice_mask != 0 && !currently_playing) {
@@ -243,15 +246,17 @@ void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
                               (buffer_duration / current_beat_duration),
                           std::memory_order_release);
     }
-    editor_lock.unlock();
 
     output_buffer.clear();
 
-    for (auto track : tracks) {
+    for (uint32_t i = 0; i < tracks.size(); i++) {
+        auto track = tracks[i];
         mixing_buffer.clear();
         track->process(mixing_buffer, sample_rate, currently_playing);
         output_buffer.mix(mixing_buffer);
     }
+
+    editor_lock.unlock();
 
     if (has_deleted_clips.load(std::memory_order_relaxed)) {
         delete_lock.lock();
