@@ -159,7 +159,7 @@ void level_meter(const char* str_id, const ImVec2& size, uint32_t count, VUMeter
         border_col = ImGui::GetColorU32(ImGuiCol_Border);
         draw_list->AddRect(start_pos, end_pos, border_col);
     } else {
-        border_col = ImGui::GetColorU32(ImGuiCol_ResizeGripHovered);
+        border_col = ImGui::GetColorU32(ImGuiCol_FrameBg);
     }
 
     float pos_x = start_pos.x;

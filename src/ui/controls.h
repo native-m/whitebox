@@ -114,12 +114,11 @@ static bool hseparator_resizer(T id, float* size, float default_size, float min_
         return false;
     }
 
-    ImGui::ButtonBehavior(bb, item_id, nullptr, nullptr, 0);
+    bool is_separator_hovered;
+    ImGui::ButtonBehavior(bb, item_id, &is_separator_hovered, nullptr, 0);
     bool is_separator_active = ImGui::IsItemActive();
 
     if (size) {
-        bool is_separator_hovered = ImGui::IsItemHovered();
-
         if (is_separator_hovered || is_separator_active) {
             if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
                 *size = default_size;
@@ -165,15 +164,23 @@ static bool slider2(const SliderProperties& properties, const char* str_id, cons
     bool dragging = held && ImGui::IsMouseDragging(ImGuiMouseButton_Left);
     ImGuiContext& g = *ImGui::GetCurrentContext();
     const ImVec2& mouse_pos = g.IO.MousePos;
-    ImVec2 grab_size(properties.grab_size);
     ImU32 frame_col = ImGui::GetColorU32(ImGui::GetStyleColorVec4(ImGuiCol_Border));
     ImU32 grab_col = ImGui::GetColorU32(color.Value);
     float range = max - min;
     float normalized_value = (*value - min) / range;
+    float frame_width = std::max(properties.frame_width, 3.0f);
+    ImVec2 grab_size;
+
+    if (properties.grab_shape == SliderGrabShape::Rectangle) {
+        grab_size = properties.grab_size;
+    } else {
+        float radius = math::min(properties.grab_size.x, properties.grab_size.y);
+        grab_size.x = radius;
+        grab_size.y = radius;
+    }
+
     float scroll_height = size.y - grab_size.y;
     float inv_scroll_height = 1.0f / scroll_height;
-    float frame_width = std::max(properties.frame_width, 3.0f);
-
     // Log::debug("{}", normalized_value);
 
     if (ImGui::IsItemActivated())
@@ -192,20 +199,28 @@ static bool slider2(const SliderProperties& properties, const char* str_id, cons
 
     float grab_pos = (1.0f - normalized_value) * scroll_height;
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
-    ImVec2 frame_rect_min(cursor_pos.x + size.x * 0.5f - frame_width * 0.5f,
-                          cursor_pos.y + grab_size.y * 0.5f);
+    float center_x = cursor_pos.x + size.x * 0.5f;
+    ImVec2 frame_rect_min(center_x - frame_width * 0.5f, cursor_pos.y + grab_size.y * 0.5f);
     ImVec2 frame_rect_max(frame_rect_min.x + frame_width, frame_rect_min.y + scroll_height);
-    ImVec2 grab_rect_min(cursor_pos.x + size.x * 0.5f - grab_size.x * 0.5f,
-                         cursor_pos.y + grab_pos);
-    ImVec2 grab_rect_max(grab_rect_min.x + grab_size.x, grab_rect_min.y + grab_size.y);
 
     // draw_list->AddRect(cursor_pos, bb.Max, frame_col);
     draw_list->AddRectFilled(frame_rect_min, frame_rect_max, frame_col);
-    draw_list->AddRectFilled(grab_rect_min, grab_rect_max, grab_col, properties.grab_roundness);
-    draw_list->AddLine(
-        ImVec2(grab_rect_min.x + 2.0f, grab_rect_min.y + grab_size.y * 0.5f),
-        ImVec2(grab_rect_min.x + grab_size.x - 2.0f, grab_rect_min.y + grab_size.y * 0.5f),
-        0xFFFFFFFF, 3.0f);
+
+    if (properties.grab_shape == SliderGrabShape::Rectangle) {
+        ImVec2 grab_rect_min(center_x - grab_size.x * 0.5f, cursor_pos.y + math::round(grab_pos));
+        ImVec2 grab_rect_max(grab_rect_min.x + grab_size.x, grab_rect_min.y + grab_size.y);
+        draw_list->AddRectFilled(grab_rect_min, grab_rect_max, grab_col, properties.grab_roundness);
+        draw_list->AddLine(
+            ImVec2(grab_rect_min.x + 2.0f, grab_rect_min.y + grab_size.y * 0.5f),
+            ImVec2(grab_rect_min.x + grab_size.x - 2.0f, grab_rect_min.y + grab_size.y * 0.5f),
+            0xFFFFFFFF, 3.0f);
+    } else {
+        float pos_y = math::round(grab_pos) + grab_size.x * 0.5f;
+        draw_list->AddCircleFilled(ImVec2(center_x, cursor_pos.y + pos_y), grab_size.x * 0.5f,
+                                   grab_col);
+        draw_list->AddCircleFilled(ImVec2(center_x, cursor_pos.y + pos_y), grab_size.x * 0.25f,
+                                   0xFFFFFFFF);
+    }
 
     if (dragging) {
         ImVec2 delta = ImGui::GetMouseDragDelta();
