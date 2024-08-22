@@ -184,6 +184,9 @@ if (imgui_ADDED)
         PUBLIC
             "$<$<COMPILE_LANGUAGE:CXX>:${imgui_SOURCE_DIR}/imgui.h>"
             "$<$<COMPILE_LANGUAGE:CXX>:${imgui_SOURCE_DIR}/imgui_internal.h>")
+    if (WB_IPO_SUPPORTED)
+        set_target_properties(imgui PROPERTIES INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+    endif()
 
     add_library(imgui-backends INTERFACE IMPORTED)
     target_include_directories(imgui-backends INTERFACE "${imgui_SOURCE_DIR}/backends")
@@ -244,6 +247,9 @@ if (implot_ADDED)
     add_library(implot STATIC ${IMPLOT_SRC_FILES})
     target_include_directories(implot PUBLIC "${implot_SOURCE_DIR}")
     target_link_libraries(implot PUBLIC imgui)
+    if (WB_IPO_SUPPORTED)
+        set_target_properties(implot PROPERTIES INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+    endif()
 endif()
 
 if (VulkanMemoryAllocator_ADDED)
