@@ -57,12 +57,13 @@ void GuiBrowser::render_item(const std::filesystem::path& root_path, BrowserItem
     ImGui::TableSetColumnIndex(0);
 
     if (item.type == BrowserItem::Directory) {
+        constexpr ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_SpanFullWidth |
+                                             ImGuiTreeNodeFlags_FramePadding |
+                                             ImGuiTreeNodeFlags_SpanAllColumns;
         ImGui::PushID((const void*)item.name.data());
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(GImGui->Style.FramePadding.x, 2.0f));
-        bool directory_open = ImGui::TreeNodeEx(
-            "##browser_item", ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_FramePadding,
-            (const char*)item.name.data());
-        bool dir_activated = ImGui::IsItemActivated();
+        bool directory_open =
+            ImGui::TreeNodeEx("##browser_dir", flags, (const char*)item.name.data());
         ImGui::PopStyleVar();
 
         if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
@@ -71,15 +72,15 @@ void GuiBrowser::render_item(const std::filesystem::path& root_path, BrowserItem
             open_context_menu = true;
         }
 
-        if (dir_activated) {
-            if (!directory_open) {
-                auto path_from_root_dir = item.get_file_path(root_path);
-                glob_path(path_from_root_dir, item);
-            } else {
-                item.dir_items.reset();
-                item.file_items.reset();
-            }
+        if (!item.open && directory_open) {
+            auto path_from_root_dir = item.get_file_path(root_path);
+            glob_path(path_from_root_dir, item);
+            item.open = directory_open;
+        }
 
+        if (item.open && !directory_open) {
+            item.dir_items.reset();
+            item.file_items.reset();
             item.open = directory_open;
         }
 
@@ -92,12 +93,12 @@ void GuiBrowser::render_item(const std::filesystem::path& root_path, BrowserItem
                     render_item(root_path, file_item);
             ImGui::TreePop();
         }
-
         ImGui::PopID();
     } else {
         constexpr ImGuiTreeNodeFlags flags =
             ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen |
-            ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_FramePadding;
+            ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_FramePadding |
+            ImGuiTreeNodeFlags_SpanAllColumns;
         ImGui::PushID((const void*)item.name.data());
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(GImGui->Style.FramePadding.x, 2.0f));
         ImGui::TreeNodeEx("##browser_item", flags, (const char*)item.name.data());
@@ -118,7 +119,7 @@ void GuiBrowser::render_item(const std::filesystem::path& root_path, BrowserItem
         }
 
         ImGui::TableSetColumnIndex(1);
-        ImGui::TextDisabled("%.2f %s", item.size.value, item.size.unit);
+        ImGui::Text("%.2f %s", item.size.value, item.size.unit);
 
         ImGui::PopID();
     }
