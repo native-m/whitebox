@@ -18,17 +18,17 @@ bool File::open(const std::filesystem::path& path, uint32_t flags) {
     DWORD desired_access = 0;
     DWORD creation_diposition = 0;
 
-    if (has_bit_enum(flags, File::Read)) {
+    if (has_bit(flags, File::Read)) {
         desired_access |= GENERIC_READ;
         creation_diposition = OPEN_EXISTING;
     }
 
-    if (has_bit_enum(flags, File::Write)) {
+    if (has_bit(flags, File::Write)) {
         desired_access |= GENERIC_WRITE;
         creation_diposition = OPEN_ALWAYS;
     }
 
-    if (has_bit_enum(flags, File::Truncate)) {
+    if (has_bit(flags, File::Truncate)) {
         creation_diposition = CREATE_ALWAYS;
     }
 
