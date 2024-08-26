@@ -170,8 +170,8 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
                             offset_y + (float)(max_note - note.note_number) * max_note_size;
                         min_pos_x = math::max(min_pos_x, min_view);
                         max_pos_x = math::min(max_pos_x, max_view);
-                        // if (min_pos_x == max_pos_x)
-                        //     continue;
+                        if (min_pos_x >= max_pos_x)
+                            continue;
                         ImVec2 a(min_pos_x + 0.5f, pos_y);
                         ImVec2 b(max_pos_x, pos_y + min_note_size - 0.5f);
 #if DEBUG_MIDI_CLIPS == 1
@@ -1093,21 +1093,29 @@ void GuiTimeline::render_track_lanes() {
             float selection_end_y = 0.0f;
             float selection_start_height = 0.0f;
             float selection_end_height = 0.0f;
+            uint32_t first_track = target_sel_range.first_track;
+            uint32_t last_track = target_sel_range.last_track;
 
-            for (uint32_t i = 0; i <= target_sel_range.last_track; i++) {
+            if (last_track < first_track) {
+                std::swap(first_track, last_track);
+            }
+
+            for (uint32_t i = 0; i <= last_track; i++) {
                 Track* track = g_engine.tracks[i];
                 if (selecting_range || range_selected) {
-                    if (target_sel_range.first_track == i) {
+                    if (first_track == i) {
                         selection_start_y = track_pos_y;
                         selection_start_height = track->height;
                     }
-                    if (target_sel_range.last_track == i) {
+                    if (last_track == i) {
                         selection_end_y = track_pos_y;
                         selection_end_height = track->height;
                     }
                 }
                 track_pos_y += track->height + 2.0f;
             }
+
+            Log::debug("{} {}", first_track, last_track);
 
             static const ImU32 selection_range_fill = ImColor(28, 150, 237, 64);
             static const ImU32 selection_range_border = ImColor(28, 150, 237, 127);
@@ -1336,6 +1344,11 @@ void GuiTimeline::delete_selected_range() {
     uint32_t last_track = target_sel_range.last_track;
     Vector<ClipHistory> clip_history;
     g_engine.edit_lock();
+
+    if (last_track < first_track) {
+        std::swap(first_track, last_track);
+    }
+
     for (uint32_t i = first_track; i <= last_track; i++) {
         Track* track = g_engine.tracks[i];
         auto query_result = track->query_clip_by_range(target_sel_range.min, target_sel_range.max);
