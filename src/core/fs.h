@@ -48,6 +48,7 @@ struct File {
     inline uint32_t read_i64(int32_t* value) { return read(value, sizeof(int64_t)); }
     inline uint32_t read_u64(uint32_t* value) { return read(value, sizeof(uint64_t)); }
     inline uint32_t read_f64(double* value) { return read(value, sizeof(double)); }
+    inline uint32_t read_string(char* str, uint32_t size) { return read(str, size); }
     inline bool read_struct(FileDeserializable auto& data) { return data.read_from_file(this); }
 
     inline uint32_t write_i32(int32_t value) { return write(&value, sizeof(int32_t)); }
@@ -56,6 +57,8 @@ struct File {
     inline uint32_t write_i64(int32_t value) { return write(&value, sizeof(int64_t)); }
     inline uint32_t write_u64(uint32_t value) { return write(&value, sizeof(uint64_t)); }
     inline uint32_t write_f64(double value) { return write(&value, sizeof(double)); }
+    inline uint32_t write_string(const char* str, uint32_t size) { return write(str, size); }
+    inline uint32_t write_string(const std::string& str) { return write(str.data(), str.size()); }
     inline bool write_struct(FileSerializable auto& data) { return data.write_to_file(this); }
 
     inline bool is_open() const { return open_; }
