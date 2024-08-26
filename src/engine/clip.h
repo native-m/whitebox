@@ -34,6 +34,7 @@ struct AudioClip {
 
 struct MidiClip {
     MidiAsset* asset;
+    double relative_start_time {};
     uint32_t msg;
 };
 
@@ -51,7 +52,7 @@ struct Clip {
     // Time placement in beat units
     double min_time {};
     double max_time {};
-    double relative_start_time {};
+    double start_offset {}; // MIDI: Beat unit, Audio: Sample unit
 
     union {
         AudioClip audio;
@@ -76,7 +77,7 @@ struct Clip {
         color(clip.color),
         min_time(clip.min_time),
         max_time(clip.max_time),
-        relative_start_time(clip.relative_start_time) {
+        start_offset(clip.start_offset) {
         switch (type) {
             case ClipType::Audio:
                 audio = clip.audio;

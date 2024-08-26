@@ -109,7 +109,7 @@ void ProjectFile::read_clip(Clip* clip) {
     file.read((char*)&color, sizeof(uint32_t));
     file.read((char*)&clip->min_time, sizeof(double));
     file.read((char*)&clip->max_time, sizeof(double));
-    file.read((char*)&clip->relative_start_time, sizeof(double));
+    file.read((char*)&clip->start_offset, sizeof(double));
     clip->color = ImColor(color);
 
     switch (clip->type) {
@@ -188,7 +188,7 @@ void ProjectFile::write_clip(Clip* clip) {
     file.write((char*)&color, sizeof(uint32_t));
     file.write((char*)&clip->min_time, sizeof(double));
     file.write((char*)&clip->max_time, sizeof(double));
-    file.write((char*)&clip->relative_start_time, sizeof(double));
+    file.write((char*)&clip->start_offset, sizeof(double));
 
     switch (clip->type) {
         case ClipType::Audio: {

@@ -74,6 +74,11 @@ inline T linear_to_db(T x) {
 }
 
 template <std::floating_point T>
+inline T lerp(T x, T a, T b) {
+    return (1.0 - x) * a + x * b;
+}
+
+template <std::floating_point T>
 inline T normalize_value(T value, T min_val, T max_val) {
     return (min_val - value) / (min_val - max_val);
 }
@@ -97,6 +102,11 @@ inline bool is_multiple_of(T x, T mult) {
 
 inline static double samples_to_beat(size_t samples, double sample_rate, double beat_duration) {
     double sec = (double)samples / sample_rate;
+    return sec / beat_duration;
+}
+
+inline static double samples_to_beat(double samples, double sample_rate, double beat_duration) {
+    double sec = samples / sample_rate;
     return sec / beat_duration;
 }
 

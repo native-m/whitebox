@@ -16,7 +16,7 @@ struct ClipHistory {
     bool active {};
     double min_time {};
     double max_time {};
-    double relative_start_time {};
+    double start_offset {};
 
     union {
         AudioClip audio;
@@ -41,6 +41,7 @@ struct ClipShiftCmd {
     uint32_t track_id;
     uint32_t clip_id;
     double relative_pos;
+    double last_beat_duration;
 
     void execute();
     void undo();
@@ -52,6 +53,7 @@ struct ClipResizeCmd {
     bool left_side;
     double relative_pos;
     double min_length;
+    double last_beat_duration;
 
     void execute();
     void undo();

@@ -147,17 +147,17 @@ void Track::resize_clip(Clip* clip, double relative_pos, double min_length, doub
         return;
 
     auto [min_time, max_time, start_offset] =
-        calc_resize_clip(clip, relative_pos, min_length, is_min);
+        calc_resize_clip(clip, relative_pos, min_length, beat_duration, is_min);
 
     if (is_min) {
         clip->min_time = min_time;
-        clip->relative_start_time = start_offset;
-        if (clip->type == ClipType::Audio) {
+        clip->start_offset = start_offset;
+        /*if (clip->type == ClipType::Audio) {
             SampleAsset* asset = clip->audio.asset;
             clip->audio.sample_offset =
                 beat_to_samples(clip->relative_start_time,
                                 (double)asset->sample_instance.sample_rate, beat_duration);
-        }
+        }*/
     } else {
         clip->max_time = max_time;
     }
@@ -218,19 +218,35 @@ void Track::update(Clip* updated_clip, double beat_duration) {
                     clip->min_time = updated_clip->max_time;
 
                     if (clip->min_time < clip->max_time) {
-                        double rel_offset = clip->relative_start_time;
-                        if (old_min < clip->min_time)
-                            rel_offset -= old_min - clip->min_time;
-                        else
-                            rel_offset += clip->min_time - old_min;
-                        clip->relative_start_time = std::max(rel_offset, 0.0);
+                        double start_offset = clip->start_offset;
+                        SampleAsset* asset = nullptr;
+                        if (clip->is_audio()) {
+                            asset = clip->audio.asset;
+                            start_offset = samples_to_beat(
+                                start_offset, (double)asset->sample_instance.sample_rate,
+                                beat_duration);
+                        }
 
-                        if (clip->type == ClipType::Audio) {
+                        if (old_min < clip->min_time)
+                            start_offset -= old_min - clip->min_time;
+                        else
+                            start_offset += clip->min_time - old_min;
+                        start_offset = std::max(start_offset, 0.0);
+
+                        if (clip->is_audio()) {
+                            start_offset = beat_to_samples(
+                                start_offset, (double)asset->sample_instance.sample_rate,
+                                beat_duration);
+                        }
+
+                        clip->start_offset = start_offset;
+
+                        /*if (clip->type == ClipType::Audio) {
                             SampleAsset* asset = clip->audio.asset;
                             clip->audio.sample_offset = beat_to_samples(
-                                clip->relative_start_time,
+                                clip->start_offset,
                                 (double)asset->sample_instance.sample_rate, beat_duration);
-                        }
+                        }*/
                     }
                 }
             }
@@ -250,7 +266,7 @@ void Track::update(Clip* updated_clip, double beat_duration) {
     Log::debug("--- Clip Ordering ---");
     for (auto clip : clips) {
         Log::debug("{:x}: {} ({}, {}, {} -> {})", (uint64_t)clip, clip->name, clip->id,
-                   clip->relative_start_time, clip->min_time, clip->max_time);
+                   clip->start_offset, clip->min_time, clip->max_time);
     }
 #endif
 }
@@ -371,7 +387,7 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
                     double sample_pos =
                         beat_to_samples(relative_start_time, sample_rate, beat_duration);
                     uint64_t sample_offset =
-                        (uint64_t)(sample_pos + next_clip->audio.sample_offset);
+                        (uint64_t)(sample_pos + next_clip->start_offset);
                     audio_event_buffer.push_back({
                         .type = EventType::PlaySample,
                         .buffer_offset = buffer_offset,
@@ -385,7 +401,7 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
                     double clip_pos = time_pos - next_clip->min_time;
                     if (clip_pos >= 0.0) {
                         event_state.midi_note_idx = next_clip->midi.asset->find_first_note(
-                            clip_pos + next_clip->relative_start_time, 0);
+                            clip_pos + next_clip->start_offset, 0);
                     }
                     process_midi_event(next_clip, buffer_offset, time_pos, beat_duration, ppq,
                                        inv_ppq);
@@ -414,7 +430,7 @@ void Track::process_midi_event(Clip* clip, uint32_t buffer_offset, double time_p
                                double beat_duration, double ppq, double inv_ppq) {
     MidiAsset* asset = clip->midi.asset;
     const MidiNoteBuffer& buffer = asset->data.channels[0];
-    double time_offset = clip->min_time - clip->relative_start_time;
+    double time_offset = clip->min_time - clip->start_offset;
 
     // Check for active voice and release it if reaches the end of time
     uint64_t active_voice_bits = midi_voice_state.voice_mask;

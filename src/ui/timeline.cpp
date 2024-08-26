@@ -26,9 +26,9 @@ namespace wb {
 void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
                ImVector<ClipContentDrawCmd>& clip_content_cmds, const Clip* clip,
                float timeline_width, float offset_y, float min_draw_x, double min_x, double max_x,
-               double clip_scale, double sample_scale, double relative_start_time,
-               double sample_offset, float track_pos_y, float track_height,
-               const ImColor& track_color, const ImColor& text_color, ImFont* font) {
+               double clip_scale, double sample_scale, double start_offset, float track_pos_y,
+               float track_height, const ImColor& track_color, const ImColor& text_color,
+               ImFont* font) {
     constexpr ImDrawListFlags draw_list_aa_flags = ImDrawListFlags_AntiAliasedFill |
                                                    ImDrawListFlags_AntiAliasedLinesUseTex |
                                                    ImDrawListFlags_AntiAliasedLines;
@@ -52,7 +52,7 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
     float clip_title_max_y = track_pos_y + font_size + 4.0f;
     ImColor bg_color = color_adjust_alpha(color, color.Value.w * 0.35f);
     ImU32 content_color =
-        is_active ? color_brighten(color, 0.85f) : color_premul_alpha(color_brighten(color, 0.85f));
+        is_active ? color_brighten(color, 1.0f) : color_premul_alpha(color_brighten(color, 1.0f));
     ImVec2 clip_title_min_bb(min_x2, track_pos_y);
     ImVec2 clip_title_max_bb(max_x2, clip_title_max_y);
     ImVec2 clip_content_min(min_x2, clip_title_max_y);
@@ -97,9 +97,9 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
                 // double mip_scale = std::pow(4.0, (mip_index - (double)index)) * 2.0; // Index ->
                 // Mip Scale
 
-                double waveform_start = sample_offset * inv_scale_x;
+                double waveform_start = start_offset * inv_scale_x;
                 double waveform_len =
-                    ((double)asset->sample_instance.count - sample_offset) * inv_scale_x;
+                    ((double)asset->sample_instance.count - start_offset) * inv_scale_x;
                 double rel_min_x = min_x - (double)min_draw_x;
                 double rel_max_x = max_x - (double)min_draw_x;
                 double min_pos_x = math::max(rel_min_x, 0.0);
@@ -153,7 +153,7 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
 
             if (asset) {
                 uint32_t channel_count = asset->data.channel_count;
-                double min_start_x = min_x - relative_start_time * clip_scale;
+                double min_start_x = min_x - start_offset * clip_scale;
                 for (uint32_t i = 0; i < channel_count; i++) {
                     const MidiNoteBuffer& buffer = asset->data.channels[i];
                     for (size_t j = 0; j < buffer.size(); j++) {
@@ -252,7 +252,11 @@ void GuiTimeline::shutdown() {
 Track* GuiTimeline::add_track() {
     g_engine.edit_lock();
     auto track = g_engine.add_track("New Track");
-    track->color = ImColor::HSV((float)color_spin / 15, 0.45f, 0.65f);
+    float hue = (float)color_spin / 15.0f;
+    float sat_pos = std::pow(1.0 - math::abs(hue * 2.0f - 1.0f), 2.2f);
+    float saturation = sat_pos * (0.70f - 0.55f) + 0.55f;
+    Log::debug("{} {} {}", hue, sat_pos, saturation);
+    track->color = ImColor::HSV(hue, saturation, 0.75f);
     color_spin = (color_spin + 1) % 15;
     g_engine.edit_unlock();
     redraw = true;
@@ -860,7 +864,7 @@ void GuiTimeline::render_track_lanes() {
         bool hovering_current_track = timeline_hovered && hovering_track_rect;
 
         if (!any_of(edit_action, TimelineEditAction::ClipResizeLeft,
-                    TimelineEditAction::ClipResizeRight)) {
+                    TimelineEditAction::ClipResizeRight, TimelineEditAction::ClipShift)) {
             if (left_mouse_down && hovering_track_rect) {
                 hovered_track = track;
                 hovered_track_id = i;
@@ -885,7 +889,7 @@ void GuiTimeline::render_track_lanes() {
         if (redraw) {
             layer1_draw_list->AddLine(
                 ImVec2(timeline_view_pos.x, next_pos_y + 0.5f),
-                ImVec2(timeline_view_pos.x + timeline_width, next_pos_y + 0.5f), grid_color, 2.0f);
+                ImVec2(timeline_view_pos.x + timeline_width, next_pos_y + 0.5f), grid_color, 1.0f);
         }
 
         for (size_t j = 0; j < track->clips.size(); j++) {
@@ -971,12 +975,10 @@ void GuiTimeline::render_track_lanes() {
             }
 
             if (redraw) {
-                double sample_offset = clip->is_audio() ? (double)clip->audio.sample_offset : 0.0;
-                double relative_start_time = clip->relative_start_time;
                 draw_clip(layer1_draw_list, layer2_draw_list, clip_content_cmds, clip,
                           timeline_width, offset_y, timeline_view_pos.x, min_pos_x, max_pos_x,
-                          clip_scale, sample_scale, relative_start_time, sample_offset, track_pos_y,
-                          height, track->color, text_color, font);
+                          clip_scale, sample_scale, clip->start_offset, track_pos_y, height,
+                          track->color, text_color, font);
             }
         }
 
@@ -1017,12 +1019,13 @@ void GuiTimeline::render_track_lanes() {
 
     // Visualize the edited clip during the action
     if (edited_clip && redraw) {
+        ClipType type = edited_clip->type;
         double min_time = edited_clip->min_time;
         double max_time = edited_clip->max_time;
         double sample_offset = (double)edited_clip->audio.sample_offset;
         double relative_pos = mouse_at_gridline - initial_time_pos;
-        double relative_start_time = edited_clip->relative_start_time;
-
+        double content_offset = edited_clip->start_offset;
+        
         switch (edit_action) {
             case TimelineEditAction::ClipMove: {
                 auto [new_min_time, new_max_time] = calc_move_clip(edited_clip, relative_pos);
@@ -1033,13 +1036,8 @@ void GuiTimeline::render_track_lanes() {
             case TimelineEditAction::ClipResizeLeft: {
                 double min_length = 1.0 / grid_scale;
                 auto [new_min_time, new_max_time, rel_offset] =
-                    calc_resize_clip(edited_clip, relative_pos, min_length, true);
-                if (edited_clip->type == ClipType::Audio) {
-                    SampleAsset* asset = edited_clip->audio.asset;
-                    sample_offset = beat_to_samples(
-                        rel_offset, (double)asset->sample_instance.sample_rate, beat_duration);
-                }
-                relative_start_time = rel_offset;
+                    calc_resize_clip(edited_clip, relative_pos, min_length, beat_duration, true);
+                content_offset = rel_offset;
                 min_time = new_min_time;
                 hovered_track_y = edited_track_pos_y;
                 break;
@@ -1047,19 +1045,13 @@ void GuiTimeline::render_track_lanes() {
             case TimelineEditAction::ClipResizeRight: {
                 double min_length = 1.0 / grid_scale;
                 auto [new_min_time, new_max_time, rel_offset] =
-                    calc_resize_clip(edited_clip, relative_pos, min_length, false);
+                    calc_resize_clip(edited_clip, relative_pos, min_length, beat_duration, false);
                 max_time = new_max_time;
                 hovered_track_y = edited_track_pos_y;
                 break;
             }
             case TimelineEditAction::ClipShift: {
-                double start_offset = calc_shift_clip(edited_clip, relative_pos);
-                relative_start_time = start_offset;
-                if (edited_clip->type == ClipType::Audio) {
-                    SampleAsset* asset = edited_clip->audio.asset;
-                    sample_offset = beat_to_samples(
-                        start_offset, (double)asset->sample_instance.sample_rate, beat_duration);
-                }
+                content_offset = shift_clip_content(edited_clip, relative_pos, beat_duration);
                 break;
             }
             case TimelineEditAction::ClipDuplicate: {
@@ -1086,7 +1078,7 @@ void GuiTimeline::render_track_lanes() {
         if (min_pos_x < timeline_end_x && max_pos_x > timeline_view_pos.x) {
             draw_clip(layer1_draw_list, layer2_draw_list, clip_content_cmds, edited_clip,
                       timeline_width, offset_y, timeline_view_pos.x, min_pos_x, max_pos_x,
-                      clip_scale, sample_scale, relative_start_time, sample_offset, hovered_track_y,
+                      clip_scale, sample_scale, content_offset, hovered_track_y,
                       hovered_track_height, edited_track->color, text_color, font);
         }
 
@@ -1203,6 +1195,7 @@ void GuiTimeline::render_track_lanes() {
                         .left_side = true,
                         .relative_pos = relative_pos,
                         .min_length = 1.0 / grid_scale,
+                        .last_beat_duration = beat_duration,
                     };
                     g_cmd_manager.execute("Resize clip", cmd);
                     finish_edit_action();
@@ -1218,6 +1211,7 @@ void GuiTimeline::render_track_lanes() {
                         .left_side = false,
                         .relative_pos = relative_pos,
                         .min_length = 1.0 / grid_scale,
+                        .last_beat_duration = beat_duration,
                     };
                     g_cmd_manager.execute("Resize clip", cmd);
                     finish_edit_action();
@@ -1231,6 +1225,7 @@ void GuiTimeline::render_track_lanes() {
                         .track_id = edited_track_id.value(),
                         .clip_id = edited_clip->id,
                         .relative_pos = relative_pos,
+                        .last_beat_duration = beat_duration,
                     };
                     g_cmd_manager.execute("Shift clip", cmd);
                     finish_edit_action();
