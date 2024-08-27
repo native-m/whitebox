@@ -135,9 +135,6 @@ void Track::move_clip(Clip* clip, double relative_pos, double beat_duration) {
     auto [min_time, max_time] = calc_move_clip(clip, relative_pos);
     clip->min_time = min_time;
     clip->max_time = max_time;
-    /*double new_pos = std::max(clip->min_time + relative_pos, 0.0);
-    clip->max_time = new_pos + (clip->max_time - clip->min_time);
-    clip->min_time = new_pos;*/
     update(clip, beat_duration);
 }
 
@@ -152,12 +149,6 @@ void Track::resize_clip(Clip* clip, double relative_pos, double min_length, doub
     if (is_min) {
         clip->min_time = min_time;
         clip->start_offset = start_offset;
-        /*if (clip->type == ClipType::Audio) {
-            SampleAsset* asset = clip->audio.asset;
-            clip->audio.sample_offset =
-                beat_to_samples(clip->relative_start_time,
-                                (double)asset->sample_instance.sample_rate, beat_duration);
-        }*/
     } else {
         clip->max_time = max_time;
     }
@@ -231,6 +222,7 @@ void Track::update(Clip* updated_clip, double beat_duration) {
                             start_offset -= old_min - clip->min_time;
                         else
                             start_offset += clip->min_time - old_min;
+
                         start_offset = std::max(start_offset, 0.0);
 
                         if (clip->is_audio()) {
@@ -240,13 +232,6 @@ void Track::update(Clip* updated_clip, double beat_duration) {
                         }
 
                         clip->start_offset = start_offset;
-
-                        /*if (clip->type == ClipType::Audio) {
-                            SampleAsset* asset = clip->audio.asset;
-                            clip->audio.sample_offset = beat_to_samples(
-                                clip->start_offset,
-                                (double)asset->sample_instance.sample_rate, beat_duration);
-                        }*/
                     }
                 }
             }
@@ -320,10 +305,10 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
         return;
 
     Clip* current_clip = event_state.current_clip_idx ? clips[*event_state.current_clip_idx]
-                                                      : nullptr; // event_state.current_clip;
+                                                      : nullptr;
     Clip* next_clip = event_state.next_clip_idx && event_state.next_clip_idx < clips.size()
                           ? clips[*event_state.next_clip_idx]
-                          : nullptr; // event_state.next_clip;
+                          : nullptr;
 
     if (current_clip) {
         double max_time = math::uround(current_clip->max_time * ppq) * inv_ppq;
@@ -357,23 +342,6 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
             }
         }
     }
-
-    /*while (next_clip && (next_clip->is_deleted() || !next_clip->is_active())) {
-        uint32_t new_next_clip = next_clip->id + 1;
-        if (new_next_clip != clips.size()) {
-            next_clip = clips[new_next_clip];
-        } else {
-            next_clip = nullptr;
-        }
-        event_state.next_clip_idx = new_next_clip;
-    }*/
-    /*auto new_next_clip = clips.begin() + (next_clip->id + 1);
-    if (new_next_clip != clips.end()) {
-        next_clip = *new_next_clip;
-    } else {
-        next_clip = nullptr;
-    }
-    event_state.next_clip = next_clip;*/
 
     if (next_clip && (!next_clip->is_deleted() || next_clip->is_active())) {
         double min_time = math::uround(next_clip->min_time * ppq) * inv_ppq;
@@ -414,14 +382,6 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
             uint32_t new_next_clip = next_clip->id + 1;
             event_state.current_clip_idx = event_state.next_clip_idx;
             event_state.next_clip_idx = new_next_clip;
-
-            /*auto new_next_clip = clips.begin() + (next_clip->id + 1);
-            if (new_next_clip != clips.end()) {
-                event_state.next_clip = *new_next_clip;
-            } else {
-                event_state.next_clip = nullptr;
-            }
-            event_state.current_clip = next_clip;*/
         }
     }
 }
@@ -731,11 +691,6 @@ void Track::flush_deleted_clips(double time_pos) {
     new_clip_list.reserve(clips.size());
     for (auto clip : clips) {
         if (clip->is_deleted()) {
-            // Make sure we don't touch this deleted clip
-            // if (clip == event_state.next_clip)
-            //    event_state.next_clip = nullptr;
-            // if (clip == event_state.current_clip)
-            //    event_state.current_clip = nullptr;
             clip->~Clip();
             clip_allocator.free(clip);
             continue;

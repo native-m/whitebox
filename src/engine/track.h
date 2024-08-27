@@ -132,7 +132,7 @@ struct TrackParameterState {
     float volume;
     float pan;
     bool mute;
-    bool solo;
+    bool solo; // UI only
 };
 
 struct Track {
@@ -256,7 +256,7 @@ struct Track {
     void update(Clip* clip, double beat_duration);
 
     /**
-     * @brief Find next clip at a certain time.
+     * @brief Find next clip at a given time position.
      *
      * @param time_pos Search starting position in beats.
      * @param hint Hint Clip ID to speed up search.
