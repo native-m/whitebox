@@ -158,7 +158,7 @@ void Engine::delete_clip(Track* track, Clip* clip) {
 }
 
 void Engine::trim_track_by_range(Track* track, uint32_t first_clip, uint32_t last_clip, double min,
-                        double max, bool dont_sort) {
+                                 double max, bool dont_sort) {
     Vector<Clip*>& clips = track->clips;
     double current_beat_duration = beat_duration.load(std::memory_order_relaxed);
 
@@ -171,22 +171,25 @@ void Engine::trim_track_by_range(Track* track, uint32_t first_clip, uint32_t las
                 return;
             new (new_clip) Clip(*clip);
             new_clip->min_time = max;
-            shift_clip_content(new_clip, clip->min_time - max, current_beat_duration);
+            new_clip->start_offset =
+                shift_clip_content(new_clip, clip->min_time - max, current_beat_duration);
             clip->max_time = min;
             clips.push_back(new_clip);
             std::sort(clips.begin(), clips.end(),
                       [](const Clip* a, const Clip* b) { return a->min_time < b->min_time; });
-            for (uint32_t i = 0; i < (uint32_t)clips.size(); i++) {
+            for (uint32_t i = clip->id; i < (uint32_t)clips.size(); i++) {
                 clips[i]->id = i;
             }
         } else if (min > clip->min_time) {
             clip->max_time = min;
         } else if (max < clip->max_time) {
-            shift_clip_content(clip, clip->min_time - max, current_beat_duration);
+            clip->start_offset =
+                shift_clip_content(clip, clip->min_time - max, current_beat_duration);
             clip->min_time = max;
         } else {
             delete_clip(track, clip);
         }
+        return;
     }
 
     Clip* first = clips[first_clip];
@@ -198,13 +201,14 @@ void Engine::trim_track_by_range(Track* track, uint32_t first_clip, uint32_t las
     }
 
     if (max < last->max_time) {
-        shift_clip_content(last, last->min_time - max, current_beat_duration);
+        last->start_offset = shift_clip_content(last, last->min_time - max, current_beat_duration);
         last->min_time = max;
     }
 
     for (uint32_t i = first_clip; i < last_clip; i++) {
         clips[i]->mark_deleted();
     }
+
     has_deleted_clips.store(true, std::memory_order_release);
 }
 
