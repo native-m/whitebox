@@ -2,11 +2,17 @@
 
 #include "command.h"
 #include "core/vector.h"
+#include <functional>
 #include <string>
 #include <variant>
-#include <functional>
 
 namespace wb {
+
+template <typename T>
+concept CommandType = requires(T cmd) {
+    cmd.execute();
+    cmd.undo();
+};
 
 struct EmptyCmd {
     void execute() {}
@@ -39,7 +45,7 @@ struct CommandManager {
     void clear_history();
     void signal_all_update_listeners();
 
-    template <typename T>
+    template <CommandType T>
     void execute(const std::string& name, T&& cmd) {
         HistoryItem& item = items[pos];
         uint32_t new_pos = pos + 1;

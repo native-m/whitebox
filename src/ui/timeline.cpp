@@ -269,9 +269,6 @@ void GuiTimeline::reset() {
 }
 
 void GuiTimeline::render() {
-    constexpr ImGuiWindowFlags timeline_content_area_flags =
-        ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_AlwaysVerticalScrollbar;
-
     if (!open)
         return;
 
@@ -307,7 +304,9 @@ void GuiTimeline::render() {
         ImVec2(content_origin.x + ImGui::GetContentRegionAvail().x, content_origin.y - 1.0f),
         ImGui::GetColorU32(ImGuiCol_Separator));
 
-    ImGui::BeginChild("##timeline_content", ImVec2(), 0, timeline_content_area_flags);
+    static constexpr ImGuiWindowFlags timeline_content_flags =
+        ImGuiWindowFlags_AlwaysVerticalScrollbar | ImGuiWindowFlags_NoBackground;
+    ImGui::BeginChild("##timeline_content", ImVec2(), 0, timeline_content_flags);
 
     main_draw_list = ImGui::GetWindowDrawList();
     content_min = ImGui::GetWindowContentRegionMin();
@@ -1025,7 +1024,7 @@ void GuiTimeline::render_track_lanes() {
         double sample_offset = (double)edited_clip->audio.sample_offset;
         double relative_pos = mouse_at_gridline - initial_time_pos;
         double content_offset = edited_clip->start_offset;
-        
+
         switch (edit_action) {
             case TimelineEditAction::ClipMove: {
                 auto [new_min_time, new_max_time] = calc_move_clip(edited_clip, relative_pos);
@@ -1115,8 +1114,6 @@ void GuiTimeline::render_track_lanes() {
                 track_pos_y += track->height + 2.0f;
             }
 
-            Log::debug("{} {}", first_track, last_track);
-
             static const ImU32 selection_range_fill = ImColor(28, 150, 237, 64);
             static const ImU32 selection_range_border = ImColor(28, 150, 237, 127);
             double min_time = math::round(target_sel_range.min * clip_scale);
@@ -1205,7 +1202,7 @@ void GuiTimeline::render_track_lanes() {
                         .min_length = 1.0 / grid_scale,
                         .last_beat_duration = beat_duration,
                     };
-                    g_cmd_manager.execute("Resize clip", cmd);
+                    g_cmd_manager.execute("Resize clip", std::move(cmd));
                     finish_edit_action();
                     force_redraw = true;
                 }
@@ -1221,7 +1218,7 @@ void GuiTimeline::render_track_lanes() {
                         .min_length = 1.0 / grid_scale,
                         .last_beat_duration = beat_duration,
                     };
-                    g_cmd_manager.execute("Resize clip", cmd);
+                    g_cmd_manager.execute("Resize clip", std::move(cmd));
                     finish_edit_action();
                     force_redraw = true;
                 }
@@ -1235,7 +1232,7 @@ void GuiTimeline::render_track_lanes() {
                         .relative_pos = relative_pos,
                         .last_beat_duration = beat_duration,
                     };
-                    g_cmd_manager.execute("Shift clip", cmd);
+                    g_cmd_manager.execute("Shift clip", std::move(cmd));
                     finish_edit_action();
                     force_redraw = true;
                 }
