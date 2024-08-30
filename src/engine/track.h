@@ -160,8 +160,8 @@ struct Track {
     TrackParameterState ui_parameter_state {}; // UI-side state
     TrackParameterState parameter_state {};    // Audio-side state
     ParamChanges param_changes;
-    ConcurrentQueue<ParamChange>
-        ui_param_changes; // This handles UI to audio thread parameter state transfer
+    // This handles UI to audio thread parameter state transfer
+    ConcurrentRingBuffer<ParamChange> ui_param_changes;
 
     Track();
     Track(const std::string& name, const ImColor& color, float height, bool shown,

@@ -99,11 +99,12 @@ struct ParamChanges {
         return ret;
     }
 
-    void transfer_changes_from(ConcurrentQueue<ParamChange>& source) {
-        while (ParamChange* p = source.pop()) {
+    void transfer_changes_from(ConcurrentRingBuffer<ParamChange>& source) {
+        ParamChange p;
+        while (source.pop(p)) {
             int32_t index;
-            ParamValueQueue* queue = add_param_change(p->id, index);
-            queue->add_point(p->sample_offset, p->value);
+            ParamValueQueue* queue = add_param_change(p.id, index);
+            queue->add_point(p.sample_offset, p.value);
         }
     }
 };
