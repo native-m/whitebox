@@ -52,25 +52,11 @@ bool param_drag_db(const char* str_id, float* value, float speed, float min_db, 
     return ImGui::DragFloat(str_id, value, 0.1f, min_db, max_db, str_value, flags);
 }
 
-bool param_slider_db(AudioParameterList& param_list, uint32_t id,
-                     const SliderProperties& properties, const char* str_id, const ImVec2& size,
-                     const ImColor& color, float min_db, float max_db, const char* format) {
-    float value = param_list.get_plain_float(id);
-
-    if (value == min_db) {
-        format = "-INFdB";
-    }
-
-    if (slider2<float>(properties, str_id, size, color, &value, min_db, max_db)) {
-        if (value == min_db) {
-            param_list.set(id, 0.0f, min_db);
-        } else {
-            param_list.set(id, math::db_to_linear(value), value);
-        }
-        return true;
-    }
-
-    return false;
+bool param_slider_db(const SliderProperties& properties, const char* str_id, const ImVec2& size,
+                     const ImColor& color, float* value, float min_db, float max_db, float default_value) {
+    const char* format = *value > min_db ? "%.3fdb" : "-INFdb";
+    return slider2<float>(properties, str_id, size, color, value, min_db, max_db, default_value,
+                          format);
 }
 
 bool mixer_label(const char* caption, const float height, const ImColor& color) {

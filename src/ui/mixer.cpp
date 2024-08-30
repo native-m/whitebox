@@ -40,7 +40,7 @@ void GuiMixer::render() {
     }
 
     static controls::SliderProperties mixer_slider = {
-        .grab_shape = controls::SliderGrabShape::Circle,
+        .grab_shape = controls::SliderGrabShape::Rectangle,
         .grab_size = {16.0f, 28.0f},
         .grab_roundness = 2.0f,
         .frame_width = 4.0f,
@@ -55,12 +55,15 @@ void GuiMixer::render() {
         ImGui::PushID(id);
         controls::mixer_label(track->name.c_str(), size.y, track->color);
         ImGui::SameLine();
+        ImGui::SetCursorPos(ImGui::GetCursorPos() + ImVec2(0.0f, 8.0f));
 
-        /*bool param_updated = false;
-        if (controls::param_slider_db(track->ui_parameter, TrackParameter_Volume, mixer_slider,
-                                      "##mixer_slider", ImVec2(20.0f, size.y), track->color)) {
-            param_updated = true;
-        }*/
+        float volume = track->ui_parameter_state.volume_db;
+        if (controls::param_slider_db(mixer_slider, "##mixer_vol", ImVec2(16.0f, size.y - 16.0f),
+                                      track->color, &volume)) {
+            track->set_volume(volume);
+        }
+
+        ImGui::SameLine();
 
         ImGui::SetCursorPos(ImGui::GetCursorPos() + ImVec2(0.0f, 10.0f));
         controls::level_meter("##mixer_vu_meter", ImVec2(18.0f, size.y - 20.0f), 2,

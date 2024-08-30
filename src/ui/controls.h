@@ -145,7 +145,8 @@ static bool hseparator_resizer(T id, float* size, float default_size, float min_
 
 template <typename T>
 static bool slider2(const SliderProperties& properties, const char* str_id, const ImVec2& size,
-                    const ImColor& color, T* value, T min, T max) {
+                    const ImColor& color, T* value, T min, T max, T default_value = 1.0f,
+                    const char* format = "%.2f") {
     ImGuiWindow* window = GImGui->CurrentWindow;
     ImVec2 cursor_pos = window->DC.CursorPos;
     // ImVec2 padded_size(size.x - properties.extra_padding.x, size.y - properties.extra_padding.y);
@@ -166,17 +167,18 @@ static bool slider2(const SliderProperties& properties, const char* str_id, cons
     const ImVec2& mouse_pos = g.IO.MousePos;
     ImU32 frame_col = ImGui::GetColorU32(ImGui::GetStyleColorVec4(ImGuiCol_Border));
     ImU32 grab_col = ImGui::GetColorU32(color.Value);
-    float range = max - min;
-    float normalized_value = (*value - min) / range;
+    T range = max - min;
+    T normalized_value = (*value - min) / range;
     float frame_width = std::max(properties.frame_width, 3.0f);
     ImVec2 grab_size;
 
     if (properties.grab_shape == SliderGrabShape::Rectangle) {
         grab_size = properties.grab_size;
+        grab_size.x = math::min(properties.grab_size.x, size.x);
     } else {
-        float radius = math::min(properties.grab_size.x, properties.grab_size.y);
-        grab_size.x = radius;
-        grab_size.y = radius;
+        float diameter = math::min(properties.grab_size.x, properties.grab_size.y);
+        grab_size.x = diameter;
+        grab_size.y = diameter;
     }
 
     float scroll_height = size.y - grab_size.y;
@@ -185,7 +187,7 @@ static bool slider2(const SliderProperties& properties, const char* str_id, cons
 
     if (ImGui::IsItemActivated())
         g.SliderGrabClickOffset =
-            mouse_pos.y - ((1.0f - normalized_value) * scroll_height + cursor_pos.y);
+            mouse_pos.y - ((1.0f - (float)normalized_value) * scroll_height + cursor_pos.y);
 
     if (held) {
         float val = (mouse_pos.y - cursor_pos.y - g.SliderGrabClickOffset) * inv_scroll_height;
@@ -193,11 +195,11 @@ static bool slider2(const SliderProperties& properties, const char* str_id, cons
         *value = normalized_value * range + min;
         // ImGui::SetNextWindowPos(ImVec2())
         ImGui::BeginTooltip();
-        ImGui::Text("%.3f", *value);
+        ImGui::Text(format, *value);
         ImGui::EndTooltip();
     }
 
-    float grab_pos = (1.0f - normalized_value) * scroll_height;
+    float grab_pos = (1.0f - (float)normalized_value) * scroll_height;
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
     float center_x = cursor_pos.x + size.x * 0.5f;
     ImVec2 frame_rect_min(center_x - frame_width * 0.5f, cursor_pos.y + grab_size.y * 0.5f);
@@ -215,11 +217,11 @@ static bool slider2(const SliderProperties& properties, const char* str_id, cons
             ImVec2(grab_rect_min.x + grab_size.x - 2.0f, grab_rect_min.y + grab_size.y * 0.5f),
             0xFFFFFFFF, 3.0f);
     } else {
-        float pos_y = math::round(grab_pos) + grab_size.x * 0.5f;
-        draw_list->AddCircleFilled(ImVec2(center_x, cursor_pos.y + pos_y), grab_size.x * 0.5f,
-                                   grab_col);
-        draw_list->AddCircleFilled(ImVec2(center_x, cursor_pos.y + pos_y), grab_size.x * 0.25f,
-                                   0xFFFFFFFF);
+        float radius1 = grab_size.x * 0.5f;
+        float radius2 = grab_size.x * 0.25f;
+        float pos_y = math::round(grab_pos) + radius1;
+        draw_list->AddCircleFilled(ImVec2(center_x, cursor_pos.y + pos_y), radius1, grab_col);
+        draw_list->AddCircleFilled(ImVec2(center_x, cursor_pos.y + pos_y), radius2, 0xFFFFFFFF);
     }
 
     if (dragging) {
@@ -236,10 +238,9 @@ void song_position();
 bool param_drag_db(const char* str_id, float* value, float speed = 0.1f, float min_db = -72.0f,
                    float max_db = 6.0f, const char* format = "%.2fdB",
                    ImGuiSliderFlags flags = ImGuiSliderFlags_Vertical);
-bool param_slider_db(AudioParameterList& param_list, uint32_t id,
-                     const SliderProperties& properties, const char* str_id, const ImVec2& size,
-                     const ImColor& color, float min_db = -72.0f, float max_db = 6.0f,
-                     const char* format = "%.2fdB");
+bool param_slider_db(const SliderProperties& properties, const char* str_id, const ImVec2& size,
+                     const ImColor& color, float* value, float min_db = -72.0f, float max_db = 6.0f,
+                     float default_value = 0.0f);
 bool mixer_label(const char* caption, const float height, const ImColor& color);
 void level_meter_options();
 void level_meter(const char* str_id, const ImVec2& size, uint32_t count, VUMeter* channels,
