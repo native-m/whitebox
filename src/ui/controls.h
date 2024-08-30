@@ -162,7 +162,7 @@ static bool slider2(const SliderProperties& properties, const char* str_id, cons
 
     bool hovered, held;
     bool pressed = ImGui::ButtonBehavior(bb, id, &hovered, &held, ImGuiButtonFlags_None);
-    bool dragging = held && ImGui::IsMouseDragging(ImGuiMouseButton_Left);
+    bool dragging = held && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0.0f);
     ImGuiContext& g = *ImGui::GetCurrentContext();
     const ImVec2& mouse_pos = g.IO.MousePos;
     ImU32 frame_col = ImGui::GetColorU32(ImGui::GetStyleColorVec4(ImGuiCol_Border));
@@ -225,7 +225,7 @@ static bool slider2(const SliderProperties& properties, const char* str_id, cons
     }
 
     if (dragging) {
-        ImVec2 delta = ImGui::GetMouseDragDelta();
+        ImVec2 delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left, 0.0f);
         ImGui::ResetMouseDragDelta();
         if (delta.y != 0.0f)
             return true;

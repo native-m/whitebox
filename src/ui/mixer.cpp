@@ -41,7 +41,7 @@ void GuiMixer::render() {
 
     static controls::SliderProperties mixer_slider = {
         .grab_shape = controls::SliderGrabShape::Rectangle,
-        .grab_size = {16.0f, 28.0f},
+        .grab_size = {16.0f, 23.0f},
         .grab_roundness = 2.0f,
         .frame_width = 4.0f,
         .extra_padding = {0.0f, 4.0f},
