@@ -10,8 +10,7 @@ layout(set = 0, binding = 0) readonly buffer WaveformBuffer {
 } vertex_input;
 
 float lookup_value(uint pos) {
-    uint pos_aligned = pos / 2;
-    vec2 values = unpackSnorm2x16(vertex_input.minmax[pos_aligned]);
+    vec2 values = unpackSnorm2x16(vertex_input.minmax[pos / 2]);
     return (pos % 2) == 0 ? values.x : values.y;
 }
 
@@ -19,14 +18,10 @@ vec2 get_minmax_value(uint pos) {
     float scale_x = draw_cmd.scale_x;
     float sample_pos = float(pos) * scale_x;
     uint scan_len = uint(ceil(scale_x + fract(sample_pos)));
-    uint end_idx = uint(sample_pos) + scan_len;
     float min_val = 1.0;
     float max_val = -1.0;
-    
-    if (end_idx > draw_cmd.sample_count)
-        return vec2(0.0);
 
-    for (int i = 0; i < scan_len; i++) {
+    for (uint i = 0; i < scan_len; i++) {
         float s = lookup_value(uint(sample_pos) + i);
         min_val = min(min_val, s);
         max_val = max(max_val, s);

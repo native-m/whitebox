@@ -11,8 +11,8 @@ enum class SamplePeaksPrecision {
 
 struct SamplePeaks {
     size_t sample_count;
-    uint32_t mipmap_count;
-    uint32_t channels;
+    int32_t mipmap_count;
+    int32_t channels;
     SamplePeaksPrecision precision;
     bool cpu_accessible;
     virtual ~SamplePeaks() {}

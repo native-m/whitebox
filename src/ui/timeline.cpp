@@ -88,8 +88,7 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
                 double scale_x = sample_scale * (double)asset->sample_instance.sample_rate;
                 double inv_scale_x = 1.0 / scale_x;
                 double mip_index = (std::log(scale_x * 0.5) * log_base4) * 0.5; // Scale -> Index
-                uint32_t index =
-                    std::clamp((uint32_t)mip_index, 0u, sample_peaks->mipmap_count - 1);
+                int32_t index = std::clamp((int32_t)mip_index, 0, sample_peaks->mipmap_count - 1);
                 double mult = std::pow(4.0, (double)index - 1.0);
                 double mip_scale = std::pow(4.0, 2.0 * (mip_index - (double)index)) * 8.0 *
                                    mult; // Index -> Mip Scale

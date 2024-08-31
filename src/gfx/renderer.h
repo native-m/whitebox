@@ -25,7 +25,7 @@ struct ClipContentDrawCmd {
     ImVec2 max_bb;
     ImColor color;
     float scale_x;
-    uint32_t mip_index;
+    int32_t mip_index;
     uint32_t start_idx;
     uint32_t draw_count;
 };

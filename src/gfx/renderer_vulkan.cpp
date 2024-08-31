@@ -863,7 +863,7 @@ std::shared_ptr<SamplePeaks> RendererVK::create_sample_peaks(const Sample& sampl
 
     std::shared_ptr<SamplePeaksVK> ret {std::make_shared<SamplePeaksVK>()};
     ret->sample_count = sample.count;
-    ret->mipmap_count = (uint32_t)mipmap.size();
+    ret->mipmap_count = (int32_t)mipmap.size();
     ret->channels = sample.channels;
     ret->precision = precision;
     ret->cpu_accessible = false;
@@ -905,6 +905,8 @@ void RendererVK::new_frame() {
     cmd_buf.immediate_vtx_offset = 0;
     cmd_buf.immediate_idx_offset = 0;
     cmd_buf.polygon_vtx_offset = 0;
+
+    //g_vsync_provider->wait_for_vblank();
 }
 
 void RendererVK::end_frame() {
