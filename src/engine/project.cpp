@@ -116,7 +116,6 @@ void ProjectFile::read_clip(Clip* clip) {
         case ClipType::Audio: {
             uint32_t sample_idx;
             file.read((char*)&sample_idx, sizeof(uint32_t));
-            file.read((char*)&clip->audio.sample_offset, sizeof(double));
             clip->audio.asset = sample_asset[sample_idx];
             clip->audio.asset->add_ref();
             break;
@@ -194,7 +193,6 @@ void ProjectFile::write_clip(Clip* clip) {
         case ClipType::Audio: {
             uint32_t sample_idx = sample_index_map[clip->audio.asset->hash];
             file.write((char*)&sample_idx, sizeof(uint32_t));
-            file.write((char*)&clip->audio.sample_offset, sizeof(double));
             break;
         }
         case ClipType::Unknown:

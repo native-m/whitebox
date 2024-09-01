@@ -336,6 +336,7 @@ void App::shutdown() {
     g_timeline.shutdown();
     shutdown_audio_io();
     g_engine.clear_all();
+    g_cmd_manager.reset();
     g_sample_table.shutdown();
     g_midi_table.shutdown();
     shutdown_renderer();

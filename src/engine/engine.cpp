@@ -128,7 +128,7 @@ Clip* Engine::add_clip_from_file(Track* track, const std::filesystem::path& path
         double clip_length =
             samples_to_beat(sample_asset->sample_instance.count, sample_rate, beat_duration);
         double max_time = min_time + math::uround(clip_length * ppq) / ppq;
-        clip = track->add_audio_clip(path.filename().string(), min_time, max_time,
+        clip = track->add_audio_clip(path.filename().string(), min_time, max_time, 0.0,
                                      {.asset = sample_asset}, beat_duration);
         if (!clip) {
             sample_asset->release();
@@ -139,7 +139,7 @@ Clip* Engine::add_clip_from_file(Track* track, const std::filesystem::path& path
     }
 
     if (MidiAsset* midi_asset = g_midi_table.load_from_file(path)) {
-        clip = track->add_midi_clip("", min_time, min_time + midi_asset->data.max_length,
+        clip = track->add_midi_clip("", min_time, min_time + midi_asset->data.max_length, 0.0,
                                     {.asset = midi_asset}, beat_duration);
         if (!clip) {
             midi_asset->release();

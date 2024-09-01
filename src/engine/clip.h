@@ -27,14 +27,12 @@ enum class ClipHover {
 
 struct AudioClip {
     SampleAsset* asset;
-    double sample_offset;
     double fade_start;
     double fade_end;
 };
 
 struct MidiClip {
     MidiAsset* asset;
-    double relative_start_time {};
     uint32_t msg;
 };
 
@@ -75,6 +73,7 @@ struct Clip {
         type(clip.type),
         name(clip.name),
         color(clip.color),
+        active(clip.active.load(std::memory_order_relaxed)),
         min_time(clip.min_time),
         max_time(clip.max_time),
         start_offset(clip.start_offset) {
@@ -92,6 +91,27 @@ struct Clip {
         }
     }
 
+    Clip(Clip&& clip) noexcept :
+        id(WB_INVALID_CLIP_ID),
+        type(std::exchange(clip.type, {})),
+        name(std::exchange(clip.name, {})),
+        color(std::exchange(clip.color, {})),
+        active(clip.active.exchange(false, std::memory_order_relaxed)),
+        min_time(std::exchange(clip.min_time, {})),
+        max_time(std::exchange(clip.max_time, {})),
+        start_offset(std::exchange(clip.start_offset, {})) {
+        switch (type) {
+            case ClipType::Audio:
+                audio = clip.audio;
+                break;
+            case ClipType::Midi:
+                midi = clip.midi;
+                break;
+            default:
+                break;
+        }
+    }
+
     ~Clip() {
         switch (type) {
             case ClipType::Audio:
@@ -103,7 +123,28 @@ struct Clip {
                     midi.asset->release();
                 break;
             default:
-                WB_UNREACHABLE();
+                break;
+        }
+    }
+
+    Clip& operator=(Clip&& clip) noexcept {
+        id = WB_INVALID_CLIP_ID;
+        type = std::exchange(clip.type, {});
+        name = std::exchange(clip.name, {});
+        color = std::exchange(clip.color, {});
+        active = clip.active.exchange(false, std::memory_order_relaxed);
+        min_time = std::exchange(clip.min_time, {});
+        max_time = std::exchange(clip.max_time, {});
+        start_offset = std::exchange(clip.start_offset, {});
+        switch (type) {
+            case ClipType::Audio:
+                audio = std::exchange(clip.audio, {});
+                break;
+            case ClipType::Midi:
+                midi = std::exchange(clip.midi, {});
+                break;
+            default:
+                break;
         }
     }
 
