@@ -3,7 +3,7 @@
 
 #include "waveform.glsli"
 
-layout(location = 0) out float width;
+layout(location = 0) out float coverage;
 
 layout(set = 0, binding = 0) readonly buffer WaveformBuffer {
     uint minmax[];
@@ -46,7 +46,7 @@ void main() {
     pos.y = draw_cmd.origin.y + offset_y + -y * offset_y;
     
     gl_Position.x = pos.x * draw_cmd.vp_width - 1.0f;
-    gl_Position.y = -(1.0 - pos.y * draw_cmd.vp_height);
+    gl_Position.y = pos.y * draw_cmd.vp_height - 1.0f;
     gl_Position.zw = vec2(0.5f, 1.0f);
-    width = 1.0f;
+    coverage = 1.0f;
 }
