@@ -215,6 +215,19 @@ struct Vector {
             intern_.data[intern_.size].~T();
     }
 
+    inline void clear(const bool fast = false) noexcept {
+        if constexpr (!std::is_trivially_destructible_v<T>) {
+            T* begin_ptr = intern_.data;
+            for (size_t i = 0; i < intern_.size; i++) {
+                T* item = begin_ptr + i;
+                item->~T();
+            }
+        } else {
+            std::memset(intern_.data, 0, intern_.size * sizeof(T));
+        }
+        intern_.size = 0;
+    }
+
     inline void resize(size_t new_size)
         requires std::default_initializable<T>
     {
