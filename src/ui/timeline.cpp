@@ -1131,8 +1131,8 @@ void GuiTimeline::render_track_lanes() {
 
             ImVec2 a(timeline_scroll_offset_x_f32 + (float)min_time, selection_start_y);
             ImVec2 b(timeline_scroll_offset_x_f32 + (float)max_time, selection_end_y);
-            layer1_draw_list->AddRectFilled(a, b, selection_range_fill);
-            layer1_draw_list->AddRect(a, b, selection_range_border);
+            layer2_draw_list->AddRectFilled(a, b, selection_range_fill);
+            layer2_draw_list->AddRect(a, b, selection_range_border);
         }
 
         layer3_draw_list->PopClipRect();
