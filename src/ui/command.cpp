@@ -108,8 +108,31 @@ void ClipResizeCmd::undo() {
     clip_id = clip->id;
 }
 
-void ClipDeleteRegionCmd::execute() {
+void ClipDeleteCmd::execute() {
+    Track* track = g_engine.tracks[track_id];
+    Clip* clip = track->clips[clip_id];
+    g_engine.delete_clip(track, clip);
+}
 
+void ClipDeleteCmd::undo() {
+    double beat_duration = g_engine.get_beat_duration();
+    Track* track = g_engine.tracks[track_id];
+    g_engine.edit_lock();
+    if (clip_state.is_audio()) {
+        clip_state.audio.asset->add_ref();
+        track->add_audio_clip(clip_state.name, clip_state.min_time, clip_state.max_time,
+                              clip_state.start_offset, clip_state.audio, beat_duration,
+                              clip_state.is_active());
+    } else {
+        clip_state.midi.asset->add_ref();
+        track->add_midi_clip(clip_state.name, clip_state.min_time, clip_state.max_time,
+                             clip_state.start_offset, clip_state.midi, beat_duration,
+                             clip_state.is_active());
+    }
+    g_engine.edit_unlock();
+}
+
+void ClipDeleteRegionCmd::execute() {
 }
 
 void ClipDeleteRegionCmd::undo() {

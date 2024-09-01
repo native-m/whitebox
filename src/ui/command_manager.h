@@ -21,12 +21,17 @@ struct EmptyCmd {
 
 struct HistoryItem {
     std::string name;
-    std::variant<EmptyCmd, ClipMoveCmd, ClipShiftCmd, ClipResizeCmd> data;
+    std::variant<EmptyCmd, ClipMoveCmd, ClipShiftCmd, ClipResizeCmd, ClipDeleteCmd> data;
 
-    template <typename T>
+    template <CommandType T>
     void set(const std::string& new_name, T&& new_data) {
         name = new_name;
         data = std::move(new_data);
+    }
+
+    void unset() {
+        name.clear();
+        data = EmptyCmd {};
     }
 };
 
@@ -42,7 +47,7 @@ struct CommandManager {
     void init(uint32_t max_items);
     void undo();
     void redo();
-    void clear_history();
+    void reset();
     void signal_all_update_listeners();
 
     template <CommandType T>

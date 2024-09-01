@@ -14,7 +14,7 @@ void render_history_window() {
     }
 
     if (ImGui::Button("Clear All")) {
-        g_cmd_manager.clear_history();
+        g_cmd_manager.reset();
     }
 
     ImVec2 space = ImGui::GetContentRegionAvail();

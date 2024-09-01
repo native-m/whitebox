@@ -178,12 +178,15 @@ struct Track {
      * @param name Name of the clip.
      * @param min_time Start time in beats.
      * @param max_time End time in beats.
+     * @param start_offset Clip content start offset in sample units.
      * @param clip_info Audio clip data.
      * @param beat_duration Duration of the beat in seconds.
+     * @param active Activate clip.
      * @return A pointer to the new clip.
      */
     Clip* add_audio_clip(const std::string& name, double min_time, double max_time,
-                         const AudioClip& clip_info, double beat_duration);
+                         double start_offset, const AudioClip& clip_info, double beat_duration,
+                         bool active = true);
 
     /**
      * @brief Add midi clip into the track.
@@ -191,12 +194,15 @@ struct Track {
      * @param name Name of the clip.
      * @param min_time Start time in beats.
      * @param max_time End time in beats.
+     * @param start_offset Clip content start offset in beat units.
      * @param clip_info Audio clip data.
      * @param beat_duration Duration of the beat in seconds.
+     * @param active Activate clip.
      * @return A pointer to the new clip.
      */
     Clip* add_midi_clip(const std::string& name, double min_time, double max_time,
-                        const MidiClip& clip_info, double beat_duration);
+                        double start_offset, const MidiClip& clip_info, double beat_duration,
+                        bool active = true);
 
     /**
      * @brief Create a new clip from existing clip.

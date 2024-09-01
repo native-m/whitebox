@@ -51,20 +51,11 @@ struct GuiTimeline : public TimelineBase {
     ImVec2 area_size;
     ImVec2 old_timeline_size;
     ImVec2 last_mouse_pos;
-    //float timeline_width = 0.0f;
-    //float separator_pos = 150.0f;
 
-    /*double inv_ppq = 0.0;
-    double playhead = 0.0;
-    double song_length = 10000.0;
-    double last_hscroll = 0.0;
-    double min_hscroll = 0.0;
-    double max_hscroll = 0.074081648971430242;*/
     double initial_time_pos = 0.0;
     float vscroll = 0.0f;
     float last_vscroll = 0.0f;
     float scroll_delta_y = 0.0f;
-    //float grid_scale = 4.0f;
 
     Vector<SelectionRange> selection_ranges;
     TargetSelectionRange target_sel_range;
@@ -73,10 +64,6 @@ struct GuiTimeline : public TimelineBase {
     bool zooming = false;
     bool selecting_range = false;
     bool range_selected = false;
-    /*bool zooming_on_ruler = false;
-    bool grabbing_scroll = false;
-    bool resizing_lhs_scroll_grab = false;
-    bool resizing_rhs_scroll_grab = false;*/
 
     Track* edited_track {};
     Clip* edited_clip {};
@@ -91,6 +78,7 @@ struct GuiTimeline : public TimelineBase {
     float hovered_track_height = 60.0f;
 
     // Context menu stuff...
+    std::optional<uint32_t> context_menu_track_id {};
     Track* context_menu_track {};
     Clip* context_menu_clip {};
     ImColor tmp_color;

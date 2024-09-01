@@ -521,6 +521,7 @@ void GuiTimeline::track_context_menu(Track& track, int track_id) {
         ImGui::MenuItem("Duplicate");
 
         if (ImGui::MenuItem("Delete")) {
+
             g_engine.edit_lock();
             g_engine.delete_track((uint32_t)track_id);
             g_engine.edit_unlock();
@@ -585,7 +586,10 @@ void GuiTimeline::clip_context_menu() {
         }
 
         if (ImGui::MenuItem("Delete")) {
-            g_engine.delete_clip(context_menu_track, context_menu_clip);
+            double beat_duration = g_engine.get_beat_duration();
+            g_cmd_manager.execute("Delete Clip", ClipDeleteCmd(context_menu_track_id.value(),
+                                                               context_menu_clip->id,
+                                                               *context_menu_clip, beat_duration));
             recalculate_song_length();
             force_redraw = true;
         }
@@ -1020,7 +1024,6 @@ void GuiTimeline::render_track_lanes() {
         ClipType type = edited_clip->type;
         double min_time = edited_clip->min_time;
         double max_time = edited_clip->max_time;
-        double sample_offset = (double)edited_clip->audio.sample_offset;
         double relative_pos = mouse_at_gridline - initial_time_pos;
         double content_offset = edited_clip->start_offset;
 
@@ -1255,6 +1258,7 @@ void GuiTimeline::render_track_lanes() {
                 break;
             case TimelineEditAction::ShowClipContextMenu:
                 ImGui::OpenPopup("clip_context_menu");
+                context_menu_track_id = edited_track_id;
                 context_menu_track = edited_track;
                 context_menu_clip = edited_clip;
                 tmp_color = edited_clip->color;

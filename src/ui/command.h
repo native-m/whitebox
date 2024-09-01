@@ -67,6 +67,35 @@ struct ClipDuplicateCmd {
     void undo();
 };
 
+struct ClipDeleteCmd {
+    uint32_t track_id;
+    uint32_t clip_id;
+    Clip clip_state;
+    double last_beat_duration;
+
+    ClipDeleteCmd(uint32_t track_id, uint32_t clip_id, const Clip& clip,
+                  double last_beat_duration) :
+        track_id(track_id),
+        clip_id(clip_id),
+        clip_state(clip),
+        last_beat_duration(last_beat_duration) {}
+
+    ClipDeleteCmd(ClipDeleteCmd&& other) :
+        track_id(std::exchange(other.track_id, {})),
+        clip_id(std::exchange(other.clip_id, {})),
+        clip_state(std::move(other.clip_state)) {}
+
+    ClipDeleteCmd& operator=(ClipDeleteCmd&& other) {
+        track_id = std::exchange(other.track_id, {});
+        clip_id = std::exchange(other.clip_id, {});
+        clip_state = std::move(other.clip_state);
+        return *this;
+    }
+
+    void execute();
+    void undo();
+};
+
 struct ClipDeleteRegionCmd {
     uint32_t first_track_id;
     uint32_t last_track_id;

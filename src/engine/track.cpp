@@ -93,24 +93,30 @@ void Track::set_mute(bool mute) {
 }
 
 Clip* Track::add_audio_clip(const std::string& name, double min_time, double max_time,
-                            const AudioClip& clip_info, double beat_duration) {
+                            double start_offset, const AudioClip& clip_info, double beat_duration,
+                            bool active) {
     Clip* clip = (Clip*)clip_allocator.allocate();
     if (!clip)
         return nullptr;
     new (clip) Clip(name, color, min_time, max_time);
     clip->init_as_audio_clip(clip_info);
+    clip->start_offset = start_offset;
+    clip->active.store(active, std::memory_order_release);
     clips.push_back(clip);
     update(clip, beat_duration);
     return clip;
 }
 
 Clip* Track::add_midi_clip(const std::string& name, double min_time, double max_time,
-                           const MidiClip& clip_info, double beat_duration) {
+                           double start_offset, const MidiClip& clip_info, double beat_duration,
+                           bool active) {
     Clip* clip = (Clip*)clip_allocator.allocate();
     if (!clip)
         return nullptr;
     new (clip) Clip(name, color, min_time, max_time);
     clip->init_as_midi_clip(clip_info);
+    clip->start_offset = start_offset;
+    clip->active.store(active, std::memory_order_release);
     clips.push_back(clip);
     update(clip, beat_duration);
     return clip;
@@ -304,8 +310,8 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
     if (clips.size() == 0)
         return;
 
-    Clip* current_clip = event_state.current_clip_idx ? clips[*event_state.current_clip_idx]
-                                                      : nullptr;
+    Clip* current_clip =
+        event_state.current_clip_idx ? clips[*event_state.current_clip_idx] : nullptr;
     Clip* next_clip = event_state.next_clip_idx && event_state.next_clip_idx < clips.size()
                           ? clips[*event_state.next_clip_idx]
                           : nullptr;
@@ -354,8 +360,7 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
                 case ClipType::Audio: {
                     double sample_pos =
                         beat_to_samples(relative_start_time, sample_rate, beat_duration);
-                    uint64_t sample_offset =
-                        (uint64_t)(sample_pos + next_clip->start_offset);
+                    uint64_t sample_offset = (uint64_t)(sample_pos + next_clip->start_offset);
                     audio_event_buffer.push_back({
                         .type = EventType::PlaySample,
                         .buffer_offset = buffer_offset,
@@ -498,7 +503,8 @@ void Track::process(AudioBuffer<float>& output_buffer, double sample_rate, bool 
         switch (queue.id) {
             case TrackParameter_Volume:
                 parameter_state.volume = (float)last_value;
-                Log::debug("Volume changed: {}", parameter_state.volume);
+                Log::debug("Volume changed: {} {}", parameter_state.volume,
+                           math::linear_to_db(parameter_state.volume));
                 break;
             case TrackParameter_Pan:
                 parameter_state.pan = (float)last_value;
