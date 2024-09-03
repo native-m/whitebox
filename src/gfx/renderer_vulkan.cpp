@@ -727,6 +727,7 @@ std::shared_ptr<SamplePeaks> RendererVK::create_sample_peaks(const Sample& sampl
     struct BufferCopy {
         VkBuffer staging_buffer {};
         VmaAllocation staging_allocation {};
+        VmaPool staging_pool {};
         VkBuffer dst_buffer {};
         VkDeviceSize size {};
     };
@@ -739,6 +740,8 @@ std::shared_ptr<SamplePeaks> RendererVK::create_sample_peaks(const Sample& sampl
             if (buffer_copy.staging_buffer && buffer_copy.staging_allocation)
                 vmaDestroyBuffer(allocator_, buffer_copy.staging_buffer,
                                  buffer_copy.staging_allocation);
+            if (buffer_copy.staging_pool)
+                vmaDestroyPool(allocator_, buffer_copy.staging_pool);
         }
         if (failed) {
             for (auto& mip : mipmap) {
@@ -793,6 +796,23 @@ std::shared_ptr<SamplePeaks> RendererVK::create_sample_peaks(const Sample& sampl
         staging_buffer_info.size = buffer_info.size;
         buffer_copy.size = buffer_info.size;
         mip.sample_count = (uint32_t)required_length;
+
+        uint32_t memory_type_index;
+        VK_CHECK(vmaFindMemoryTypeIndexForBufferInfo(allocator_, &staging_buffer_info,
+                                                     &staging_alloc_info, &memory_type_index));
+
+        VmaPoolCreateInfo staging_pool_info {
+            .memoryTypeIndex = memory_type_index,
+            .flags = VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT,
+            .blockSize = buffer_info.size,
+        };
+
+        if (VK_FAILED(vmaCreatePool(allocator_, &staging_pool_info, &buffer_copy.staging_pool))) {
+            failed = true;
+            return {};
+        }
+
+        staging_alloc_info.pool = buffer_copy.staging_pool;
 
         if (VK_FAILED(vmaCreateBuffer(allocator_, &staging_buffer_info, &staging_alloc_info,
                                       &buffer_copy.staging_buffer, &buffer_copy.staging_allocation,
