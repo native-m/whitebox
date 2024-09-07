@@ -50,7 +50,7 @@ CPMAddPackage(
 
 CPMAddPackage(
     NAME                imgui
-    VERSION             1.91.0-docking
+    VERSION             1.91.1-docking
     GITHUB_REPOSITORY   ocornut/imgui
     DOWNLOAD_ONLY       YES
 )
@@ -121,6 +121,7 @@ CPMAddPackage(
     EXCLUDE_FROM_ALL
 )
 
+# Required for vorbis
 CPMAddPackage(
     NAME                ogg
     GITHUB_REPOSITORY   xiph/ogg
