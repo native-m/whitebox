@@ -7,7 +7,9 @@
 #include <algorithm>
 
 #ifndef _NDEBUG
-#define WB_LOG_CLIP_ORDERING 1
+#define WB_DBG_LOG_CLIP_ORDERING 1
+#define WB_DBG_LOG_NOTE_ON_EVENT 1
+#define WB_DBG_LOG_AUDIO_EVENT 1
 #endif
 
 namespace wb {
@@ -253,7 +255,7 @@ void Track::update(Clip* updated_clip, double beat_duration) {
         clips[i]->id = i;
     }
 
-#if WB_LOG_CLIP_ORDERING
+#if WB_DBG_LOG_CLIP_ORDERING
     Log::debug("--- Clip Ordering ---");
     for (auto clip : clips) {
         Log::debug("{:x}: {} ({}, {}, {} -> {})", (uint64_t)clip, clip->name, clip->id,
@@ -338,7 +340,6 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
             }
             if (time_pos < min_time || current_clip->is_deleted()) {
                 event_state.next_clip_idx = find_next_clip(time_pos);
-                Log::debug("{}", event_state.next_clip_idx.value_or(WB_INVALID_CLIP_ID));
             }
             event_state.current_clip_idx.reset();
         } else {
@@ -455,12 +456,14 @@ void Track::process_midi_event(Clip* clip, uint32_t buffer_offset, double time_p
                 },
         });
 
+#if WB_DBG_LOG_NOTE_ON_EVENT
         char note_str[8] {};
         fmt::format_to_n(note_str, std::size(note_str), "{}{}",
                          get_midi_note_scale(note.note_number),
                          get_midi_note_octave(note.note_number));
         Log::debug("Note on: {} {} {} -> {} at {}", note.id, note_str, min_time, max_time,
                    time_pos);
+#endif
 
         event_state.midi_note_idx++;
     }
@@ -525,6 +528,7 @@ void Track::process(AudioBuffer<float>& output_buffer, double sample_rate, bool 
             if (event != end) {
                 uint32_t event_length = event->buffer_offset - start_sample;
                 render_sample(output_buffer, start_sample, event_length, sample_rate);
+#if WB_DBG_LOG_AUDIO_EVENT
                 switch (event->type) {
                     case EventType::StopSample:
                         Log::debug("Stop {} {}", event->time, event->buffer_offset);
@@ -535,6 +539,7 @@ void Track::process(AudioBuffer<float>& output_buffer, double sample_rate, bool 
                     default:
                         break;
                 }
+#endif
                 current_audio_event = *event;
                 start_sample += event_length;
                 event++;
@@ -653,6 +658,7 @@ void Track::process_test_synth(AudioBuffer<float>& output_buffer, double sample_
     uint32_t next_buffer_offset = 0;
     while (start_sample < output_buffer.n_samples) {
         if (event_idx < event_count) {
+            // Find next event buffer offset
             for (uint32_t i = event_idx; i < event_count; i++) {
                 MidiEvent& event = midi_event_list.get_event(i);
                 if (start_sample > event.buffer_offset) {
@@ -661,9 +667,11 @@ void Track::process_test_synth(AudioBuffer<float>& output_buffer, double sample_
                 next_buffer_offset = event.buffer_offset;
             }
 
+            // Continue until the next event
             uint32_t event_length = next_buffer_offset - start_sample;
             test_synth.render(output_buffer, sample_rate, start_sample, event_length);
 
+            // Set next state
             for (; event_idx < event_count; event_idx++) {
                 MidiEvent& event = midi_event_list.get_event(event_idx);
                 if (start_sample > event.buffer_offset) {

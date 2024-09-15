@@ -25,6 +25,7 @@ extern "C" {
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_vulkan.h>
 
+#define VULKAN_ENABLE_VALIDATION_AND_DEBUG_MSG 0
 #define VULKAN_LOG_RESOURCE_DISPOSAL 0
 
 #ifdef NDEBUG
@@ -674,18 +675,22 @@ std::shared_ptr<Framebuffer> RendererVK::create_framebuffer(uint32_t width, uint
         .layers = 1,
     };
 
+#if VULKAN_ENABLE_VALIDATION_AND_DEBUG_MSG
     VkDebugUtilsObjectNameInfoEXT debug_info {
         .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
         .objectType = VK_OBJECT_TYPE_IMAGE,
         .pObjectName = "Framebuffer",
     };
+#endif
 
     for (uint32_t i = 0; i < frame_latency_; i++) {
         VK_CHECK(vmaCreateImage(allocator_, &image_info, &alloc_info, &fb->image[i],
                                 &fb->allocations[i], nullptr));
 
+#if VULKAN_ENABLE_VALIDATION_AND_DEBUG_MSG
         debug_info.objectHandle = (uint64_t)fb->image[i];
         vkSetDebugUtilsObjectNameEXT(device_, &debug_info);
+#endif
 
         view_info.image = fb->image[i];
         VK_CHECK(vkCreateImageView(device_, &view_info, nullptr, &fb->view[i]));
@@ -1633,12 +1638,14 @@ bool RendererVK::init_swapchain_() {
         .objectType = VK_OBJECT_TYPE_IMAGE,
     };
 
-    char obj_name[64] {};
     for (uint32_t i = 0; i < frame_latency_; i++) {
+#if VULKAN_ENABLE_VALIDATION_AND_DEBUG_MSG
+        char obj_name[64] {};
         fmt::format_to(obj_name, "Swapchain Image {}", i);
         debug_info.pObjectName = obj_name;
         debug_info.objectHandle = (uint64_t)swapchain_images[i];
         vkSetDebugUtilsObjectNameEXT(device_, &debug_info);
+#endif
 
         main_framebuffer_.image[i] = swapchain_images[i];
         main_framebuffer_.view[i] = swapchain_image_views[i];
@@ -1971,9 +1978,11 @@ Renderer* RendererVK::create(App* app) {
     uint32_t vulkan_api_version = VKB_VK_API_VERSION_1_1;
     auto inst_ret = vkb::InstanceBuilder()
                         .set_app_name("wb_vulkan")
+#if VULKAN_ENABLE_VALIDATION_AND_DEBUG_MSG
                         .enable_extension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)
                         .request_validation_layers()
                         .use_default_debug_messenger()
+#endif
                         .require_api_version(vulkan_api_version)
                         .set_minimum_instance_version(vulkan_api_version)
                         .build();
