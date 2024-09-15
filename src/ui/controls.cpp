@@ -44,10 +44,6 @@ static bool slider2_ranged(const SliderProperties& properties, const char* str_i
                            const char* format = "%.2f") {
     ImGuiWindow* window = GImGui->CurrentWindow;
     ImVec2 cursor_pos = window->DC.CursorPos;
-    // ImVec2 padded_size(size.x - properties.extra_padding.x, size.y - properties.extra_padding.y);
-    // cursor_pos.x += properties.extra_padding.x;
-    // cursor_pos.y += properties.extra_padding.y;
-
     ImRect bb(ImVec2(cursor_pos.x, cursor_pos.y), ImVec2(cursor_pos.x, cursor_pos.y) + size);
     ImGuiID id = ImGui::GetID(str_id);
 
@@ -132,7 +128,7 @@ bool param_drag_db(const char* str_id, float* value, float speed, float min_db, 
                    const char* format, ImGuiSliderFlags flags) {
     char tmp[16] {};
     const char* str_value = tmp;
-    flags |= ImGuiSliderFlags_AlwaysClamp | ImGuiSliderFlags_Logarithmic;
+    flags |= ImGuiSliderFlags_AlwaysClamp;
 
     if (*value > min_db) {
         str_value = "%.2fdb";
