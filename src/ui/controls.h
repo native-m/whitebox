@@ -239,7 +239,7 @@ bool param_drag_db(const char* str_id, float* value, float speed = 0.1f, float m
                    float max_db = 6.0f, const char* format = "%.2fdB",
                    ImGuiSliderFlags flags = ImGuiSliderFlags_Vertical);
 bool param_slider_db(const SliderProperties& properties, const char* str_id, const ImVec2& size,
-                     const ImColor& color, float* value, float min_db = -72.0f, float max_db = 6.0f,
+                     const ImColor& color, float* value, const NonLinearRange& db_range,
                      float default_value = 0.0f);
 bool mixer_label(const char* caption, const float height, const ImColor& color);
 void level_meter_options();

@@ -146,6 +146,7 @@ struct Clip {
             default:
                 break;
         }
+        return *this;
     }
 
     inline void init_as_audio_clip(const AudioClip& clip_info) {

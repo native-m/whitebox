@@ -98,7 +98,7 @@ struct GuiTimeline : public TimelineBase {
     void render_track_lanes();
     void finish_edit_action();
     void recalculate_song_length();
-    
+
     void delete_selected_range();
 
     inline void redraw_screen() { force_redraw = true; }

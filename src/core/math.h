@@ -53,8 +53,8 @@ inline T fract(T x) {
 }
 
 template <std::floating_point T>
-inline T exponential_ease(T x, T y) {
-    if (abs(y) < T(0.01)) {
+inline T exponential_ease(T x, T y, T linear_thresh = T(0.01)) {
+    if (abs(y) < linear_thresh) {
         return x;
     }
     return (std::exp(x * y) - T(1.0)) / (std::exp(y) - T(1.0));
@@ -84,6 +84,40 @@ inline T normalize_value(T value, T min_val, T max_val) {
 }
 
 } // namespace math
+
+template <typename T, typename V>
+concept NormalizedRange = requires(T a, V v) {
+    { v } -> std::floating_point;
+    { a.plain_to_normalized(v) } -> std::floating_point;
+    { a.normalized_to_plain(v) } -> std::floating_point;
+};
+
+struct NonLinearRange {
+    float min_val;
+    float max_val;
+    float range;
+    float power;
+    float exp_norm;
+
+    NonLinearRange(float min, float max, float power) : power(power) {
+        min_val = min;
+        max_val = max;
+        range = max - min;
+        exp_norm = (float)(std::exp((double)power) - 1.0);
+    }
+
+    inline float plain_to_normalized(float plain) const {
+        float input = math::clamp(plain, min_val, max_val);
+        float normalized = std::log((plain - min_val) / range * exp_norm + 1.0) / power;
+        return normalized;
+    }
+
+    inline float normalized_to_plain(float normalized) const {
+        float input = math::clamp(normalized, 0.0f, 1.0f);
+        float v = (std::exp(normalized * power) - 1.0f) / exp_norm;
+        return v * range + min_val;
+    }
+};
 
 template <typename T>
 inline bool is_pow_2(T x) {
