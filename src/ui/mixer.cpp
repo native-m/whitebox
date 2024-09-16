@@ -62,6 +62,11 @@ void GuiMixer::render() {
                                       track->color, &volume, db_range)) {
             track->set_volume(volume);
         }
+
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
+            ImGui::OpenPopup("MIXER_VOLUME_CONTEXT_MENU"); 
+        }
+
         ImGui::SameLine();
 
         ImGui::SetCursorPos(ImGui::GetCursorPos() + ImVec2(0.0f, 10.0f));
@@ -71,6 +76,13 @@ void GuiMixer::render() {
             ImGui::OpenPopup("LEVEL_METER_MENU");
         }
         ImGui::SameLine();
+
+        if (ImGui::BeginPopup("MIXER_VOLUME_CONTEXT_MENU")) {
+            if (ImGui::MenuItem("Reset Parameter")) {
+                track->set_volume(0.0f);
+            }
+            ImGui::EndPopup();
+        }   
 
         if (ImGui::BeginPopup("LEVEL_METER_MENU")) {
             ImGui::MenuItem("Color mode", nullptr, nullptr, false);
