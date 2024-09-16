@@ -8,6 +8,14 @@ namespace wb {
 
 namespace math {
 
+template <std::floating_point T>
+static constexpr T small_value = [] {
+    if constexpr (std::same_as<T, float>)
+        return 0.000001f;
+    else
+        return 0.000000000000001f;
+}();
+
 inline auto abs(NumericalType auto x) {
     return x < 0 ? -x : x;
 }
@@ -81,6 +89,16 @@ inline T lerp(T x, T a, T b) {
 template <std::floating_point T>
 inline T normalize_value(T value, T min_val, T max_val) {
     return (min_val - value) / (min_val - max_val);
+}
+
+template <std::floating_point T>
+inline bool near_equal(T a, T b, T eps = small_value<T>) {
+    return abs(a - b) < eps;
+}
+
+template <std::floating_point T>
+inline bool near_equal_to_zero(T value, T eps = small_value<T>) {
+    return abs(value) < eps;
 }
 
 } // namespace math

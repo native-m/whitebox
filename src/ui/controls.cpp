@@ -40,7 +40,7 @@ void song_position() {
 template <typename T>
 static bool slider2_ranged(const SliderProperties& properties, const char* str_id,
                            const ImVec2& size, const ImColor& color, T* value,
-                           const NonLinearRange& db_range, T default_value = 1.0f,
+                           const NonLinearRange& db_range, T default_value = 0.0f,
                            const char* format = "%.2f") {
     ImGuiWindow* window = GImGui->CurrentWindow;
     ImVec2 cursor_pos = window->DC.CursorPos;
@@ -75,20 +75,29 @@ static bool slider2_ranged(const SliderProperties& properties, const char* str_i
     float inv_scroll_height = 1.0f / scroll_height;
     // Log::debug("{}", normalized_value);
 
-    if (ImGui::IsItemActivated())
+    if (ImGui::IsItemActivated()) {
         g.SliderGrabClickOffset =
             mouse_pos.y - ((1.0f - (float)normalized_value) * scroll_height + cursor_pos.y);
+    }
+
+    float inv_normalized_default_value = 0.0f;
+    if (held || properties.with_default_value_tick)
+        inv_normalized_default_value = 1.0f - (float)db_range.plain_to_normalized(default_value);
 
     if (held) {
-        float val = (mouse_pos.y - cursor_pos.y - g.SliderGrabClickOffset) * inv_scroll_height;
+        float current_grab_pos = math::round(mouse_pos.y - cursor_pos.y - g.SliderGrabClickOffset);
+        float default_value_grab_pos = math::round(inv_normalized_default_value * scroll_height);
+        float val = !math::near_equal(current_grab_pos, default_value_grab_pos)
+                        ? current_grab_pos * inv_scroll_height
+                        : inv_normalized_default_value;
         normalized_value = std::clamp(1.0f - val, 0.0f, 1.0f);
         *value = (T)db_range.normalized_to_plain(normalized_value);
-        // ImGui::SetNextWindowPos(ImVec2())
         ImGui::BeginTooltip();
         ImGui::Text(format, *value);
         ImGui::EndTooltip();
     }
 
+    float half_grab_size_y = grab_size.y * 0.5f;
     float grab_pos = (1.0f - (float)normalized_value) * scroll_height;
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
     float center_x = cursor_pos.x + size.x * 0.5f;
@@ -98,14 +107,25 @@ static bool slider2_ranged(const SliderProperties& properties, const char* str_i
     // draw_list->AddRect(cursor_pos, bb.Max, frame_col);
     draw_list->AddRectFilled(frame_rect_min, frame_rect_max, frame_col);
 
+    if (properties.with_default_value_tick) {
+        float grab_pos = inv_normalized_default_value * scroll_height + half_grab_size_y;
+        grab_pos = math::round(grab_pos + cursor_pos.y);
+        draw_list->AddLine(ImVec2(cursor_pos.x, grab_pos), ImVec2(center_x - frame_width, grab_pos),
+                           frame_col);
+        draw_list->AddLine(ImVec2(center_x + frame_width, grab_pos), ImVec2(bb.Max.x, grab_pos),
+                           frame_col);
+    }
+
     if (properties.grab_shape == SliderGrabShape::Rectangle) {
+        constexpr float grab_tick_padding_x = 2.0f;
         ImVec2 grab_rect_min(center_x - grab_size.x * 0.5f, cursor_pos.y + math::round(grab_pos));
         ImVec2 grab_rect_max(grab_rect_min.x + grab_size.x, grab_rect_min.y + grab_size.y);
         draw_list->AddRectFilled(grab_rect_min, grab_rect_max, grab_col, properties.grab_roundness);
-        draw_list->AddLine(
-            ImVec2(grab_rect_min.x + 2.0f, grab_rect_min.y + grab_size.y * 0.5f),
-            ImVec2(grab_rect_min.x + grab_size.x - 2.0f, grab_rect_min.y + grab_size.y * 0.5f),
-            0xFFFFFFFF, 3.0f);
+        ImVec2 grab_tick_min(grab_rect_min.x + grab_tick_padding_x,
+                             grab_rect_min.y + grab_size.y * 0.5f);
+        ImVec2 grab_tick_max(grab_rect_min.x + grab_size.x - grab_tick_padding_x,
+                             grab_rect_min.y + grab_size.y * 0.5f);
+        draw_list->AddLine(grab_tick_min, grab_tick_max, 0xFFFFFFFF, 1.0f);
     } else {
         float radius1 = grab_size.x * 0.5f;
         float radius2 = grab_size.x * 0.25f;

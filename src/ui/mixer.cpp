@@ -44,9 +44,10 @@ void GuiMixer::render() {
     controls::SliderProperties mixer_slider = {
         .grab_shape = controls::SliderGrabShape::Rectangle,
         .grab_size = {16.0f, (size.y < 200.0f) ? 24.0f : 28.0f},
+        .extra_padding = {0.0f, 4.0f},
         .grab_roundness = 2.0f,
         .frame_width = 4.0f,
-        .extra_padding = {0.0f, 4.0f},
+        .with_default_value_tick = true,
     };
 
     // Log::info("{}", size.y);
@@ -58,7 +59,7 @@ void GuiMixer::render() {
         ImGui::SetCursorPos(ImGui::GetCursorPos() + ImVec2(0.0f, 10.0f));
 
         float volume = track->ui_parameter_state.volume_db;
-        if (controls::param_slider_db(mixer_slider, "##mixer_vol", ImVec2(16.0f, size.y - 20.0f),
+        if (controls::param_slider_db(mixer_slider, "##mixer_vol", ImVec2(22.0f, size.y - 20.0f),
                                       track->color, &volume, db_range)) {
             track->set_volume(volume);
         }

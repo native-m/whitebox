@@ -24,9 +24,10 @@ struct SliderProperties {
     SliderScale scale = SliderScale::Linear;
     SliderGrabShape grab_shape = SliderGrabShape::Circle;
     ImVec2 grab_size = {};
+    ImVec2 extra_padding = {};
     float grab_roundness = 0.0f;
     float frame_width = 0.0f;
-    ImVec2 extra_padding = {};
+    bool with_default_value_tick = false;
 };
 
 static bool begin_dockable_window(const char* title, bool* p_open = nullptr,
