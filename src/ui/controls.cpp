@@ -54,10 +54,6 @@ static bool slider2_ranged(const SliderProperties& properties, const char* str_i
     bool hovered, held;
     bool pressed = ImGui::ButtonBehavior(bb, id, &hovered, &held, ImGuiButtonFlags_None);
     bool dragging = held && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0.0f);
-    ImGuiContext& g = *ImGui::GetCurrentContext();
-    const ImVec2& mouse_pos = g.IO.MousePos;
-    ImU32 frame_col = ImGui::GetColorU32(ImGui::GetStyleColorVec4(ImGuiCol_Border));
-    ImU32 grab_col = ImGui::GetColorU32(color.Value);
     T normalized_value = (T)db_range.plain_to_normalized((float)*value);
     float frame_width = std::max(properties.frame_width, 3.0f);
     ImVec2 grab_size;
@@ -71,8 +67,10 @@ static bool slider2_ranged(const SliderProperties& properties, const char* str_i
         grab_size.y = diameter;
     }
 
+    ImGuiContext& g = *ImGui::GetCurrentContext();
     float scroll_height = size.y - grab_size.y;
     float inv_scroll_height = 1.0f / scroll_height;
+    const ImVec2& mouse_pos = g.IO.MousePos;
     // Log::debug("{}", normalized_value);
 
     if (ImGui::IsItemActivated()) {
@@ -99,14 +97,18 @@ static bool slider2_ranged(const SliderProperties& properties, const char* str_i
 
     float half_grab_size_y = grab_size.y * 0.5f;
     float grab_pos = (1.0f - (float)normalized_value) * scroll_height;
-    ImDrawList* draw_list = ImGui::GetWindowDrawList();
     float center_x = cursor_pos.x + size.x * 0.5f;
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
     ImVec2 frame_rect_min(center_x - frame_width * 0.5f, cursor_pos.y + grab_size.y * 0.5f);
     ImVec2 frame_rect_max(frame_rect_min.x + frame_width, frame_rect_min.y + scroll_height);
+    ImU32 frame_col = ImGui::GetColorU32(ImGui::GetStyleColorVec4(ImGuiCol_Border));
+    ImU32 grab_col = ImGui::GetColorU32(color.Value);
 
     // draw_list->AddRect(cursor_pos, bb.Max, frame_col);
+    // Draw frame
     draw_list->AddRectFilled(frame_rect_min, frame_rect_max, frame_col);
 
+    // Draw default value tick line
     if (properties.with_default_value_tick) {
         float grab_pos = inv_normalized_default_value * scroll_height + half_grab_size_y;
         grab_pos = math::round(grab_pos + cursor_pos.y);
@@ -116,6 +118,7 @@ static bool slider2_ranged(const SliderProperties& properties, const char* str_i
                            frame_col);
     }
 
+    // Draw grab
     if (properties.grab_shape == SliderGrabShape::Rectangle) {
         constexpr float grab_tick_padding_x = 2.0f;
         ImVec2 grab_rect_min(center_x - grab_size.x * 0.5f, cursor_pos.y + math::round(grab_pos));
