@@ -1,8 +1,8 @@
 #pragma once
 
 #include "common.h"
-#include "vector.h"
 #include "math.h"
+#include "vector.h"
 #include <array>
 #include <filesystem>
 
@@ -28,8 +28,8 @@ struct MidiData {
     std::array<MidiNoteBuffer, max_channels> channels;
     uint32_t channel_count = 0;
 
-    // These are for rendering, we need to know which is the lowest & highest note in the midi
-    // buffer so that we can calculate the right Y-scale in the timeline.
+    // This is for GUI rendering, we need to know which note is the lowest or highest note in the
+    // midi buffer so we can calculate the Y-scale for each note.
     uint32_t min_note = 0;
     uint32_t max_note = 0;
 

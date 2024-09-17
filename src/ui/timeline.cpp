@@ -253,9 +253,9 @@ Track* GuiTimeline::add_track() {
     auto track = g_engine.add_track("New Track");
     float hue = (float)color_spin / 15.0f;
     float sat_pos = std::pow(1.0 - math::abs(hue * 2.0f - 1.0f), 2.2f);
-    float saturation = sat_pos * (0.70f - 0.55f) + 0.55f;
+    float saturation = sat_pos * (0.68f - 0.55f) + 0.55f;
     Log::debug("{} {} {}", hue, sat_pos, saturation);
-    track->color = ImColor::HSV(hue, saturation, 0.75f);
+    track->color = ImColor::HSV(hue, saturation, 0.70f);
     color_spin = (color_spin + 1) % 15;
     g_engine.edit_unlock();
     redraw = true;
@@ -288,13 +288,11 @@ void GuiTimeline::render() {
         force_redraw = false;
 
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
-
     render_horizontal_scrollbar();
     double new_playhead_pos = 0.0;
     if (render_time_ruler(&new_playhead_pos)) {
         g_engine.set_playhead_position(new_playhead_pos);
     }
-
     ImGui::PopStyleVar();
 
     ImVec2 content_origin = ImGui::GetCursorScreenPos();
@@ -310,7 +308,7 @@ void GuiTimeline::render() {
     main_draw_list = ImGui::GetWindowDrawList();
     content_min = ImGui::GetWindowContentRegionMin();
     content_max = ImGui::GetWindowContentRegionMax();
-    area_size = ImVec2(content_max.x - content_min.x, content_max.y - content_min.y);
+    area_size = content_max - content_min;
     vscroll = ImGui::GetScrollY();
 
     ImGuiID scrollbar_id = ImGui::GetWindowScrollbarID(ImGui::GetCurrentWindow(), ImGuiAxis_Y);
@@ -333,14 +331,10 @@ void GuiTimeline::render() {
 
 // Render separator (resizer) between the track control and the track lane
 void GuiTimeline::render_separator() {
-    ImVec2 content_min = ImGui::GetWindowContentRegionMin();
-    ImVec2 content_max = ImGui::GetWindowContentRegionMax();
-    ImVec2 area_size = ImVec2(content_max.x - content_min.x, content_max.y - content_min.y);
-
     Layout layout;
     ImVec2 pos = layout.next(LayoutPosition::Fixed, ImVec2(separator_pos - 2.0f, 0.0f));
 
-    ImGui::InvisibleButton("##timeline_separator", ImVec2(4, area_size.y));
+    ImGui::InvisibleButton("##timeline_separator", ImVec2(4.0f, area_size.y));
     bool is_separator_active = ImGui::IsItemActive();
     bool is_separator_hovered = ImGui::IsItemHovered();
 
@@ -361,9 +355,6 @@ void GuiTimeline::render_separator() {
 
     float clamped_separator_pos = std::max(separator_pos, min_track_control_size);
     float separator_x = layout.main_pos.x + clamped_separator_pos + 0.5f;
-    /*ImU32 separator_color = (is_separator_hovered || is_separator_active)
-                                ? ImGui::GetColorU32(ImGuiCol_SeparatorHovered)
-                                : ImGui::GetColorU32(ImGuiCol_Separator);*/
     main_draw_list->AddLine(ImVec2(separator_x, pos.y), ImVec2(separator_x, pos.y + area_size.y),
                             ImGui::GetColorU32(ImGuiCol_Separator), 2.0f);
 
@@ -425,7 +416,7 @@ void GuiTimeline::render_track_controls() {
                 ImGui::Text(track->name.c_str(), nullptr, false, false);
             } else {
                 ImGui::BeginDisabled();
-                ImGui::Text("(unnamed)", nullptr, false, false);
+                ImGui::TextEx("(unnamed)", nullptr, 0);
                 ImGui::EndDisabled();
             }
 
