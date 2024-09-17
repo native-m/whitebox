@@ -54,7 +54,6 @@ static bool slider2_ranged(const SliderProperties& properties, const char* str_i
     bool hovered, held;
     bool pressed = ImGui::ButtonBehavior(bb, id, &hovered, &held, ImGuiButtonFlags_None);
     bool dragging = held && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0.0f);
-    T normalized_value = (T)db_range.plain_to_normalized((float)*value);
     float frame_width = std::max(properties.frame_width, 3.0f);
     ImVec2 grab_size;
 
@@ -67,6 +66,7 @@ static bool slider2_ranged(const SliderProperties& properties, const char* str_i
         grab_size.y = diameter;
     }
 
+    T normalized_value = (T)db_range.plain_to_normalized((float)*value);
     ImGuiContext& g = *ImGui::GetCurrentContext();
     float scroll_height = size.y - grab_size.y;
     float inv_scroll_height = 1.0f / scroll_height;
@@ -90,9 +90,6 @@ static bool slider2_ranged(const SliderProperties& properties, const char* str_i
                         : inv_normalized_default_value;
         normalized_value = std::clamp(1.0f - val, 0.0f, 1.0f);
         *value = (T)db_range.normalized_to_plain(normalized_value);
-        ImGui::BeginTooltip();
-        ImGui::Text(format, *value);
-        ImGui::EndTooltip();
     }
 
     float half_grab_size_y = grab_size.y * 0.5f;
@@ -110,11 +107,13 @@ static bool slider2_ranged(const SliderProperties& properties, const char* str_i
 
     // Draw default value tick line
     if (properties.with_default_value_tick) {
-        float grab_pos = inv_normalized_default_value * scroll_height + half_grab_size_y;
-        grab_pos = math::round(grab_pos + cursor_pos.y);
-        draw_list->AddLine(ImVec2(cursor_pos.x, grab_pos), ImVec2(center_x - frame_width, grab_pos),
+        float default_grab_pos = inv_normalized_default_value * scroll_height + half_grab_size_y;
+        default_grab_pos = math::round(default_grab_pos + cursor_pos.y);
+        draw_list->AddLine(ImVec2(cursor_pos.x, default_grab_pos),
+                           ImVec2(center_x - frame_width, default_grab_pos),
                            frame_col);
-        draw_list->AddLine(ImVec2(center_x + frame_width, grab_pos), ImVec2(bb.Max.x, grab_pos),
+        draw_list->AddLine(ImVec2(center_x + frame_width, default_grab_pos),
+                           ImVec2(bb.Max.x, default_grab_pos),
                            frame_col);
     }
 
@@ -126,8 +125,7 @@ static bool slider2_ranged(const SliderProperties& properties, const char* str_i
         draw_list->AddRectFilled(grab_rect_min, grab_rect_max, grab_col, properties.grab_roundness);
         ImVec2 grab_tick_min(grab_rect_min.x + grab_tick_padding_x,
                              grab_rect_min.y + grab_size.y * 0.5f);
-        ImVec2 grab_tick_max(grab_rect_min.x + grab_size.x - grab_tick_padding_x,
-                             grab_rect_min.y + grab_size.y * 0.5f);
+        ImVec2 grab_tick_max(grab_rect_min.x + grab_size.x - grab_tick_padding_x, grab_tick_min.y);
         draw_list->AddLine(grab_tick_min, grab_tick_max, 0xFFFFFFFF, 1.0f);
     } else {
         float radius1 = grab_size.x * 0.5f;
@@ -135,6 +133,14 @@ static bool slider2_ranged(const SliderProperties& properties, const char* str_i
         float pos_y = math::round(grab_pos) + radius1;
         draw_list->AddCircleFilled(ImVec2(center_x, cursor_pos.y + pos_y), radius1, grab_col);
         draw_list->AddCircleFilled(ImVec2(center_x, cursor_pos.y + pos_y), radius2, 0xFFFFFFFF);
+    }
+
+    if (held) {
+        ImVec2 tooltip_pos(bb.Max.x + 10.0f, cursor_pos.y + math::round(grab_pos));
+        ImGui::SetNextWindowPos(tooltip_pos);
+        ImGui::BeginTooltip();
+        ImGui::Text(format, *value);
+        ImGui::EndTooltip();
     }
 
     if (dragging) {
