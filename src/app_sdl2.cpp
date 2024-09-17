@@ -1,6 +1,4 @@
 #include "app_sdl2.h"
-#include "app_sdl2.h"
-#include "app_sdl2.h"
 #include "core/debug.h"
 #include "gfx/renderer.h"
 #include "ui/file_dropper.h"
@@ -10,6 +8,8 @@
 
 #ifdef WB_PLATFORM_WINDOWS
 #include <dwmapi.h>
+#define DWM_ATTRIBUTE_USE_IMMERSIVE_DARK_MODE 20
+#define DWM_ATTRIBUTE_CAPTION_COLOR 35
 #endif
 
 namespace wb {
@@ -37,14 +37,12 @@ void AppSDL2::init() {
 
     window_id = SDL_GetWindowID(new_window);
     window = new_window;
-    
+
     SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
     SDL_AddEventWatch(&event_watcher, this);
     SDL_GetWindowSize(window, &old_resize_width, &old_resize_height);
 
 #ifdef WB_PLATFORM_WINDOWS
-#define DWM_ATTRIBUTE_USE_IMMERSIVE_DARK_MODE 20
-#define DWM_ATTRIBUTE_CAPTION_COLOR 35
     SDL_SysWMinfo wm_info {};
     SDL_VERSION(&wm_info.version);
     SDL_GetWindowWMInfo(new_window, &wm_info);
@@ -74,11 +72,29 @@ void AppSDL2::new_frame() {
 void AppSDL2::add_vst3_view(VST3Host& plug_instance, const char* name, uint32_t width,
                             uint32_t height) {
 #ifdef WB_PLATFORM_WINDOWS
-    SDL_Window* window =
-        SDL_CreateWindow(name, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, 0);
+    SDL_Window* window = SDL_CreateWindow(name, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+                                          width, height, 0);
     SDL_SysWMinfo wm_info {};
     SDL_VERSION(&wm_info.version);
     SDL_GetWindowWMInfo(window, &wm_info);
+
+    uint32_t id = SDL_GetWindowID(window);
+    plugin_windows.emplace(id, window);
+    SDL_SetWindowData(window, "wb_vst3_instance", &plug_instance);
+    SDL_SetWindowModalFor(window, this->window);
+    SDL_SysWMinfo main_wm_info {};
+    SDL_VERSION(&main_wm_info.version);
+    SDL_GetWindowWMInfo(this->window, &main_wm_info);
+    SetWindowLongPtr(wm_info.info.win.window, GWLP_HWNDPARENT,
+                     (LONG_PTR)main_wm_info.info.win.window);
+    BOOL dark_mode = true;
+    ImU32 title_bar_color = ImColor(0.15f, 0.15f, 0.15f, 1.00f) & 0x00FFFFFF;
+    ::DwmSetWindowAttribute(wm_info.info.win.window, DWM_ATTRIBUTE_USE_IMMERSIVE_DARK_MODE,
+                            &dark_mode, sizeof(dark_mode));
+    ::DwmSetWindowAttribute(wm_info.info.win.window, DWM_ATTRIBUTE_CAPTION_COLOR, &title_bar_color,
+                            sizeof(title_bar_color));
+    UpdateWindow(wm_info.info.win.window);
+
     if (plug_instance.view->isPlatformTypeSupported(Steinberg::kPlatformTypeHWND) !=
         Steinberg::kResultTrue) {
         Log::debug("Platform is not supported");
@@ -89,9 +105,6 @@ void AppSDL2::add_vst3_view(VST3Host& plug_instance, const char* name, uint32_t 
         Log::debug("Failed to attach UI");
         return;
     }
-    uint32_t id = SDL_GetWindowID(window);
-    plugin_windows.emplace(id, window);
-    SDL_SetWindowData(window, "wb_vst3_instance", &plug_instance);
 #endif
 }
 
@@ -171,7 +184,7 @@ int AppSDL2::event_watcher(void* userdata, SDL_Event* event) {
             if (event->window.windowID != app->window_id) {
                 break;
             }
-            
+
             int32_t w, h;
             switch (event->window.event) {
                 case SDL_WINDOWEVENT_MOVED:
