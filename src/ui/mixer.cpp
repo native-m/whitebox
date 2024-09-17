@@ -79,7 +79,7 @@ void GuiMixer::render() {
         ImGui::SameLine();
 
         if (ImGui::BeginPopup("MIXER_VOLUME_CONTEXT_MENU")) {
-            if (ImGui::MenuItem("Reset Parameter")) {
+            if (ImGui::MenuItem("Reset Value")) {
                 track->set_volume(0.0f);
             }
             ImGui::EndPopup();
