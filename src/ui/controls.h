@@ -92,7 +92,7 @@ static bool collapse_button(const char* str_id, bool* shown) {
 }
 
 template <typename T>
-static bool hseparator_resizer(T id, float* size, float default_size, float min_size = 0.0f,
+static bool resizable_horizontal_separator(T id, float* size, float default_size, float min_size = 0.0f,
                                float max_size = 0.0f) {
     ImGuiWindow* window = ImGui::GetCurrentWindow();
     if (window->SkipItems)
