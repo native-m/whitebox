@@ -58,13 +58,10 @@ void Engine::stop() {
     playing = false;
     playhead = playhead_start;
     playhead_ui = playhead_start;
-
     for (auto track : tracks) {
         track->stop();
     }
-
     editor_lock.unlock();
-
     Log::debug("-------------- Stop --------------");
 }
 
@@ -76,9 +73,13 @@ Track* Engine::add_track(const std::string& name) {
 }
 
 void Engine::delete_track(uint32_t slot) {
+    editor_lock.lock();
+    delete_lock.lock();
     Track* track = tracks[slot];
     tracks.erase(tracks.begin() + slot);
     delete track;
+    delete_lock.unlock();
+    editor_lock.unlock();
 }
 
 void Engine::move_track(uint32_t from_slot, uint32_t to_slot) {
