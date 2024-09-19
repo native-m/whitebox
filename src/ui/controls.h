@@ -24,8 +24,8 @@ struct SliderProperties {
     SliderScale scale = SliderScale::Linear;
     SliderGrabShape grab_shape = SliderGrabShape::Circle;
     ImVec2 grab_size = {};
-    ImVec2 extra_padding = {};
     float grab_roundness = 0.0f;
+    ImVec2 extra_padding = {};
     float frame_width = 0.0f;
     bool with_default_value_tick = false;
 };

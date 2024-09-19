@@ -120,7 +120,7 @@ void SettingsData::load_settings_data() {
         json& user_dirs = settings["user_dirs"];
         if (user_dirs.is_array()) {
             for (auto& dir : user_dirs) {
-                g_browser.add_directory(dir);
+                g_browser.add_directory(std::filesystem::path(dir));
             }
             g_browser.sort_directory();
         }

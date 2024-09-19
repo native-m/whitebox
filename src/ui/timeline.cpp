@@ -629,7 +629,8 @@ void GuiTimeline::render_track_lanes() {
     bool mouse_move = false;
 
     if (timeline_hovered && mouse_wheel_h != 0.0f) {
-        scroll_horizontal(mouse_wheel_h, song_length, -view_scale * 64.0);
+        double scroll_speed = 64.0;
+        scroll_horizontal(mouse_wheel_h, song_length, -view_scale * scroll_speed);
     }
 
     if (mouse_pos.x != last_mouse_pos.x || mouse_pos.y != last_mouse_pos.y) {
@@ -688,7 +689,7 @@ void GuiTimeline::render_track_lanes() {
         float max_offset_x;
         float min_offset_y;
         float max_offset_y;
-        
+
         if (!dragging_file) {
             min_offset_x = view_min.x;
             max_offset_x = view_max.x;
@@ -812,9 +813,10 @@ void GuiTimeline::render_track_lanes() {
         }
 
         // Finally, draw the gridline
+        static constexpr double gridline_division_factor = 5.0;
         double beat = ppq / view_scale;
         double bar = 4.0 * beat;
-        double division = std::exp2(std::round(std::log2(view_scale / 5.0)));
+        double division = std::exp2(std::round(std::log2(view_scale / gridline_division_factor)));
         double grid_inc_x = beat * division;
         double inv_grid_inc_x = 1.0 / grid_inc_x;
         uint32_t lines_per_bar = std::max((uint32_t)(bar / grid_inc_x), 1u);
@@ -834,8 +836,8 @@ void GuiTimeline::render_track_lanes() {
                 line_color = beat_line_color;
             }
             layer1_draw_list->AddLine(ImVec2(line_pixel_pos_x, offset_y),
-                                      ImVec2(line_pixel_pos_x, offset_y + area_size.y),
-                                      line_color, 1.0f);
+                                      ImVec2(line_pixel_pos_x, offset_y + area_size.y), line_color,
+                                      1.0f);
         }
     }
 
@@ -846,11 +848,11 @@ void GuiTimeline::render_track_lanes() {
         g_engine.delete_lock.lock();
     }
 
-    static constexpr float separator_height = 2.0f;
+    static constexpr float track_separator_height = 2.0f;
     for (uint32_t i = 0; i < g_engine.tracks.size(); i++) {
         Track* track = g_engine.tracks[i];
         float height = track->height;
-        float track_view_min_y = offset_y - height - separator_height;
+        float track_view_min_y = offset_y - height - track_separator_height;
         float expand_min_y = !dragging ? 0.0f : math::max(track_view_min_y - mouse_pos.y, 0.0f);
 
         if (track_pos_y > view_max.y + expand_max_y) {
@@ -858,7 +860,7 @@ void GuiTimeline::render_track_lanes() {
         }
 
         if (track_pos_y < track_view_min_y - expand_min_y) {
-            track_pos_y += height + separator_height;
+            track_pos_y += height + track_separator_height;
             continue;
         }
 
@@ -894,7 +896,8 @@ void GuiTimeline::render_track_lanes() {
         if (redraw) {
             layer1_draw_list->AddLine(
                 ImVec2(timeline_view_pos.x, next_pos_y + 0.5f),
-                ImVec2(timeline_view_pos.x + timeline_width, next_pos_y + 0.5f), gridline_color, 1.0f);
+                ImVec2(timeline_view_pos.x + timeline_width, next_pos_y + 0.5f), gridline_color,
+                1.0f);
         }
 
         for (size_t j = 0; j < track->clips.size(); j++) {
@@ -932,18 +935,21 @@ void GuiTimeline::render_track_lanes() {
 
             if (hovering_current_track && edit_action == TimelineEditAction::None &&
                 !holding_ctrl) {
+                static constexpr float handle_offset = 4.0f;
                 ImRect clip_rect(min_bb, max_bb);
                 // Sizing handle hitboxes
-                ImRect lhs(min_pos_x_in_pixel, track_pos_y, min_pos_x_in_pixel + 4.0f, max_bb.y);
-                ImRect rhs(max_pos_x_in_pixel - 4.0f, track_pos_y, max_pos_x_in_pixel, max_bb.y);
+                ImRect left_handle(min_pos_x_in_pixel, track_pos_y,
+                                   min_pos_x_in_pixel + handle_offset, max_bb.y);
+                ImRect right_handle(max_pos_x_in_pixel - handle_offset, track_pos_y,
+                                    max_pos_x_in_pixel, max_bb.y);
 
                 // Assign edit action
-                if (lhs.Contains(mouse_pos)) {
+                if (left_handle.Contains(mouse_pos)) {
                     if (left_mouse_clicked)
                         edit_action = TimelineEditAction::ClipResizeLeft;
                     ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
                     current_hover_state = ClipHover::LeftHandle;
-                } else if (rhs.Contains(mouse_pos)) {
+                } else if (right_handle.Contains(mouse_pos)) {
                     if (left_mouse_clicked)
                         edit_action = TimelineEditAction::ClipResizeRight;
                     ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
@@ -1015,7 +1021,7 @@ void GuiTimeline::render_track_lanes() {
             }
         }
 
-        track_pos_y = next_pos_y + separator_height;
+        track_pos_y = next_pos_y + track_separator_height;
     }
 
     if (has_deleted_clips) {
@@ -1116,7 +1122,7 @@ void GuiTimeline::render_track_lanes() {
                         selection_end_height = track->height;
                     }
                 }
-                track_pos_y += track->height + 2.0f;
+                track_pos_y += track->height + track_separator_height;
             }
 
             static const ImU32 selection_range_fill = ImColor(28, 150, 237, 64);

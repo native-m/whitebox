@@ -25,19 +25,15 @@ AppSDL2::~AppSDL2() {
 
 void AppSDL2::init() {
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
-
     SDL_Window* new_window =
         SDL_CreateWindow("whitebox", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720,
                          SDL_WINDOW_RESIZABLE);
-
     if (!new_window) {
         SDL_Quit();
         return;
     }
-
     window_id = SDL_GetWindowID(new_window);
     window = new_window;
-
     SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
     SDL_AddEventWatch(&event_watcher, this);
     SDL_GetWindowSize(window, &old_resize_width, &old_resize_height);
@@ -184,7 +180,6 @@ int AppSDL2::event_watcher(void* userdata, SDL_Event* event) {
             if (event->window.windowID != app->window_id) {
                 break;
             }
-
             int32_t w, h;
             switch (event->window.event) {
                 case SDL_WINDOWEVENT_MOVED:
@@ -202,7 +197,6 @@ int AppSDL2::event_watcher(void* userdata, SDL_Event* event) {
                 default:
                     break;
             }
-
             break;
         }
         default:
