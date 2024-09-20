@@ -93,6 +93,8 @@ set(WB_SOURCES
     "src/extern/dr_mp3_stub.c"
     "src/extern/json.hpp"
     "src/extern/json_fwd.hpp"
+    "src/extern/xxhash.c"
+    "src/extern/xxhash.h"
 
     "src/gfx/draw.cpp"
     "src/gfx/draw.h"
