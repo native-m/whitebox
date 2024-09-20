@@ -2,8 +2,10 @@
 #include "core/algorithm.h"
 #include "core/midi.h"
 #include "gfx/renderer.h"
+#include "extern/xxhash.h"
 
 namespace wb {
+static constexpr XXH64_hash_t sample_hash_seed = 69420;
 
 void SampleAsset::release() {
     if (ref_count-- == 1)
@@ -11,7 +13,8 @@ void SampleAsset::release() {
 }
 
 SampleAsset* SampleTable::load_from_file(const std::filesystem::path& path) {
-    size_t hash = std::hash<std::filesystem::path> {}(path);
+    auto& native_path = path.native(); 
+    uint64_t hash = XXH64(native_path.data(), native_path.size(), sample_hash_seed);
 
     auto item = samples.find(hash);
     if (item != samples.end()) {
