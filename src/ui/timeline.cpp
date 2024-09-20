@@ -45,19 +45,19 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
                                       : text_color;
 
     bool is_active = clip->is_active();
-    ImColor color = is_active ? clip->color : color_adjust_alpha(clip->color, 0.75f);
     float min_x2 = (float)math::round(min_x);
     float max_x2 = (float)math::round(max_x);
     float font_size = font->FontSize;
     float clip_title_max_y = track_pos_y + font_size + 4.0f;
-    ImColor bg_color = color_adjust_alpha(color, color.Value.w * 0.35f);
-    ImU32 content_color =
-        is_active ? color_brighten(color, 1.0f) : color_premul_alpha(color_brighten(color, 1.0f));
     ImVec2 clip_title_min_bb(min_x2, track_pos_y);
     ImVec2 clip_title_max_bb(max_x2, clip_title_max_y);
     ImVec2 clip_content_min(min_x2, clip_title_max_y);
     ImVec2 clip_content_max(max_x2, track_pos_y + track_height);
     ImDrawListFlags tmp_flags = layer1_draw_list->Flags;
+    ImColor color = is_active ? clip->color : color_adjust_alpha(clip->color, 0.75f);
+    ImColor bg_color = color_adjust_alpha(color, color.Value.w * 0.35f);
+    ImU32 content_color =
+        is_active ? color_brighten(color, 1.0f) : color_premul_alpha(color_brighten(color, 1.0f));
 
     // Draw clip background and its header
     layer1_draw_list->Flags = layer1_draw_list->Flags & ~draw_list_aa_flags;

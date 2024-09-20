@@ -281,8 +281,8 @@ void TimelineBase::zoom(float mouse_pos_x, float cursor_pos_x, double view_scale
     double dist_from_start = zoom_position - min_hscroll;
     double dist_to_end = max_hscroll - zoom_position;
     mouse_wheel *= 0.1f;
-    min_hscroll = std::clamp(min_hscroll + dist_from_start * (double)mouse_wheel, 0.0, max_hscroll);
-    max_hscroll = std::clamp(max_hscroll - dist_to_end * (double)mouse_wheel, min_hscroll, 1.0);
+    min_hscroll = math::clamp(min_hscroll + dist_from_start * (double)mouse_wheel, 0.0, max_hscroll);
+    max_hscroll = math::clamp(max_hscroll - dist_to_end * (double)mouse_wheel, min_hscroll, 1.0);
     redraw = true;
 }
 } // namespace wb
