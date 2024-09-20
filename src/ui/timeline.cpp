@@ -88,7 +88,7 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
                 double scale_x = sample_scale * (double)asset->sample_instance.sample_rate;
                 double inv_scale_x = 1.0 / scale_x;
                 double mip_index = (std::log(scale_x * 0.5) * log_base4) * 0.5; // Scale -> Index
-                int32_t index = std::clamp((int32_t)mip_index, 0, sample_peaks->mipmap_count - 1);
+                int32_t index = math::clamp((int32_t)mip_index, 0, sample_peaks->mipmap_count - 1);
                 double mult = std::pow(4.0, (double)index - 1.0);
                 double mip_scale = std::pow(4.0, 2.0 * (mip_index - (double)index)) * 8.0 *
                                    mult; // Index -> Mip Scale
@@ -916,8 +916,8 @@ void GuiTimeline::render_track_lanes() {
 
             double min_pos_x = timeline_scroll_offset_x + min_time * clip_scale;
             double max_pos_x = timeline_scroll_offset_x + max_time * clip_scale;
-            float min_pos_x_in_pixel = (float)std::round(min_pos_x);
-            float max_pos_x_in_pixel = (float)std::round(max_pos_x);
+            float min_pos_x_in_pixel = (float)math::round(min_pos_x);
+            float max_pos_x_in_pixel = (float)math::round(max_pos_x);
 
             // Skip out-of-screen clips.
             if (min_pos_x_in_pixel > timeline_end_x)
