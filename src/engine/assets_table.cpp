@@ -8,14 +8,16 @@ namespace wb {
 static constexpr XXH64_hash_t sample_hash_seed = 69420;
 
 void SampleAsset::release() {
-    if (ref_count-- == 1)
+    if (ref_count == 0)
+        return;
+    if (ref_count-- == 1 && !keep_alive)
         sample_table->destroy_sample(hash);
 }
 
 SampleAsset* SampleTable::load_from_file(const std::filesystem::path& path) {
     auto& native_path = path.native(); 
     uint64_t hash = XXH64(native_path.data(), native_path.size(), sample_hash_seed);
-
+    
     auto item = samples.find(hash);
     if (item != samples.end()) {
         item->second.add_ref();
@@ -53,7 +55,9 @@ MidiAsset::MidiAsset(MidiTable* table) : midi_table(table) {
 }
 
 void MidiAsset::release() {
-    if (ref_count-- == 1)
+    if (ref_count == 0)
+        return;
+    if (ref_count-- == 1 && !keep_alive)
         midi_table->destroy(this);
 }
 
@@ -61,7 +65,6 @@ uint32_t MidiAsset::find_first_note(double pos, uint32_t channel) {
     const MidiNoteBuffer& buffer = data.channels[channel];
     auto begin = buffer.begin();
     auto end = buffer.end();
-
     while (begin != end && pos >= begin->max_time) {
         begin++;
     }
@@ -69,19 +72,6 @@ uint32_t MidiAsset::find_first_note(double pos, uint32_t channel) {
         return (uint32_t)(-1);
     }
     return begin - buffer.begin();
-
-    /*uint32_t left = 0;
-    uint32_t right = buffer.size();
-
-    while (left < right) {
-        uint32_t middle = (left + right) >> 1;
-        bool comparison = buffer[middle].max_time < pos;
-        uint32_t& side = (comparison ? left : right);
-        middle += (uint32_t)comparison;
-        side = middle;
-    }
-
-    return left;*/
 }
 
 MidiAsset* MidiTable::load_from_file(const std::filesystem::path& path) {
@@ -89,12 +79,18 @@ MidiAsset* MidiTable::load_from_file(const std::filesystem::path& path) {
     if (!asset) {
         return nullptr;
     }
-
     if (!load_notes_from_file(asset->data, path)) {
         destroy(asset);
         return nullptr;
     }
-
+    if (free_ids.empty()) {
+        asset->id = id_counter;
+        id_counter++;
+    } else {
+        uint32_t id = free_ids.back();
+        asset->id = id;
+        free_ids.pop_back();
+    }
     return asset;
 }
 
@@ -110,6 +106,7 @@ MidiAsset* MidiTable::create_midi() {
 
 void MidiTable::destroy(MidiAsset* asset) {
     assert(asset != nullptr);
+    free_ids.push_back(asset->id);
     asset->remove_tracked_resource();
     asset->~MidiAsset();
     midi_assets.free(asset);

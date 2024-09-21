@@ -31,6 +31,7 @@ struct SampleAsset {
 
 struct MidiAsset : public TrackedResource<MidiAsset> {
     MidiTable* midi_table;
+    uint32_t id;
     MidiData data {};
     uint32_t ref_count = 1;
     bool keep_alive = false;
@@ -51,6 +52,8 @@ struct SampleTable {
 struct MidiTable {
     Pool<MidiAsset> midi_assets;
     TrackedResource<MidiAsset> allocated_assets;
+    Vector<uint32_t> free_ids;
+    uint32_t id_counter = 0;
     MidiAsset* load_from_file(const std::filesystem::path& path);
     MidiAsset* create_midi();
     void destroy(MidiAsset* asset);

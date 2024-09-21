@@ -1,238 +1,204 @@
 #include "project.h"
+#include "core/fs.h"
 #include "engine/track.h"
+#include "ui/timeline.h"
 #include <algorithm>
 #include <cstdio>
 
 namespace wb {
 
-ProjectFile::ProjectFile() {
-}
+static constexpr uint32_t project_header_version = 1;
+static constexpr uint32_t project_info_version = 1;
+static constexpr uint32_t project_sample_table_version = 1;
+static constexpr uint32_t project_midi_table_version = 1;
+static constexpr uint32_t project_track_version = 1;
+static constexpr uint32_t project_clip_version = 1;
 
-bool ProjectFile::open(const std::string& filepath, bool file_write) {
-    std::ios_base::openmode mode = file_write ? std::ios::binary | std::ios::out | std::ios::trunc
-                          : std::ios::binary | std::ios::in;
-    file.open(filepath, mode);
-    file_location = filepath;
-    return file.is_open();
-}
-
-bool ProjectFile::read_project(Engine& engine, SampleTable& sample_table) {
-    if (std::filesystem::file_size(file_location) < sizeof(ProjectHeader))
-        return false;
-    if (!read_header())
-        return false;
-    read_project_info();
-
-    size_t sample_count;
-    file.read((char*)&sample_count, sizeof(size_t));
-    sample_asset.reserve(sample_count);
-    for (size_t i = 0; i < sample_count; i++) {
-        std::string sample_file;
-        read_text_(sample_file);
-        auto sample = sample_table.load_from_file(sample_file);
-        sample->ref_count = 0; // Begin with 0 to prevent the memory leak
-        sample_asset.push_back(sample);
+ProjectFileResult read_project_file(const std::filesystem::path& path, Engine& engine,
+                                    SampleTable& sample_table, MidiTable& midi_table) {
+    File file;
+    uintmax_t size = std::filesystem::file_size(path);
+    if (size < sizeof(ProjectHeader)) {
+        return ProjectFileResult::ErrInvalidFormat;
+    }
+    if (!file.open(path, File::Read)) {
+        return ProjectFileResult::ErrCannotAccessFile;
     }
 
-    size_t track_count;
-    file.read((char*)&track_count, sizeof(size_t));
-    engine.tracks.reserve(track_count);
-    for (size_t i = 0; i < track_count; i++) {
-        Track* track = read_track();
-        engine.tracks.push_back(track);
-    }
-
-    return true;
-}
-
-bool ProjectFile::read_header() {
     ProjectHeader header;
-    file.read((char*)&header, sizeof(ProjectHeader));
-    if (header.magic_numbers != 'RPBW')
-        return false;
-    return true;
+    if (file.read(&header, sizeof(ProjectHeader)) == 0) {
+        return ProjectFileResult::ErrEndOfFile;
+    }
+    if (header.magic_numbers != 'RPBW') {
+        return ProjectFileResult::ErrInvalidFormat;
+    }
+    if (header.version > project_header_version) {
+        return ProjectFileResult::ErrIncompatibleVersion;
+    }
+    g_engine.set_bpm(header.initial_bpm);
+    g_engine.set_playhead_position(header.playhead_pos);
+    g_timeline.min_hscroll = header.timeline_view_min;
+    g_timeline.max_hscroll = header.timeline_view_max;
+
+    return ProjectFileResult::Ok;
 }
 
-void ProjectFile::read_project_info() {
-    // TODO: We skip these field for now.
-    ProjectInfo project_info;
-    read_string_(project_info.author);
-    read_text_(project_info.title);
-    read_text_(project_info.description);
-    read_string_(project_info.genre);
+ProjectFileResult write_midi_data(const MidiData& data) {
 }
 
-Track* ProjectFile::read_track() {
-    std::string name;
-    uint32_t color;
-    float height;
-    float volume;
-    float pan;
-    bool mute;
-
-    read_string_(name);
-    file.read((char*)&color, sizeof(uint32_t));
-    file.read((char*)&height, sizeof(float));
-    file.read((char*)&volume, sizeof(float));
-    file.read((char*)&pan, sizeof(float));
-    file.read((char*)&mute, 1);
-
-    Track* track = new Track(name, color, height, true,
-                             {
-                                 .volume = volume,
-                                 .pan = pan,
-                                 .mute = false,
-                             });
-    // track->ui_parameter.set(TrackParameter_Volume, volume);
-    // track->ui_parameter.set(TrackParameter_Pan, pan);
-    // track->ui_parameter.set(TrackParameter_Mute, (uint32_t)mute);
-
-    size_t clip_count;
-    file.read((char*)&clip_count, sizeof(size_t));
-    track->clips.reserve(clip_count);
-    for (size_t i = 0; i < clip_count; i++) {
-        Clip* clip = (Clip*)track->clip_allocator.allocate();
-        new (clip) Clip();
-        read_clip(clip);
-        track->clips.push_back(clip);
+ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& engine,
+                                     SampleTable& sample_table, MidiTable& midi_table) {
+    File file;
+    uintmax_t size = std::filesystem::file_size(path);
+    if (!file.open(path, File::Read)) {
+        return ProjectFileResult::ErrCannotAccessFile;
     }
 
-    track->update(nullptr, 0.0);
-
-    return track;
-}
-
-void ProjectFile::read_clip(Clip* clip) {
-    uint32_t color;
-    file.read((char*)&clip->type, sizeof(ClipType));
-    read_string_(clip->name);
-    file.read((char*)&color, sizeof(uint32_t));
-    file.read((char*)&clip->min_time, sizeof(double));
-    file.read((char*)&clip->max_time, sizeof(double));
-    file.read((char*)&clip->start_offset, sizeof(double));
-    clip->color = ImColor(color);
-
-    switch (clip->type) {
-        case ClipType::Audio: {
-            uint32_t sample_idx;
-            file.read((char*)&sample_idx, sizeof(uint32_t));
-            clip->audio.asset = sample_asset[sample_idx];
-            clip->audio.asset->add_ref();
-            break;
-        }
-        case ClipType::Unknown:
-        case ClipType::Midi:
-            break;
+    ProjectHeader header {
+        .magic_numbers = 'RPBW',
+        .version = project_header_version,
+        .sample_count = sample_table.samples.size(),
+        .track_count = (uint32_t)engine.tracks.size(),
+        .main_volume_db = 0.0f,
+        .initial_bpm = engine.get_bpm(),
+        .ppq = engine.ppq,
+        .playhead_pos = engine.playhead_pos(),
+        .timeline_view_min = g_timeline.min_hscroll,
+        .timeline_view_max = g_timeline.max_hscroll,
+    };
+    if (file.write(&header, sizeof(ProjectHeader)) == 0) {
+        return ProjectFileResult::ErrCannotAccessFile;
     }
-}
 
-void ProjectFile::write_project(Engine& engine, SampleTable& sample_table) {
-    size_t sample_count = sample_table.samples.size();
-    size_t track_count = engine.tracks.size();
+    ProjectInfo project_info {
+        .version = project_info_version,
+    };
+    if (file.write_u32(project_info.version) < 4)
+        return ProjectFileResult::ErrCannotAccessFile;
+    if (file.write_buffer(project_info.author.data(), project_info.author.size()) < 4)
+        return ProjectFileResult::ErrCannotAccessFile;
+    if (file.write_buffer(project_info.title.data(), project_info.title.size()) < 4)
+        return ProjectFileResult::ErrCannotAccessFile;
+    if (file.write_buffer(project_info.description.data(), project_info.description.size()) < 4)
+        return ProjectFileResult::ErrCannotAccessFile;
+    if (file.write_buffer(project_info.genre.data(), project_info.genre.size()) < 4)
+        return ProjectFileResult::ErrCannotAccessFile;
 
-    write_header();
-    write_project_info({});
+    // Sample table header
+    if (file.write_u32('TSBW') < 4) // Magic number
+        return ProjectFileResult::ErrCannotAccessFile;
+    if (file.write_u32(project_sample_table_version) < 4) // Version
+        return ProjectFileResult::ErrCannotAccessFile;
 
+    // Write sample paths
     uint32_t idx = 0;
-    file.write((char*)&sample_count, sizeof(size_t));
+    std::unordered_map<uint64_t, uint32_t> sample_index_map;
     for (auto& sample : sample_table.samples) {
-        write_text_(sample.second.sample_instance.path.string());
+        std::u8string path = sample.second.sample_instance.path.u8string();
+        if (file.write_buffer(path.data(), path.size()) < 4)
+            return ProjectFileResult::ErrCannotAccessFile;
         sample_index_map.emplace(sample.second.hash, idx);
         idx++;
     }
 
-    file.write((char*)&track_count, sizeof(size_t));
-    for (auto track : engine.tracks) {
-        write_track(track);
-    }
-}
+    // Midi table header
+    if (file.write_u32('TMBW') < 4) // Magic number
+        return ProjectFileResult::ErrCannotAccessFile;
+    if (file.write_u32(project_midi_table_version) < 4) // Version
+        return ProjectFileResult::ErrCannotAccessFile;
 
-void ProjectFile::write_header() {
-    ProjectHeader project_header {
-        .magic_numbers = 'RPBW',
-        .version = 1,
-    };
-    file.write((char*)&project_header, sizeof(ProjectHeader));
-}
-
-void ProjectFile::write_project_info(const ProjectInfo& project_info) {
-    write_string_(project_info.author);
-    write_text_(project_info.title);
-    write_text_(project_info.description);
-    write_string_(project_info.genre);
-}
-
-void ProjectFile::write_track(Track* track) {
-    uint32_t color = track->color;
-    float volume = track->ui_parameter_state.volume;
-    float pan = track->ui_parameter_state.pan;
-    bool mute = (bool)track->ui_parameter_state.mute;
-    size_t clip_count = track->clips.size();
-    write_string_(track->name);
-    file.write((char*)&color, sizeof(uint32_t));
-    file.write((char*)&track->height, sizeof(float));
-    file.write((char*)&volume, sizeof(float));
-    file.write((char*)&pan, sizeof(float));
-    file.write((char*)&mute, 1);
-    file.write((char*)&clip_count, sizeof(size_t));
-    for (auto clip : track->clips) {
-        write_clip(clip);
-    }
-}
-
-void ProjectFile::write_clip(Clip* clip) {
-    uint32_t color = clip->color;
-    file.write((char*)&clip->type, sizeof(ClipType));
-    write_string_(clip->name);
-    file.write((char*)&color, sizeof(uint32_t));
-    file.write((char*)&clip->min_time, sizeof(double));
-    file.write((char*)&clip->max_time, sizeof(double));
-    file.write((char*)&clip->start_offset, sizeof(double));
-
-    switch (clip->type) {
-        case ClipType::Audio: {
-            uint32_t sample_idx = sample_index_map[clip->audio.asset->hash];
-            file.write((char*)&sample_idx, sizeof(uint32_t));
-            break;
+    // Write midi assets
+    idx = 0;
+    std::unordered_map<uint32_t, uint32_t> midi_id_map;
+    auto midi_asset_ptr = midi_table.allocated_assets.next_;
+    while (auto asset = static_cast<MidiAsset*>(midi_asset_ptr)) {
+        MidiData& data = asset->data;
+        ProjectMidiAsset asset_header {
+            .max_length = data.max_length,
+            .channel_count = data.channel_count,
+            .min_note = data.min_note,
+            .max_note = data.max_note,
+        };
+        if (file.write(&asset_header, sizeof(ProjectMidiAsset)) < sizeof(ProjectMidiAsset))
+            return ProjectFileResult::ErrCannotAccessFile;
+        for (uint32_t i = 0; i < data.channel_count; i++) {
+            // NOTE(native-m): Here we just dump midi note buffer to the file until the MidiNote
+            // structure changed in the future.
+            const MidiNoteBuffer& note_buffer = data.channels[i];
+            uint32_t write_size = note_buffer.size() * sizeof(MidiNote);
+            uint32_t total_size = sizeof(uint32_t) + write_size;
+            if (file.write_buffer(note_buffer.data(), write_size) < total_size)
+                return ProjectFileResult::ErrCannotAccessFile;
         }
-        case ClipType::Unknown:
-        case ClipType::Midi:
-            break;
+        midi_id_map.emplace(asset->id, idx);
+        idx++;
+        midi_asset_ptr = asset->next_;
     }
-}
 
-void ProjectFile::read_string_(std::string& str) {
-    uint8_t len;
-    file.read((char*)&len, 1);
-    if (len) {
-        str.resize(len);
-        file.read(str.data(), len);
-    }
-}
+    for (const auto track : engine.tracks) {
+        ProjectTrack track_header {
+            .magic_numbers = 'WBTR',
+            .version = project_track_version,
+            .flags =
+                ProjectTrackFlags {
+                    .shown = track->shown,
+                    .has_name = track->name.size() != 0,
+                    .mute = track->ui_parameter_state.mute,
+                    .solo = track->ui_parameter_state.solo,
+                },
+            .color = track->color,
+            .volume_db = track->ui_parameter_state.volume_db,
+            .pan = track->ui_parameter_state.pan,
+            .clip_count = track->clips.size(),
+        };
+        if (file.write(&track_header, sizeof(ProjectTrack)) < sizeof(ProjectTrack))
+            return ProjectFileResult::ErrCannotAccessFile;
+        if (track_header.flags.has_name)
+            if (file.write_buffer(track->name.data(), track->name.size()) < 4)
+                return ProjectFileResult::ErrCannotAccessFile;
 
-void ProjectFile::read_text_(std::string& str) {
-    uint16_t len;
-    file.read((char*)&len, 2);
-    if (len) {
-        str.resize(len);
-        file.read(str.data(), len);
-    }
-}
+        for (const auto clip : track->clips) {
+            ProjectClip clip_header {
+                .magic_numbers = 'WBCL',
+                .version = project_clip_version,
+                .type = clip->type,
+                .flags =
+                    ProjectClipFlags {
+                        .has_name = clip->name.size() != 0,
+                        .active = clip->is_active(),
+                    },
+                .color = clip->color,
+                .min_time = clip->min_time,
+                .max_time = clip->max_time,
+                .start_offset = clip->start_offset,
+            };
 
-void ProjectFile::write_string_(const std::string& str) {
-    uint8_t len = (uint8_t)std::min(str.size(), size_t(256u));
-    file.write((char*)&len, 1);
-    if (len) {
-        file.write(str.c_str(), len);
-    }
-}
+            switch (clip->type) {
+                case ClipType::Audio: {
+                    uint64_t hash = clip->audio.asset->hash;
+                    assert(sample_index_map.contains(hash) && "Sample index not found");
+                    clip_header.audio = {
+                        .fade_start = clip->audio.fade_start,
+                        .fade_end = clip->audio.fade_end,
+                        .asset_index = sample_index_map[hash],
+                    };
+                    break;
+                }
+                case ClipType::Midi: {
+                    uint32_t id = clip->midi.asset->id;
+                    clip_header.midi.asset_index = id;
+                    break;
+                }
+                default:
+                    break;
+            }
 
-void ProjectFile::write_text_(const std::string& str) {
-    uint16_t len = (uint16_t)std::min(str.size(), size_t(UINT16_MAX));
-    file.write((char*)&len, 2);
-    if (len) {
-        file.write(str.c_str(), len);
+            if (file.write(&clip_header, sizeof(ProjectClip)) < sizeof(ProjectClip))
+                return ProjectFileResult::ErrCannotAccessFile;
+        }
     }
+
+    return ProjectFileResult::Ok;
 }
 
 } // namespace wb

@@ -49,15 +49,15 @@ bool File::seek(int64_t offset, uint32_t mode) {
     return SetFilePointerEx((HANDLE)handle_, ofs, nullptr, mode);
 }
 
-uint32_t File::read(void* dest, uint32_t size) {
+uint32_t File::read(void* dest, size_t size) {
     DWORD num_read;
-    ReadFile((HANDLE)handle_, dest, size, &num_read, nullptr);
+    ReadFile((HANDLE)handle_, dest, (DWORD)size, &num_read, nullptr);
     return num_read;
 }
 
-uint32_t File::write(const void* src, uint32_t size) {
+uint32_t File::write(const void* src, size_t size) {
     DWORD num_written;
-    WriteFile((HANDLE)handle_, src, size, &num_written, nullptr);
+    WriteFile((HANDLE)handle_, src, (DWORD)size, &num_written, nullptr);
     return num_written;
 }
 

@@ -1,11 +1,11 @@
 #include "app.h"
-#include "app.h"
 #include "core/color.h"
 #include "core/debug.h"
 #include "engine/audio_io.h"
 #include "engine/engine.h"
 #include "engine/project.h"
 #include "gfx/renderer.h"
+#include "gfx/vsync_provider.h"
 #include "settings_data.h"
 #include "ui/IconsMaterialSymbols.h"
 #include "ui/browser.h"
@@ -62,7 +62,6 @@ void App::run() {
     cmd_list.draw_rect_filled(ImRect(200.5f, 100.5f, 300.5f, 150.5f));
     cmd_list.draw_triangle_filled(ImVec2(50.0f, 50.0f), ImVec2(90.0f, 40.0f),
                                   ImVec2(100.0f, 70.0f));
-
     cmd_list.set_color(ImColor(1.0f, 0.0f, 1.0f, 1.0f));
     cmd_list.draw_triangle_filled(ImVec2(50.0f, 50.0f) + ImVec2(10.0f, 0.0f),
                                   ImVec2(90.0f, 40.0f) + ImVec2(10.0f, 0.0f),
@@ -298,11 +297,12 @@ void App::render_control_bar() {
                           AudioThreadPriority::Normal);
     } else if (open_project) {
         if (auto file = open_file_dialog({{"Whitebox Project File", "wb"}})) {
-            ProjectFile project_file;
             g_audio_io->close_device();
             g_engine.clear_all();
-            if (project_file.open(file.value().string(), false)) {
-                project_file.read_project(g_engine, g_sample_table);
+            auto result = read_project_file(file.value(), g_engine, g_sample_table);
+            if (result != ProjectFileResult::Ok) {
+                Log::error("Failed to open project {}", (uint32_t)result);
+                assert(false);
             }
             g_timeline.recalculate_song_length();
             g_timeline.redraw_screen();
@@ -315,10 +315,11 @@ void App::render_control_bar() {
         }
     } else if (save_project) {
         if (auto file = save_file_dialog({{"Whitebox Project File", "wb"}})) {
-            ProjectFile project_file;
             g_audio_io->close_device();
-            if (project_file.open(file.value().string(), true)) {
-                project_file.write_project(g_engine, g_sample_table);
+            auto result = write_project_file(file.value(), g_engine, g_sample_table);
+            if (result != ProjectFileResult::Ok) {
+                Log::error("Failed to open project {}", (uint32_t)result);
+                assert(false);
             }
             g_audio_io->open_device(g_settings_data.output_device_properties.id,
                                     g_settings_data.input_device_properties.id);
@@ -361,7 +362,7 @@ void apply_theme(ImGuiStyle& style) {
     style.PopupRounding = 0.0f;
     style.PopupBorderSize = 1.0f;
     style.FramePadding = ImVec2(5.0f, 3.0f);
-    style.FrameRounding = 0.0f;
+    style.FrameRounding = 2.0f;
     style.FrameBorderSize = 0.0f;
     style.ItemSpacing = ImVec2(8.0f, 4.0f);
     style.ItemInnerSpacing = ImVec2(4.0f, 4.0f);
@@ -374,6 +375,7 @@ void apply_theme(ImGuiStyle& style) {
     style.GrabRounding = 0.0f;
     style.TabRounding = 3.099999904632568f;
     style.TabBorderSize = 0.0f;
+    style.TabBarOverlineSize = 0.0f;
     style.TabMinWidthForCloseButton = 0.0f;
     style.ColorButtonPosition = ImGuiDir_Right;
     style.ButtonTextAlign = ImVec2(0.5f, 0.5f);
