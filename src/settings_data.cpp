@@ -120,7 +120,9 @@ void SettingsData::load_settings_data() {
         json& user_dirs = settings["user_dirs"];
         if (user_dirs.is_array()) {
             for (auto& dir : user_dirs) {
-                g_browser.add_directory(std::filesystem::path(dir));
+                if (dir.is_string()) {
+                    g_browser.add_directory(dir.get<std::string>());
+                }
             }
             g_browser.sort_directory();
         }
@@ -237,7 +239,7 @@ void SettingsData::apply_audio_settings() {
 
     g_engine.set_buffer_size(2, audio_buffer_size);
     g_audio_io->start(&g_engine, audio_exclusive_mode, audio_buffer_size, audio_input_format,
-                      audio_output_format, audio_sample_rate, AudioThreadPriority::Normal);
+                      audio_output_format, audio_sample_rate, AudioThreadPriority::High);
 }
 
 SettingsData g_settings_data;
