@@ -56,8 +56,9 @@ ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& 
     ProjectHeader header {
         .magic_numbers = 'RPBW',
         .version = project_header_version,
-        .sample_count = (uint32_t)sample_table.samples.size(),
         .track_count = (uint32_t)engine.tracks.size(),
+        .sample_count = (uint32_t)sample_table.samples.size(),
+        .midi_count = (uint32_t)midi_table.midi_assets.num_allocated,
         .initial_bpm = engine.get_bpm(),
         .ppq = (uint32_t)engine.ppq,
         .playhead_pos = engine.playhead_pos(),
@@ -139,7 +140,7 @@ ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& 
             .magic_numbers = 'RTBW',
             .version = project_track_version,
             .flags =
-                ProjectTrackFlags {
+                {
                     .shown = track->shown,
                     .has_name = track->name.size() != 0,
                     .mute = track->ui_parameter_state.mute,

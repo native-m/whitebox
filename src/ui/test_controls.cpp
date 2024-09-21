@@ -20,8 +20,8 @@ void render_test_controls() {
             .grab_shape = controls::SliderGrabShape::Rectangle,
             .grab_size = {16.0f, 28.0f},
             .grab_roundness = 2.0f,
-            .frame_width = 4.0f,
             .extra_padding = {0.0f, 4.0f},
+            .frame_width = 4.0f,
         },
         "##slider_test", ImVec2(20.f, 130.0f), 0xFFED961C, &slider_value, 0.0f, 1.0f);
 
@@ -32,8 +32,8 @@ void render_test_controls() {
             .grab_shape = controls::SliderGrabShape::Circle,
             .grab_size = {16.0f, 28.0f},
             .grab_roundness = 2.0f,
-            .frame_width = 4.0f,
             .extra_padding = {0.0f, 4.0f},
+            .frame_width = 4.0f,
         },
         "##slider_test2", ImVec2(20.f, 130.0f), 0xFFED961C, &slider_value, 0.0f, 1.0f);
 
