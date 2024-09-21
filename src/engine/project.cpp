@@ -99,6 +99,7 @@ ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& 
         sample_index_map.emplace(sample.second.hash, idx);
         idx++;
     }
+    idx = 0;
 
     // Midi table header
     if (file.write_u32('TMBW') < 4) // Magic number
@@ -107,7 +108,6 @@ ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& 
         return ProjectFileResult::ErrCannotAccessFile;
 
     // Write midi assets
-    idx = 0;
     std::unordered_map<MidiAsset*, uint32_t> midi_index_map;
     auto midi_asset_ptr = midi_table.allocated_assets.next_;
     while (auto asset = static_cast<MidiAsset*>(midi_asset_ptr)) {
@@ -175,7 +175,7 @@ ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& 
             switch (clip->type) {
                 case ClipType::Audio: {
                     uint64_t hash = clip->audio.asset->hash;
-                    assert(sample_index_map.contains(hash) && "Sample index not found");
+                    assert(sample_index_map.contains(hash) && "Sample asset index not found");
                     clip_header.audio = {
                         .fade_start = clip->audio.fade_start,
                         .fade_end = clip->audio.fade_end,
@@ -185,6 +185,7 @@ ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& 
                 }
                 case ClipType::Midi: {
                     MidiAsset* asset = clip->midi.asset;
+                    assert(midi_index_map.contains(asset) && "Midi asset index not found");
                     clip_header.midi.asset_index = midi_index_map[asset];
                     break;
                 }
@@ -194,6 +195,9 @@ ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& 
 
             if (file.write(&clip_header, sizeof(ProjectClip)) < sizeof(ProjectClip))
                 return ProjectFileResult::ErrCannotAccessFile;
+            if (clip_header.flags.has_name)
+                if (file.write_buffer(clip->name.data(), clip->name.size()) < 4)
+                    return ProjectFileResult::ErrCannotAccessFile;
         }
     }
 
