@@ -83,14 +83,6 @@ MidiAsset* MidiTable::load_from_file(const std::filesystem::path& path) {
         destroy(asset);
         return nullptr;
     }
-    if (free_ids.empty()) {
-        asset->id = id_counter;
-        id_counter++;
-    } else {
-        uint32_t id = free_ids.back();
-        asset->id = id;
-        free_ids.pop_back();
-    }
     return asset;
 }
 
@@ -106,7 +98,6 @@ MidiAsset* MidiTable::create_midi() {
 
 void MidiTable::destroy(MidiAsset* asset) {
     assert(asset != nullptr);
-    free_ids.push_back(asset->id);
     asset->remove_tracked_resource();
     asset->~MidiAsset();
     midi_assets.free(asset);
