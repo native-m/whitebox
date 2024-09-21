@@ -65,7 +65,7 @@ struct Engine {
         return beat_duration.load(std::memory_order_relaxed);
     }
 
-    inline double get_bpm() const { return beat_duration.load(std::memory_order_relaxed) * 60.0; }
+    inline double get_bpm() const { return 60.0 / beat_duration.load(std::memory_order_relaxed); }
 
     inline bool is_playing() const { return playing.load(std::memory_order_relaxed); }
 
