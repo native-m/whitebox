@@ -299,7 +299,7 @@ void App::render_control_bar() {
         if (auto file = open_file_dialog({{"Whitebox Project File", "wb"}})) {
             g_audio_io->close_device();
             g_engine.clear_all();
-            auto result = read_project_file(file.value(), g_engine, g_sample_table);
+            auto result = read_project_file(file.value(), g_engine, g_sample_table, g_midi_table);
             if (result != ProjectFileResult::Ok) {
                 Log::error("Failed to open project {}", (uint32_t)result);
                 assert(false);
@@ -316,7 +316,7 @@ void App::render_control_bar() {
     } else if (save_project) {
         if (auto file = save_file_dialog({{"Whitebox Project File", "wb"}})) {
             g_audio_io->close_device();
-            auto result = write_project_file(file.value(), g_engine, g_sample_table);
+            auto result = write_project_file(file.value(), g_engine, g_sample_table, g_midi_table);
             if (result != ProjectFileResult::Ok) {
                 Log::error("Failed to open project {}", (uint32_t)result);
                 assert(false);

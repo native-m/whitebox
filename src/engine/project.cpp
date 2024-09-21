@@ -57,7 +57,7 @@ ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& 
     ProjectHeader header {
         .magic_numbers = 'RPBW',
         .version = project_header_version,
-        .sample_count = sample_table.samples.size(),
+        .sample_count = (uint32_t)sample_table.samples.size(),
         .track_count = (uint32_t)engine.tracks.size(),
         .main_volume_db = 0.0f,
         .initial_bpm = engine.get_bpm(),
@@ -109,7 +109,7 @@ ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& 
 
     // Write midi assets
     idx = 0;
-    std::unordered_map<uint32_t, uint32_t> midi_id_map;
+    std::unordered_map<MidiAsset*, uint32_t> midi_index_map;
     auto midi_asset_ptr = midi_table.allocated_assets.next_;
     while (auto asset = static_cast<MidiAsset*>(midi_asset_ptr)) {
         MidiData& data = asset->data;
@@ -130,7 +130,7 @@ ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& 
             if (file.write_buffer(note_buffer.data(), write_size) < total_size)
                 return ProjectFileResult::ErrCannotAccessFile;
         }
-        midi_id_map.emplace(asset->id, idx);
+        midi_index_map.emplace(asset, idx);
         idx++;
         midi_asset_ptr = asset->next_;
     }
@@ -149,7 +149,7 @@ ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& 
             .color = track->color,
             .volume_db = track->ui_parameter_state.volume_db,
             .pan = track->ui_parameter_state.pan,
-            .clip_count = track->clips.size(),
+            .clip_count = (uint32_t)track->clips.size(),
         };
         if (file.write(&track_header, sizeof(ProjectTrack)) < sizeof(ProjectTrack))
             return ProjectFileResult::ErrCannotAccessFile;
@@ -185,8 +185,8 @@ ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& 
                     break;
                 }
                 case ClipType::Midi: {
-                    uint32_t id = clip->midi.asset->id;
-                    clip_header.midi.asset_index = id;
+                    MidiAsset* asset = clip->midi.asset;
+                    clip_header.midi.asset_index = midi_index_map[asset];
                     break;
                 }
                 default:
