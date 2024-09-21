@@ -49,8 +49,7 @@ ProjectFileResult write_midi_data(const MidiData& data) {
 ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& engine,
                                      SampleTable& sample_table, MidiTable& midi_table) {
     File file;
-    uintmax_t size = std::filesystem::file_size(path);
-    if (!file.open(path, File::Read)) {
+    if (!file.open(path, File::Write)) {
         return ProjectFileResult::ErrCannotAccessFile;
     }
 
@@ -59,12 +58,12 @@ ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& 
         .version = project_header_version,
         .sample_count = (uint32_t)sample_table.samples.size(),
         .track_count = (uint32_t)engine.tracks.size(),
-        .main_volume_db = 0.0f,
         .initial_bpm = engine.get_bpm(),
-        .ppq = engine.ppq,
+        .ppq = (uint32_t)engine.ppq,
         .playhead_pos = engine.playhead_pos(),
         .timeline_view_min = g_timeline.min_hscroll,
         .timeline_view_max = g_timeline.max_hscroll,
+        .main_volume_db = 0.0f,
     };
     if (file.write(&header, sizeof(ProjectHeader)) == 0) {
         return ProjectFileResult::ErrCannotAccessFile;
@@ -137,7 +136,7 @@ ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& 
 
     for (const auto track : engine.tracks) {
         ProjectTrack track_header {
-            .magic_numbers = 'WBTR',
+            .magic_numbers = 'RTBW',
             .version = project_track_version,
             .flags =
                 ProjectTrackFlags {
@@ -159,7 +158,7 @@ ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& 
 
         for (const auto clip : track->clips) {
             ProjectClip clip_header {
-                .magic_numbers = 'WBCL',
+                .magic_numbers = 'LCBW',
                 .version = project_clip_version,
                 .type = clip->type,
                 .flags =

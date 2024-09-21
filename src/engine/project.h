@@ -16,8 +16,8 @@ struct alignas(8) ProjectHeader {
     uint32_t track_count;
     uint32_t midi_count;
     uint32_t sample_count;
+    uint32_t ppq;
     double initial_bpm;
-    double ppq;
     double playhead_pos;
     double timeline_view_min;
     double timeline_view_max;
