@@ -52,7 +52,7 @@ union alignas(4) ProjectTrackFlags {
         bool mute : 1;
         bool solo : 1;
     };
-    uint32_t flags;
+    uint32_t u32;
 };
 
 struct alignas(8) ProjectTrack {
@@ -71,7 +71,7 @@ union alignas(4) ProjectClipFlags {
         bool active : 1;
         bool loop : 1;
     };
-    uint32_t flags;
+    uint32_t u32;
 };
 
 struct alignas(8) ProjectAudioClip {

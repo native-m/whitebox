@@ -44,6 +44,7 @@ ProjectFileResult read_project_file(const std::filesystem::path& path, Engine& e
 }
 
 ProjectFileResult write_midi_data(const MidiData& data) {
+    return ProjectFileResult::Ok;
 }
 
 ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& engine,
@@ -59,8 +60,8 @@ ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& 
         .track_count = (uint32_t)engine.tracks.size(),
         .sample_count = (uint32_t)sample_table.samples.size(),
         .midi_count = (uint32_t)midi_table.midi_assets.num_allocated,
-        .initial_bpm = engine.get_bpm(),
         .ppq = (uint32_t)engine.ppq,
+        .initial_bpm = engine.get_bpm(),
         .playhead_pos = engine.playhead_pos(),
         .timeline_view_min = g_timeline.min_hscroll,
         .timeline_view_max = g_timeline.max_hscroll,
@@ -141,8 +142,8 @@ ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& 
             .version = project_track_version,
             .flags =
                 {
-                    .shown = track->shown,
                     .has_name = track->name.size() != 0,
+                    .shown = track->shown,
                     .mute = track->ui_parameter_state.mute,
                     .solo = track->ui_parameter_state.solo,
                 },
@@ -163,7 +164,7 @@ ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& 
                 .version = project_clip_version,
                 .type = clip->type,
                 .flags =
-                    ProjectClipFlags {
+                    {
                         .has_name = clip->name.size() != 0,
                         .active = clip->is_active(),
                     },
