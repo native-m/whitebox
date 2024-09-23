@@ -53,7 +53,9 @@ bool File::seek(int64_t offset, uint32_t mode) {
 uint64_t File::position() const {
     LARGE_INTEGER ofs {};
     LARGE_INTEGER output;
-    SetFilePointerEx((HANDLE)handle_, ofs, &output, FILE_CURRENT);
+    if (!SetFilePointerEx((HANDLE)handle_, ofs, &output, FILE_CURRENT)) {
+        return 0;
+    }
     return output.QuadPart;
 }
 
