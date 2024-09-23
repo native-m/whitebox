@@ -13,6 +13,10 @@ std::filesystem::path to_system_preferred_path(const std::filesystem::path& path
     return std::filesystem::path(path).make_preferred();
 }
 
+std::filesystem::path remove_filename_from_path(const std::filesystem::path& path) {
+    return std::filesystem::path(path).remove_filename();
+}
+
 void explore_folder(const std::filesystem::path& path) {
     if (!std::filesystem::is_directory(path))
         return;
@@ -33,5 +37,18 @@ void locate_file(const std::filesystem::path& path) {
     ILFree(dir_il);
     ILFree(file_il);
 #endif
+}
+std::optional<std::filesystem::path> find_file_recursive(const std::filesystem::path& dir,
+                                                         const std::filesystem::path& filename) {
+    if (std::filesystem::is_directory(dir))
+        return {};
+    for (const auto& entry : std::filesystem::recursive_directory_iterator(dir)) {
+        if (entry.is_regular_file()) {
+            const std::filesystem::path& current_path = entry.path();
+            if (current_path.filename() == filename)
+                return current_path;
+        }
+    }
+    return std::optional<std::filesystem::path>();
 }
 } // namespace wb

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "common.h"
-#include <concepts>
+#include "types.h"
 #include <filesystem>
 
 namespace wb {
@@ -41,6 +41,7 @@ struct File {
 
     bool open(const std::filesystem::path& path, uint32_t flags);
     bool seek(int64_t offset, uint32_t mode);
+    uint64_t position() const;
     uint32_t read(void* dest, size_t size);
     uint32_t write(const void* src, size_t size);
     void close();
@@ -62,26 +63,41 @@ struct File {
     inline uint32_t write_string(const char* str, size_t size) { return write(str, size); }
     inline uint32_t write_string(const std::string& str) { return write(str.data(), str.size()); }
 
-    inline uint32_t read_buffer(void* data, uint32_t* size) {
-        uint32_t num_bytes_read = read(size, sizeof(uint32_t));
-        if (*size == 0)
-            return num_bytes_read;
-        num_bytes_read += read(data, *size);
-        return num_bytes_read;
+    template <DynamicArrayContainer T>
+    uint32_t read_array(T& out) {
+        uint32_t size;
+        uint32_t num_size_read = read(&size, sizeof(uint32_t));
+        if (size == 0)
+            return num_size_read;
+        out.resize(size);
+        uint32_t byte_size = size * sizeof(typename T::value_type);
+        uint32_t num_data_read = read(out.data(), byte_size);
+        if (num_data_read < byte_size)
+            return 0;
+        return num_size_read + num_data_read;
     }
 
-    inline uint32_t write_buffer(const void* data, uint32_t size) {
-        uint32_t num_bytes_written = write(&size, sizeof(uint32_t));
+    template <ContinuousArrayContainer T>
+    inline uint32_t write_array(const T& out) {
+        uint32_t size = out.size();
+        uint32_t num_size_written = write(&size, sizeof(uint32_t));
         if (size == 0)
-            return num_bytes_written; 
-        num_bytes_written += write(data, size);
-        return num_bytes_written;
+            return num_size_written;
+        uint32_t byte_size = size * sizeof(typename T::value_type);
+        uint32_t num_data_written = write(out.data(), byte_size);
+        if (num_data_written < byte_size)
+            return 0;
+        return num_size_written + num_data_written;
     }
 
     inline bool is_open() const { return open_; }
 };
 
 std::filesystem::path to_system_preferred_path(const std::filesystem::path& path);
+std::filesystem::path remove_filename_from_path(const std::filesystem::path& path);
 void explore_folder(const std::filesystem::path& path);
 void locate_file(const std::filesystem::path& path);
+std::optional<std::filesystem::path> find_file_recursive(const std::filesystem::path& dir,
+                                                         const std::filesystem::path& filename);
+
 } // namespace wb

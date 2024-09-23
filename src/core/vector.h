@@ -19,6 +19,11 @@ struct VectorInternal {
 
 template <typename T>
 struct Vector {
+    using value_type = T;
+    using reference_type = T&;
+    using pointer_type = T*;
+    using size_type = size_t;
+
     detail::VectorInternal<T> intern_ {};
 
     Vector() noexcept {}
@@ -96,6 +101,16 @@ struct Vector {
     inline const T& back() const noexcept {
         assert(intern_.size > 0);
         return intern_.data[intern_.size - 1];
+    }
+
+    inline T& at(size_t idx) noexcept {
+        assert(idx >= 0 && idx < intern_.size);
+        return intern_.data[idx];
+    }
+
+    inline const T& at(size_t idx) const noexcept {
+        assert(idx >= 0 && idx < intern_.size);
+        return intern_.data[idx];
     }
 
     inline T& operator[](size_t idx) noexcept {

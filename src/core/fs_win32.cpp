@@ -1,4 +1,5 @@
 #include "fs.h"
+#include "debug.h"
 
 #ifdef WB_PLATFORM_WINDOWS
 #include "bit_manipulation.h"
@@ -49,8 +50,16 @@ bool File::seek(int64_t offset, uint32_t mode) {
     return SetFilePointerEx((HANDLE)handle_, ofs, nullptr, mode);
 }
 
+uint64_t File::position() const {
+    LARGE_INTEGER ofs {};
+    LARGE_INTEGER output;
+    SetFilePointerEx((HANDLE)handle_, ofs, &output, FILE_CURRENT);
+    return output.QuadPart;
+}
+
 uint32_t File::read(void* dest, size_t size) {
     DWORD num_read;
+    Log::debug("{:x}", position());
     ReadFile((HANDLE)handle_, dest, (DWORD)size, &num_read, nullptr);
     return num_read;
 }

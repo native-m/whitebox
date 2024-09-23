@@ -17,11 +17,11 @@ bool File::seek(int64_t offset, uint32_t mode) {
     return false;
 }
 
-int32_t File::read(void* dest, size_t size) {
+uint32_t File::read(void* dest, size_t size) {
     return 0;
 }
 
-int32_t File::write(const void* src, size_t size) {
+uint32_t File::write(const void* src, size_t size) {
     return 0;
 }
 
