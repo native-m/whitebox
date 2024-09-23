@@ -60,7 +60,7 @@ struct alignas(8) ProjectTrack {
     uint32_t magic_numbers;
     uint32_t version;
     ProjectTrackFlags flags;
-    ImVec4 color; // TODO: Use uint32_t color
+    uint32_t color; // TODO: Use uint32_t color
     float view_height;
     float volume_db;
     float pan;
@@ -91,7 +91,7 @@ struct alignas(8) ProjectClip {
     uint32_t version;
     ClipType type;
     ProjectClipFlags flags;
-    ImVec4 color; // TODO: Use uint32_t color
+    uint32_t color;
     double min_time;
     double max_time;
     double start_offset;
