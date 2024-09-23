@@ -59,13 +59,15 @@ struct Clip {
 
     Clip() noexcept : id(WB_INVALID_CLIP_ID), audio() {}
 
-    Clip(const std::string& name, const ImColor& color, double min_time, double max_time) noexcept :
+    Clip(const std::string& name, const ImColor& color, double min_time, double max_time,
+         double start_offset = 0.0) noexcept :
         id(WB_INVALID_CLIP_ID),
         type(ClipType::Unknown),
         name(name),
         color(color),
         min_time(min_time),
         max_time(max_time),
+        start_offset(start_offset),
         audio() {}
 
     Clip(const Clip& clip) noexcept :

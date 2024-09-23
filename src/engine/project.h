@@ -5,6 +5,7 @@
 #include "core/fs.h"
 #include "core/vector.h"
 #include "engine.h"
+#include "ui/timeline.h"
 #include <fstream>
 #include <unordered_map>
 
@@ -59,7 +60,8 @@ struct alignas(8) ProjectTrack {
     uint32_t magic_numbers;
     uint32_t version;
     ProjectTrackFlags flags;
-    ImVec4 color;
+    ImVec4 color; // TODO: Use uint32_t color
+    float view_height;
     float volume_db;
     float pan;
     uint32_t clip_count;
@@ -89,7 +91,7 @@ struct alignas(8) ProjectClip {
     uint32_t version;
     ClipType type;
     ProjectClipFlags flags;
-    ImVec4 color;
+    ImVec4 color; // TODO: Use uint32_t color
     double min_time;
     double max_time;
     double start_offset;
@@ -102,14 +104,17 @@ struct alignas(8) ProjectClip {
 enum class ProjectFileResult {
     Ok,
     ErrCannotAccessFile,
+    ErrCorruptedFile,
     ErrEndOfFile,
     ErrIncompatibleVersion,
     ErrInvalidFormat,
 };
 
 ProjectFileResult read_project_file(const std::filesystem::path& filepath, Engine& engine,
-                                    SampleTable& sample_table, MidiTable& midi_table);
+                                    SampleTable& sample_table, MidiTable& midi_table,
+                                    GuiTimeline& timeline);
 ProjectFileResult write_project_file(const std::filesystem::path& filepath, Engine& engine,
-                                     SampleTable& sample_table, MidiTable& midi_table);
+                                     SampleTable& sample_table, MidiTable& midi_table,
+                                     GuiTimeline& timeline);
 
 } // namespace wb
