@@ -3,6 +3,7 @@
 #include "common.h"
 #include "types.h"
 #include <filesystem>
+#include <optional>
 
 namespace wb {
 struct File;
