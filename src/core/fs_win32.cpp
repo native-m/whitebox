@@ -59,7 +59,6 @@ uint64_t File::position() const {
 
 uint32_t File::read(void* dest, size_t size) {
     DWORD num_read;
-    Log::debug("{:x}", position());
     ReadFile((HANDLE)handle_, dest, (DWORD)size, &num_read, nullptr);
     return num_read;
 }
