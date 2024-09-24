@@ -58,6 +58,8 @@ set(WB_SOURCES
     "src/core/memory.h"
     "src/core/midi.cpp"
     "src/core/midi.h"
+    "src/core/panning_law.cpp"
+    "src/core/panning_law.h"
     "src/core/platform_def.h"
     "src/core/queue.h"
     "src/core/thread.cpp"
