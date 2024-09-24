@@ -4,7 +4,7 @@
 #include "core/audio_buffer.h"
 #include "core/audio_format_conv.h"
 #include "core/debug.h"
-#include "core/math.h"
+#include "core/core_math.h"
 #include "engine/engine.h"
 
 #include <Audioclient.h>

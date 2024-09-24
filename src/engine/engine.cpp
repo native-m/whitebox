@@ -1,7 +1,7 @@
 #include "engine.h"
 #include "clip_edit.h"
 #include "core/debug.h"
-#include "core/math.h"
+#include "core/core_math.h"
 #include "track.h"
 #include <numbers>
 

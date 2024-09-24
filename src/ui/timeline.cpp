@@ -5,7 +5,7 @@
 #include "controls.h"
 #include "core/color.h"
 #include "core/debug.h"
-#include "core/math.h"
+#include "core/core_math.h"
 #include "engine/clip_edit.h"
 #include "engine/engine.h"
 #include "engine/track.h"

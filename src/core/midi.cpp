@@ -1,6 +1,6 @@
 #include "midi.h"
 #include "debug.h"
-#include "math.h"
+#include "core_math.h"
 #include <fstream>
 #include <limits>
 #include <midi-parser.h>

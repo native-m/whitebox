@@ -2,7 +2,7 @@
 #include "assets_table.h"
 #include "clip_edit.h"
 #include "core/debug.h"
-#include "core/math.h"
+#include "core/core_math.h"
 #include "core/queue.h"
 #include <algorithm>
 

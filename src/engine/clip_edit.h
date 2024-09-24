@@ -2,7 +2,7 @@
 
 #include "clip.h"
 #include "core/common.h"
-#include "core/math.h"
+#include "core/core_math.h"
 
 namespace wb {
 struct ClipMoveResult {

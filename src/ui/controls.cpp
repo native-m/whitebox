@@ -1,7 +1,7 @@
 #include "controls.h"
 #include "core/color.h"
 #include "core/debug.h"
-#include "core/math.h"
+#include "core/core_math.h"
 #include "core/queue.h"
 #include "engine/engine.h"
 #include "gfx/draw.h"

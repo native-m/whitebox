@@ -1,5 +1,5 @@
 #include "sample.h"
-#include "core/math.h"
+#include "core/core_math.h"
 #include "core/debug.h"
 #include "extern/dr_mp3.h"
 #include <memory>
