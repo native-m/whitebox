@@ -11,7 +11,7 @@
 
 namespace wb {
 
-struct alignas(8) ProjectHeader {
+struct alignas(8) PFHeader {
     uint32_t magic_numbers;
     uint32_t version;
     uint32_t track_count;
@@ -26,7 +26,6 @@ struct alignas(8) ProjectHeader {
 };
 
 struct ProjectInfo {
-    static constexpr uint32_t project_info_version = 1;
     uint32_t version;
     std::string author;
     std::string title;
@@ -34,19 +33,14 @@ struct ProjectInfo {
     std::string genre;
 };
 
-struct ProjectSampleTable {
-    std::unordered_map<uint64_t, uint32_t> sample_index_map;
-    std::vector<SampleAsset*> sample_asset;
-};
-
-struct ProjectMidiAsset {
+struct PFMidiAsset {
     double max_length;
     uint32_t channel_count;
     uint32_t min_note = 0;
     uint32_t max_note = 0;
 };
 
-union alignas(4) ProjectTrackFlags {
+union alignas(4) PFTrackFlags {
     struct {
         bool has_name : 1;
         bool shown : 1;
@@ -56,10 +50,10 @@ union alignas(4) ProjectTrackFlags {
     uint32_t u32;
 };
 
-struct alignas(8) ProjectTrack {
+struct alignas(8) PFTrackHeader {
     uint32_t magic_numbers;
     uint32_t version;
-    ProjectTrackFlags flags;
+    PFTrackFlags flags;
     uint32_t color; // TODO: Use uint32_t color
     float view_height;
     float volume_db;
@@ -67,7 +61,7 @@ struct alignas(8) ProjectTrack {
     uint32_t clip_count;
 };
 
-union alignas(4) ProjectClipFlags {
+union alignas(4) PFClipFlags {
     struct {
         bool has_name : 1;
         bool active : 1;
@@ -76,28 +70,28 @@ union alignas(4) ProjectClipFlags {
     uint32_t u32;
 };
 
-struct alignas(8) ProjectAudioClip {
+struct alignas(8) PFAudioClip {
     double fade_start;
     double fade_end;
     uint32_t asset_index;
 };
 
-struct alignas(8) ProjectMidiClip {
+struct alignas(8) PFMidiClip {
     uint32_t asset_index;
 };
 
-struct alignas(8) ProjectClip {
+struct alignas(8) PFClipHeader {
     uint32_t magic_numbers;
     uint32_t version;
     ClipType type;
-    ProjectClipFlags flags;
+    PFClipFlags flags;
     uint32_t color;
     double min_time;
     double max_time;
     double start_offset;
     union {
-        ProjectAudioClip audio;
-        ProjectMidiClip midi;
+        PFAudioClip audio;
+        PFMidiClip midi;
     };
 };
 

@@ -20,13 +20,13 @@ ProjectFileResult read_project_file(const std::filesystem::path& path, Engine& e
                                     GuiTimeline& timeline) {
     File file;
     uintmax_t size = std::filesystem::file_size(path);
-    if (size < sizeof(ProjectHeader))
+    if (size < sizeof(PFHeader))
         return ProjectFileResult::ErrInvalidFormat;
     if (!file.open(path, File::Read))
         return ProjectFileResult::ErrCannotAccessFile;
 
-    ProjectHeader header;
-    if (file.read(&header, sizeof(ProjectHeader)) < sizeof(ProjectHeader))
+    PFHeader header;
+    if (file.read(&header, sizeof(PFHeader)) < sizeof(PFHeader))
         return ProjectFileResult::ErrCorruptedFile;
     if (header.magic_numbers != 'RPBW')
         return ProjectFileResult::ErrInvalidFormat;
@@ -116,8 +116,8 @@ ProjectFileResult read_project_file(const std::filesystem::path& path, Engine& e
     Vector<MidiAsset*> midi_assets;
     midi_assets.resize(header.midi_count);
     for (uint32_t i = 0; i < header.midi_count; i++) {
-        ProjectMidiAsset midi_asset;
-        if (file.read(&midi_asset, sizeof(ProjectMidiAsset)) < sizeof(ProjectMidiAsset))
+        PFMidiAsset midi_asset;
+        if (file.read(&midi_asset, sizeof(PFMidiAsset)) < sizeof(PFMidiAsset))
             return ProjectFileResult::ErrCorruptedFile;
         MidiAsset* asset = midi_table.create_midi();
         midi_asset.channel_count = math::min(midi_asset.channel_count, 16u);
@@ -137,8 +137,8 @@ ProjectFileResult read_project_file(const std::filesystem::path& path, Engine& e
 
     std::string tmp_str;
     for (uint32_t i = 0; i < header.track_count; i++) {
-        ProjectTrack track_header;
-        if (file.read(&track_header, sizeof(ProjectTrack)) < sizeof(ProjectTrack))
+        PFTrackHeader track_header;
+        if (file.read(&track_header, sizeof(PFTrackHeader)) < sizeof(PFTrackHeader))
             return ProjectFileResult::ErrCorruptedFile;
         if (track_header.magic_numbers != 'RTBW')
             return ProjectFileResult::ErrInvalidFormat;
@@ -162,8 +162,8 @@ ProjectFileResult read_project_file(const std::filesystem::path& path, Engine& e
         track->clips.resize(track_header.clip_count);
 
         for (uint32_t j = 0; j < track_header.clip_count; j++) {
-            ProjectClip clip_header;
-            if (file.read(&clip_header, sizeof(ProjectClip)) < sizeof(ProjectClip))
+            PFClipHeader clip_header;
+            if (file.read(&clip_header, sizeof(PFClipHeader)) < sizeof(PFClipHeader))
                 return ProjectFileResult::ErrCorruptedFile;
             if (clip_header.magic_numbers != 'LCBW')
                 return ProjectFileResult::ErrInvalidFormat;
@@ -219,7 +219,7 @@ ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& 
         return ProjectFileResult::ErrCannotAccessFile;
     }
 
-    ProjectHeader header {
+    PFHeader header {
         .magic_numbers = 'RPBW',
         .version = project_header_version,
         .track_count = (uint32_t)engine.tracks.size(),
@@ -232,7 +232,7 @@ ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& 
         .timeline_view_max = g_timeline.max_hscroll,
         .main_volume_db = 0.0f,
     };
-    if (file.write(&header, sizeof(ProjectHeader)) == 0) {
+    if (file.write(&header, sizeof(PFHeader)) == 0) {
         return ProjectFileResult::ErrCannotAccessFile;
     }
 
@@ -279,13 +279,13 @@ ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& 
     auto midi_asset_ptr = midi_table.allocated_assets.next_;
     while (auto asset = static_cast<MidiAsset*>(midi_asset_ptr)) {
         MidiData& data = asset->data;
-        ProjectMidiAsset asset_header {
+        PFMidiAsset asset_header {
             .max_length = data.max_length,
             .channel_count = data.channel_count,
             .min_note = data.min_note,
             .max_note = data.max_note,
         };
-        if (file.write(&asset_header, sizeof(ProjectMidiAsset)) < sizeof(ProjectMidiAsset))
+        if (file.write(&asset_header, sizeof(PFMidiAsset)) < sizeof(PFMidiAsset))
             return ProjectFileResult::ErrCannotAccessFile;
         for (uint32_t i = 0; i < data.channel_count; i++) {
             // NOTE(native-m): Here we just dump midi note buffer to the file until the MidiNote
@@ -300,7 +300,7 @@ ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& 
     }
 
     for (const auto track : engine.tracks) {
-        ProjectTrack track_header {
+        PFTrackHeader track_header {
             .magic_numbers = 'RTBW',
             .version = project_track_version,
             .flags =
@@ -316,14 +316,14 @@ ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& 
             .pan = track->ui_parameter_state.pan,
             .clip_count = (uint32_t)track->clips.size(),
         };
-        if (file.write(&track_header, sizeof(ProjectTrack)) < sizeof(ProjectTrack))
+        if (file.write(&track_header, sizeof(PFTrackHeader)) < sizeof(PFTrackHeader))
             return ProjectFileResult::ErrCannotAccessFile;
         if (track_header.flags.has_name)
             if (file.write_array(track->name) < 4)
                 return ProjectFileResult::ErrCannotAccessFile;
 
         for (const auto clip : track->clips) {
-            ProjectClip clip_header {
+            PFClipHeader clip_header {
                 .magic_numbers = 'LCBW',
                 .version = project_clip_version,
                 .type = clip->type,
@@ -359,7 +359,7 @@ ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& 
                     break;
             }
 
-            if (file.write(&clip_header, sizeof(ProjectClip)) < sizeof(ProjectClip))
+            if (file.write(&clip_header, sizeof(PFClipHeader)) < sizeof(PFClipHeader))
                 return ProjectFileResult::ErrCannotAccessFile;
             if (clip_header.flags.has_name)
                 if (file.write_array(clip->name) < 4)
