@@ -15,8 +15,8 @@ void SampleAsset::release() {
 }
 
 SampleAsset* SampleTable::load_from_file(const std::filesystem::path& path) {
-    auto& native_path = path.u8string(); 
-    uint64_t hash = XXH64(native_path.data(), native_path.size(), sample_hash_seed);
+    std::u8string str_path = path.u8string(); 
+    uint64_t hash = XXH64(str_path.data(), str_path.size(), sample_hash_seed);
     
     auto item = samples.find(hash);
     if (item != samples.end()) {
