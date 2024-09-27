@@ -37,18 +37,19 @@ ProjectFileResult read_project_file(const std::filesystem::path& path, Engine& e
     g_timeline.min_hscroll = header.timeline_view_min;
     g_timeline.max_hscroll = header.timeline_view_max;
 
-    ProjectInfo project_info {
-        .version = project_info_version,
-    };
-    if (file.read_u32(&project_info.version) < 4)
+    ProjectInfo project_info {};
+    uint32_t version;
+    if (file.read_u32(&version) < 4)
         return ProjectFileResult::ErrCorruptedFile;
+    if (version > project_info_version)
+        return ProjectFileResult::ErrIncompatibleVersion;
     if (file.read_array(project_info.author) < 4)
         return ProjectFileResult::ErrCorruptedFile;
     if (file.read_array(project_info.title) < 4)
         return ProjectFileResult::ErrCorruptedFile;
-    if (file.read_array(project_info.description) < 4)
-        return ProjectFileResult::ErrCorruptedFile;
     if (file.read_array(project_info.genre) < 4)
+        return ProjectFileResult::ErrCorruptedFile;
+    if (file.read_array(project_info.description) < 4)
         return ProjectFileResult::ErrCorruptedFile;
 
     // Read sample table header
@@ -236,19 +237,22 @@ ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& 
         return ProjectFileResult::ErrCannotAccessFile;
     }
 
-    ProjectInfo project_info {
-        .version = project_info_version,
-    };
-    if (file.write_u32(project_info.version) < 4)
+    ProjectInfo project_info {};
+    if (file.write_u32(project_info_version) < 4)
         return ProjectFileResult::ErrCannotAccessFile;
     if (file.write_array(project_info.author) < 4)
         return ProjectFileResult::ErrCannotAccessFile;
     if (file.write_array(project_info.title) < 4)
         return ProjectFileResult::ErrCannotAccessFile;
-    if (file.write_array(project_info.description) < 4)
-        return ProjectFileResult::ErrCannotAccessFile;
     if (file.write_array(project_info.genre) < 4)
         return ProjectFileResult::ErrCannotAccessFile;
+    if (file.write_array(project_info.description) < 4)
+        return ProjectFileResult::ErrCannotAccessFile;
+
+    engine.project_info.author = std::move(project_info.author);
+    engine.project_info.title = std::move(project_info.title);
+    engine.project_info.description = std::move(project_info.description);
+    engine.project_info.genre = std::move(project_info.genre);
 
     // Sample table header
     if (file.write_u32('TSBW') < 4) // Magic number

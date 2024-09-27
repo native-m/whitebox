@@ -25,14 +25,6 @@ struct alignas(8) PFHeader {
     float main_volume_db;
 };
 
-struct ProjectInfo {
-    uint32_t version;
-    std::string author;
-    std::string title;
-    std::string description;
-    std::string genre;
-};
-
 struct PFMidiAsset {
     double max_length;
     uint32_t channel_count;
