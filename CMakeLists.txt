@@ -123,6 +123,8 @@ set(WB_SOURCES
     "src/ui/command_manager.h"
     "src/ui/controls.cpp"
     "src/ui/controls.h"
+    "src/ui/dialogs.cpp"
+    "src/ui/dialogs.h"
     "src/ui/env_editor.cpp"
     "src/ui/env_editor.h"
     "src/ui/file_dialog.cpp"

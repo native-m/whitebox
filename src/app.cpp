@@ -11,6 +11,7 @@
 #include "ui/browser.h"
 #include "ui/command_manager.h"
 #include "ui/controls.h"
+#include "ui/dialogs.h"
 #include "ui/env_editor.h"
 #include "ui/file_dialog.h"
 #include "ui/file_dropper.h"
@@ -42,8 +43,8 @@ void App::init() {
 
     ImGuiIO& io = ImGui::GetIO();
     // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     // io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     io.ConfigViewportsNoTaskBarIcon = false;
     io.IniFilename = ".whitebox/ui.ini";
 
@@ -127,6 +128,10 @@ void App::render() {
     g_timeline.render();
     g_piano_roll.render();
     g_env_window.render();
+    
+    if (g_show_project_dialog) {
+        project_info_dialog();
+    }
 
     ImGui::Render();
     g_renderer->begin_draw(nullptr, {0.0f, 0.0f, 0.0f, 1.0f});
@@ -237,6 +242,8 @@ void App::render_control_bar() {
             ImGui::Separator();
             ImGui::MenuItem("Save", "Ctrl+S");
             save_project = ImGui::MenuItem("Save As...", "Shift+Ctrl+S");
+            ImGui::Separator();
+            ImGui::MenuItem("Project Info...", nullptr, &g_show_project_dialog);
             ImGui::Separator();
             if (ImGui::MenuItem("Open VST3 plugin")) {
 #ifdef WB_PLATFORM_WINDOWS
