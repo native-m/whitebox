@@ -3,7 +3,7 @@
 #include "core/queue.h"
 #include "core/vector.h"
 #include "core/debug.h"
-#include <pluginterfaces/vst/ivstparameterchanges.h>
+//#include <pluginterfaces/vst/ivstparameterchanges.h>
 
 namespace wb {
 
@@ -19,7 +19,7 @@ struct ParamChange {
 };
 
 struct ParamValueQueue {
-    uint32_t id = Steinberg::Vst::kNoParamId;
+    uint32_t id = 0xFFFFFFFF;
     Vector<ParamValuePoint> points;
 
     inline void clear() { points.resize_fast(0); }
@@ -61,7 +61,7 @@ struct ParamChanges {
         queues.resize(max_params);
 
         while (param_ids.size() < max_params) {
-            param_ids.emplace_back(Steinberg::Vst::kNoParamId);
+            param_ids.emplace_back(0xFFFFFFFF);
         }
 
         if (param_ids.size() > max_params) {
@@ -76,7 +76,7 @@ struct ParamChanges {
     inline ParamValueQueue* add_param_change(uint32_t id, int32_t& index) {
         ParamValueQueue* ret = nullptr;
 
-        if (param_ids[id] != Steinberg::Vst::kNoParamId) {
+        if (param_ids[id] != 0xFFFFFFFF) {
             index = param_ids[id];
             ret = &queues[index];
         }
