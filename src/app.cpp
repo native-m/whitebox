@@ -45,6 +45,8 @@ static bool is_running = true;
 static VST3Host vst3_host;
 static std::unordered_map<uint32_t, SDL_Window*> plugin_windows;
 
+uint32_t AppEvent::audio_device_removed_event;
+
 static void apply_theme(ImGuiStyle& style);
 static int SDLCALL event_watcher(void* userdata, SDL_Event* event);
 
@@ -116,6 +118,7 @@ static void wait_until_restored() {
 }
 
 static void handle_plugin_events(SDL_Event& event) {
+    AppEvent::audio_device_removed_event = SDL_RegisterEvents(1);
 }
 
 static void handle_events(SDL_Event& event) {
@@ -169,16 +172,26 @@ static void handle_events(SDL_Event& event) {
         case SDL_QUIT:
             is_running = false;
             break;
-        default:
+        default: {
+            if (event.type == AppEvent::audio_device_removed_event) {
+                shutdown_audio_io();
+                start_audio_engine();
+            }
             break;
+        }
     }
 
     ImGui_ImplSDL2_ProcessEvent(&event);
 }
 
+static void register_events() {
+    AppEvent::audio_device_removed_event = SDL_RegisterEvents(1);
+}
+
 void app_init() {
     // Init SDL & create main window
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
+    register_events();
     SDL_Window* new_window =
         SDL_CreateWindow("whitebox", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720,
                          SDL_WINDOW_RESIZABLE);
@@ -482,6 +495,16 @@ void app_run_loop() {
         }
         app_render();
     }
+}
+
+void app_push_event(uint32_t type, void* data, size_t size) {
+    SDL_Event event;
+    event.user = {
+        .type = type,
+        .timestamp = 0,
+        .windowID = 0,
+    };
+    SDL_PushEvent(&event);
 }
 
 void app_shutdown() {

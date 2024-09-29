@@ -1,4 +1,5 @@
 #include "config.h"
+#include "app.h"
 #include "core/debug.h"
 #include "extern/json.hpp"
 // #include "core/math.h"
@@ -221,10 +222,20 @@ void save_settings_data() {
     }
 }
 
+void on_device_removed_callback(void* userdata) {
+    app_push_event(AppEvent::audio_device_removed_event, nullptr, 0);
+}
+
 void start_audio_engine() {
     shutdown_audio_io();
     init_audio_io(g_audio_io_type);
-    g_audio_io->open_device(g_output_device_properties.id, g_input_device_properties.id);
+    if (!g_audio_io->open_device(g_output_device_properties.id, g_input_device_properties.id)) {
+        // Set default audio device
+        g_input_device_properties = g_audio_io->default_input_device;
+        g_output_device_properties = g_audio_io->default_output_device;
+        g_audio_io->open_device(g_output_device_properties.id, g_input_device_properties.id);
+    }
+    g_audio_io->set_on_device_removed_cb(on_device_removed_callback);
 
     if (!g_audio_exclusive_mode) {
         g_audio_output_format = g_audio_io->shared_mode_output_format;

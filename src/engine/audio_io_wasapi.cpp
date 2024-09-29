@@ -6,16 +6,16 @@
 #include "core/core_math.h"
 #include "core/debug.h"
 #include "engine/engine.h"
-
-#include <Audioclient.h>
-#include <atomic>
-#include <ks.h>
-#include <ksmedia.h>
 #include <memory>
 #include <shared_mutex>
 #include <string_view>
 #include <thread>
 #include <vector>
+
+#include <Audioclient.h>
+#include <atomic>
+#include <ks.h>
+#include <ksmedia.h>
 #include <wrl.h>
 
 #ifndef __mmdeviceapi_h__
@@ -87,6 +87,12 @@ inline static WAVEFORMATEXTENSIBLE to_waveformatex(AudioFormat sample_format, ui
     waveformat.dwChannelMask = (1u << channels) - 1;
 
     return waveformat;
+}
+
+inline static AudioDeviceID get_whitebox_device_id(LPCWSTR device_id) {
+    std::wstring_view device_str_id(device_id);
+    AudioDeviceID id = std::hash<std::wstring_view> {}(device_str_id);
+    return id;
 }
 
 struct AudioDeviceWASAPI {
@@ -233,52 +239,36 @@ HRESULT STDMETHODCALLTYPE EndpointNotificationWASAPI::QueryInterface(REFIID riid
 
 HRESULT STDMETHODCALLTYPE EndpointNotificationWASAPI::OnDeviceStateChanged(LPCWSTR pwstrDeviceId,
                                                                            DWORD dwNewState) {
-    std::wstring_view device_id(pwstrDeviceId);
-    char dev_id_str[128];
-    wcstombs_s(nullptr, dev_id_str, sizeof(dev_id_str), device_id.data(), device_id.size());
-    Log::debug("AudioIOWASAPI: Device state changed -> {}", dev_id_str);
-    std::unique_lock lock(io->notification_mutex);
-    io->rescan_devices();
+    AudioDeviceID id = get_whitebox_device_id(pwstrDeviceId);
+    if (id == io->current_output_device_id || id == io->current_input_device_id) {
+        if (has_bit(dwNewState, DEVICE_STATE_DISABLED, DEVICE_STATE_NOTPRESENT,
+                    DEVICE_STATE_UNPLUGGED)) {
+            if (io->device_removed_cb) {
+                io->device_removed_cb(nullptr);
+            }
+        }
+    } else {
+        std::unique_lock lock(io->notification_mutex);
+        io->rescan_devices();
+    }
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE EndpointNotificationWASAPI::OnDeviceAdded(LPCWSTR pwstrDeviceId) {
-    std::wstring_view device_id(pwstrDeviceId);
-    char dev_id_str[128];
-    wcstombs_s(nullptr, dev_id_str, sizeof(dev_id_str), device_id.data(), device_id.size());
-    Log::debug("AudioIOWASAPI: Device added -> {}", dev_id_str);
-    std::unique_lock lock(io->notification_mutex);
-    io->rescan_devices();
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE EndpointNotificationWASAPI::OnDeviceRemoved(LPCWSTR pwstrDeviceId) {
-    std::wstring_view device_id(pwstrDeviceId);
-    char dev_id_str[128];
-    wcstombs_s(nullptr, dev_id_str, sizeof(dev_id_str), device_id.data(), device_id.size());
-    Log::debug("AudioIOWASAPI: Device removed -> {}", dev_id_str);
-    std::unique_lock lock(io->notification_mutex);
-    io->rescan_devices();
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE EndpointNotificationWASAPI::OnDefaultDeviceChanged(
     EDataFlow flow, ERole role, LPCWSTR pwstrDefaultDeviceId) {
-    std::wstring_view device_id(pwstrDefaultDeviceId);
-    char dev_id_str[128];
-    wcstombs_s(nullptr, dev_id_str, sizeof(dev_id_str), device_id.data(), device_id.size());
-    Log::debug("AudioIOWASAPI: Default device changed -> {}", dev_id_str);
-    std::unique_lock lock(io->notification_mutex);
-    io->rescan_devices();
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE
 EndpointNotificationWASAPI::OnPropertyValueChanged(LPCWSTR pwstrDeviceId, const PROPERTYKEY key) {
-    std::wstring_view device_id(pwstrDeviceId);
-    char dev_id_str[128];
-    wcstombs_s(nullptr, dev_id_str, sizeof(dev_id_str), device_id.data(), device_id.size());
-    Log::debug("AudioIOWASAPI: Property value changed -> {}", dev_id_str);
     return S_OK;
 }
 
@@ -430,6 +420,8 @@ bool AudioIOWASAPI::open_device(AudioDeviceID output_device_id, AudioDeviceID in
         }
     }
 
+    current_input_device_id = input_device_id;
+    current_output_device_id = output_device_id;
     min_period = std::max(output.absolute_min_period, input.absolute_min_period);
 
     // Maximum buffer alignment for low latency stream is 32
@@ -657,6 +649,7 @@ void AudioIOWASAPI::audio_thread_runner(AudioIOWASAPI* instance, AudioThreadPrio
     HANDLE output_stream_event = instance->output.stream_event;
     AudioBuffer<float> output_buffer(buffer_size, instance->output.channel_count);
     uint32_t output_channels = output_buffer.n_channels;
+    bool device_removed = false;
 
     while (instance->running.load(std::memory_order_relaxed)) {
         engine->process(output_buffer, sample_rate);
@@ -680,12 +673,16 @@ void AudioIOWASAPI::audio_thread_runner(AudioIOWASAPI* instance, AudioThreadPrio
         // that's the case, we have to roll the buffer manually so that it fits into the default
         // device buffer size.
         uint32_t offset = 0;
+        HRESULT hr = 0; 
         while (offset < output_buffer.n_samples) {
             WaitForSingleObject(output_stream_event, INFINITE);
 
             uint32_t padding;
-            HRESULT hr = output_client->GetCurrentPadding(&padding);
-            assert(SUCCEEDED(hr));
+            hr = output_client->GetCurrentPadding(&padding);
+            if (!SUCCEEDED(hr)) [[unlikely]] {
+                break;
+            }
+
             uint32_t frames_available = maximum_buffer_size - padding;
             if (frames_available > (output_buffer.n_samples - offset))
                 frames_available = output_buffer.n_samples - offset;
@@ -695,7 +692,9 @@ void AudioIOWASAPI::audio_thread_runner(AudioIOWASAPI* instance, AudioThreadPrio
 #endif
             void* buffer;
             hr = render->GetBuffer(frames_available, (BYTE**)&buffer);
-            assert(SUCCEEDED(hr));
+            if (!SUCCEEDED(hr)) [[unlikely]] {
+                break;
+            }
 
             // Perform format conversion
             switch (instance->output_stream_format) {
@@ -726,8 +725,15 @@ void AudioIOWASAPI::audio_thread_runner(AudioIOWASAPI* instance, AudioThreadPrio
             }
 
             hr = render->ReleaseBuffer(frames_available, 0);
-            assert(SUCCEEDED(hr));
+            if (!SUCCEEDED(hr)) [[unlikely]] {
+                break;
+            }
+
             offset += frames_available;
+        }
+
+        if (!SUCCEEDED(hr)) [[unlikely]] {
+            break;
         }
     }
 

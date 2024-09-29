@@ -2,6 +2,7 @@
 
 #include "core/common.h"
 #include "engine/audio_io.h"
+#include <atomic>
 
 namespace wb {
 

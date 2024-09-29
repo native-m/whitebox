@@ -4,6 +4,7 @@
 #include "core/bit_manipulation.h"
 #include "core/common.h"
 #include <cmath>
+#include <functional>
 #include <string>
 
 #define WB_INVALID_AUDIO_DEVICE_INDEX (~0U)
@@ -14,6 +15,7 @@ struct Engine;
 
 using AudioDeviceID = uint64_t;
 using AudioDevicePeriod = int64_t;
+using AudioDeviceRemovedCb = void (*)(void* userdata);
 
 enum class AudioIOType {
     WASAPI,
@@ -60,8 +62,11 @@ struct AudioDeviceFormat {
 };
 
 struct AudioIO {
+    AudioDeviceRemovedCb device_removed_cb {};
     AudioDeviceProperties default_input_device;
     AudioDeviceProperties default_output_device;
+    AudioDeviceID current_input_device_id {0};
+    AudioDeviceID current_output_device_id {0};
     uint32_t input_device_count = 0;
     uint32_t output_device_count = 0;
     uint32_t exclusive_sample_rate_bit_flags = 0;
@@ -90,6 +95,8 @@ struct AudioIO {
     bool is_output_format_supported(AudioFormat format) const {
         return has_bit_enum(exclusive_output_format_bit_flags, format);
     }
+
+    void set_on_device_removed_cb(AudioDeviceRemovedCb cb) { device_removed_cb = cb; }
 
     virtual ~AudioIO() {}
 

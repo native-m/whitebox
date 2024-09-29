@@ -11,7 +11,6 @@
 #include "engine/track.h"
 #include "forms.h"
 #include "layout.h"
-#include "popup_state_manager.h"
 #include <fmt/format.h>
 
 #define DEBUG_MIDI_CLIPS 0
