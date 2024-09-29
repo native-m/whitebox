@@ -1,5 +1,4 @@
 #include "renderer_vulkan.h"
-#include "app_sdl2.h"
 #include "core/debug.h"
 #include "core/defer.h"
 #include "core/thread.h"
@@ -25,7 +24,7 @@ extern "C" {
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_vulkan.h>
 
-#define VULKAN_ENABLE_VALIDATION_AND_DEBUG_MSG 0
+#define VULKAN_ENABLE_VALIDATION_AND_DEBUG_MSG 1
 #define VULKAN_LOG_RESOURCE_DISPOSAL 0
 
 #ifdef NDEBUG
@@ -520,8 +519,8 @@ bool RendererVK::init() {
         .dstSubpass = 0,
         .srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
         .dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-        .srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
-        .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+        .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
         .dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT,
     };
 
@@ -581,13 +580,13 @@ bool RendererVK::init() {
     }
 
     VkDescriptorPoolSize pool_sizes[] = {
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4096},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1024},
     };
 
     VkDescriptorPoolCreateInfo pool_info = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
         .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
-        .maxSets = 4096,
+        .maxSets = 1024,
         .poolSizeCount = (uint32_t)IM_ARRAYSIZE(pool_sizes),
         .pPoolSizes = pool_sizes,
     };
@@ -899,8 +898,8 @@ std::shared_ptr<SamplePeaks> RendererVK::create_sample_peaks(const Sample& sampl
 }
 
 void RendererVK::resize_swapchain() {
-    //vkDeviceWaitIdle(device_);
-    //init_swapchain_();
+    // vkDeviceWaitIdle(device_);
+    // init_swapchain_();
 }
 
 void RendererVK::new_frame() {
@@ -931,7 +930,7 @@ void RendererVK::new_frame() {
     cmd_buf.immediate_idx_offset = 0;
     cmd_buf.polygon_vtx_offset = 0;
 
-    //g_vsync_provider->wait_for_vblank();
+    // g_vsync_provider->wait_for_vblank();
 }
 
 void RendererVK::end_frame() {
@@ -1242,7 +1241,6 @@ void RendererVK::draw_waveforms(const ImVector<ClipContentDrawCmd>& clips) {
 
             current_buffer = buffer;
             vkUpdateDescriptorSets(device_, 1, &write_descriptor, 0, {});
-
             vkCmdBindDescriptorSets(current_cb_, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                     waveform_layout.layout, 0, 1, &descriptor_set, 0, nullptr);
         }
@@ -1379,8 +1377,8 @@ void RendererVK::render_draw_command_list(DrawCommandList* command_list) {
 
                 VkMemoryBarrier memory_barrier {
                     .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
-                    .srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
-                    .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+                    .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+                    .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
                 };
                 vkCmdPipelineBarrier(current_cb_, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
                                      VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
@@ -1493,8 +1491,8 @@ void RendererVK::render_imgui_draw_data(ImDrawData* draw_data) {
             const ImDrawCmd* pcmd = &cmd_list->CmdBuffer[cmd_i];
             if (pcmd->UserCallback != nullptr) {
                 // User callback, registered via ImDrawList::AddCallback()
-                // (ImDrawCallback_ResetRenderState is a special callback value used by the user to
-                // request the renderer to reset render state.)
+                // (ImDrawCallback_ResetRenderState is a special callback value used by the user
+                // to request the renderer to reset render state.)
                 if (pcmd->UserCallback == ImDrawCallback_ResetRenderState)
                     setup_imgui_render_state(draw_data, pipeline, current_cb_, rb, fb_width,
                                              fb_height);
@@ -1507,7 +1505,8 @@ void RendererVK::render_imgui_draw_data(ImDrawData* draw_data) {
                 ImVec2 clip_max((pcmd->ClipRect.z - clip_off.x) * clip_scale.x,
                                 (pcmd->ClipRect.w - clip_off.y) * clip_scale.y);
 
-                // Clamp to viewport as vkCmdSetScissor() won't accept values that are off bounds
+                // Clamp to viewport as vkCmdSetScissor() won't accept values that are off
+                // bounds
                 if (clip_min.x < 0.0f) {
                     clip_min.x = 0.0f;
                 }
@@ -1534,8 +1533,8 @@ void RendererVK::render_imgui_draw_data(ImDrawData* draw_data) {
                 // Bind DescriptorSet with font or user texture
                 VkDescriptorSet desc_set[1] = {(VkDescriptorSet)pcmd->TextureId};
                 if (sizeof(ImTextureID) < sizeof(ImU64)) {
-                    // We don't support texture switches if ImTextureID hasn't been redefined to be
-                    // 64-bit. Do a flaky check that other textures haven't been used.
+                    // We don't support texture switches if ImTextureID hasn't been redefined to
+                    // be 64-bit. Do a flaky check that other textures haven't been used.
                     IM_ASSERT(pcmd->TextureId == (ImTextureID)bd->FontDescriptorSet);
                     desc_set[0] = bd->FontDescriptorSet;
                 }
@@ -1578,13 +1577,13 @@ void RendererVK::present() {
         .pImageIndices = &sc_image_index_,
     };
 
-    g_vsync_provider->wait_for_vblank();
-
     VkResult result = vkQueuePresentKHR(graphics_queue_, &present_info);
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
         vkDeviceWaitIdle(device_);
         init_swapchain_();
     }
+
+    g_vsync_provider->wait_for_vblank();
 }
 
 bool RendererVK::init_swapchain_() {
@@ -1599,7 +1598,7 @@ bool RendererVK::init_swapchain_() {
                                 .set_desired_format({VK_FORMAT_B8G8R8A8_UNORM})
                                 .set_composite_alpha_flags(VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR)
                                 .build();
-    
+
     if (!swapchain_result) {
         Log::error("Failed to initialize swapchain");
         return false;
@@ -1721,8 +1720,8 @@ void RendererVK::setup_imgui_render_state(ImDrawData* draw_data, VkPipeline pipe
 
     // Setup scale and translation:
     // Our visible imgui space lies from draw_data->DisplayPps (top left) to
-    // draw_data->DisplayPos+data_data->DisplaySize (bottom right). DisplayPos is (0,0) for single
-    // viewport apps.
+    // draw_data->DisplayPos+data_data->DisplaySize (bottom right). DisplayPos is (0,0) for
+    // single viewport apps.
     {
         float scale[2];
         scale[0] = 2.0f / draw_data->DisplaySize.x;
@@ -1971,7 +1970,7 @@ VkPipeline RendererVK::create_pipeline(const char* vs, const char* fs, VkPipelin
     return pipeline;
 }
 
-Renderer* RendererVK::create(App* app) {
+Renderer* RendererVK::create(SDL_Window* main_window) {
     if (VK_FAILED(volkInitialize()))
         return nullptr;
 
@@ -1994,7 +1993,7 @@ Renderer* RendererVK::create(App* app) {
 
     vkb::Instance instance = inst_ret.value();
 
-    SDL_Window* window = ((AppSDL2*)app)->window;
+    SDL_Window* window = main_window;
     SDL_SysWMinfo wm_info {};
     SDL_VERSION(&wm_info.version);
     SDL_GetWindowWMInfo(window, &wm_info);

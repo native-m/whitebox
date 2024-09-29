@@ -310,6 +310,6 @@ struct RendererVK : public Renderer {
                                VkPrimitiveTopology primitive_topology, bool enable_blending,
                                bool disable_color_writes);
 
-    static Renderer* create(App* app);
+    static Renderer* create(SDL_Window* main_window);
 };
 } // namespace wb

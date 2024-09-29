@@ -153,10 +153,8 @@ set(WB_SOURCES
 
     "src/app.cpp"
     "src/app.h"
-    "src/app_sdl2.cpp"
-    "src/app_sdl2.h"
-    "src/settings_data.cpp"
-    "src/settings_data.h"
+    "src/config.cpp"
+    "src/config.h"
 )
 
 set(WB_LINK_LIBRARIES

@@ -1,12 +1,12 @@
 #include "app.h"
+#include "config.h"
 #include "core/color.h"
 #include "core/debug.h"
 #include "engine/audio_io.h"
 #include "engine/engine.h"
 #include "engine/project.h"
 #include "gfx/renderer.h"
-#include "gfx/vsync_provider.h"
-#include "settings_data.h"
+#include "plughost/vst3host.h"
 #include "ui/IconsMaterialSymbols.h"
 #include "ui/browser.h"
 #include "ui/command_manager.h"
@@ -21,25 +21,188 @@
 #include "ui/piano_roll.h"
 #include "ui/settings.h"
 #include "ui/timeline.h"
+#include <SDL.h>
+#include <SDL_syswm.h>
 #include <imgui.h>
+#include <imgui_impl_sdl2.h>
+
+#ifdef WB_PLATFORM_WINDOWS
+#include <dwmapi.h>
+#define DWM_ATTRIBUTE_USE_IMMERSIVE_DARK_MODE 20
+#define DWM_ATTRIBUTE_CAPTION_COLOR 35
+#endif
 
 using namespace std::literals::chrono_literals;
 
 namespace wb {
 
-void apply_theme(ImGuiStyle& style);
+static SDL_Window* main_window;
+static uint32_t main_window_id;
+static int32_t main_window_width;
+static int32_t main_window_height;
+static SDL_SysWMinfo main_wm_info;
+static bool is_running = true;
+static VST3Host vst3_host;
+static std::unordered_map<uint32_t, SDL_Window*> plugin_windows;
 
-App::~App() {
+static void apply_theme(ImGuiStyle& style);
+static int SDLCALL event_watcher(void* userdata, SDL_Event* event);
+
+// TODO(native-m): Replace with SDL function in SDL 3.0
+static void setup_dark_mode(SDL_Window* window) {
+    SDL_SysWMinfo wm_info {};
+    SDL_VERSION(&wm_info.version);
+    SDL_GetWindowWMInfo(window, &wm_info);
+    BOOL dark_mode = true;
+    ImU32 title_bar_color = ImColor(0.15f, 0.15f, 0.15f, 1.00f) & 0x00FFFFFF;
+#ifdef WB_PLATFORM_WINDOWS
+    ::DwmSetWindowAttribute(wm_info.info.win.window, DWM_ATTRIBUTE_USE_IMMERSIVE_DARK_MODE,
+                            &dark_mode, sizeof(dark_mode));
+    ::DwmSetWindowAttribute(wm_info.info.win.window, DWM_ATTRIBUTE_CAPTION_COLOR, &title_bar_color,
+                            sizeof(title_bar_color));
+#endif
 }
 
-void App::init() {
-    Log::info("Initializing UI...");
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    g_settings_data.load_settings_data();
-    g_settings_data.apply_audio_settings();
+static void add_vst3_window(VST3Host& plug_instance, const char* name, uint32_t width,
+                            uint32_t height) {
+#ifdef WB_PLATFORM_WINDOWS
+    // Create plugin window
+    SDL_Window* window =
+        SDL_CreateWindow(name, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, 0);
+    SDL_SysWMinfo wm_info {};
+    SDL_VERSION(&wm_info.version);
+    SDL_GetWindowWMInfo(window, &wm_info);
+    setup_dark_mode(window);
+
+    // TODO(native-m): Replace with SDL function in SDL 3.0
+    uint32_t id = SDL_GetWindowID(window);
+    plugin_windows.emplace(id, window);
+    SDL_SetWindowData(window, "wb_vst3_instance", &plug_instance);
+    SetWindowLongPtr(wm_info.info.win.window, GWLP_HWNDPARENT,
+                     (LONG_PTR)main_wm_info.info.win.window);
+
+    if (plug_instance.view->isPlatformTypeSupported(Steinberg::kPlatformTypeHWND) !=
+        Steinberg::kResultTrue) {
+        Log::debug("Platform is not supported");
+        return;
+    }
+    if (plug_instance.view->attached(wm_info.info.win.window, Steinberg::kPlatformTypeHWND) !=
+        Steinberg::kResultOk) {
+        Log::debug("Failed to attach UI");
+        return;
+    }
+#endif
+}
+
+static std::optional<SDL_Window*> get_plugin_window_from_id(uint32_t window_id) {
+    if (plugin_windows.empty())
+        return {};
+    auto plugin_window = plugin_windows.find(window_id);
+    if (plugin_window != plugin_windows.end())
+        return {};
+    return plugin_window->second;
+}
+
+static void wait_until_restored() {
+    SDL_Event next_event;
+    while (SDL_WaitEvent(&next_event)) {
+        if (next_event.type == SDL_WINDOWEVENT) {
+            if (next_event.window.windowID == main_window_id &&
+                next_event.window.event == SDL_WINDOWEVENT_RESTORED) {
+                break;
+            }
+        }
+    }
+}
+
+static void handle_plugin_events(SDL_Event& event) {
+}
+
+static void handle_events(SDL_Event& event) {
+    if (event.type == SDL_WINDOWEVENT && event.window.windowID != main_window_id) {
+        if (auto plugin_window = get_plugin_window_from_id(event.window.windowID)) {
+            SDL_Window* window = plugin_window.value();
+            switch (event.type) {
+                case SDL_WINDOWEVENT: {
+                    VST3Host* plug_instance =
+                        static_cast<VST3Host*>(SDL_GetWindowData(window, "wb_vst3_instance"));
+                    if (event.window.event == SDL_WINDOWEVENT_CLOSE) {
+                        SDL_DestroyWindow(window);
+                        plug_instance->view = nullptr;
+                        plugin_windows.erase(event.window.windowID);
+                    }
+                    break;
+                }
+            }
+            return;
+        }
+    }
+
+    switch (event.type) {
+        case SDL_WINDOWEVENT: {
+            if (event.window.windowID == main_window_id) {
+                switch (event.window.event) {
+                    case SDL_WINDOWEVENT_RESIZED:
+                        g_renderer->resize_swapchain();
+                        break;
+                    case SDL_WINDOWEVENT_CLOSE:
+                        is_running = false;
+                        break;
+                    case SDL_WINDOWEVENT_MINIMIZED: {
+                        wait_until_restored();
+                        break;
+                    }
+                }
+            }
+            break;
+        }
+        case SDL_DROPFILE:
+            g_file_drop.push_back(event.drop.file);
+            SDL_free(event.drop.file);
+            break;
+        case SDL_DROPBEGIN:
+            Log::debug("Drop begin");
+            break;
+        case SDL_DROPCOMPLETE:
+            Log::debug("Drop complete");
+            break;
+        case SDL_QUIT:
+            is_running = false;
+            break;
+        default:
+            break;
+    }
+
+    ImGui_ImplSDL2_ProcessEvent(&event);
+}
+
+void app_init() {
+    // Init SDL & create main window
+    SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
+    SDL_Window* new_window =
+        SDL_CreateWindow("whitebox", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720,
+                         SDL_WINDOW_RESIZABLE);
+    if (!new_window) {
+        SDL_Quit();
+        return;
+    }
+
+    main_window_id = SDL_GetWindowID(new_window);
+    main_window = new_window;
+    SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
+    SDL_AddEventWatch(event_watcher, nullptr);
+    SDL_GetWindowSize(new_window, &main_window_width, &main_window_height);
+    setup_dark_mode(new_window);
+    SDL_VERSION(&main_wm_info.version);
+    SDL_GetWindowWMInfo(new_window, &main_wm_info);
 
     NFD::Init();
+
+    // Init imgui
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    load_settings_data();
+    start_audio_engine();
 
     ImGuiIO& io = ImGui::GetIO();
     // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
@@ -50,104 +213,13 @@ void App::init() {
 
     init_font_assets();
     apply_theme(ImGui::GetStyle());
-    init_renderer(this);
-
+    init_renderer(new_window);
     g_cmd_manager.init(10);
     g_timeline.init();
     g_engine.set_bpm(150.0f);
 }
 
-void App::run() {
-    DrawCommandList cmd_list;
-    cmd_list.set_color(ImColor(1.0f, 0.0f, 0.0f, 1.0f));
-    cmd_list.draw_rect_filled(ImRect(200.5f, 100.5f, 300.5f, 150.5f));
-    cmd_list.draw_triangle_filled(ImVec2(50.0f, 50.0f), ImVec2(90.0f, 40.0f),
-                                  ImVec2(100.0f, 70.0f));
-    cmd_list.set_color(ImColor(1.0f, 0.0f, 1.0f, 1.0f));
-    cmd_list.draw_triangle_filled(ImVec2(50.0f, 50.0f) + ImVec2(10.0f, 0.0f),
-                                  ImVec2(90.0f, 40.0f) + ImVec2(10.0f, 0.0f),
-                                  ImVec2(100.0f, 70.0f) + ImVec2(10.0f, 0.0f));
-
-    while (running) {
-        process_events();
-        render();
-    }
-}
-
-void App::render() {
-    new_frame();
-
-    if (!g_file_drop.empty()) {
-        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceExtern)) {
-            ImGui::SetDragDropPayload("ExternalFileDrop", nullptr, 0, ImGuiCond_Once);
-            ImGui::EndDragDropSource();
-        }
-    }
-
-    bool is_playing = g_engine.is_playing();
-    if (!ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Space)) {
-        if (is_playing) {
-            g_engine.stop();
-        } else {
-            g_engine.play();
-        }
-    }
-
-    ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(),
-                                 ImGuiDockNodeFlags_PassthruCentralNode);
-
-    ImVec2 frame_padding = GImGui->Style.FramePadding;
-    ImVec2 window_padding = GImGui->Style.WindowPadding;
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 13.0f));
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-    ImGui::PushStyleColor(ImGuiCol_MenuBarBg, ImGui::GetStyleColorVec4(ImGuiCol_TitleBg));
-    if (ImGui::BeginMainMenuBar()) {
-        ImGui::PopStyleVar(4);
-        ImGui::PopStyleColor();
-        render_control_bar();
-        ImGui::EndMainMenuBar();
-    }
-
-    ImGui::ShowDemoWindow();
-    controls::render_test_controls();
-    render_history_window();
-
-    float framerate = GImGui->IO.Framerate;
-    // Update vu meters
-    for (auto track : g_engine.tracks) {
-        for (auto& vu_channel : track->level_meter) {
-            vu_channel.update(framerate);
-        }
-    }
-
-    g_settings.render();
-    g_browser.render();
-    g_mixer.render();
-    g_timeline.render();
-    g_piano_roll.render();
-    g_env_window.render();
-    
-    if (g_show_project_dialog) {
-        project_info_dialog();
-    }
-
-    ImGui::Render();
-    g_renderer->begin_draw(nullptr, {0.0f, 0.0f, 0.0f, 1.0f});
-    g_renderer->render_imgui_draw_data(ImGui::GetDrawData());
-    g_renderer->finish_draw();
-    g_renderer->end_frame();
-    g_renderer->present();
-    // ImGui::UpdatePlatformWindows();
-    // ImGui::RenderPlatformWindowsDefault();
-
-    if (!g_file_drop.empty()) {
-        g_file_drop.clear();
-    }
-}
-
-void App::render_control_bar() {
+void app_render_control_bar() {
     bool open_menu = false;
     ImVec2 frame_padding = GImGui->Style.FramePadding;
     ImVec4 btn_color = GImGui->Style.Colors[ImGuiCol_Button];
@@ -177,6 +249,7 @@ void App::render_control_bar() {
     ImGui::SameLine(0.0f, 4.0f);
     save_project = ImGui::Button(ICON_MS_SAVE "##wb_save_project");
 
+    //
     ImGui::SameLine(0.0f, 12.0f);
     if (ImGui::Button(ICON_MS_UNDO "##wb_undo")) {
         g_cmd_manager.undo();
@@ -191,6 +264,7 @@ void App::render_control_bar() {
         g_cmd_manager.undo();
     }
 
+    //
     ImGui::SameLine(0.0f, 12.0f);
     if (ImGui::Button(!is_playing ? ICON_MS_PLAY_ARROW "##wb_play" : ICON_MS_PAUSE "##wb_play")) {
         if (is_playing) {
@@ -252,8 +326,8 @@ void App::render_control_bar() {
                         if (vst3_host.init_view()) {
                             Steinberg::ViewRect rect;
                             vst3_host.view->getSize(&rect);
-                            add_vst3_view(vst3_host, "whitebox plugin host", rect.getWidth(),
-                                          rect.getHeight());
+                            add_vst3_window(vst3_host, "whitebox plugin host", rect.getWidth(),
+                                            rect.getHeight());
                         }
                     }
                 }
@@ -261,7 +335,7 @@ void App::render_control_bar() {
             }
             ImGui::Separator();
             if (ImGui::MenuItem("Quit"))
-                running = false;
+                is_running = false;
             ImGui::EndMenu();
         }
 
@@ -290,21 +364,16 @@ void App::render_control_bar() {
     }
 
     if (new_project) {
-        g_audio_io->close_device();
+        shutdown_audio_io();
         g_engine.clear_all();
         g_timeline.reset();
         g_timeline.add_track();
         g_timeline.recalculate_song_length();
         g_timeline.redraw_screen();
-        g_audio_io->open_device(g_settings_data.output_device_properties.id,
-                                g_settings_data.input_device_properties.id);
-        g_audio_io->start(&g_engine, g_settings_data.audio_exclusive_mode,
-                          g_settings_data.audio_buffer_size, g_settings_data.audio_input_format,
-                          g_settings_data.audio_output_format, g_settings_data.audio_sample_rate,
-                          AudioThreadPriority::Normal);
+        start_audio_engine();
     } else if (open_project) {
         if (auto file = open_file_dialog({{"Whitebox Project File", "wb"}})) {
-            g_audio_io->close_device();
+            shutdown_audio_io();
             g_engine.clear_all();
             auto result =
                 read_project_file(file.value(), g_engine, g_sample_table, g_midi_table, g_timeline);
@@ -314,34 +383,109 @@ void App::render_control_bar() {
             }
             g_timeline.recalculate_song_length();
             g_timeline.redraw_screen();
-            g_audio_io->open_device(g_settings_data.output_device_properties.id,
-                                    g_settings_data.input_device_properties.id);
-            g_audio_io->start(&g_engine, g_settings_data.audio_exclusive_mode,
-                              g_settings_data.audio_buffer_size, g_settings_data.audio_input_format,
-                              g_settings_data.audio_output_format,
-                              g_settings_data.audio_sample_rate, AudioThreadPriority::Normal);
+            start_audio_engine();
         }
     } else if (save_project) {
         if (auto file = save_file_dialog({{"Whitebox Project File", "wb"}})) {
-            g_audio_io->close_device();
+            shutdown_audio_io();
             auto result = write_project_file(file.value(), g_engine, g_sample_table, g_midi_table,
                                              g_timeline);
             if (result != ProjectFileResult::Ok) {
                 Log::error("Failed to open project {}", (uint32_t)result);
                 assert(false);
             }
-            g_audio_io->open_device(g_settings_data.output_device_properties.id,
-                                    g_settings_data.input_device_properties.id);
-            g_audio_io->start(&g_engine, g_settings_data.audio_exclusive_mode,
-                              g_settings_data.audio_buffer_size, g_settings_data.audio_input_format,
-                              g_settings_data.audio_output_format,
-                              g_settings_data.audio_sample_rate, AudioThreadPriority::Normal);
+            start_audio_engine();
         }
     }
 }
 
-void App::shutdown() {
-    g_settings_data.save_settings_data();
+void app_render() {
+    g_renderer->new_frame();
+    ImGui_ImplSDL2_NewFrame();
+    ImGui::NewFrame();
+
+    if (!g_file_drop.empty()) {
+        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceExtern)) {
+            ImGui::SetDragDropPayload("ExternalFileDrop", nullptr, 0, ImGuiCond_Once);
+            ImGui::EndDragDropSource();
+        }
+    }
+
+    bool is_playing = g_engine.is_playing();
+    if (!ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Space)) {
+        if (is_playing) {
+            g_engine.stop();
+        } else {
+            g_engine.play();
+        }
+    }
+
+    ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(),
+                                 ImGuiDockNodeFlags_PassthruCentralNode);
+
+    ImVec2 frame_padding = GImGui->Style.FramePadding;
+    ImVec2 window_padding = GImGui->Style.WindowPadding;
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 13.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    ImGui::PushStyleColor(ImGuiCol_MenuBarBg, ImGui::GetStyleColorVec4(ImGuiCol_TitleBg));
+    if (ImGui::BeginMainMenuBar()) {
+        ImGui::PopStyleVar(4);
+        ImGui::PopStyleColor();
+        app_render_control_bar();
+        ImGui::EndMainMenuBar();
+    }
+
+    ImGui::ShowDemoWindow();
+    controls::render_test_controls();
+    render_history_window();
+
+    float framerate = GImGui->IO.Framerate;
+    // Update vu meters
+    for (auto track : g_engine.tracks) {
+        for (auto& vu_channel : track->level_meter) {
+            vu_channel.update(framerate);
+        }
+    }
+
+    g_settings.render();
+    g_browser.render();
+    g_mixer.render();
+    g_timeline.render();
+    g_piano_roll.render();
+    g_env_window.render();
+
+    if (g_show_project_dialog) {
+        project_info_dialog();
+    }
+
+    ImGui::Render();
+    g_renderer->begin_draw(nullptr, {0.0f, 0.0f, 0.0f, 1.0f});
+    g_renderer->render_imgui_draw_data(ImGui::GetDrawData());
+    g_renderer->finish_draw();
+    g_renderer->end_frame();
+    g_renderer->present();
+    // ImGui::UpdatePlatformWindows();
+    // ImGui::RenderPlatformWindowsDefault();
+
+    if (!g_file_drop.empty()) {
+        g_file_drop.clear();
+    }
+}
+
+void app_run_loop() {
+    SDL_Event event;
+    while (is_running) {
+        while (SDL_PollEvent(&event)) {
+            handle_events(event);
+        }
+        app_render();
+    }
+}
+
+void app_shutdown() {
+    save_settings_data();
     Log::info("Closing application...");
     g_timeline.shutdown();
     shutdown_audio_io();
@@ -351,9 +495,42 @@ void App::shutdown() {
     g_midi_table.shutdown();
     shutdown_renderer();
     NFD::Quit();
+    ImGui_ImplSDL2_Shutdown();
+    ImGui::DestroyContext();
+    if (!main_window)
+        SDL_DestroyWindow(main_window);
+    SDL_Quit();
 }
 
-void App::options_window() {
+int SDLCALL event_watcher(void* userdata, SDL_Event* event) {
+    switch (event->type) {
+        case SDL_WINDOWEVENT: {
+            if (event->window.windowID != main_window_id) {
+                break;
+            }
+            int32_t w, h;
+            switch (event->window.event) {
+                case SDL_WINDOWEVENT_MOVED:
+                    SDL_GetWindowSize(main_window, &w, &h);
+                    if (main_window_width == w && main_window_height == h) {
+                        main_window_width = w;
+                        main_window_height = h;
+                        app_render();
+                    }
+                    break;
+                case SDL_WINDOWEVENT_RESIZED:
+                    SDL_GetWindowSize(main_window, &main_window_width, &main_window_height);
+                    app_render();
+                    break;
+                default:
+                    break;
+            }
+            break;
+        }
+        default:
+            break;
+    }
+    return 0;
 }
 
 void apply_theme(ImGuiStyle& style) {

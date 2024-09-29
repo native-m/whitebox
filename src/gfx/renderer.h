@@ -7,6 +7,7 @@
 #include "engine/sample_peaks.h"
 #include "draw.h"
 #include <imgui.h>
+#include <SDL_video.h>
 #include <memory>
 
 namespace wb {
@@ -93,7 +94,7 @@ struct Renderer {
 };
 
 extern Renderer* g_renderer;
-void init_renderer(App* app);
+void init_renderer(SDL_Window* main_window);
 void shutdown_renderer();
 
 } // namespace wb

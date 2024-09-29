@@ -1,7 +1,6 @@
-#include "app_sdl2.h"
+#include "app.h"
 
 #ifdef WB_PLATFORM_WINDOWS
-
 struct MemoryLeakDetection {
     MemoryLeakDetection() {
         _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
@@ -12,12 +11,11 @@ struct MemoryLeakDetection {
 };
 
 MemoryLeakDetection g_memleak_detection;
-
 #endif
 
 int main() {
-    wb::AppSDL2 app;
-    app.init();
-    app.run();
+    wb::app_init();
+    wb::app_run_loop();
+    wb::app_shutdown();
     return 0;
 }

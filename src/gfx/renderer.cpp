@@ -7,9 +7,9 @@ namespace wb {
 
 Renderer* g_renderer = nullptr;
 
-void init_renderer(App* app) {
+void init_renderer(SDL_Window* main_window) {
     Log::info("Initializing renderer...");
-    g_renderer = RendererVK::create(app);
+    g_renderer = RendererVK::create(main_window);
     if (!g_renderer)
         Log::error("Failed to create renderer");
 }

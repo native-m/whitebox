@@ -5,7 +5,6 @@
 namespace wb {
 struct GuiSettings {
     bool open;
-
     void render();
 };
 

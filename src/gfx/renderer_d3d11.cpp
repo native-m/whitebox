@@ -3,8 +3,8 @@
 #ifdef WB_PLATFORM_WINDOWS
 
 #include "renderer_d3d11.h"
-#include "app_sdl2.h"
 #include "core/debug.h"
+#include <SDL_loadso.h>
 #include <SDL_syswm.h>
 #include <imgui_impl_dx11.h>
 #include <imgui_impl_sdl2.h>
@@ -470,7 +470,7 @@ void RendererD3D11::present() {
     swapchain_->Present(1, 0);
 }
 
-Renderer* RendererD3D11::create(App* app) {
+Renderer* RendererD3D11::create(SDL_Window* window) {
     Log::info("Creating D3D11 renderer...");
 
     void* d3d11_dll = SDL_LoadObject("d3d11.dll");
@@ -481,7 +481,6 @@ Renderer* RendererD3D11::create(App* app) {
                                                                  "D3D11CreateDeviceAndSwapChain");
 
     HWND hwnd;
-    SDL_Window* window = ((AppSDL2*)app)->window;
     SDL_SysWMinfo wm_info {};
     SDL_GetWindowWMInfo(window, &wm_info);
     hwnd = wm_info.info.win.window;

@@ -7,6 +7,7 @@
 #include <d3d11.h>
 #include <dxgi1_3.h>
 #include <vector>
+#include <SDL_video.h>
 
 #undef min
 #undef max
@@ -95,7 +96,7 @@ struct RendererD3D11 : public Renderer {
     void render_draw_command_list(DrawCommandList* command_list) override {}
     void render_imgui_draw_data(ImDrawData* draw_data) override;
     void present() override;
-    static Renderer* create(App* app);
+    static Renderer* create(SDL_Window* window);
 };
 
 } // namespace wb
