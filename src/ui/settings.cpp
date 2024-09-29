@@ -39,7 +39,6 @@ void GuiSettings::render() {
         if (ImGui::BeginTabItem("Audio")) {
             uint32_t io_type_index = static_cast<uint32_t>(g_audio_io_type);
             const char* io_type_preview = io_types[io_type_index];
-            uint32_t output_count = g_audio_io->get_output_device_count();
             const AudioDeviceProperties& current_output_devprop =
                 g_output_device_properties;
 
@@ -71,7 +70,7 @@ void GuiSettings::render() {
             }
 
             if (ImGui::BeginCombo("Output", current_output_devprop.name)) {
-                for (uint32_t i = 0; i < output_count; i++) {
+                for (uint32_t i = 0; i < g_audio_io->get_output_device_count(); i++) {
                     const AudioDeviceProperties& device_properties =
                         g_audio_io->get_output_device_properties(i);
                     const bool is_selected = device_properties.id == g_output_device_properties.id;
