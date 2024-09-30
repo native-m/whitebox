@@ -574,7 +574,7 @@ void GuiTimeline::clip_context_menu() {
             g_cmd_manager.execute("Delete Clip", ClipDeleteCmd(context_menu_track_id.value(),
                                                                context_menu_clip->id,
                                                                *context_menu_clip, beat_duration));
-            recalculate_song_length();
+            recalculate_timeline_length();
             force_redraw = true;
         }
 
@@ -1281,7 +1281,7 @@ void GuiTimeline::render_track_lanes() {
     clip_context_menu();
 
     if (item_drop.item) {
-        recalculate_song_length();
+        recalculate_timeline_length();
     }
 
     ImTextureID tex_id = g_renderer->prepare_as_imgui_texture(timeline_fb);
@@ -1319,21 +1319,11 @@ void GuiTimeline::finish_edit_action() {
     edited_clip_max_time = 0.0;
     edit_action = TimelineEditAction::None;
     initial_time_pos = 0.0;
-    recalculate_song_length();
+    recalculate_timeline_length();
 }
 
-void GuiTimeline::recalculate_song_length() {
-    double max_length = std::numeric_limits<double>::min();
-
-    for (auto track : g_engine.tracks) {
-        if (!track->clips.empty()) {
-            Clip* clip = track->clips.back();
-            max_length = math::max(max_length, clip->max_time * g_engine.ppq);
-        } else {
-            max_length = math::max(max_length, 10000.0);
-        }
-    }
-
+void GuiTimeline::recalculate_timeline_length() {
+    double max_length = g_engine.get_song_length();
     if (max_length > 10000.0) {
         max_length += g_engine.ppq * 14;
         min_hscroll = min_hscroll * song_length / max_length;

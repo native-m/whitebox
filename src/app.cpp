@@ -381,7 +381,7 @@ void app_render_control_bar() {
         g_engine.clear_all();
         g_timeline.reset();
         g_timeline.add_track();
-        g_timeline.recalculate_song_length();
+        g_timeline.recalculate_timeline_length();
         g_timeline.redraw_screen();
         start_audio_engine();
     } else if (open_project) {
@@ -394,7 +394,7 @@ void app_render_control_bar() {
                 Log::error("Failed to open project {}", (uint32_t)result);
                 assert(false);
             }
-            g_timeline.recalculate_song_length();
+            g_timeline.recalculate_timeline_length();
             g_timeline.redraw_screen();
             start_audio_engine();
         }

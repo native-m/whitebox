@@ -97,7 +97,7 @@ struct GuiTimeline : public TimelineBase {
     void clip_context_menu();
     void render_track_lanes();
     void finish_edit_action();
-    void recalculate_song_length();
+    void recalculate_timeline_length();
 
     void delete_selected_range();
 

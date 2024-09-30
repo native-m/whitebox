@@ -59,7 +59,10 @@ struct Engine {
 
     Clip* add_clip_from_file(Track* track, const std::filesystem::path& path, double min_time);
     void delete_clip(Track* track, Clip* clip);
-    void trim_track_by_range(Track* track, uint32_t first_clip, uint32_t last_clip, double min, double max, bool dont_sort);
+    void trim_track_by_range(Track* track, uint32_t first_clip, uint32_t last_clip, double min,
+                             double max, bool dont_sort);
+
+    double get_song_length() const;
 
     /*
         Process the whole thing.
@@ -68,7 +71,7 @@ struct Engine {
     void process(AudioBuffer<float>& output_buffer, double sample_rate);
 
     inline double playhead_pos() const { return playhead_ui.load(std::memory_order_relaxed); }
-    
+
     inline double get_beat_duration() const {
         return beat_duration.load(std::memory_order_relaxed);
     }

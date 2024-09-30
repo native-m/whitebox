@@ -215,7 +215,16 @@ void Engine::trim_track_by_range(Track* track, uint32_t first_clip, uint32_t las
 }
 
 double Engine::get_song_length() const {
-    return 0.0;
+    double max_length = std::numeric_limits<double>::min();
+    for (auto track : tracks) {
+        if (!track->clips.empty()) {
+            Clip* clip = track->clips.back();
+            max_length = math::max(max_length, clip->max_time * ppq);
+        } else {
+            max_length = math::max(max_length, 10000.0);
+        }
+    }
+    return max_length;
 }
 
 void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
