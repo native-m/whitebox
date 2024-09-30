@@ -1023,10 +1023,6 @@ void GuiTimeline::render_track_lanes() {
         track_pos_y = next_pos_y + track_separator_height;
     }
 
-    if (has_deleted_clips) {
-        g_engine.delete_lock.unlock();
-    }
-
     // Visualize the edited clip during the action
     if (edited_clip && redraw) {
         ClipType type = edited_clip->type;
@@ -1093,6 +1089,10 @@ void GuiTimeline::render_track_lanes() {
 
         edited_clip_min_time = min_time;
         edited_clip_max_time = max_time;
+    }
+
+    if (has_deleted_clips) {
+        g_engine.delete_lock.unlock();
     }
 
     if (redraw) {
@@ -1365,13 +1365,6 @@ void GuiTimeline::delete_selected_range() {
         }
         Log::debug("first: {} {}, last: {} {}", query_result->first, query_result->first_offset,
                    query_result->last, query_result->last_offset);
-        /*if (query_result->first == query_result->last) {
-
-        } else {
-            for (uint32_t i = query_result->first; i < query_result->last; i++) {
-
-            }
-        }*/
         g_engine.trim_track_by_range(track, query_result->first, query_result->last,
                                      target_sel_range.min, target_sel_range.max, false);
     }

@@ -204,13 +204,18 @@ void Engine::trim_track_by_range(Track* track, uint32_t first_clip, uint32_t las
     if (max < last->max_time) {
         last->start_offset = shift_clip_content(last, last->min_time - max, current_beat_duration);
         last->min_time = max;
+        last_clip--;
     }
 
-    for (uint32_t i = first_clip; i < last_clip; i++) {
+    for (uint32_t i = first_clip; i <= last_clip; i++) {
         clips[i]->mark_deleted();
     }
 
     has_deleted_clips.store(true, std::memory_order_release);
+}
+
+double Engine::get_song_length() const {
+    return 0.0;
 }
 
 void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {

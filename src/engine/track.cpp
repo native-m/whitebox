@@ -10,6 +10,7 @@
 #define WB_DBG_LOG_CLIP_ORDERING 1
 #define WB_DBG_LOG_NOTE_ON_EVENT 1
 #define WB_DBG_LOG_AUDIO_EVENT 1
+#define WB_DBG_LOG_PARAMETER_UPDATE 1
 #endif
 
 namespace wb {
@@ -172,20 +173,38 @@ std::optional<ClipQueryResult> Track::query_clip_by_range(double min, double max
     assert(min <= max && "Minimum value should be less or equal than maximum value");
     auto begin = clips.begin();
     auto end = clips.end();
+    
     if (begin == end)
         return {};
+    
     auto first = wb::find_lower_bound(
         begin, end, min, [](const Clip* clip, double time) { return clip->max_time <= time; });
     auto last = wb::find_lower_bound(
-        begin, end, max, [](const Clip* clip, double time) { return clip->max_time < time; });
+        begin, end, max, [](const Clip* clip, double time) { return clip->min_time <= time; });
     uint32_t first_clip = first - begin;
     uint32_t last_clip = last - begin;
-    double first_offset = min - (*first)->min_time;
-    double last_offset = max - (*last)->min_time;
+    double first_offset;
+    double last_offset;
+    
+    if (min > (*first)->max_time) {
+        first_clip++;
+        first_offset = min - clips[first_clip]->min_time;
+    } else {
+        first_offset = min - (*first)->min_time;
+    }
+    
+    if (max < (*last)->min_time) {
+        last_clip--;
+        last_offset = max - clips[last_clip]->min_time;
+    } else {
+        last_offset = max - (*last)->min_time;
+    }
+
     if (first == last && ((min < (*first)->min_time && max < (*first)->min_time) ||
                           (min > (*first)->max_time && max > (*first)->max_time))) {
         return {};
     }
+    
     return ClipQueryResult {
         .first = first_clip,
         .last = last_clip,
@@ -506,16 +525,22 @@ void Track::process(AudioBuffer<float>& output_buffer, double sample_rate, bool 
         switch (queue.id) {
             case TrackParameter_Volume:
                 parameter_state.volume = (float)last_value;
+#ifdef WB_DBG_LOG_PARAMETER_UPDATE
                 Log::debug("Volume changed: {} {}", parameter_state.volume,
                            math::linear_to_db(parameter_state.volume));
+#endif
                 break;
             case TrackParameter_Pan:
                 parameter_state.pan = (float)last_value;
+#ifdef WB_DBG_LOG_PARAMETER_UPDATE
                 Log::debug("Pan changed: {}", parameter_state.pan);
+#endif
                 break;
             case TrackParameter_Mute:
                 parameter_state.mute = last_value > 0.0 ? 1.0f : 0.0f;
+#ifdef WB_DBG_LOG_PARAMETER_UPDATE
                 Log::debug("Mute changed: {}", parameter_state.mute);
+#endif
                 break;
         }
     }
