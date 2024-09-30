@@ -99,7 +99,10 @@ ProjectFileResult read_project_file(const std::filesystem::path& path, Engine& e
                 Log::info("Cannot find sample: {}", filename.string());
             }
         }
-        sample_assets[i] = sample_table.load_from_file(sample_path);
+
+        SampleAsset* asset = sample_table.load_from_file(sample_path);
+        sample_assets[i] = asset;
+        asset->ref_count = 0; // Must be zero for the first usage
     }
 
     // Read midi table header
@@ -183,13 +186,16 @@ ProjectFileResult read_project_file(const std::filesystem::path& path, Engine& e
 
             clip->id = j;
             switch (clip_header.type) {
-                case ClipType::Audio:
+                case ClipType::Audio: {
+                    SampleAsset* asset = sample_assets[clip_header.audio.asset_index];
                     clip->init_as_audio_clip({
-                        .asset = sample_assets[clip_header.audio.asset_index],
+                        .asset = asset,
                         .fade_start = clip_header.audio.fade_start,
                         .fade_end = clip_header.audio.fade_end,
                     });
+                    asset->add_ref();
                     break;
+                }
                 case ClipType::Midi:
                     clip->init_as_midi_clip({
                         .asset = midi_assets[clip_header.midi.asset_index],
