@@ -21,6 +21,8 @@ struct GuiPianoRoll : public TimelineBase {
     float vscroll = 0.0f;
     float last_vscroll = 0.0f;
     float scroll_delta_y = 0.0f;
+    float space_divider = 0.25f;
+    float content_height = 0.0f;
     bool scrolling = false;
     bool force_redraw = false;
 
@@ -28,7 +30,7 @@ struct GuiPianoRoll : public TimelineBase {
     void open_midi_file();
     void render();
     void render_editor();
-
+    void render_event_editor();
     void draw_piano_keys(ImDrawList* draw_list, ImVec2& pos, const ImVec2& note_size, uint32_t oct);
 };
 
