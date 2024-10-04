@@ -54,6 +54,7 @@ void GuiPianoRoll::render() {
         render_horizontal_scrollbar();
         double new_time_pos = 0.0;
         if (render_time_ruler(&new_time_pos)) {
+            // TODO
         }
         ImGui::PopStyleVar();
 
@@ -114,10 +115,11 @@ void GuiPianoRoll::render() {
                                                      child_content_size.y)) {
             space_divider = 1.0 - (content_height / child_content_size.y);
         }
-
         ImGui::PopStyleVar();
 
+        ImGui::BeginChild("##PIANO_ROLL_EVENT");
         render_event_editor();
+        ImGui::EndChild();
 
         ImGui::EndChild();
     }
@@ -310,7 +312,6 @@ void GuiPianoRoll::render_editor() {
 }
 
 void GuiPianoRoll::render_event_editor() {
-    ImGui::BeginChild("##PIANO_ROLL_EVENT");
     auto draw_list = ImGui::GetWindowDrawList();
     auto cursor_pos = ImGui::GetCursorScreenPos() + ImVec2(min_track_control_size, 0.0f);
     auto editor_event_region = ImGui::GetContentRegionAvail();
@@ -335,7 +336,6 @@ void GuiPianoRoll::render_event_editor() {
                                  channel_color);
     }
 
-    ImGui::EndChild();
 }
 
 void GuiPianoRoll::draw_piano_keys(ImDrawList* draw_list, ImVec2& pos, const ImVec2& note_size,
