@@ -1,8 +1,8 @@
 #include "track.h"
 #include "assets_table.h"
 #include "clip_edit.h"
-#include "core/debug.h"
 #include "core/core_math.h"
+#include "core/debug.h"
 #include "core/queue.h"
 #include <algorithm>
 
@@ -144,6 +144,7 @@ void Track::move_clip(Clip* clip, double relative_pos, double beat_duration) {
     auto [min_time, max_time] = calc_move_clip(clip, relative_pos);
     clip->min_time = min_time;
     clip->max_time = max_time;
+    clip->start_offset_changed = true;
     update(clip, beat_duration);
 }
 
@@ -173,10 +174,10 @@ std::optional<ClipQueryResult> Track::query_clip_by_range(double min, double max
     assert(min <= max && "Minimum value should be less or equal than maximum value");
     auto begin = clips.begin();
     auto end = clips.end();
-    
+
     if (begin == end)
         return {};
-    
+
     auto first = wb::find_lower_bound(
         begin, end, min, [](const Clip* clip, double time) { return clip->max_time <= time; });
     auto last = wb::find_lower_bound(
@@ -185,14 +186,14 @@ std::optional<ClipQueryResult> Track::query_clip_by_range(double min, double max
     uint32_t last_clip = last - begin;
     double first_offset;
     double last_offset;
-    
+
     if (min > (*first)->max_time) {
         first_clip++;
         first_offset = min - clips[first_clip]->min_time;
     } else {
         first_offset = min - (*first)->min_time;
     }
-    
+
     if (max < (*last)->min_time) {
         last_clip--;
         last_offset = max - clips[last_clip]->min_time;
@@ -204,7 +205,7 @@ std::optional<ClipQueryResult> Track::query_clip_by_range(double min, double max
                           (min > (*first)->max_time && max > (*first)->max_time))) {
         return {};
     }
-    
+
     return ClipQueryResult {
         .first = first_clip,
         .last = last_clip,
@@ -361,6 +362,35 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
                 event_state.next_clip_idx = find_next_clip(time_pos);
             }
             event_state.current_clip_idx.reset();
+        } else if (current_clip->start_offset_changed) {
+            double relative_start_time = time_pos - min_time;
+            if (current_clip->is_audio()) {
+                double sample_pos =
+                    beat_to_samples(relative_start_time, sample_rate, beat_duration);
+                uint64_t sample_offset = (uint64_t)(sample_pos + current_clip->start_offset);
+                audio_event_buffer.push_back({
+                    .type = EventType::StopSample,
+                    .buffer_offset = buffer_offset,
+                    .time = time_pos,
+                });
+                audio_event_buffer.push_back({
+                    .type = EventType::PlaySample,
+                    .buffer_offset = buffer_offset,
+                    .time = time_pos,
+                    .sample_offset = sample_offset,
+                    .sample = &current_clip->audio.asset->sample_instance,
+                });
+            } else {
+                stop_midi_notes(buffer_offset, time_pos);
+                double clip_pos = time_pos - current_clip->min_time;
+                if (clip_pos >= 0.0) {
+                    event_state.midi_note_idx = current_clip->midi.asset->find_first_note(
+                        clip_pos + current_clip->start_offset, 0);
+                }
+                process_midi_event(current_clip, buffer_offset, time_pos, beat_duration, ppq,
+                                   inv_ppq);
+            }
+            current_clip->start_offset_changed = false;
         } else {
             if (current_clip->is_midi()) {
                 process_midi_event(current_clip, buffer_offset, time_pos, beat_duration, ppq,

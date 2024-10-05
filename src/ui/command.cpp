@@ -76,6 +76,7 @@ void ClipShiftCmd::execute() {
     Clip* clip = track->clips[clip_id];
     g_engine.edit_lock();
     clip->start_offset = shift_clip_content(clip, relative_pos, last_beat_duration);
+    clip->start_offset_changed = true;
     g_engine.edit_unlock();
 }
 
@@ -85,6 +86,7 @@ void ClipShiftCmd::undo() {
     Clip* clip = track->clips[clip_id];
     g_engine.edit_lock();
     clip->start_offset = shift_clip_content(clip, -relative_pos, last_beat_duration);
+    clip->start_offset_changed = true;
     g_engine.edit_unlock();
 }
 

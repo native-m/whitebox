@@ -51,6 +51,7 @@ struct Clip {
     double min_time {};
     double max_time {};
     double start_offset {}; // MIDI: Beat unit, Audio: Sample unit
+    bool start_offset_changed {};
 
     union {
         AudioClip audio;
