@@ -50,7 +50,7 @@ struct Vector {
                 resize(other_size);
             T* data_ptr = intern_.data;
             T* end_ptr = intern_.data + other_size;
-            T* other_ptr = other.intern_;
+            T* other_ptr = other.intern_.data;
             for (; data_ptr != end_ptr; (void)++data_ptr, (void)++other_ptr)
                 *data_ptr = *other_ptr;
         }
@@ -196,18 +196,38 @@ struct Vector {
     template <typename... Args>
     inline T& emplace_back(Args&&... args) {
         if (intern_.size == intern_.capacity) {
-            reserve(grow_capacity_(intern_.capacity + 1));
+            reserve_internal_(grow_capacity_(intern_.capacity + 1));
         }
         T* new_item = new (intern_.data + intern_.size) T(std::forward<Args>(args)...);
         intern_.size++;
         return *new_item;
     }
 
+    inline void push_front(const T& item)
+        requires std::copy_constructible<T>
+    {
+        if (intern_.size == intern_.capacity) {
+            reserve_internal_(grow_capacity_(intern_.capacity + 1), 1);
+        }
+        new (intern_.data) T(item);
+        intern_.size++;
+    }
+
+    inline void push_front(T&& item)
+        requires std::move_constructible<T>
+    {
+        if (intern_.size == intern_.capacity) {
+            reserve_internal_(grow_capacity_(intern_.capacity + 1), 1);
+        }
+        new (intern_.data) T(std::move(item));
+        intern_.size++;
+    }
+
     inline void push_back(const T& item)
         requires std::copy_constructible<T>
     {
         if (intern_.size == intern_.capacity) {
-            reserve(grow_capacity_(intern_.capacity + 1));
+            reserve_internal_(grow_capacity_(intern_.capacity + 1));
         }
         new (intern_.data + intern_.size) T(item);
         intern_.size++;
@@ -217,7 +237,7 @@ struct Vector {
         requires std::move_constructible<T>
     {
         if (intern_.size == intern_.capacity) {
-            reserve(grow_capacity_(intern_.capacity + 1));
+            reserve_internal_(grow_capacity_(intern_.capacity + 1));
         }
         new (intern_.data + intern_.size) T(std::move(item));
         intern_.size++;
@@ -247,7 +267,7 @@ struct Vector {
         requires std::default_initializable<T>
     {
         if (new_size > intern_.capacity) {
-            reserve(grow_capacity_(new_size));
+            reserve_internal_(grow_capacity_(new_size));
             uninitialized_default_construct(intern_.data + intern_.size, intern_.data + new_size);
         }
         intern_.size = new_size;
@@ -257,7 +277,7 @@ struct Vector {
         requires std::is_trivial_v<T>
     {
         if (new_size > intern_.capacity) {
-            reserve(grow_capacity_(new_size));
+            reserve_internal_(grow_capacity_(new_size));
         }
         intern_.size = new_size;
     }
@@ -266,7 +286,7 @@ struct Vector {
         requires std::move_constructible<T>
     {
         if (new_size > intern_.capacity) {
-            reserve(grow_capacity_(new_size));
+            reserve_internal_(grow_capacity_(new_size));
             if constexpr (!std::is_trivially_default_constructible_v<T>) {
                 T* data_ptr = intern_.data + intern_.size;
                 T* end_ptr = intern_.data + new_size;
@@ -279,7 +299,15 @@ struct Vector {
         intern_.size = new_size;
     }
 
-    inline void reserve(size_t new_capacity) {
+    inline void reserve(size_t new_capacity) { reserve_internal_(new_capacity); }
+
+    inline size_t grow_capacity_(size_t new_size) {
+        size_t new_capacity =
+            intern_.capacity ? (intern_.capacity + intern_.capacity / size_t(2)) : 8;
+        return new_capacity > new_size ? new_capacity : new_size;
+    }
+
+    inline void reserve_internal_(size_t new_capacity, size_t relocate_offset = 0) {
         if (new_capacity <= intern_.capacity) {
             return;
         }
@@ -288,10 +316,10 @@ struct Vector {
         if (intern_.data) {
             if constexpr (std::is_trivially_copy_constructible_v<T>) {
                 if (intern_.size != 0) {
-                    std::memcpy(new_data, intern_.data, intern_.size * sizeof(T));
+                    std::memcpy(new_data + relocate_offset, intern_.data, intern_.size * sizeof(T));
                 }
             } else {
-                T* new_data_ptr = new_data;
+                T* new_data_ptr = new_data + relocate_offset;
                 T* old_data_ptr = intern_.data;
                 T* end_ptr = old_data_ptr + intern_.size;
                 if constexpr (std::move_constructible<T>) {
@@ -314,12 +342,6 @@ struct Vector {
         }
         intern_.data = new_data;
         intern_.capacity = new_capacity;
-    }
-
-    inline size_t grow_capacity_(size_t new_size) {
-        size_t new_capacity =
-            intern_.capacity ? (intern_.capacity + intern_.capacity / size_t(2)) : 8;
-        return new_capacity > new_size ? new_capacity : new_size;
     }
 
     inline void destroy_(bool without_free = false) {

@@ -78,6 +78,7 @@ set(WB_SOURCES
     "src/engine/clip_edit.h"
     "src/engine/engine.cpp"
     "src/engine/engine.h"
+    "src/engine/etypes.h"
     "src/engine/envelope_storage.h"
     "src/engine/event.h"
     "src/engine/event_list.h"
