@@ -1,10 +1,11 @@
 ---
 Language: Cpp
+Standard: c++20
 UseTab: Never
 ContinuationIndentWidth: 4
 IndentWidth: 4
 IndentCaseLabels: true
-ColumnLimit: 100
+ColumnLimit: 120
 AllowShortEnumsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: InlineOnly
 PointerAlignment: Left
