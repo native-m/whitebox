@@ -3,19 +3,9 @@
 #include "clip.h"
 #include "core/common.h"
 #include "core/core_math.h"
+#include "etypes.h"
 
 namespace wb {
-struct ClipMoveResult {
-    double min;
-    double max;
-};
-
-struct ClipResizeResult {
-    double min;
-    double max;
-    double start_offset;
-};
-
 static inline ClipMoveResult calc_move_clip(Clip* clip, double relative_pos) {
     double new_pos = math::max(clip->min_time + relative_pos, 0.0);
     return {
@@ -59,7 +49,7 @@ static inline ClipResizeResult calc_resize_clip(Clip* clip, double relative_pos,
         new_min = new_min - start_offset;
 
     start_offset = math::max(start_offset, 0.0);
-    
+
     if (clip->is_audio()) {
         start_offset = beat_to_samples(start_offset, (double)asset->sample_instance.sample_rate,
                                        beat_duration);
@@ -89,5 +79,4 @@ static inline double shift_clip_content(Clip* clip, double relative_pos, double 
     double rel_offset = clip->start_offset;
     return math::max(rel_offset - relative_pos, 0.0);
 }
-
 } // namespace wb

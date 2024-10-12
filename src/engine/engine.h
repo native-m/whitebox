@@ -1,6 +1,8 @@
 #pragma once
 
 #include "clip.h"
+#include "clip_edit.h"
+#include "etypes.h"
 #include "core/audio_buffer.h"
 #include "core/common.h"
 #include "core/thread.h"
@@ -23,8 +25,8 @@ struct Engine {
 
     ProjectInfo project_info;
     std::vector<Track*> tracks;
-    Spinlock editor_lock;
-    Spinlock delete_lock;
+    mutable Spinlock editor_lock;
+    mutable Spinlock delete_lock;
 
     double ppq = 96.0;
     double playhead {};
@@ -57,10 +59,22 @@ struct Engine {
     void move_track(uint32_t from_slot, uint32_t to_slot);
     void solo_track(uint32_t slot);
 
-    Clip* add_clip_from_file(Track* track, const std::filesystem::path& path, double min_time);
+    TrackEditResult add_clip_from_file(Track* track, const std::filesystem::path& path, double min_time);
+    TrackEditResult add_audio_clip(Track* track, const std::string& name, double min_time, double max_time,
+                        double start_offset, const AudioClip& clip_info, bool active = true);
+    TrackEditResult add_midi_clip(Track* track, const std::string& name, double min_time, double max_time,
+                       double start_offset, const MidiClip& clip_info, bool active = true);
+    TrackEditResult emplace_clip(Track* track, const Clip& new_clip);
+    TrackEditResult duplicate_clip(Track* track, Clip* clip_to_duplicate, double min_time, double max_time);
+    TrackEditResult move_clip(Track* track, Clip* clip, double relative_pos);
+    TrackEditResult resize_clip(Track* track, Clip* clip, double relative_pos, double min_length,
+                     bool right_side);
     void delete_clip(Track* track, Clip* clip);
-    void trim_track_by_range(Track* track, uint32_t first_clip, uint32_t last_clip, double min,
-                             double max, bool dont_sort);
+    TrackEditResult add_to_cliplist(Track* track, Clip* clip);
+    std::optional<ClipQueryResult> query_clip_by_range(Track* track, double min, double max) const;
+
+    TrackEditResult reserve_track_region(Track* track, uint32_t first_clip, uint32_t last_clip, double min, double max,
+                                        bool dont_sort, Clip* ignore_clip);
 
     double get_song_length() const;
 
@@ -84,6 +98,8 @@ struct Engine {
     void add_on_bpm_change_listener(Fn&& fn) {
         on_bpm_change_listener.push_back(fn);
     }
+
+    void update_clip_ordering(Track* track);
 };
 
 extern Engine g_engine;

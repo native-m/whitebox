@@ -46,12 +46,12 @@ struct Clip {
     ClipHover hover_state {};
     std::atomic_bool active {true};
     mutable std::atomic_bool deleted {};
+    bool start_offset_changed {};
 
     // Time placement in beat units
     double min_time {};
     double max_time {};
     double start_offset {}; // MIDI: Beat unit, Audio: Sample unit
-    bool start_offset_changed {};
 
     union {
         AudioClip audio;
@@ -72,7 +72,7 @@ struct Clip {
         audio() {}
 
     Clip(const Clip& clip) noexcept :
-        id(WB_INVALID_CLIP_ID),
+        id(clip.id),
         type(clip.type),
         name(clip.name),
         color(clip.color),
@@ -95,7 +95,7 @@ struct Clip {
     }
 
     Clip(Clip&& clip) noexcept :
-        id(WB_INVALID_CLIP_ID),
+        id(std::exchange(clip.id, {})),
         type(std::exchange(clip.type, {})),
         name(std::exchange(clip.name, {})),
         color(std::exchange(clip.color, {})),
@@ -130,8 +130,40 @@ struct Clip {
         }
     }
 
+    Clip& operator=(const Clip& clip) noexcept {
+        id = clip.id;
+        type = clip.type;
+        name = clip.name;
+        color = clip.color;
+        active = clip.active.load(std::memory_order_relaxed);
+        min_time = clip.min_time;
+        max_time = clip.max_time;
+        start_offset = clip.start_offset;
+        switch (type) {
+            case ClipType::Audio: {
+                SampleAsset* old_asset = audio.asset;
+                audio = clip.audio;
+                audio.asset->add_ref();
+                if (old_asset)
+                    old_asset->release();
+                break;
+            }
+            case ClipType::Midi: {
+                MidiAsset* old_asset = midi.asset;
+                midi = clip.midi;
+                midi.asset->add_ref();
+                if (old_asset)
+                    old_asset->release();
+                break;
+            }
+            default:
+                break;
+        }
+        return *this;
+    }
+
     Clip& operator=(Clip&& clip) noexcept {
-        id = WB_INVALID_CLIP_ID;
+        id = clip.id;
         type = std::exchange(clip.type, {});
         name = std::exchange(clip.name, {});
         color = std::exchange(clip.color, {});

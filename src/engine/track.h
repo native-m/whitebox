@@ -6,6 +6,7 @@
 #include "core/bit_manipulation.h"
 #include "core/memory.h"
 #include "core/vector.h"
+#include "etypes.h"
 #include "event.h"
 #include "event_list.h"
 #include "param_changes.h"
@@ -24,13 +25,6 @@ enum TrackParameter {
     TrackParameter_Pan,
     TrackParameter_Mute,
     TrackParameter_Max,
-};
-
-struct ClipQueryResult {
-    uint32_t first;
-    uint32_t last;
-    double first_offset;
-    double last_offset;
 };
 
 struct MidiVoice {
@@ -108,7 +102,7 @@ struct TestSynth {
                 double osc = voice.phase >= 1.0 ? 1.0f : -1.0f;
                 sample += (float)osc * voice.amp * voice.volume * 0.5f;
                 voice.phase += voice.frequency / sample_rate;
-                voice.amp = std::max(voice.amp - env_speed, 0.0f);
+                voice.amp = 1.0f; // std::max(voice.amp - env_speed, 0.0f);
                 if (voice.phase >= 2.0)
                     voice.phase -= 2.0;
             }
@@ -123,6 +117,7 @@ struct TestSynth {
 struct TrackEventState {
     std::optional<uint32_t> current_clip_idx;
     std::optional<uint32_t> next_clip_idx;
+    std::atomic<bool> stop_voices;
     double last_start_clip_position;
     uint32_t midi_note_idx;
 };
@@ -133,6 +128,12 @@ struct TrackParameterState {
     float pan;
     bool mute;
     bool solo; // UI only
+};
+
+struct TrackAutomation {
+    int32_t plugin_id;
+    uint32_t id;
+    double value;
 };
 
 struct Track {
@@ -160,7 +161,7 @@ struct Track {
     TrackParameterState ui_parameter_state {}; // UI-side state
     TrackParameterState parameter_state {};    // Audio-side state
     ParamChanges param_changes;
-    // This handles UI to audio thread parameter state transfer
+    // This handles parameter state transfer from UI to audio thread
     ConcurrentRingBuffer<ParamChange> ui_param_changes;
 
     Track();
@@ -171,6 +172,23 @@ struct Track {
     void set_volume(float db);
     void set_pan(float pan);
     void set_mute(bool mute);
+
+    /**
+     * @brief Allocate clip. The callee must construct Clip object itself.
+     *
+     * @return A pointer to the new allocated Clip object.
+     */
+    inline Clip* allocate_clip() { return (Clip*)clip_allocator.allocate(); }
+
+    /**
+     * @brief Destroy clip. The callee must unlink the clip from the track clip list.
+     *
+     * @return A pointer to the new allocated Clip object.
+     */
+    inline void destroy_clip(Clip* clip) {
+        clip->~Clip();
+        clip_allocator.free(clip);
+    }
 
     /**
      * @brief Add audio clip into the track.
@@ -275,7 +293,7 @@ struct Track {
      *
      * @param time_pos Starting point of the playback.
      */
-    void reset_playback_state(double time_pos);
+    void reset_playback_state(double time_pos, bool stop_voices);
 
     /**
      * @brief Stop playback.
