@@ -3,6 +3,7 @@
 #include "core/midi.h"
 #include "gfx/renderer.h"
 #include "extern/xxhash.h"
+#include "core/debug.h"
 
 namespace wb {
 static constexpr XXH64_hash_t sample_hash_seed = 69420;
@@ -46,6 +47,9 @@ void SampleTable::destroy_sample(uint64_t hash) {
 }
 
 void SampleTable::shutdown() {
+    for (auto& [hash, sample] : samples) {
+        Log::debug("Sample asset leak: {}", sample.ref_count);
+    }
     samples.clear();
 }
 
@@ -104,8 +108,10 @@ void MidiTable::destroy(MidiAsset* asset) {
 }
 
 void MidiTable::shutdown() {
+    uint32_t midi_id = 0;
     while (auto asset = allocated_assets.pop_tracked_resource()) {
         auto midi_asset = static_cast<MidiAsset*>(asset);
+        Log::debug("Midi asset leak {:x}: {}", (uint64_t)midi_asset, midi_asset->ref_count);
         midi_asset->~MidiAsset();
         midi_assets.free(midi_asset);
     }
