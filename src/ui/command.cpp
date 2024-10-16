@@ -20,7 +20,7 @@ void TrackHistory::undo(Track* track) {
     for (auto clip : track->clips) {
         bool should_skip = false;
 
-        for (auto id : modified_clips) { 
+        for (auto id : modified_clips) {
             if (id == clip->id) {
                 should_skip = true;
                 break;
@@ -65,19 +65,20 @@ void ClipAddFromFileCmd::undo() {
     std::unique_lock edit_lock(g_engine.editor_lock);
     std::unique_lock delete_lock(g_engine.delete_lock);
     history.undo(track);
-    g_engine.update_clip_ordering(track);
+    track->update_clip_ordering();
     track->reset_playback_state(g_engine.playhead, true);
 }
 
 void ClipMoveCmd::execute() {
-    double beat_duration = g_engine.get_beat_duration();
     Track* track = g_engine.tracks[track_id];
     Clip* clip = track->clips[clip_id];
     if (track_id == target_track_id) {
-        g_engine.move_clip(track, clip, relative_pos);
-        clip_id = clip->id;
+        auto result = g_engine.move_clip(track, clip, relative_pos);
+        history.backup(std::move(result));
     } else {
+        assert(false && "Unimplemented");
         Track* target_track = g_engine.tracks[target_track_id];
+        double beat_duration = g_engine.get_beat_duration();
         double new_pos = std::max(clip->min_time + relative_pos, 0.0);
         double length = clip->max_time - clip->min_time;
         Clip* new_clip = target_track->duplicate_clip(clip, new_pos, new_pos + length, beat_duration);
@@ -87,11 +88,19 @@ void ClipMoveCmd::execute() {
 }
 
 void ClipMoveCmd::undo() {
-    double beat_duration = g_engine.get_beat_duration();
+    Track* track = g_engine.tracks[target_track_id];
+    std::unique_lock edit_lock(g_engine.editor_lock);
+    std::unique_lock delete_lock(g_engine.delete_lock);
+    assert(track_id == target_track_id && "Unimplemented");
+    history.undo(track);
+    track->update_clip_ordering();
+    track->reset_playback_state(g_engine.playhead, true);
+    /*double beat_duration = g_engine.get_beat_duration();
     Track* track = g_engine.tracks[target_track_id];
     Clip* clip = track->clips[clip_id];
     g_engine.edit_lock();
     if (track_id == target_track_id) {
+        g_engine.move_clip(track, clip, -relative_pos);
         track->move_clip(clip, -relative_pos, beat_duration);
         clip_id = clip->id;
     } else {
@@ -102,7 +111,7 @@ void ClipMoveCmd::undo() {
         clip_id = new_clip->id;
         g_engine.delete_clip(track, clip);
     }
-    g_engine.edit_unlock();
+    g_engine.edit_unlock();*/
 }
 
 void ClipShiftCmd::execute() {
@@ -125,23 +134,20 @@ void ClipShiftCmd::undo() {
 }
 
 void ClipResizeCmd::execute() {
-    double beat_duration = g_engine.get_beat_duration();
     Track* track = g_engine.tracks[track_id];
     Clip* clip = track->clips[clip_id];
-    g_engine.edit_lock();
-    track->resize_clip(clip, relative_pos, min_length, last_beat_duration, left_side);
-    g_engine.edit_unlock();
-    clip_id = clip->id;
+    auto result = g_engine.resize_clip(track, clip, relative_pos, min_length, left_side);
+    history.backup(std::move(result));
 }
 
 void ClipResizeCmd::undo() {
-    double beat_duration = g_engine.get_beat_duration();
     Track* track = g_engine.tracks[track_id];
     Clip* clip = track->clips[clip_id];
-    g_engine.edit_lock();
-    track->resize_clip(clip, -relative_pos, min_length, last_beat_duration, left_side);
-    g_engine.edit_unlock();
-    clip_id = clip->id;
+    std::unique_lock editor_lock(g_engine.editor_lock);
+    std::unique_lock delete_lock(g_engine.delete_lock);
+    history.undo(track);
+    track->update_clip_ordering();
+    track->reset_playback_state(g_engine.playhead, true);
 }
 
 void ClipDeleteCmd::execute() {
@@ -185,7 +191,7 @@ void ClipDeleteRegionCmd::execute() {
         for (uint32_t j = query_result->first; j <= query_result->last; j++)
             old_clips.emplace_back(*track->clips[j], i);
         TrackEditResult result = g_engine.reserve_track_region(track, query_result->first, query_result->last, min_time,
-                                                              max_time, false, nullptr);
+                                                               max_time, false, nullptr);
     }
     g_engine.edit_unlock();
 }

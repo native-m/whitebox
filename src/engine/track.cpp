@@ -163,6 +163,11 @@ void Track::delete_clip(uint32_t id) {
     clips[id]->mark_deleted();
 }
 
+void Track::delete_clip(Clip* clip) {
+    clip->mark_deleted();
+    has_deleted_clips = true;
+}
+
 std::optional<ClipQueryResult> Track::query_clip_by_range(double min, double max) const {
     assert(min <= max && "Minimum value should be less or equal than maximum value");
     auto begin = clips.begin();
@@ -205,6 +210,25 @@ std::optional<ClipQueryResult> Track::query_clip_by_range(double min, double max
         .first_offset = first_offset,
         .last_offset = last_offset,
     };
+}
+
+void Track::update_clip_ordering() {
+    Vector<Clip*> new_cliplist;
+    if (has_deleted_clips) {
+        for (auto clip : clips) {
+            if (clip->is_deleted()) {
+                deleted_clips.push_back(clip);
+                continue;
+            }
+            new_cliplist.push_back(clip);
+        }
+        has_deleted_clips = false;
+        clips = std::move(new_cliplist);
+    }
+    std::sort(clips.begin(), clips.end(), [](const Clip* a, const Clip* b) { return a->min_time < b->min_time; });
+    for (uint32_t i = 0; i < (uint32_t)clips.size(); i++) {
+        clips[i]->id = i;
+    }
 }
 
 void Track::update(Clip* updated_clip, double beat_duration) {
@@ -255,8 +279,8 @@ void Track::update(Clip* updated_clip, double beat_duration) {
             }
 
             // The clip is completely overlapped, delete this!
-            if (clip->min_time >= clip->max_time)
-                deleted_clip_ids.insert(clip->id);
+            /*if (clip->min_time >= clip->max_time)
+                deleted_clip_ids.insert(clip->id);*/
         }
     }
 
@@ -298,16 +322,14 @@ std::optional<uint32_t> Track::find_next_clip(double time_pos, uint32_t hint) {
     return (*clip)->id;
 }
 
-void Track::reset_playback_state(double time_pos, bool stop_voices) {
-    std::optional<uint32_t> next_clip = find_next_clip(time_pos);
-    // event_state.current_clip = nullptr;
-    // event_state.next_clip = next_clip;
-    event_state.current_clip_idx.reset();
-    event_state.next_clip_idx = next_clip;
-    event_state.midi_note_idx = 0;
-    if (stop_voices) {
-        event_state.stop_voices.store(true, std::memory_order_release);
+void Track::reset_playback_state(double time_pos, bool refresh_voices) {
+    if (refresh_voices) {
+        event_state.refresh_voice = true;
     } else {
+        std::optional<uint32_t> next_clip = find_next_clip(time_pos);
+        event_state.current_clip_idx.reset();
+        event_state.next_clip_idx = next_clip;
+        event_state.midi_note_idx = 0;
         midi_voice_state.voice_mask = 0;
     }
 }
@@ -318,23 +340,59 @@ void Track::stop() {
     };
     audio_event_buffer.resize(0);
     midi_event_list.clear();
-    //midi_voice_state.voice_mask = 0;
+    // midi_voice_state.voice_mask = 0;
 }
 
 void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_duration, double sample_rate, double ppq,
                           double inv_ppq) {
-    bool stop_voices = event_state.stop_voices.exchange(false, std::memory_order_acq_rel);
-    if (stop_voices) {
-        audio_event_buffer.push_back({
-            .type = EventType::StopSample,
-            .buffer_offset = buffer_offset,
-            .time = time_pos,
-        });
-        stop_midi_notes(buffer_offset, time_pos);
+    bool refresh_voices = event_state.refresh_voice;
+
+    if (clips.size() == 0) {
+        if (event_state.refresh_voice) {
+            event_state.current_clip_idx.reset();
+            event_state.next_clip_idx.reset();
+            audio_event_buffer.push_back({
+                .type = EventType::StopSample,
+                .buffer_offset = buffer_offset,
+                .time = time_pos,
+            });
+            stop_midi_notes(buffer_offset, time_pos);
+            event_state.midi_note_idx = 0;
+            event_state.refresh_voice = false;
+        }
+        return;
     }
 
-    if (clips.size() == 0)
-        return;
+    if (refresh_voices) {
+        std::optional<uint32_t> clip_at_playhead = find_next_clip(time_pos);
+        if (clip_at_playhead) {
+            if (event_state.current_clip_idx) {
+                uint32_t idx = *event_state.current_clip_idx;
+                if (idx != *clip_at_playhead) {
+                    audio_event_buffer.push_back({
+                        .type = EventType::StopSample,
+                        .buffer_offset = buffer_offset,
+                        .time = time_pos,
+                    });
+                    stop_midi_notes(buffer_offset, time_pos);
+                    event_state.current_clip_idx.reset();
+                    event_state.next_clip_idx = *clip_at_playhead;
+                    event_state.midi_note_idx = 0;
+                }
+            }
+        } else {
+            event_state.current_clip_idx.reset();
+            event_state.next_clip_idx.reset();
+            audio_event_buffer.push_back({
+                .type = EventType::StopSample,
+                .buffer_offset = buffer_offset,
+                .time = time_pos,
+            });
+            stop_midi_notes(buffer_offset, time_pos);
+            event_state.midi_note_idx = 0;
+        }
+        event_state.refresh_voice = false;
+    }
 
     Clip* current_clip = event_state.current_clip_idx ? clips[*event_state.current_clip_idx] : nullptr;
     Clip* next_clip = event_state.next_clip_idx && event_state.next_clip_idx < clips.size()
@@ -409,13 +467,6 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
                 case ClipType::Audio: {
                     double sample_pos = beat_to_samples(relative_start_time, sample_rate, beat_duration);
                     uint64_t sample_offset = (uint64_t)(sample_pos + next_clip->start_offset);
-                    if (stop_voices) {
-                        audio_event_buffer.push_back({
-                            .type = EventType::StopSample,
-                            .buffer_offset = buffer_offset,
-                            .time = time_pos,
-                        });
-                    }
                     audio_event_buffer.push_back({
                         .type = EventType::PlaySample,
                         .buffer_offset = buffer_offset,
@@ -471,6 +522,12 @@ void Track::process_midi_event(Clip* clip, uint32_t buffer_offset, double time_p
                         .velocity = voice.velocity * 0.5f,
                     },
             });
+#if WB_DBG_LOG_NOTE_ON_EVENT
+            char note_str[8] {};
+            fmt::format_to_n(note_str, std::size(note_str), "{}{}", get_midi_note_scale(voice.note_number),
+                             get_midi_note_octave(voice.note_number));
+            Log::debug("Note off: {} length: {} at: {}", note_str, max_time, time_pos);
+#endif
         }
     }
     midi_voice_state.voice_mask &= ~inactive_voice_bits;
@@ -614,6 +671,10 @@ void Track::process(AudioBuffer<float>& output_buffer, double sample_rate, bool 
     }
 
     param_changes.clear_changes();
+
+    for (auto deleted_clip : deleted_clips) {
+        destroy_clip(deleted_clip);
+    }
 }
 
 void Track::render_sample(AudioBuffer<float>& output_buffer, uint32_t buffer_offset, uint32_t num_samples,
@@ -763,7 +824,7 @@ void Track::flush_deleted_clips(double time_pos) {
         new_clip_list.push_back(clip);
         i++;
     }
-    deleted_clip_ids.clear();
+    // deleted_clip_ids.clear();
     clips = std::move(new_clip_list);
 }
 

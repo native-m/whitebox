@@ -7,10 +7,6 @@
 
 namespace wb {
 
-struct ClipSortFn {
-    bool operator()(const Clip* a, const Clip* b) const { return a->min_time < b->min_time; }
-};
-
 Engine::~Engine() {
 }
 
@@ -184,37 +180,43 @@ TrackEditResult Engine::duplicate_clip(Track* track, Clip* clip_to_duplicate, do
 }
 
 TrackEditResult Engine::move_clip(Track* track, Clip* clip, double relative_pos) {
-    std::unique_lock lock(editor_lock);
     if (relative_pos == 0.0)
         return {};
+    std::unique_lock lock(editor_lock);
     auto [min_time, max_time] = calc_move_clip(clip, relative_pos);
     auto query_result = track->query_clip_by_range(min_time, max_time);
     TrackEditResult trim_result = query_result ? reserve_track_region(track, query_result->first, query_result->last,
                                                                       min_time, max_time, true, clip)
                                                : TrackEditResult {};
+    trim_result.deleted_clips.push_back(*clip); // Save previous state as deleted
     clip->min_time = min_time;
     clip->max_time = max_time;
     clip->start_offset_changed = true;
-    update_clip_ordering(track);
+    track->update_clip_ordering();
+    track->reset_playback_state(playhead, true);
+    trim_result.added_clips.push_back(clip);
     return trim_result;
 }
 
 TrackEditResult Engine::resize_clip(Track* track, Clip* clip, double relative_pos, double min_length, bool is_min) {
-    std::unique_lock lock(editor_lock);
     if (relative_pos == 0.0)
         return {};
+    std::unique_lock lock(editor_lock);
     auto [min_time, max_time, start_offset] = calc_resize_clip(clip, relative_pos, min_length, beat_duration, is_min);
     auto query_result = track->query_clip_by_range(min_time, max_time);
     TrackEditResult trim_result = query_result ? reserve_track_region(track, query_result->first, query_result->last,
                                                                       min_time, max_time, true, clip)
                                                : TrackEditResult {};
+    trim_result.deleted_clips.push_back(*clip);
     if (is_min) {
         clip->min_time = min_time;
         clip->start_offset = start_offset;
     } else {
         clip->max_time = max_time;
     }
-    update_clip_ordering(track);
+    track->update_clip_ordering();
+    track->reset_playback_state(playhead, true);
+    trim_result.added_clips.push_back(clip);
     return trim_result;
 }
 
@@ -262,7 +264,7 @@ TrackEditResult Engine::add_to_cliplist(Track* track, Clip* clip) {
         reserve_track_region(track, result->first, result->last, clip->min_time, clip->max_time, true, nullptr);
     trim_result.added_clips.push_back(clip);
     clips.push_back(clip);
-    update_clip_ordering(track);
+    track->update_clip_ordering();
 
     return trim_result;
 }
@@ -299,16 +301,10 @@ TrackEditResult Engine::reserve_track_region(Track* track, uint32_t first_clip, 
             new (new_clip) Clip(*clip);
             new_clip->min_time = max;
             new_clip->start_offset = shift_clip_content(new_clip, clip->min_time - max, current_beat_duration);
-            clip->max_time = min;
             modified_clips.push_back(new_clip);
+            clip->max_time = min;
             bool locked = editor_lock.try_lock();
             clips.push_back(new_clip);
-            if (!dont_sort) {
-                std::sort(clips.begin(), clips.end(), ClipSortFn());
-                for (uint32_t i = clip->id; i < (uint32_t)clips.size(); i++) {
-                    clips[i]->id = i;
-                }
-            }
             if (locked) {
                 editor_lock.unlock();
             }
@@ -318,7 +314,7 @@ TrackEditResult Engine::reserve_track_region(Track* track, uint32_t first_clip, 
             clip->start_offset = shift_clip_content(clip, clip->min_time - max, current_beat_duration);
             clip->min_time = max;
         } else {
-            delete_clip(track, clip);
+            track->delete_clip(clip);
             return {
                 .deleted_clips = std::move(deleted_clips),
             };
@@ -351,13 +347,11 @@ TrackEditResult Engine::reserve_track_region(Track* track, uint32_t first_clip, 
 
     if (first_clip < last_clip) {
         deleted_clips.reserve(last_clip - first_clip);
-        for (uint32_t i = first_clip; i <= last_clip; i++) {
+        for (uint32_t i = first_clip; i < last_clip; i++) {
             deleted_clips.push_back(*clips[i]);
-            clips[i]->mark_deleted();
+            track->delete_clip(clips[i]);
         }
     }
-
-    has_deleted_clips.store(true, std::memory_order_release);
 
     return {
         .deleted_clips = std::move(deleted_clips),
@@ -432,15 +426,6 @@ void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
         }
         delete_lock.unlock();
         has_deleted_clips.store(false, std::memory_order_relaxed);
-    }
-}
-
-void Engine::update_clip_ordering(Track* track) {
-    uint32_t clip_count = (uint32_t)track->clips.size();
-    Vector<Clip*>& clips = track->clips;
-    std::sort(clips.begin(), clips.end(), ClipSortFn());
-    for (uint32_t i = 0; i < clip_count; i++) {
-        clips[i]->id = i;
     }
 }
 

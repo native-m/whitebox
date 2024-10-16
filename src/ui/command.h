@@ -33,6 +33,7 @@ struct ClipMoveCmd {
     uint32_t target_track_id;
     uint32_t clip_id;
     double relative_pos;
+    TrackHistory history;
 
     void execute();
     void undo();
@@ -55,6 +56,7 @@ struct ClipResizeCmd {
     double relative_pos;
     double min_length;
     double last_beat_duration;
+    TrackHistory history;
 
     void execute();
     void undo();

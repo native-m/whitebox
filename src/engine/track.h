@@ -117,7 +117,7 @@ struct TestSynth {
 struct TrackEventState {
     std::optional<uint32_t> current_clip_idx;
     std::optional<uint32_t> next_clip_idx;
-    std::atomic<bool> stop_voices;
+    bool refresh_voice;
     double last_start_clip_position;
     uint32_t midi_note_idx;
 };
@@ -144,7 +144,8 @@ struct Track {
 
     Pool<Clip> clip_allocator;
     Vector<Clip*> clips;
-    std::unordered_set<uint32_t> deleted_clip_ids;
+    Vector<Clip*> deleted_clips;
+    bool has_deleted_clips = false;
 
     TrackEventState event_state {};
     Vector<AudioEvent> audio_event_buffer;
@@ -262,6 +263,8 @@ struct Track {
      */
     void delete_clip(uint32_t id);
 
+    void delete_clip(Clip* clip);
+
     /**
      * @brief Query clips within the minimum and maximum time range.
      *
@@ -270,6 +273,8 @@ struct Track {
      * @return ClipQueryResult
      */
     std::optional<ClipQueryResult> query_clip_by_range(double min, double max) const;
+
+    void update_clip_ordering();
 
     /**
      * @brief Update clip ordering and possibly trim or delete overlapping clip.
