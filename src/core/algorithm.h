@@ -59,4 +59,14 @@ inline void uninitialized_default_construct(T* begin_ptr, T* end_ptr) {
     }
 }
 
+template <typename T>
+inline void destroy_range(T* begin_ptr, T* end_ptr) {
+    if constexpr (!std::is_trivially_default_constructible_v<T>) {
+        while (begin_ptr != end_ptr) {
+            begin_ptr->~T();
+            begin_ptr++;
+        }
+    }
+}
+
 } // namespace wb
