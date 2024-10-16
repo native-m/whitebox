@@ -56,10 +56,10 @@ struct CommandManager {
         uint32_t new_pos = pos + 1;
         item.set(name, std::move(cmd));
         std::get<std::decay_t<T>>(item.data).execute();
-        pos = new_pos % max_history;
-        if (pos > size && size < max_history) {
+        if (new_pos > size && size <= max_history) {
             size++;
         }
+        pos = new_pos % max_history;
         signal_all_update_listeners();
     }
 
