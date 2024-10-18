@@ -150,6 +150,7 @@ void ClipDeleteCmd::undo() {
     Track* track = g_engine.tracks[track_id];
     std::unique_lock editor_lock(g_engine.editor_lock);
     history.undo(track);
+    track->update_clip_ordering();
     track->reset_playback_state(g_engine.playhead, true);
 }
 

@@ -203,22 +203,13 @@ struct Vector {
     inline void push_front(const T& item)
         requires std::copy_constructible<T>
     {
-        if (intern_.size == intern_.capacity) {
-            reserve_internal_(grow_capacity_(), 1);
-        }
-        new (intern_.data) T(item);
-        intern_.size++;
+        emplace_at(0, item);
     }
 
     inline void push_front(T&& item)
         requires std::move_constructible<T>
     {
-        if (intern_.size == intern_.capacity) {
-            reserve_internal_(grow_capacity_(), 1);
-        } else {
-        }
-        new (intern_.data) T(std::move(item));
-        intern_.size++;
+        emplace_at(0, item);
     }
 
     inline void push_back(const T& item)

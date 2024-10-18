@@ -377,17 +377,21 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
         if (clip_at_playhead) {
             if (event_state.current_clip_idx) {
                 uint32_t idx = *event_state.current_clip_idx;
-                Clip* clip = clips[idx];
-                if (idx != *clip_at_playhead || time_pos < clip->min_time || time_pos > clip->max_time) {
-                    audio_event_buffer.push_back({
-                        .type = EventType::StopSample,
-                        .buffer_offset = buffer_offset,
-                        .time = time_pos,
-                    });
-                    stop_midi_notes(buffer_offset, time_pos);
-                    event_state.current_clip_idx.reset();
-                    event_state.next_clip_idx = *clip_at_playhead;
-                    event_state.midi_note_idx = 0;
+                if (idx >= clips.size()) {
+                    event_state.current_clip_idx = clips.size() - 1u;
+                } else {
+                    Clip* clip = clips[idx];
+                    if (idx != *clip_at_playhead || time_pos < clip->min_time || time_pos > clip->max_time) {
+                        audio_event_buffer.push_back({
+                            .type = EventType::StopSample,
+                            .buffer_offset = buffer_offset,
+                            .time = time_pos,
+                        });
+                        stop_midi_notes(buffer_offset, time_pos);
+                        event_state.current_clip_idx.reset();
+                        event_state.next_clip_idx = *clip_at_playhead;
+                        event_state.midi_note_idx = 0;
+                    }
                 }
             } else {
                 event_state.next_clip_idx = *clip_at_playhead;
