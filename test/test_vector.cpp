@@ -12,7 +12,7 @@ struct TestType2 {
     int a = 10;
     TestType2() {}
     TestType2(int v) : a(v) {}
-    ~TestType2() {}
+    ~TestType2() { a = 1; }
 };
 
 TEST_CASE("Vector construct (trivial type)") {
@@ -87,9 +87,23 @@ TEST_CASE("Vector push_back and pop_back (trivial)") {
         vec.push_back(1);
         vec.push_back(2);
         vec.push_back(3);
+        vec.push_back(4);
+        vec.push_back(5);
+        vec.push_back(6);
+        vec.push_back(7);
+        vec.push_back(8);
+        vec.push_back(9);
+        vec.push_back(10);
         REQUIRE(vec[0] == 1);
         REQUIRE(vec[1] == 2);
         REQUIRE(vec[2] == 3);
+        REQUIRE(vec[3] == 4);
+        REQUIRE(vec[4] == 5);
+        REQUIRE(vec[5] == 6);
+        REQUIRE(vec[6] == 7);
+        REQUIRE(vec[7] == 8);
+        REQUIRE(vec[8] == 9);
+        REQUIRE(vec[9] == 10);
     }
 
     SECTION("pop_back") {
@@ -111,9 +125,23 @@ TEST_CASE("Vector push_back and pop_back (non-trivial)") {
         vec.push_back(TestType2(1));
         vec.push_back(TestType2(2));
         vec.push_back(TestType2(3));
+        vec.push_back(TestType2(4));
+        vec.push_back(TestType2(5));
+        vec.push_back(TestType2(6));
+        vec.push_back(TestType2(7));
+        vec.push_back(TestType2(8));
+        vec.push_back(TestType2(9));
+        vec.push_back(TestType2(10));
         REQUIRE(vec[0].a == 1);
         REQUIRE(vec[1].a == 2);
         REQUIRE(vec[2].a == 3);
+        REQUIRE(vec[3].a == 4);
+        REQUIRE(vec[4].a == 5);
+        REQUIRE(vec[5].a == 6);
+        REQUIRE(vec[6].a == 7);
+        REQUIRE(vec[7].a == 8);
+        REQUIRE(vec[8].a == 9);
+        REQUIRE(vec[9].a == 10);
     }
 
     SECTION("pop_back") {
@@ -243,5 +271,13 @@ TEST_CASE("Vector reserve & resize") {
             REQUIRE(vec[i].a == i);
         REQUIRE(vec.size() == 30);
         REQUIRE(vec.data() != nullptr);
+    }
+
+    SECTION("Shrink") {
+        wb::Vector<TestType2> vec;
+        vec.resize(10);
+        REQUIRE(vec.size() == 10);
+        vec.resize(5);
+        REQUIRE(vec.size() == 5);
     }
 }

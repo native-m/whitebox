@@ -11,8 +11,7 @@ struct Spinlock {
     std::atomic_bool lock_;
 
     inline bool try_lock() noexcept {
-        return !lock_.load(std::memory_order_relaxed) &&
-               !lock_.exchange(true, std::memory_order_acquire);
+        return !lock_.load(std::memory_order_relaxed) && !lock_.exchange(true, std::memory_order_acquire);
     }
 
     inline void lock() noexcept {

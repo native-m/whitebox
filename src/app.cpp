@@ -44,7 +44,6 @@ static SDL_SysWMinfo main_wm_info;
 static bool is_running = true;
 static VST3Host vst3_host;
 static std::unordered_map<uint32_t, SDL_Window*> plugin_windows;
-
 uint32_t AppEvent::audio_device_removed_event;
 
 static void apply_theme(ImGuiStyle& style);
@@ -190,7 +189,10 @@ static void register_events() {
 
 void app_init() {
     // Init SDL & create main window
-    SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) < 0) {
+        Log::debug("{}", SDL_GetError());
+        std::abort();
+    }
     register_events();
     SDL_Window* new_window =
         SDL_CreateWindow("whitebox", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720,
@@ -453,6 +455,7 @@ void app_render() {
     ImGui::ShowDemoWindow();
     controls::render_test_controls();
     render_history_window();
+    render_asset_window();
 
     float framerate = GImGui->IO.Framerate;
     // Update vu meters

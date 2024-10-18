@@ -45,7 +45,7 @@ struct Clip {
     ImColor color {};
     ClipHover hover_state {};
     std::atomic_bool active {true};
-    mutable std::atomic_bool deleted {};
+    bool deleted {};
     bool start_offset_changed {};
 
     // Time placement in beat units
@@ -196,11 +196,11 @@ struct Clip {
 
     inline void set_active(bool is_active) { active.store(is_active, std::memory_order_release); }
 
-    inline void mark_deleted() { deleted.store(true, std::memory_order_release); }
+    inline void mark_deleted() { deleted = true; }
 
     inline bool is_active() const { return active.load(std::memory_order_relaxed); }
 
-    inline bool is_deleted() const { return deleted.load(std::memory_order_relaxed); }
+    inline bool is_deleted() const { return deleted; }
 
     inline bool is_audio() const { return type == ClipType::Audio; }
 

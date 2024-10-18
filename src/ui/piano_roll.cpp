@@ -128,13 +128,13 @@ void GuiPianoRoll::render() {
 }
 
 void GuiPianoRoll::render_editor() {
-    double view_scale = calc_view_scale();
-    double inv_view_scale = 1.0 / view_scale;
     ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
     ImVec2 region_size = ImGui::GetContentRegionAvail();
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
     timeline_width = region_size.x;
 
+    double view_scale = calc_view_scale();
+    double inv_view_scale = 1.0 / view_scale;
     float offset_y = vscroll + cursor_pos.y;
     ImVec2 view_min(cursor_pos.x, offset_y);
     ImVec2 view_max(cursor_pos.x + timeline_width, offset_y + region_size.y);
@@ -279,14 +279,14 @@ void GuiPianoRoll::render_editor() {
         if (a.y > end_y || b.y < main_cursor_pos.y)
             continue;
 
+        // Draw note rect
         draw_list->PathLineTo(a);
         draw_list->PathLineTo(ImVec2(b.x, a.y));
         draw_list->PathLineTo(b);
         draw_list->PathLineTo(ImVec2(a.x, b.y));
         draw_list->PathFillConvex(channel_color);
-        // draw_list->AddRectFilled(min_bb, max_bb, channel_color);
-        // draw_list->AddRect(min_bb, max_bb, 0x7F000000);
 
+        // Draw note pitch caption
         ImVec4 label_rect(a.x, a.y, b.x - 4.0f, b.y);
         char note_name[5] {};
         const char* scale = note_scale[note.note_number % 12];
@@ -335,7 +335,6 @@ void GuiPianoRoll::render_event_editor() {
         draw_list->AddRectFilled(min_pos - ImVec2(2.0f, 2.0f), min_pos + ImVec2(3.0f, 3.0f),
                                  channel_color);
     }
-
 }
 
 void GuiPianoRoll::draw_piano_keys(ImDrawList* draw_list, ImVec2& pos, const ImVec2& note_size,

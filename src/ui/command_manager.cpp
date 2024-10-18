@@ -30,7 +30,6 @@ void CommandManager::reset() {
     for (uint32_t i = 0; i < size; i++) {
         items[i].unset();
     }
-    items.resize(0);
     pos = 0;
     size = 0;
 }

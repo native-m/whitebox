@@ -31,4 +31,5 @@ struct TrackEditResult {
     Vector<Clip*> modified_clips;
     Clip* new_clip;
 };
+
 } // namespace wb

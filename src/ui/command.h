@@ -29,11 +29,12 @@ struct ClipAddFromFileCmd {
 };
 
 struct ClipMoveCmd {
-    uint32_t track_id;
-    uint32_t target_track_id;
+    uint32_t src_track_id;
+    uint32_t dst_track_id;
     uint32_t clip_id;
     double relative_pos;
-    TrackHistory history;
+    TrackHistory src_track_history;
+    TrackHistory dst_track_history;
 
     void execute();
     void undo();
@@ -73,23 +74,7 @@ struct ClipDuplicateCmd {
 struct ClipDeleteCmd {
     uint32_t track_id;
     uint32_t clip_id;
-    Clip clip_state;
-    double last_beat_duration;
-
-    ClipDeleteCmd(uint32_t track_id, uint32_t clip_id, const Clip& clip, double last_beat_duration) :
-        track_id(track_id), clip_id(clip_id), clip_state(clip), last_beat_duration(last_beat_duration) {}
-
-    ClipDeleteCmd(ClipDeleteCmd&& other) :
-        track_id(std::exchange(other.track_id, {})),
-        clip_id(std::exchange(other.clip_id, {})),
-        clip_state(std::move(other.clip_state)) {}
-
-    ClipDeleteCmd& operator=(ClipDeleteCmd&& other) {
-        track_id = std::exchange(other.track_id, {});
-        clip_id = std::exchange(other.clip_id, {});
-        clip_state = std::move(other.clip_state);
-        return *this;
-    }
+    TrackHistory history;
 
     void execute();
     void undo();

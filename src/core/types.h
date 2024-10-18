@@ -28,5 +28,4 @@ concept ContinuousArrayContainer = requires(T v) {
     { v.data() } -> IsPointerType<>;
     { v.size() } -> std::convertible_to<size_t>;
 };
-
 }

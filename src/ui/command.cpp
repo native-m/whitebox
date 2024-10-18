@@ -70,48 +70,37 @@ void ClipAddFromFileCmd::undo() {
 }
 
 void ClipMoveCmd::execute() {
-    Track* track = g_engine.tracks[track_id];
-    Clip* clip = track->clips[clip_id];
-    if (track_id == target_track_id) {
-        auto result = g_engine.move_clip(track, clip, relative_pos);
-        history.backup(std::move(result));
+    Track* src_track = g_engine.tracks[src_track_id];
+    Clip* clip = src_track->clips[clip_id];
+    if (src_track_id == dst_track_id) {
+        src_track_history.backup(g_engine.move_clip(src_track, clip, relative_pos));
     } else {
-        assert(false && "Unimplemented");
-        Track* target_track = g_engine.tracks[target_track_id];
+        Track* dst_track = g_engine.tracks[dst_track_id];
         double beat_duration = g_engine.get_beat_duration();
         double new_pos = std::max(clip->min_time + relative_pos, 0.0);
         double length = clip->max_time - clip->min_time;
-        Clip* new_clip = target_track->duplicate_clip(clip, new_pos, new_pos + length, beat_duration);
-        clip_id = new_clip->id;
-        g_engine.delete_clip(track, clip);
+        dst_track_history.backup(g_engine.duplicate_clip(dst_track, clip, new_pos, new_pos + length));
+        src_track_history.backup(g_engine.delete_clip(src_track, clip));
     }
 }
 
 void ClipMoveCmd::undo() {
-    Track* track = g_engine.tracks[target_track_id];
+    Track* src_track = g_engine.tracks[src_track_id];
     std::unique_lock edit_lock(g_engine.editor_lock);
     std::unique_lock delete_lock(g_engine.delete_lock);
-    assert(track_id == target_track_id && "Unimplemented");
-    history.undo(track);
-    track->update_clip_ordering();
-    track->reset_playback_state(g_engine.playhead, true);
-    /*double beat_duration = g_engine.get_beat_duration();
-    Track* track = g_engine.tracks[target_track_id];
-    Clip* clip = track->clips[clip_id];
-    g_engine.edit_lock();
-    if (track_id == target_track_id) {
-        g_engine.move_clip(track, clip, -relative_pos);
-        track->move_clip(clip, -relative_pos, beat_duration);
-        clip_id = clip->id;
+    if (src_track_id == dst_track_id) {
+        src_track_history.undo(src_track);
+        src_track->update_clip_ordering();
+        src_track->reset_playback_state(g_engine.playhead, true);
     } else {
-        Track* target_track = g_engine.tracks[track_id];
-        double new_pos = std::max(clip->min_time - relative_pos, 0.0);
-        double length = clip->max_time - clip->min_time;
-        Clip* new_clip = target_track->duplicate_clip(clip, new_pos, new_pos + length, beat_duration);
-        clip_id = new_clip->id;
-        g_engine.delete_clip(track, clip);
+        Track* dst_track = g_engine.tracks[dst_track_id];
+        src_track_history.undo(src_track);
+        dst_track_history.undo(dst_track);
+        src_track->update_clip_ordering();
+        src_track->reset_playback_state(g_engine.playhead, true);
+        dst_track->update_clip_ordering();
+        dst_track->reset_playback_state(g_engine.playhead, true);
     }
-    g_engine.edit_unlock();*/
 }
 
 void ClipShiftCmd::execute() {
@@ -153,23 +142,15 @@ void ClipResizeCmd::undo() {
 void ClipDeleteCmd::execute() {
     Track* track = g_engine.tracks[track_id];
     Clip* clip = track->clips[clip_id];
-    g_engine.delete_clip(track, clip);
+    // TODO: backup the clip directly
+    history.backup(g_engine.delete_clip(track, clip));
 }
 
 void ClipDeleteCmd::undo() {
-    double beat_duration = g_engine.get_beat_duration();
     Track* track = g_engine.tracks[track_id];
-    g_engine.edit_lock();
-    if (clip_state.is_audio()) {
-        clip_state.audio.asset->add_ref();
-        track->add_audio_clip(clip_state.name, clip_state.min_time, clip_state.max_time, clip_state.start_offset,
-                              clip_state.audio, beat_duration, clip_state.is_active());
-    } else {
-        clip_state.midi.asset->add_ref();
-        track->add_midi_clip(clip_state.name, clip_state.min_time, clip_state.max_time, clip_state.start_offset,
-                             clip_state.midi, beat_duration, clip_state.is_active());
-    }
-    g_engine.edit_unlock();
+    std::unique_lock editor_lock(g_engine.editor_lock);
+    history.undo(track);
+    track->reset_playback_state(g_engine.playhead, true);
 }
 
 void ClipDeleteRegionCmd::execute() {

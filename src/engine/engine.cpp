@@ -220,9 +220,13 @@ TrackEditResult Engine::resize_clip(Track* track, Clip* clip, double relative_po
     return trim_result;
 }
 
-void Engine::delete_clip(Track* track, Clip* clip) {
-    track->delete_clip(clip->id);
-    has_deleted_clips.store(true, std::memory_order_release);
+TrackEditResult Engine::delete_clip(Track* track, Clip* clip) {
+    TrackEditResult result;
+    result.deleted_clips.push_back(*clip);
+    track->delete_clip(clip);
+    track->update_clip_ordering();
+    track->reset_playback_state(playhead, true);
+    return result;
 }
 
 TrackEditResult Engine::add_to_cliplist(Track* track, Clip* clip) {
@@ -232,6 +236,7 @@ TrackEditResult Engine::add_to_cliplist(Track* track, Clip* clip) {
         trim_result.added_clips.push_back(clip);
         clip->id = 0;
         clips.push_back(clip);
+        track->reset_playback_state(playhead, true);
         return trim_result;
     }
 
@@ -241,6 +246,7 @@ TrackEditResult Engine::add_to_cliplist(Track* track, Clip* clip) {
         trim_result.added_clips.push_back(clip);
         clip->id = last_clip->id + 1;
         clips.push_back(clip);
+        track->reset_playback_state(playhead, true);
         return trim_result;
     }
     // Add to the front
@@ -250,13 +256,20 @@ TrackEditResult Engine::add_to_cliplist(Track* track, Clip* clip) {
         clips.push_front(clip);
         for (uint32_t i = 0; i < (uint32_t)clips.size(); i++)
             clips[i]->id = i;
+        track->reset_playback_state(playhead, true);
         return trim_result;
     }
 
     auto result = track->query_clip_by_range(clip->min_time, clip->max_time);
+
+    // No clip found
     if (!result) {
-        // No way!
-        return {};
+        TrackEditResult trim_result;
+        trim_result.added_clips.push_back(clip);
+        clips.push_back(clip);
+        track->update_clip_ordering();
+        track->reset_playback_state(playhead, true);
+        return trim_result;
     }
 
     // Trim to reserve space for the clip
@@ -265,6 +278,7 @@ TrackEditResult Engine::add_to_cliplist(Track* track, Clip* clip) {
     trim_result.added_clips.push_back(clip);
     clips.push_back(clip);
     track->update_clip_ordering();
+    track->reset_playback_state(playhead, true);
 
     return trim_result;
 }

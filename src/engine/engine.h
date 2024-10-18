@@ -2,10 +2,10 @@
 
 #include "clip.h"
 #include "clip_edit.h"
-#include "etypes.h"
 #include "core/audio_buffer.h"
 #include "core/common.h"
 #include "core/thread.h"
+#include "etypes.h"
 #include <functional>
 #include <vector>
 
@@ -61,19 +61,18 @@ struct Engine {
 
     TrackEditResult add_clip_from_file(Track* track, const std::filesystem::path& path, double min_time);
     TrackEditResult add_audio_clip(Track* track, const std::string& name, double min_time, double max_time,
-                        double start_offset, const AudioClip& clip_info, bool active = true);
+                                   double start_offset, const AudioClip& clip_info, bool active = true);
     TrackEditResult add_midi_clip(Track* track, const std::string& name, double min_time, double max_time,
-                       double start_offset, const MidiClip& clip_info, bool active = true);
+                                  double start_offset, const MidiClip& clip_info, bool active = true);
     TrackEditResult emplace_clip(Track* track, const Clip& new_clip);
     TrackEditResult duplicate_clip(Track* track, Clip* clip_to_duplicate, double min_time, double max_time);
     TrackEditResult move_clip(Track* track, Clip* clip, double relative_pos);
-    TrackEditResult resize_clip(Track* track, Clip* clip, double relative_pos, double min_length,
-                     bool right_side);
-    void delete_clip(Track* track, Clip* clip);
+    TrackEditResult resize_clip(Track* track, Clip* clip, double relative_pos, double min_length, bool right_side);
+    TrackEditResult delete_clip(Track* track, Clip* clip);
     TrackEditResult add_to_cliplist(Track* track, Clip* clip);
     std::optional<ClipQueryResult> query_clip_by_range(Track* track, double min, double max) const;
     TrackEditResult reserve_track_region(Track* track, uint32_t first_clip, uint32_t last_clip, double min, double max,
-                                        bool dont_sort, Clip* ignore_clip);
+                                         bool dont_sort, Clip* ignore_clip);
 
     double get_song_length() const;
 
@@ -85,9 +84,7 @@ struct Engine {
 
     inline double playhead_pos() const { return playhead_ui.load(std::memory_order_relaxed); }
 
-    inline double get_beat_duration() const {
-        return beat_duration.load(std::memory_order_relaxed);
-    }
+    inline double get_beat_duration() const { return beat_duration.load(std::memory_order_relaxed); }
 
     inline double get_bpm() const { return 60.0 / beat_duration.load(std::memory_order_relaxed); }
 
