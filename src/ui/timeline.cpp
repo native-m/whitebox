@@ -51,26 +51,25 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
     ImVec2 clip_content_max(max_x2, track_pos_y + track_height);
     ImDrawListFlags tmp_flags = layer1_draw_list->Flags;
     ImColor color = is_active ? clip->color : color_adjust_alpha(clip->color, 0.75f);
-    ImColor bg_color = color_adjust_alpha(color, color.Value.w * 0.40f);
-    ImU32 content_color = is_active ? color_brighten(color, 1.0f) : color_premul_alpha(color_brighten(color, 1.0f));
+    ImColor bg_color = color_adjust_alpha(color, color.Value.w * 0.65f);
+    ImU32 content_color = is_active ? color_brighten(color, 1.45f) : color_premul_alpha(color_brighten(color, 1.45f));
 
     // Draw clip background and its header
-    layer1_draw_list->Flags = layer1_draw_list->Flags & ~draw_list_aa_flags;
-    layer1_draw_list->AddRectFilled(clip_title_min_bb, clip_title_max_bb, color);
-    layer1_draw_list->AddRectFilled(clip_content_min, clip_content_max, bg_color);
-    layer1_draw_list->AddRect(clip_title_min_bb, clip_title_max_bb, border_color);
-    layer1_draw_list->Flags = tmp_flags;
+    layer1_draw_list->AddRectFilled(clip_title_min_bb, clip_content_max, color_premul_alpha(bg_color), 2.5f);
+    layer1_draw_list->AddRect(clip_title_min_bb, clip_content_max, color_adjust_alpha(clip->color, 0.5f), 2.5f);
 
     if (!is_active) {
         text_color_adjusted = color_adjust_alpha(text_color_adjusted, 0.75f);
     }
 
     // Draw clip label
-    const char* str = clip->name.c_str();
-    ImVec4 clip_label_rect(clip_title_min_bb.x, clip_title_min_bb.y, clip_title_max_bb.x - 6.0f, clip_title_max_y);
-    layer1_draw_list->AddText(font, font_size,
-                              ImVec2(std::max(clip_title_min_bb.x, min_draw_x) + 4.0f, track_pos_y + 2.0f),
-                              text_color_adjusted, str, str + clip->name.size(), 0.0f, &clip_label_rect);
+    if (clip->name.size() != 0) {
+        const char* str = clip->name.c_str();
+        ImVec4 clip_label_rect(clip_title_min_bb.x, clip_title_min_bb.y, clip_title_max_bb.x - 6.0f, clip_title_max_y);
+        layer1_draw_list->AddText(font, font_size,
+                                  ImVec2(std::max(clip_title_min_bb.x, min_draw_x) + 4.0f, track_pos_y + 2.0f),
+                                  0xFFFFFFFF, str, str + clip->name.size(), 0.0f, &clip_label_rect);
+    }
 
     static constexpr double log_base4 = 1.0 / 1.3862943611198906; // 1.0 / log(4.0)
     switch (clip->type) {
@@ -177,9 +176,11 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
             break;
     }
 
+#if 0
     char id[8] {};
     fmt::format_to(id, "{}", clip->id);
     layer2_draw_list->AddText(clip_content_min, 0xFFFFFFFF, id);
+#endif
 
     layer2_draw_list->PushClipRect(clip_content_min, clip_content_max, true);
     // layer2_draw_list->AddLine(clip_content_min, clip_content_max,
@@ -238,8 +239,8 @@ Track* GuiTimeline::add_track() {
     auto track = g_engine.add_track("New Track");
     float hue = (float)color_spin / 15.0f;
     float sat_pos = std::pow(1.0 - math::abs(hue * 2.0f - 1.0f), 2.2f);
-    float saturation = sat_pos * (0.68f - 0.55f) + 0.55f;
-    track->color = ImColor::HSV(hue, saturation, 0.70f);
+    float saturation = sat_pos * (0.7f - 0.6f) + 0.6f;
+    track->color = ImColor::HSV(hue, saturation, 0.80f);
     color_spin = (color_spin + 1) % 15;
     g_engine.edit_unlock();
     redraw = true;
@@ -1101,7 +1102,7 @@ void GuiTimeline::render_track_lanes() {
             ImVec2 a(timeline_scroll_offset_x_f32 + (float)min_time, selection_start_y);
             ImVec2 b(timeline_scroll_offset_x_f32 + (float)max_time, selection_end_y);
             layer2_draw_list->AddRectFilled(a, b, selection_range_fill);
-            layer2_draw_list->AddRect(a, b, selection_range_border);
+            // layer2_draw_list->AddRect(a, b, selection_range_border);
         }
 
         layer3_draw_list->PopClipRect();
