@@ -155,30 +155,44 @@ void ClipDeleteCmd::undo() {
 }
 
 void ClipDeleteRegionCmd::execute() {
-    double beat_duration = g_engine.get_beat_duration();
     uint32_t first_track = first_track_id;
     uint32_t last_track = last_track_id;
-    g_engine.edit_lock();
-    if (last_track < first_track) {
+    if (last_track < first_track)
         std::swap(first_track, last_track);
-    }
+
+    std::unique_lock editor_lock(g_engine.editor_lock);
     for (uint32_t i = first_track; i <= last_track; i++) {
         Track* track = g_engine.tracks[i];
         auto query_result = track->query_clip_by_range(min_time, max_time);
         if (!query_result) {
+            histories.emplace_back();
             continue;
         }
         Log::debug("first: {} {}, last: {} {}", query_result->first, query_result->first_offset, query_result->last,
                    query_result->last_offset);
-        for (uint32_t j = query_result->first; j <= query_result->last; j++)
-            old_clips.emplace_back(*track->clips[j], i);
         TrackEditResult result = g_engine.reserve_track_region(track, query_result->first, query_result->last, min_time,
                                                                max_time, false, nullptr);
+        auto& history = histories.emplace_back();
+        history.backup(std::move(result));
+        track->update_clip_ordering();
+        track->reset_playback_state(g_engine.playhead, true);
     }
-    g_engine.edit_unlock();
 }
 
 void ClipDeleteRegionCmd::undo() {
+    uint32_t first_track = first_track_id;
+    uint32_t last_track = last_track_id;
+    if (last_track < first_track)
+        std::swap(first_track, last_track);
+
+    uint32_t range = (last_track - first_track) + 1;
+    std::unique_lock editor_lock(g_engine.editor_lock);
+    for (uint32_t i = 0; i < range; i++) {
+        Track* track = g_engine.tracks[i + first_track];
+        histories[i].undo(track);
+        track->update_clip_ordering();
+        track->reset_playback_state(g_engine.playhead, true);
+    }
 }
 
 } // namespace wb

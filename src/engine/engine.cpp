@@ -361,9 +361,11 @@ TrackEditResult Engine::reserve_track_region(Track* track, uint32_t first_clip, 
 
     if (first_clip < last_clip) {
         deleted_clips.reserve(last_clip - first_clip);
-        for (uint32_t i = first_clip; i < last_clip; i++) {
-            deleted_clips.push_back(*clips[i]);
-            track->delete_clip(clips[i]);
+        for (uint32_t i = first_clip; i <= last_clip; i++) {
+            if (clips[i] != ignore_clip) {
+                deleted_clips.push_back(*clips[i]);
+                track->delete_clip(clips[i]);
+            }
         }
     }
 

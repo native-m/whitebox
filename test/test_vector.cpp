@@ -183,6 +183,7 @@ TEST_CASE("Vector emplace_back") {
     }
 
     SECTION("Non-trivial") {
+        //static_assert(std::movable<TestType2>);
         wb::Vector<TestType2> vec;
         vec.emplace_at(0, 1);
         vec.emplace_at(0, 2);
@@ -192,7 +193,6 @@ TEST_CASE("Vector emplace_back") {
         REQUIRE(vec[1].a == 4);
         REQUIRE(vec[2].a == 2);
         REQUIRE(vec[3].a == 1);
-
     }
 }
 

@@ -727,7 +727,14 @@ void GuiTimeline::render_track_lanes() {
     if (ImGui::IsItemFocused()) {
         if (range_selected) {
             if (ImGui::IsKeyPressed(ImGuiKey_Delete, false)) {
-                delete_selected_range();
+                uint32_t first_track = target_sel_range.first_track;
+                uint32_t last_track = target_sel_range.last_track;
+                g_cmd_manager.execute("Delete Selected Region", ClipDeleteRegionCmd {
+                                                                    .first_track_id = target_sel_range.first_track,
+                                                                    .last_track_id = target_sel_range.last_track,
+                                                                    .min_time = target_sel_range.min,
+                                                                    .max_time = target_sel_range.max,
+                                                                });
                 redraw = true;
             }
         }

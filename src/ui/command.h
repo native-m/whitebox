@@ -85,8 +85,7 @@ struct ClipDeleteRegionCmd {
     uint32_t last_track_id;
     double min_time;
     double max_time;
-    Vector<std::pair<Clip, uint32_t>> old_clips;
-    Vector<std::pair<Clip, uint32_t>> new_clips;
+    Vector<TrackHistory> histories;
 
     void execute();
     void undo();
