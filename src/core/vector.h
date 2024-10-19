@@ -301,6 +301,9 @@ struct Vector {
         if (new_capacity <= intern_.capacity) {
             return;
         }
+        if (new_capacity < 8) {
+            new_capacity = 8;
+        }
         T* new_data = (T*)std::malloc(new_capacity * sizeof(T));
         assert(new_data && "Failed to allocate new storage");
         if (intern_.data) {
