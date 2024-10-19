@@ -15,16 +15,15 @@ void init_font_assets() {
     io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
     config.FontBuilderFlags = ImGuiFreeTypeBuilderFlags_NoAutoHint;
     config.SizePixels = 13.0f;
-    g_fonts[(uint32_t)FontType::Nornal] =
-        io.Fonts->AddFontFromFileTTF("assets/Inter-Regular.ttf", 0.0f, &config);
+    g_fonts[(uint32_t)FontType::Nornal] = io.Fonts->AddFontFromFileTTF("assets/Inter-Regular.ttf", 0.0f, &config);
     config.SizePixels = 24.0f;
     config.GlyphOffset.y -= 1.0f;
     g_fonts[(uint32_t)FontType::MonoMedium] =
         io.Fonts->AddFontFromFileTTF("assets/RobotoMono-Regular.ttf", 0.0f, &config);
     config.SizePixels = 24.0f;
     config.GlyphOffset.y = 0.0f;
-    g_fonts[(uint32_t)FontType::Icon] = io.Fonts->AddFontFromFileTTF(
-        "assets/MaterialSymbolsRoundedInstanced.ttf", 0.0f, &config, icons_ranges);
+    g_fonts[(uint32_t)FontType::Icon] =
+        io.Fonts->AddFontFromFileTTF("assets/MaterialSymbolsRoundedInstanced.ttf", 0.0f, &config, icons_ranges);
     io.Fonts->Build();
 }
 

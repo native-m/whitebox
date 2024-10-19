@@ -57,19 +57,17 @@ static void setup_dark_mode(SDL_Window* window) {
     ImU32 title_bar_color = ImColor(0.15f, 0.15f, 0.15f, 1.00f) & 0x00FFFFFF;
 #ifdef WB_PLATFORM_WINDOWS
     BOOL dark_mode = true;
-    ::DwmSetWindowAttribute(wm_info.info.win.window, DWM_ATTRIBUTE_USE_IMMERSIVE_DARK_MODE,
-                            &dark_mode, sizeof(dark_mode));
+    ::DwmSetWindowAttribute(wm_info.info.win.window, DWM_ATTRIBUTE_USE_IMMERSIVE_DARK_MODE, &dark_mode,
+                            sizeof(dark_mode));
     ::DwmSetWindowAttribute(wm_info.info.win.window, DWM_ATTRIBUTE_CAPTION_COLOR, &title_bar_color,
                             sizeof(title_bar_color));
 #endif
 }
 
-static void add_vst3_window(VST3Host& plug_instance, const char* name, uint32_t width,
-                            uint32_t height) {
+static void add_vst3_window(VST3Host& plug_instance, const char* name, uint32_t width, uint32_t height) {
 #ifdef WB_PLATFORM_WINDOWS
     // Create plugin window
-    SDL_Window* window =
-        SDL_CreateWindow(name, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, 0);
+    SDL_Window* window = SDL_CreateWindow(name, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, 0);
     SDL_SysWMinfo wm_info {};
     SDL_VERSION(&wm_info.version);
     SDL_GetWindowWMInfo(window, &wm_info);
@@ -79,16 +77,13 @@ static void add_vst3_window(VST3Host& plug_instance, const char* name, uint32_t 
     uint32_t id = SDL_GetWindowID(window);
     plugin_windows.emplace(id, window);
     SDL_SetWindowData(window, "wb_vst3_instance", &plug_instance);
-    SetWindowLongPtr(wm_info.info.win.window, GWLP_HWNDPARENT,
-                     (LONG_PTR)main_wm_info.info.win.window);
+    SetWindowLongPtr(wm_info.info.win.window, GWLP_HWNDPARENT, (LONG_PTR)main_wm_info.info.win.window);
 
-    if (plug_instance.view->isPlatformTypeSupported(Steinberg::kPlatformTypeHWND) !=
-        Steinberg::kResultTrue) {
+    if (plug_instance.view->isPlatformTypeSupported(Steinberg::kPlatformTypeHWND) != Steinberg::kResultTrue) {
         Log::debug("Platform is not supported");
         return;
     }
-    if (plug_instance.view->attached(wm_info.info.win.window, Steinberg::kPlatformTypeHWND) !=
-        Steinberg::kResultOk) {
+    if (plug_instance.view->attached(wm_info.info.win.window, Steinberg::kPlatformTypeHWND) != Steinberg::kResultOk) {
         Log::debug("Failed to attach UI");
         return;
     }
@@ -108,8 +103,7 @@ static void wait_until_restored() {
     SDL_Event next_event;
     while (SDL_WaitEvent(&next_event)) {
         if (next_event.type == SDL_WINDOWEVENT) {
-            if (next_event.window.windowID == main_window_id &&
-                next_event.window.event == SDL_WINDOWEVENT_RESTORED) {
+            if (next_event.window.windowID == main_window_id && next_event.window.event == SDL_WINDOWEVENT_RESTORED) {
                 break;
             }
         }
@@ -126,8 +120,7 @@ static void handle_events(SDL_Event& event) {
             SDL_Window* window = plugin_window.value();
             switch (event.type) {
                 case SDL_WINDOWEVENT: {
-                    VST3Host* plug_instance =
-                        static_cast<VST3Host*>(SDL_GetWindowData(window, "wb_vst3_instance"));
+                    VST3Host* plug_instance = static_cast<VST3Host*>(SDL_GetWindowData(window, "wb_vst3_instance"));
                     if (event.window.event == SDL_WINDOWEVENT_CLOSE) {
                         SDL_DestroyWindow(window);
                         plug_instance->view = nullptr;
@@ -195,8 +188,7 @@ void app_init() {
     }
     register_events();
     SDL_Window* new_window =
-        SDL_CreateWindow("whitebox", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720,
-                         SDL_WINDOW_RESIZABLE);
+        SDL_CreateWindow("whitebox", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, SDL_WINDOW_RESIZABLE);
     if (!new_window) {
         SDL_Quit();
         return;
@@ -274,8 +266,7 @@ void app_render_control_bar() {
         g_cmd_manager.redo();
     }
 
-    if (ImGui::IsKeyDown(ImGuiKey_ModCtrl) && ImGui::IsKeyPressed(ImGuiKey_Z) &&
-        !ImGui::GetIO().WantTextInput) {
+    if (ImGui::IsKeyDown(ImGuiKey_ModCtrl) && ImGui::IsKeyPressed(ImGuiKey_Z) && !ImGui::GetIO().WantTextInput) {
         g_cmd_manager.undo();
     }
 
@@ -305,8 +296,7 @@ void app_render_control_bar() {
     controls::song_position();
     set_current_font(FontType::Nornal);
     ImGui::SameLine(0.0f, 4.0f);
-    if (ImGui::DragFloat("Tempo", &tempo, 1.0f, 0.0f, 0.0f, "%.2f BPM",
-                         ImGuiSliderFlags_Vertical)) {
+    if (ImGui::DragFloat("##TEMPO_DRAG", &tempo, 1.0f, 0.0f, 0.0f, "%.2f BPM", ImGuiSliderFlags_Vertical)) {
         g_engine.set_bpm((double)tempo);
     }
     ImGui::PopItemWidth();
@@ -341,8 +331,7 @@ void app_render_control_bar() {
                         if (vst3_host.init_view()) {
                             Steinberg::ViewRect rect;
                             vst3_host.view->getSize(&rect);
-                            add_vst3_window(vst3_host, "whitebox plugin host", rect.getWidth(),
-                                            rect.getHeight());
+                            add_vst3_window(vst3_host, "whitebox plugin host", rect.getWidth(), rect.getHeight());
                         }
                     }
                 }
@@ -390,8 +379,7 @@ void app_render_control_bar() {
         if (auto file = open_file_dialog({{"Whitebox Project File", "wb"}})) {
             shutdown_audio_io();
             g_engine.clear_all();
-            auto result =
-                read_project_file(file.value(), g_engine, g_sample_table, g_midi_table, g_timeline);
+            auto result = read_project_file(file.value(), g_engine, g_sample_table, g_midi_table, g_timeline);
             if (result != ProjectFileResult::Ok) {
                 Log::error("Failed to open project {}", (uint32_t)result);
                 assert(false);
@@ -403,8 +391,7 @@ void app_render_control_bar() {
     } else if (save_project) {
         if (auto file = save_file_dialog({{"Whitebox Project File", "wb"}})) {
             shutdown_audio_io();
-            auto result = write_project_file(file.value(), g_engine, g_sample_table, g_midi_table,
-                                             g_timeline);
+            auto result = write_project_file(file.value(), g_engine, g_sample_table, g_midi_table, g_timeline);
             if (result != ProjectFileResult::Ok) {
                 Log::error("Failed to open project {}", (uint32_t)result);
                 assert(false);
@@ -435,8 +422,7 @@ void app_render() {
         }
     }
 
-    ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(),
-                                 ImGuiDockNodeFlags_PassthruCentralNode);
+    ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
 
     ImVec2 frame_padding = GImGui->Style.FramePadding;
     ImVec2 window_padding = GImGui->Style.WindowPadding;
