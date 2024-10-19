@@ -47,6 +47,7 @@ void SampleTable::destroy_sample(uint64_t hash) {
 }
 
 void SampleTable::shutdown() {
+    // NOTE(native-m): Sample may leak if created with ref_count == 0
     for (auto& [hash, sample] : samples) {
         Log::debug("Sample asset leak: {}", sample.ref_count);
     }

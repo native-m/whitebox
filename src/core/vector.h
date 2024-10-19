@@ -163,19 +163,20 @@ struct Vector {
             return *item;
         }
 
+        // Shift element by 1
         T* begin_ptr = intern_.data + intern_.size - 1;
         T* dst_ptr = begin_ptr + 1;
         T* end_ptr = intern_.data + idx;
         while (begin_ptr >= end_ptr) {
-            if constexpr (std::movable<T>) {
+            if constexpr (std::is_move_assignable_v<T>) {
                 *dst_ptr-- = std::move(*begin_ptr);
-            } else if constexpr (std::copyable<T>) {
+            } else if constexpr (std::is_copy_assignable_v<T>) {
                 *dst_ptr-- = *begin_ptr;
             }
             begin_ptr--;
         }
 
-        if (!std::is_trivially_destructible_v<T>) {
+        if constexpr (!std::is_trivially_destructible_v<T>) {
             (intern_.data + idx)->~T();
         }
 
@@ -209,7 +210,7 @@ struct Vector {
     inline void push_front(T&& item)
         requires std::move_constructible<T>
     {
-        emplace_at(0, item);
+        emplace_at(0, std::forward<T>(item));
     }
 
     inline void push_back(const T& item)
