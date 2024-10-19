@@ -163,19 +163,9 @@ void ClipDeleteRegionCmd::execute() {
     std::unique_lock editor_lock(g_engine.editor_lock);
     for (uint32_t i = first_track; i <= last_track; i++) {
         Track* track = g_engine.tracks[i];
-        auto query_result = track->query_clip_by_range(min_time, max_time);
-        if (!query_result) {
-            histories.emplace_back();
-            continue;
-        }
-        Log::debug("first: {} {}, last: {} {}", query_result->first, query_result->first_offset, query_result->last,
-                   query_result->last_offset);
-        TrackEditResult result = g_engine.reserve_track_region(track, query_result->first, query_result->last, min_time,
-                                                               max_time, false, nullptr);
+        auto result = g_engine.delete_region(track, min_time, max_time);
         auto& history = histories.emplace_back();
         history.backup(std::move(result));
-        track->update_clip_ordering();
-        track->reset_playback_state(g_engine.playhead, true);
     }
 }
 

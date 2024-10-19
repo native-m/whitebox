@@ -283,6 +283,18 @@ TrackEditResult Engine::add_to_cliplist(Track* track, Clip* clip) {
     return trim_result;
 }
 
+TrackEditResult Engine::delete_region(Track* track, double min, double max) {
+    auto query_result = track->query_clip_by_range(min, max);
+    if (!query_result) {
+        return {};
+    }
+    TrackEditResult result =
+        g_engine.reserve_track_region(track, query_result->first, query_result->last, min, max, false, nullptr);
+    track->update_clip_ordering();
+    track->reset_playback_state(g_engine.playhead, true);
+    return result;
+}
+
 std::optional<ClipQueryResult> Engine::query_clip_by_range(Track* track, double min, double max) const {
     return track->query_clip_by_range(min, max);
 }
@@ -359,8 +371,8 @@ TrackEditResult Engine::reserve_track_region(Track* track, uint32_t first_clip, 
         last_clip--;
     }
 
-    if (first_clip < last_clip) {
-        deleted_clips.reserve(last_clip - first_clip);
+    if (first_clip <= last_clip) {
+        deleted_clips.reserve((last_clip - first_clip) + 1);
         for (uint32_t i = first_clip; i <= last_clip; i++) {
             if (clips[i] != ignore_clip) {
                 deleted_clips.push_back(*clips[i]);

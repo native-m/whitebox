@@ -70,6 +70,7 @@ struct Engine {
     TrackEditResult resize_clip(Track* track, Clip* clip, double relative_pos, double min_length, bool right_side);
     TrackEditResult delete_clip(Track* track, Clip* clip);
     TrackEditResult add_to_cliplist(Track* track, Clip* clip);
+    TrackEditResult delete_region(Track* track, double min, double max);
     std::optional<ClipQueryResult> query_clip_by_range(Track* track, double min, double max) const;
     TrackEditResult reserve_track_region(Track* track, uint32_t first_clip, uint32_t last_clip, double min, double max,
                                          bool dont_sort, Clip* ignore_clip);
