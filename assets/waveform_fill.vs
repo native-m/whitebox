@@ -5,31 +5,6 @@
 
 layout(location = 0) out float coverage;
 
-layout(set = 0, binding = 0) readonly buffer WaveformBuffer {
-    uint minmax[];
-} vertex_input;
-
-float lookup_value(uint pos) {
-    vec2 values = unpackSnorm2x16(vertex_input.minmax[pos / 2]);
-    return (pos % 2) == 0 ? values.x : values.y;
-}
-
-vec2 get_minmax_value(uint pos) {
-    float scale_x = draw_cmd.scale_x;
-    float sample_pos = float(pos) * scale_x;
-    uint scan_len = uint(ceil(scale_x + fract(sample_pos)));
-    float min_val = 1.0;
-    float max_val = -1.0;
-
-    for (uint i = 0; i < scan_len; i++) {
-        float s = lookup_value(uint(sample_pos) + i);
-        min_val = min(min_val, s);
-        max_val = max(max_val, s);
-    }
-    
-    return vec2(min_val, max_val);
-}
-
 void main() {
     uint vertex_id =  gl_VertexIndex;
     uint peak_pos = vertex_id / 2;
