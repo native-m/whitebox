@@ -4,10 +4,10 @@
 
 #ifdef WB_PLATFORM_WINDOWS
 #include "renderer.h"
+#include <SDL_video.h>
 #include <d3d11.h>
 #include <dxgi1_3.h>
 #include <vector>
-#include <SDL_video.h>
 
 #undef min
 #undef max
@@ -79,14 +79,12 @@ struct RendererD3D11 : public Renderer {
     ~RendererD3D11();
     bool init();
     std::shared_ptr<Framebuffer> create_framebuffer(uint32_t width, uint32_t height) override;
-    std::shared_ptr<SamplePeaks> create_sample_peaks(const Sample& sample,
-                                                     SamplePeaksPrecision precision) override;
+    std::shared_ptr<SamplePeaks> create_sample_peaks(const Sample& sample, SamplePeaksPrecision precision) override;
     void new_frame() override;
     void end_frame() override;
     void resize_swapchain() override;
     void set_framebuffer(const std::shared_ptr<Framebuffer>& framebuffer) override;
-    void begin_draw(const std::shared_ptr<Framebuffer>& framebuffer,
-                    const ImVec4& clear_color) override;
+    void begin_draw(Framebuffer* framebuffer, const ImVec4& clear_color) override;
     void finish_draw() override;
     void clear(float r, float g, float b, float a) override;
     ImTextureID prepare_as_imgui_texture(const std::shared_ptr<Framebuffer>& framebuffer) override;

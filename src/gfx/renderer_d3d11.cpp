@@ -2,8 +2,8 @@
 
 #ifdef WB_PLATFORM_WINDOWS
 
-#include "renderer_d3d11.h"
 #include "core/debug.h"
+#include "renderer_d3d11.h"
 #include <SDL_loadso.h>
 #include <SDL_syswm.h>
 #include <imgui_impl_dx11.h>
@@ -48,8 +48,7 @@ static ID3D11PixelShader* load_ps(ID3D11Device* device, const char* file) {
     return shader.Detach();
 }
 
-RendererD3D11::RendererD3D11(IDXGISwapChain2* swapchain, ID3D11Device* device,
-                             ID3D11DeviceContext* ctx) :
+RendererD3D11::RendererD3D11(IDXGISwapChain2* swapchain, ID3D11Device* device, ID3D11DeviceContext* ctx) :
     swapchain_(swapchain), device_(device), ctx_(ctx) {
     swapchain_->SetMaximumFrameLatency(1);
     frame_latency_waitable_handle_ = swapchain->GetFrameLatencyWaitableObject();
@@ -185,8 +184,7 @@ std::shared_ptr<Framebuffer> RendererD3D11::create_framebuffer(uint32_t width, u
     return ret;
 }
 
-std::shared_ptr<SamplePeaks> RendererD3D11::create_sample_peaks(const Sample& sample,
-                                                                SamplePeaksPrecision precision) {
+std::shared_ptr<SamplePeaks> RendererD3D11::create_sample_peaks(const Sample& sample, SamplePeaksPrecision precision) {
     size_t sample_count = sample.count;
     uint32_t current_mip = 1;
     uint32_t max_mip = 0;
@@ -234,8 +232,8 @@ std::shared_ptr<SamplePeaks> RendererD3D11::create_sample_peaks(const Sample& sa
         D3D11_MAPPED_SUBRESOURCE staging;
         ctx_->Map(staging_buffer.Get(), 0, D3D11_MAP_WRITE, 0, &staging);
         for (uint32_t i = 0; i < sample.channels; i++) {
-            sample.summarize_for_mipmaps(precision, i, current_mip, required_length * i,
-                                         &required_length, staging.pData);
+            sample.summarize_for_mipmaps(precision, i, current_mip, required_length * i, &required_length,
+                                         staging.pData);
         }
         ctx_->Unmap(staging_buffer.Get(), 0);
 
@@ -374,8 +372,7 @@ void RendererD3D11::set_framebuffer(const std::shared_ptr<Framebuffer>& framebuf
     // vmask_target_ = impl->rtv;
 }
 
-void RendererD3D11::begin_draw(const std::shared_ptr<Framebuffer>& framebuffer,
-                               const ImVec4& clear_color) {
+void RendererD3D11::begin_draw(Framebuffer* framebuffer, const ImVec4& clear_color) {
 }
 
 void RendererD3D11::finish_draw() {
@@ -477,8 +474,7 @@ Renderer* RendererD3D11::create(SDL_Window* window) {
 
     // Manually link d3d11 library
     PFN_D3D11_CREATE_DEVICE_AND_SWAP_CHAIN d3d11_create_device_and_swap_chain =
-        (PFN_D3D11_CREATE_DEVICE_AND_SWAP_CHAIN)SDL_LoadFunction(d3d11_dll,
-                                                                 "D3D11CreateDeviceAndSwapChain");
+        (PFN_D3D11_CREATE_DEVICE_AND_SWAP_CHAIN)SDL_LoadFunction(d3d11_dll, "D3D11CreateDeviceAndSwapChain");
 
     HWND hwnd;
     SDL_SysWMinfo wm_info {};
@@ -508,8 +504,7 @@ Renderer* RendererD3D11::create(SDL_Window* window) {
         .OutputWindow = hwnd,
         .Windowed = TRUE,
         .SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD,
-        .Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH |
-                 DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT,
+        .Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH | DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT,
     };
 
     static const D3D_FEATURE_LEVEL feature_level = D3D_FEATURE_LEVEL_11_0;
@@ -519,9 +514,9 @@ Renderer* RendererD3D11::create(SDL_Window* window) {
     ID3D11Device* device;
     ID3D11DeviceContext* ctx;
 
-    HRESULT result = d3d11_create_device_and_swap_chain(
-        nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, device_flags, &feature_level, 1,
-        D3D11_SDK_VERSION, &swapchain_desc, &swapchain, &device, nullptr, &ctx);
+    HRESULT result =
+        d3d11_create_device_and_swap_chain(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, device_flags, &feature_level, 1,
+                                           D3D11_SDK_VERSION, &swapchain_desc, &swapchain, &device, nullptr, &ctx);
 
     if (FAILED(result))
         return {};

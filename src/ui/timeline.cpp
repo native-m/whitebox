@@ -1121,8 +1121,8 @@ void GuiTimeline::render_track_lanes() {
 
         ImGuiViewport* owner_viewport = ImGui::GetWindowViewport();
 
-        g_renderer->set_framebuffer(timeline_fb);
-        g_renderer->begin_draw(timeline_fb, ImGui::GetStyleColorVec4(ImGuiCol_WindowBg));
+        //g_renderer->set_framebuffer(timeline_fb);
+        g_renderer->begin_draw(timeline_fb.get(), ImGui::GetStyleColorVec4(ImGuiCol_WindowBg));
 
         layer_draw_data.Clear();
         layer_draw_data.DisplayPos = view_min;

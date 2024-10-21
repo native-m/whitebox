@@ -180,6 +180,30 @@ static void register_events() {
     AppEvent::audio_device_removed_event = SDL_RegisterEvents(1);
 }
 
+static void imgui_renderer_create_window(ImGuiViewport* viewport) {
+    g_renderer->add_viewport(viewport);
+}
+
+static void imgui_renderer_destroy_window(ImGuiViewport* viewport) {
+    g_renderer->remove_viewport(viewport);
+}
+
+static void imgui_renderer_set_window_size(ImGuiViewport* viewport, ImVec2 size) {
+
+}
+
+static void imgui_renderer_render_window(ImGuiViewport* viewport, void* userdata) {
+    Framebuffer* fb = (Framebuffer*)viewport->RendererUserData;
+    //Log::info("{} {}", fb->width, fb->height);
+    g_renderer->begin_draw((Framebuffer*)viewport->RendererUserData, {0.0f, 0.0f, 0.0f, 1.0f});
+    g_renderer->render_imgui_draw_data(viewport->DrawData);
+    g_renderer->finish_draw();
+}
+
+static void imgui_renderer_swap_buffers(ImGuiViewport* viewport, void* userdata) {
+
+}
+
 void app_init() {
     // Init SDL & create main window
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) < 0) {
@@ -213,14 +237,22 @@ void app_init() {
 
     ImGuiIO& io = ImGui::GetIO();
     // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-    // io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     io.ConfigViewportsNoTaskBarIcon = false;
     io.IniFilename = ".whitebox/ui.ini";
 
     init_font_assets();
     apply_theme(ImGui::GetStyle());
-    init_renderer(new_window);
+    init_renderer(main_window);
+
+    ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
+    platform_io.Renderer_CreateWindow = imgui_renderer_create_window;
+    platform_io.Renderer_DestroyWindow = imgui_renderer_destroy_window;
+    platform_io.Renderer_SetWindowSize = imgui_renderer_set_window_size;
+    platform_io.Renderer_RenderWindow = imgui_renderer_render_window;
+    platform_io.Renderer_SwapBuffers = imgui_renderer_swap_buffers;
+
     g_cmd_manager.init(10);
     g_timeline.init();
     g_engine.set_bpm(150.0f);
@@ -466,10 +498,10 @@ void app_render() {
     g_renderer->begin_draw(nullptr, {0.0f, 0.0f, 0.0f, 1.0f});
     g_renderer->render_imgui_draw_data(ImGui::GetDrawData());
     g_renderer->finish_draw();
+    ImGui::UpdatePlatformWindows();
+    ImGui::RenderPlatformWindowsDefault();
     g_renderer->end_frame();
     g_renderer->present();
-    // ImGui::UpdatePlatformWindows();
-    // ImGui::RenderPlatformWindowsDefault();
 
     if (!g_file_drop.empty()) {
         g_file_drop.clear();

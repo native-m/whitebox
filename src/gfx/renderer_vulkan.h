@@ -92,6 +92,20 @@ struct FrameSync {
     VkSemaphore render_finished_semaphore;
 };
 
+struct SwapchainVK {
+    ImGuiViewport* viewport;
+    VkSurfaceKHR surface;
+    VkSwapchainKHR swapchain;
+    VkSemaphore image_acquire_semaphore[VULKAN_MAX_SYNC_COUNT] {};
+    FramebufferVK fb;
+    uint32_t num_sync;
+    uint32_t image_index;
+    uint32_t sync_id;
+    bool need_rebuild;
+
+    void acquire(VkDevice device);
+};
+
 struct BufferDisposalVK {
     uint32_t frame_id;
     VmaAllocation allocation;
@@ -119,10 +133,15 @@ struct ImmediateBufferDisposalVK {
     VkBuffer buffer;
 };
 
-struct SwapchainDisposalVK
-{
+struct SwapchainDisposalVK {
     uint32_t frame_id;
     VkSwapchainKHR swapchain;
+    VkSurfaceKHR surface;
+};
+
+struct SyncObjectDisposalVK {
+    uint32_t frame_id;
+    VkSemaphore semaphore;
 };
 
 // GPU resource disposal collector. Vulkan does not allow you to destroy resources while they are
@@ -134,14 +153,15 @@ struct ResourceDisposalVK {
     std::deque<FramebufferDisposalVK> fb;
     std::deque<ImmediateBufferDisposalVK> imm_buffer;
     std::deque<SwapchainDisposalVK> swapchains;
+    std::deque<SyncObjectDisposalVK> sync_objs;
     std::mutex mtx;
 
     void dispose_buffer(VmaAllocation allocation, VkBuffer buf);
     void dispose_framebuffer(FramebufferVK* obj);
     void dispose_image(ImageVK* obj);
     void dispose_immediate_buffer(VkDeviceMemory buffer_memory, VkBuffer buffer);
-    void dispose_swapchain(VkSwapchainKHR swapchain, FramebufferVK* fb);
-    void flush(VkDevice device, VmaAllocator allocator, uint32_t frame_id_dispose);
+    void dispose_swapchain(SwapchainVK* obj, VkSurfaceKHR surface);
+    void flush(VkDevice device, VkInstance instance, VmaAllocator allocator, uint32_t frame_id_dispose);
 };
 
 struct PipelineResourceLayoutVK {
@@ -176,13 +196,10 @@ struct DescriptorStreamVK {
     DescriptorStreamChunkVK* current_chunk {};
     uint32_t current_frame_id {};
 
-    VkDescriptorSet allocate_descriptor_set(VkDevice device, VkDescriptorSetLayout layout,
-                                            uint32_t num_uniform_buffers,
-                                            uint32_t num_storage_buffers,
-                                            uint32_t num_sampled_images,
+    VkDescriptorSet allocate_descriptor_set(VkDevice device, VkDescriptorSetLayout layout, uint32_t num_uniform_buffers,
+                                            uint32_t num_storage_buffers, uint32_t num_sampled_images,
                                             uint32_t num_storage_images);
-    DescriptorStreamChunkVK* create_chunk(VkDevice device, uint32_t max_descriptor_sets,
-                                          uint32_t max_descriptors);
+    DescriptorStreamChunkVK* create_chunk(VkDevice device, uint32_t max_descriptor_sets, uint32_t max_descriptors);
     void reset(VkDevice device, uint32_t frame_id);
     void destroy(VkDevice device);
 };
@@ -198,10 +215,9 @@ struct RendererVK : public Renderer {
     VkPhysicalDevice physical_device_;
     VkDevice device_;
     VkSurfaceKHR surface_;
-    VkSwapchainKHR swapchain_ {};
     VmaAllocator allocator_ {};
-    uint32_t frame_latency_ {};
-    uint32_t sync_count_ {};
+    uint32_t frame_latency_ {2};
+    uint32_t sync_count_ {frame_latency_ + 1};
 
     bool has_present_id = false;
     bool has_present_wait = false;
@@ -209,9 +225,10 @@ struct RendererVK : public Renderer {
     uint32_t present_queue_index_;
     VkQueue graphics_queue_;
     VkQueue present_queue_;
+    Vector<SwapchainVK*> swapchains;
+    SwapchainVK* main_swapchain_ {};
 
     VkRenderPass fb_render_pass_ {};
-    FramebufferVK main_framebuffer_ {};
     VkDescriptorPool imgui_descriptor_pool_ {};
     VkSampler imgui_sampler_ {};
     VkFence fences_[VULKAN_MAX_BUFFER_SIZE] {};
@@ -244,6 +261,13 @@ struct RendererVK : public Renderer {
     VkPipeline vector_ras {};
     VkPipeline vector_fill {};
 
+    // TODO: Use arena allocator to allocate temporary data
+    Vector<VkResult> swapchain_results;
+    Vector<VkSemaphore> image_acquired_semaphore;
+    Vector<VkSwapchainKHR> swapchain_present;
+    Vector<VkPipelineStageFlags> swapchain_image_wait_stage;
+    Vector<uint32_t> sc_image_index_present;
+
     float vp_width = 0.0f;
     float vp_height = 0.0f;
     int32_t fb_width = 0;
@@ -251,9 +275,8 @@ struct RendererVK : public Renderer {
     int32_t v_width = 0;
     int32_t v_height = 0;
 
-    RendererVK(VkInstance instance, VkDebugUtilsMessengerEXT debug_messenger,
-               VkPhysicalDevice physical_device, VkDevice device, VkSurfaceKHR surface,
-               uint32_t graphics_queue_index, uint32_t present_queue_index);
+    RendererVK(VkInstance instance, VkDebugUtilsMessengerEXT debug_messenger, VkPhysicalDevice physical_device,
+               VkDevice device, uint32_t graphics_queue_index, uint32_t present_queue_index);
 
     ~RendererVK();
 
@@ -261,8 +284,8 @@ struct RendererVK : public Renderer {
 
     std::shared_ptr<Framebuffer> create_framebuffer(uint32_t width, uint32_t height) override;
 
-    std::shared_ptr<SamplePeaks> create_sample_peaks(const Sample& sample,
-                                                     SamplePeaksPrecision precision) override;
+    std::shared_ptr<SamplePeaks> create_sample_peaks(const Sample& sample, SamplePeaksPrecision precision) override;
+
     void resize_swapchain() override;
 
     void new_frame() override;
@@ -271,8 +294,7 @@ struct RendererVK : public Renderer {
 
     void set_framebuffer(const std::shared_ptr<Framebuffer>& framebuffer) override;
 
-    void begin_draw(const std::shared_ptr<Framebuffer>& framebuffer,
-                    const ImVec4& clear_color) override;
+    void begin_draw(Framebuffer* framebuffer, const ImVec4& clear_color) override;
 
     void finish_draw() override;
 
@@ -290,26 +312,27 @@ struct RendererVK : public Renderer {
 
     void render_imgui_draw_data(ImDrawData* draw_data) override;
 
+    bool add_viewport(ImGuiViewport* viewport) override;
+
+    bool remove_viewport(ImGuiViewport* viewport) override;
+
     void present() override;
 
-    bool init_swapchain_();
+    bool create_or_recreate_swapchain(SwapchainVK* swapchain);
 
-    void create_or_resize_buffer(VkBuffer& buffer, VkDeviceMemory& buffer_memory,
-                                 VkDeviceSize& buffer_size, size_t new_size,
-                                 VkBufferUsageFlagBits usage);
+    void create_or_resize_buffer(VkBuffer& buffer, VkDeviceMemory& buffer_memory, VkDeviceSize& buffer_size,
+                                 size_t new_size, VkBufferUsageFlagBits usage);
 
-    void setup_imgui_render_state(ImDrawData* draw_data, VkPipeline pipeline,
-                                  VkCommandBuffer command_buffer,
-                                  ImGui_ImplVulkan_FrameRenderBuffers* rb, int fb_width,
-                                  int fb_height);
+    void setup_imgui_render_state(ImDrawData* draw_data, VkPipeline pipeline, VkCommandBuffer command_buffer,
+                                  ImGui_ImplVulkan_FrameRenderBuffers* rb, int fb_width, int fb_height);
     void init_pipelines();
+
     void destroy_pipelines();
 
     VkPipeline create_pipeline(const char* vs, const char* fs, VkPipelineLayout layout,
                                const VkPipelineVertexInputStateCreateInfo* vertex_input,
-                               VkPrimitiveTopology primitive_topology, bool enable_blending,
-                               bool disable_color_writes);
+                               VkPrimitiveTopology primitive_topology, bool enable_blending, bool disable_color_writes);
 
-    static Renderer* create(SDL_Window* main_window);
+    static Renderer* create(SDL_Window* window);
 };
 } // namespace wb
