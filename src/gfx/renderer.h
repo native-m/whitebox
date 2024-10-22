@@ -70,7 +70,7 @@ struct Renderer {
     virtual ~Renderer() {}
     virtual std::shared_ptr<Framebuffer> create_framebuffer(uint32_t width, uint32_t height) = 0;
     virtual std::shared_ptr<SamplePeaks> create_sample_peaks(const Sample& sample, SamplePeaksPrecision precision) = 0;
-    virtual void resize_swapchain() = 0;
+    virtual void refresh_window() = 0;
     virtual void new_frame() = 0;
     virtual void end_frame() = 0;
     virtual void set_framebuffer(const std::shared_ptr<Framebuffer>& framebuffer) = 0;

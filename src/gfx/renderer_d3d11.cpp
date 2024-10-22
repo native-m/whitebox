@@ -52,7 +52,7 @@ RendererD3D11::RendererD3D11(IDXGISwapChain2* swapchain, ID3D11Device* device, I
     swapchain_(swapchain), device_(device), ctx_(ctx) {
     swapchain_->SetMaximumFrameLatency(1);
     frame_latency_waitable_handle_ = swapchain->GetFrameLatencyWaitableObject();
-    resize_swapchain();
+    refresh_window();
 }
 
 RendererD3D11::~RendererD3D11() {
@@ -305,7 +305,7 @@ void RendererD3D11::new_frame() {
 void RendererD3D11::end_frame() {
 }
 
-void RendererD3D11::resize_swapchain() {
+void RendererD3D11::refresh_window() {
     constexpr UINT swapchain_flags =
         DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH | DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
 

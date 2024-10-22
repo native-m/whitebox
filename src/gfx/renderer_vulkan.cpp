@@ -141,8 +141,10 @@ SamplePeaksVK::~SamplePeaksVK() {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-void SwapchainVK::acquire(VkDevice device) {
-    vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, image_acquire_semaphore[sync_id], nullptr, &image_index);
+VkResult SwapchainVK::acquire(VkDevice device) {
+    VkResult err =
+        vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, image_acquire_semaphore[sync_id], nullptr, &image_index);
+    return err;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -437,9 +439,7 @@ RendererVK::RendererVK(VkInstance instance, VkDebugUtilsMessengerEXT debug_messe
 
 RendererVK::~RendererVK() {
     vkDeviceWaitIdle(device_);
-
     destroy_pipelines();
-    ImGui_ImplVulkan_Shutdown();
 
     for (uint32_t i = 0; i < frame_latency_; i++) {
         vkDestroyFence(device_, fences_[i], nullptr);
@@ -460,10 +460,17 @@ RendererVK::~RendererVK() {
     }
 
     for (auto swapchain : swapchains) {
+        if (swapchain->viewport) {
+            swapchain->viewport->RendererUserData = nullptr;
+            swapchain->viewport = nullptr;
+        }
         resource_disposal_.dispose_swapchain(swapchain, swapchain->surface);
+        delete swapchain;
     }
 
+    swapchains.resize(0);
     descriptor_stream_.destroy(device_);
+    ImGui_ImplVulkan_Shutdown();
 
     vkDestroyCommandPool(device_, imm_cmd_pool_, nullptr);
     vkDestroySampler(device_, imgui_sampler_, nullptr);
@@ -900,7 +907,7 @@ std::shared_ptr<SamplePeaks> RendererVK::create_sample_peaks(const Sample& sampl
     return ret;
 }
 
-void RendererVK::resize_swapchain() {
+void RendererVK::refresh_window() {
     // vkDeviceWaitIdle(device_);
     // init_swapchain_();
 }
@@ -936,12 +943,8 @@ void RendererVK::new_frame() {
 void RendererVK::end_frame() {
     vkEndCommandBuffer(current_cb_);
 
-    bool wait_for_device = true;
     for (auto swapchain : swapchains) {
         swapchain->acquire(device_);
-    }
-
-    for (auto swapchain : swapchains) {
         uint32_t sync_id = swapchain->sync_id;
         image_acquired_semaphore.push_back(swapchain->image_acquire_semaphore[swapchain->sync_id]);
         swapchain_image_wait_stage.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
@@ -1576,24 +1579,28 @@ bool RendererVK::add_viewport(ImGuiViewport* viewport) {
 }
 
 bool RendererVK::remove_viewport(ImGuiViewport* viewport) {
-    SwapchainVK* removed_swapchain;
+    SwapchainVK* removed_swapchain = nullptr;
     Vector<SwapchainVK*> new_swapchains;
     uint32_t index = 0;
     for (auto swapchain : swapchains) {
-        if (&swapchain->fb == viewport->RendererUserData) {
+        FramebufferVK* framebuffer = (FramebufferVK*)viewport->RendererUserData;
+        if (swapchain == framebuffer->parent_swapchain) {
             removed_swapchain = swapchain;
             continue;
         }
         new_swapchains.push_back(swapchain);
     }
-    swapchains = std::move(new_swapchains);
-    resource_disposal_.dispose_swapchain(removed_swapchain, removed_swapchain->surface);
-    viewport->RendererUserData = nullptr;
-    delete removed_swapchain;
+    if (removed_swapchain) {
+        swapchains = std::move(new_swapchains);
+        resource_disposal_.dispose_swapchain(removed_swapchain, removed_swapchain->surface);
+        viewport->RendererUserData = nullptr;
+        delete removed_swapchain;
+    }
     return true;
 }
 
 void RendererVK::present() {
+    using namespace std::chrono_literals;
     for (auto swapchain : swapchains) {
         swapchain_present.push_back(swapchain->swapchain);
         sc_image_index_present.push_back(swapchain->image_index);
@@ -1611,15 +1618,10 @@ void RendererVK::present() {
     };
     vkQueuePresentKHR(graphics_queue_, &present_info);
 
-    bool wait_for_device = true;
     for (uint32_t i = 0; i < (uint32_t)swapchains.size(); i++) {
         VkResult result = swapchain_results[i];
         if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
-            if (wait_for_device) { // Wait only once
-                //vkDeviceWaitIdle(device_);
-                wait_for_device = false;
-            }
-            //Log::debug("Resizing swapchain: {}", swapchains[i]->viewport->ID);
+            vkDeviceWaitIdle(device_);
             create_or_recreate_swapchain(swapchains[i]);
         }
     }
@@ -1627,7 +1629,6 @@ void RendererVK::present() {
     swapchain_present.resize(0);
     sc_image_index_present.resize(0);
     swapchain_results.resize(0);
-    //g_vsync_provider->wait_for_vblank();
 }
 
 bool RendererVK::create_or_recreate_swapchain(SwapchainVK* swapchain) {
@@ -1736,6 +1737,7 @@ bool RendererVK::create_or_recreate_swapchain(SwapchainVK* swapchain) {
     swapchain->swapchain = vk_swapchain;
     swapchain->num_sync = sync_count_;
     swapchain->sync_id = 0;
+    swapchain->fb.parent_swapchain = swapchain;
     swapchain->fb.window_framebuffer = true;
     swapchain->fb.num_buffers = 2;
     swapchain->fb.image_id = frame_latency_ - 1;
@@ -2154,7 +2156,7 @@ Renderer* RendererVK::create(SDL_Window* window) {
 #endif
 
     auto selected_physical_device = vkb::PhysicalDeviceSelector(instance)
-                                        .prefer_gpu_device_type(vkb::PreferredDeviceType::integrated)
+                                        .prefer_gpu_device_type(vkb::PreferredDeviceType::discrete)
                                         .allow_any_gpu_device_type(false)
                                         .set_surface(surface)
                                         .require_present(true)

@@ -82,7 +82,7 @@ struct RendererD3D11 : public Renderer {
     std::shared_ptr<SamplePeaks> create_sample_peaks(const Sample& sample, SamplePeaksPrecision precision) override;
     void new_frame() override;
     void end_frame() override;
-    void resize_swapchain() override;
+    void refresh_window() override;
     void set_framebuffer(const std::shared_ptr<Framebuffer>& framebuffer) override;
     void begin_draw(Framebuffer* framebuffer, const ImVec4& clear_color) override;
     void finish_draw() override;

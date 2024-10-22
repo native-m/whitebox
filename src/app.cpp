@@ -64,10 +64,20 @@ static void setup_dark_mode(SDL_Window* window) {
 #endif
 }
 
+static void make_child_window(SDL_Window* window) {
+    SDL_SysWMinfo wm_info {};
+    SDL_VERSION(&wm_info.version);
+    SDL_GetWindowWMInfo(window, &wm_info);
+#ifdef WB_PLATFORM_WINDOWS
+    SetWindowLongPtr(wm_info.info.win.window, GWLP_HWNDPARENT, (LONG_PTR)main_wm_info.info.win.window);
+#endif
+}
+
 static void add_vst3_window(VST3Host& plug_instance, const char* name, uint32_t width, uint32_t height) {
 #ifdef WB_PLATFORM_WINDOWS
     // Create plugin window
     SDL_Window* window = SDL_CreateWindow(name, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, 0);
+    make_child_window(window);
     SDL_SysWMinfo wm_info {};
     SDL_VERSION(&wm_info.version);
     SDL_GetWindowWMInfo(window, &wm_info);
@@ -77,7 +87,6 @@ static void add_vst3_window(VST3Host& plug_instance, const char* name, uint32_t 
     uint32_t id = SDL_GetWindowID(window);
     plugin_windows.emplace(id, window);
     SDL_SetWindowData(window, "wb_vst3_instance", &plug_instance);
-    SetWindowLongPtr(wm_info.info.win.window, GWLP_HWNDPARENT, (LONG_PTR)main_wm_info.info.win.window);
 
     if (plug_instance.view->isPlatformTypeSupported(Steinberg::kPlatformTypeHWND) != Steinberg::kResultTrue) {
         Log::debug("Platform is not supported");
@@ -138,7 +147,7 @@ static void handle_events(SDL_Event& event) {
             if (event.window.windowID == main_window_id) {
                 switch (event.window.event) {
                     case SDL_WINDOWEVENT_RESIZED:
-                        g_renderer->resize_swapchain();
+                        g_renderer->refresh_window();
                         break;
                     case SDL_WINDOWEVENT_CLOSE:
                         is_running = false;
@@ -181,27 +190,32 @@ static void register_events() {
 }
 
 static void imgui_renderer_create_window(ImGuiViewport* viewport) {
+    SDL_Window* window = SDL_GetWindowFromID((uint32_t)viewport->PlatformHandle);
+    uint32_t flags = SDL_GetWindowFlags(window);
+    if (!has_bit(flags, SDL_WINDOW_BORDERLESS)) {
+        setup_dark_mode(window);
+        make_child_window(window);
+    }
     g_renderer->add_viewport(viewport);
 }
 
 static void imgui_renderer_destroy_window(ImGuiViewport* viewport) {
-    g_renderer->remove_viewport(viewport);
+    if (viewport->RendererUserData)
+        g_renderer->remove_viewport(viewport);
 }
 
 static void imgui_renderer_set_window_size(ImGuiViewport* viewport, ImVec2 size) {
-
 }
 
 static void imgui_renderer_render_window(ImGuiViewport* viewport, void* userdata) {
     Framebuffer* fb = (Framebuffer*)viewport->RendererUserData;
-    //Log::info("{} {}", fb->width, fb->height);
+    // Log::info("{} {}", fb->width, fb->height);
     g_renderer->begin_draw((Framebuffer*)viewport->RendererUserData, {0.0f, 0.0f, 0.0f, 1.0f});
     g_renderer->render_imgui_draw_data(viewport->DrawData);
     g_renderer->finish_draw();
 }
 
 static void imgui_renderer_swap_buffers(ImGuiViewport* viewport, void* userdata) {
-
 }
 
 void app_init() {

@@ -24,6 +24,7 @@ struct ImGui_ImplVulkan_FrameRenderBuffers {
 
 namespace wb {
 struct ResourceDisposalVK;
+struct SwapchainVK;
 
 struct ImageAccessVK {
     VkPipelineStageFlags stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
@@ -40,7 +41,7 @@ struct FramebufferVK : public Framebuffer {
     ImageAccessVK current_access[VULKAN_MAX_BUFFER_SIZE] {};
     uint32_t num_buffers {};
     uint32_t image_id {};
-
+    SwapchainVK* parent_swapchain {};
     ResourceDisposalVK* resource_disposal {};
 
     ~FramebufferVK();
@@ -103,7 +104,7 @@ struct SwapchainVK {
     uint32_t sync_id;
     bool need_rebuild;
 
-    void acquire(VkDevice device);
+    VkResult acquire(VkDevice device);
 };
 
 struct BufferDisposalVK {
@@ -286,7 +287,7 @@ struct RendererVK : public Renderer {
 
     std::shared_ptr<SamplePeaks> create_sample_peaks(const Sample& sample, SamplePeaksPrecision precision) override;
 
-    void resize_swapchain() override;
+    void refresh_window() override;
 
     void new_frame() override;
 
