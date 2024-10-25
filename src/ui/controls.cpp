@@ -157,7 +157,7 @@ bool param_drag_db(const char* str_id, float* value, float speed, float min_db, 
                    const char* format, ImGuiSliderFlags flags) {
     char tmp[16] {};
     const char* str_value = tmp;
-    flags |= ImGuiSliderFlags_AlwaysClamp;
+    flags |= ImGuiSliderFlags_AlwaysClamp | ImGuiSliderFlags_NoRoundToFormat;
 
     if (*value > min_db) {
         str_value = "%.2fdb";
@@ -166,6 +166,28 @@ bool param_drag_db(const char* str_id, float* value, float speed, float min_db, 
     }
 
     return ImGui::DragFloat(str_id, value, 0.1f, min_db, max_db, str_value, flags);
+}
+
+bool param_drag_pan(const char* str_id, float* value, float speed, ImGuiSliderFlags flags) {
+    float pan = *value * 100.0f;
+    char pan_value[16] {};
+    if (pan < 0) {
+        fmt::format_to(pan_value, "{:.3}%% L", pan);
+    } else if (pan > 0) {
+        fmt::format_to(pan_value, "{:.3}%% R", pan);
+    } else {
+        fmt::format_to(pan_value, "Center");
+    }
+    flags |= ImGuiSliderFlags_AlwaysClamp | ImGuiSliderFlags_NoRoundToFormat;
+    bool ret = ImGui::DragFloat(str_id, &pan, speed, -100.0f, 100.0f, pan_value, flags);
+    if (ret) {
+        if (!math::near_equal_to_zero(pan, 0.1f * speed)) {
+            *value = pan * 0.01f;
+        } else {
+            *value = 0.0f;
+        }
+    }
+    return ret;
 }
 
 bool param_slider_db(const SliderProperties& properties, const char* str_id, const ImVec2& size,

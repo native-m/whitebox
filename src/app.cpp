@@ -190,7 +190,7 @@ static void register_events() {
 }
 
 static void imgui_renderer_create_window(ImGuiViewport* viewport) {
-    SDL_Window* window = SDL_GetWindowFromID((uint32_t)viewport->PlatformHandle);
+    SDL_Window* window = SDL_GetWindowFromID((uint32_t)(uint64_t)viewport->PlatformHandle);
     uint32_t flags = SDL_GetWindowFlags(window);
     if (!has_bit(flags, SDL_WINDOW_BORDERLESS)) {
         setup_dark_mode(window);

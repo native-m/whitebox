@@ -259,9 +259,14 @@ void GuiTimeline::render() {
     playhead = g_engine.playhead_ui.load(std::memory_order_relaxed);
     inv_ppq = 1.0 / g_engine.ppq;
 
+    ImGuiWindowClass window_class {};
+    window_class.ClassId = ImGui::GetID("TimelineClass");
+    window_class.ViewportFlagsOverrideClear = ImGuiViewportFlags_NoDecoration;
+    ImGui::SetNextWindowClass(&window_class);
+
     ImGui::SetNextWindowSize(ImVec2(640.0f, 480.0f), ImGuiCond_FirstUseEver);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 1.0f));
-    if (!controls::begin_dockable_window("Timeline", &open)) {
+    if (!controls::begin_dockable_window("Timeline", &open, ImGuiWindowFlags_NoDecoration)) {
         ImGui::PopStyleVar();
         ImGui::End();
         return;
@@ -401,9 +406,19 @@ void GuiTimeline::render_track_controls() {
                 ImGui::EndDisabled();
             }
 
-            float volume = track->ui_parameter_state.volume_db;
-            if (controls::param_drag_db("Vol.", &volume)) {
-                track->set_volume(volume);
+            ImVec2 free_region = ImGui::GetWindowContentRegionMax();
+            ImVec2 item_size = ImGui::CalcItemSize(ImVec2(1.0f, ImGui::GetFontSize() + style.FramePadding.y * 2.0f));
+
+            if (free_region.y) {
+                float volume = track->ui_parameter_state.volume_db;
+                if (controls::param_drag_db("Vol.", &volume)) {
+                    track->set_volume(volume);
+                }
+            }
+
+            float pan = track->ui_parameter_state.pan;
+            if (controls::param_drag_pan("Pan", &pan)) {
+                track->set_pan(pan);
             }
 
             bool mute = track->ui_parameter_state.mute;
@@ -1121,7 +1136,7 @@ void GuiTimeline::render_track_lanes() {
 
         ImGuiViewport* owner_viewport = ImGui::GetWindowViewport();
 
-        //g_renderer->set_framebuffer(timeline_fb);
+        // g_renderer->set_framebuffer(timeline_fb);
         g_renderer->begin_draw(timeline_fb.get(), ImGui::GetStyleColorVec4(ImGuiCol_WindowBg));
 
         layer_draw_data.Clear();

@@ -34,7 +34,7 @@ static bool begin_dockable_window(const char* title, bool* p_open = nullptr,
                                   ImGuiWindowFlags flags = 0) {
     auto state_storage = ImGui::GetStateStorage();
     auto hide_background = state_storage->GetBoolRef(ImGui::GetID((const void*)title));
-    float border_size = 1.0f;
+    float border_size = GImGui->Style.WindowBorderSize;
     if (*hide_background) {
         flags |= ImGuiWindowFlags_NoBackground;
         border_size = 0.0f;
@@ -239,6 +239,8 @@ void song_position();
 bool param_drag_db(const char* str_id, float* value, float speed = 0.1f, float min_db = -72.0f,
                    float max_db = 6.0f, const char* format = "%.2fdB",
                    ImGuiSliderFlags flags = ImGuiSliderFlags_Vertical);
+bool param_drag_pan(const char* str_id, float* value, float speed = 1.0f,
+                    ImGuiSliderFlags flags = ImGuiSliderFlags_Vertical);
 bool param_slider_db(const SliderProperties& properties, const char* str_id, const ImVec2& size,
                      const ImColor& color, float* value, const NonLinearRange& db_range,
                      float default_value = 0.0f);
