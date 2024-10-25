@@ -147,7 +147,7 @@ static void handle_events(SDL_Event& event) {
             if (event.window.windowID == main_window_id) {
                 switch (event.window.event) {
                     case SDL_WINDOWEVENT_RESIZED:
-                        g_renderer->refresh_window();
+                        //g_renderer->resize_viewport();
                         break;
                     case SDL_WINDOWEVENT_CLOSE:
                         is_running = false;
@@ -192,10 +192,7 @@ static void register_events() {
 static void imgui_renderer_create_window(ImGuiViewport* viewport) {
     SDL_Window* window = SDL_GetWindowFromID((uint32_t)(uint64_t)viewport->PlatformHandle);
     uint32_t flags = SDL_GetWindowFlags(window);
-    if (!has_bit(flags, SDL_WINDOW_BORDERLESS)) {
-        setup_dark_mode(window);
-        make_child_window(window);
-    }
+    make_child_window(window);
     g_renderer->add_viewport(viewport);
 }
 
@@ -205,6 +202,7 @@ static void imgui_renderer_destroy_window(ImGuiViewport* viewport) {
 }
 
 static void imgui_renderer_set_window_size(ImGuiViewport* viewport, ImVec2 size) {
+    g_renderer->resize_viewport(viewport, size);
 }
 
 static void imgui_renderer_render_window(ImGuiViewport* viewport, void* userdata) {

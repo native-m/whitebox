@@ -227,6 +227,7 @@ struct RendererVK : public Renderer {
     VkQueue graphics_queue_;
     VkQueue present_queue_;
     Vector<SwapchainVK*> swapchains;
+    Vector<SwapchainVK*> added_swapchains;
     SwapchainVK* main_swapchain_ {};
 
     VkRenderPass fb_render_pass_ {};
@@ -287,7 +288,7 @@ struct RendererVK : public Renderer {
 
     std::shared_ptr<SamplePeaks> create_sample_peaks(const Sample& sample, SamplePeaksPrecision precision) override;
 
-    void refresh_window() override;
+    void resize_viewport(ImGuiViewport* viewport, ImVec2 vec) override;
 
     void new_frame() override;
 

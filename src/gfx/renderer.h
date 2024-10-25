@@ -70,7 +70,6 @@ struct Renderer {
     virtual ~Renderer() {}
     virtual std::shared_ptr<Framebuffer> create_framebuffer(uint32_t width, uint32_t height) = 0;
     virtual std::shared_ptr<SamplePeaks> create_sample_peaks(const Sample& sample, SamplePeaksPrecision precision) = 0;
-    virtual void refresh_window() = 0;
     virtual void new_frame() = 0;
     virtual void end_frame() = 0;
     virtual void set_framebuffer(const std::shared_ptr<Framebuffer>& framebuffer) = 0;
@@ -83,6 +82,7 @@ struct Renderer {
     virtual void draw_waveforms(const ImVector<ClipContentDrawCmd>& clips) = 0;
     virtual void render_draw_command_list(DrawCommandList* command_list) = 0;
     virtual void render_imgui_draw_data(ImDrawData* draw_data) = 0;
+    virtual void resize_viewport(ImGuiViewport* viewport, ImVec2 vec) = 0;
     virtual bool add_viewport(ImGuiViewport* viewport) { return false; }
     virtual bool remove_viewport(ImGuiViewport* viewport) { return false; }
     virtual void present() = 0;

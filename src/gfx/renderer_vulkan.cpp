@@ -907,11 +907,6 @@ std::shared_ptr<SamplePeaks> RendererVK::create_sample_peaks(const Sample& sampl
     return ret;
 }
 
-void RendererVK::refresh_window() {
-    // vkDeviceWaitIdle(device_);
-    // init_swapchain_();
-}
-
 void RendererVK::new_frame() {
     FrameSync& frame_sync = frame_sync_[sync_id_];
     CommandBufferVK& cmd_buf = cmd_buf_[frame_id_];
@@ -919,6 +914,10 @@ void RendererVK::new_frame() {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
     };
+
+    for (auto swapchain : swapchains) {
+        swapchain->acquire(device_);
+    }
 
     vkWaitForFences(device_, 1, &fences_[frame_id_], VK_TRUE, UINT64_MAX);
     resource_disposal_.flush(device_, instance_, allocator_, frame_id_);
@@ -943,8 +942,12 @@ void RendererVK::new_frame() {
 void RendererVK::end_frame() {
     vkEndCommandBuffer(current_cb_);
 
-    for (auto swapchain : swapchains) {
+    for (auto swapchain : added_swapchains) {
         swapchain->acquire(device_);
+        swapchains.push_back(swapchain);
+    }
+
+    for (auto swapchain : swapchains) {
         uint32_t sync_id = swapchain->sync_id;
         image_acquired_semaphore.push_back(swapchain->image_acquire_semaphore[swapchain->sync_id]);
         swapchain_image_wait_stage.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
@@ -969,6 +972,7 @@ void RendererVK::end_frame() {
     sync_id_ = (sync_id_ + 1) % sync_count_;
     image_acquired_semaphore.resize(0);
     swapchain_image_wait_stage.resize(0);
+    added_swapchains.resize(0);
 }
 
 void RendererVK::set_framebuffer(const std::shared_ptr<Framebuffer>& framebuffer) {
@@ -1237,6 +1241,7 @@ void RendererVK::draw_waveforms(const ImVector<ClipContentDrawCmd>& clips) {
         if (current_buffer != buffer) {
             VkDescriptorSet descriptor_set =
                 descriptor_stream_.allocate_descriptor_set(device_, waveform_layout.set_layout[0], 0, 1, 0, 0);
+
             VkDescriptorBufferInfo buffer_descriptor {buffer, 0, VK_WHOLE_SIZE};
 
             VkWriteDescriptorSet write_descriptor {
@@ -1572,8 +1577,7 @@ bool RendererVK::add_viewport(ImGuiViewport* viewport) {
     viewport->RendererUserData = &swapchain->fb;
     swapchain->surface = surface;
     swapchain->viewport = viewport;
-    swapchains.push_back(swapchain);
-    swapchain_results.resize(swapchains.size());
+    added_swapchains.push_back(swapchain);
     vkDeviceWaitIdle(device_);
     return create_or_recreate_swapchain(swapchain);
 }
@@ -1597,6 +1601,14 @@ bool RendererVK::remove_viewport(ImGuiViewport* viewport) {
         delete removed_swapchain;
     }
     return true;
+}
+
+void RendererVK::resize_viewport(ImGuiViewport* viewport, ImVec2 vec) {
+    FramebufferVK* framebuffer = (FramebufferVK*)viewport->RendererUserData;
+    vkDeviceWaitIdle(device_);
+    create_or_recreate_swapchain(framebuffer->parent_swapchain);
+    framebuffer->parent_swapchain->acquire(device_);
+    // init_swapchain_();
 }
 
 void RendererVK::present() {
@@ -1875,17 +1887,17 @@ vk_create_pipeline_layout(VkDevice device, uint32_t push_constant_size,
         VK_CHECK(vkCreateDescriptorSetLayout(device, &set_layout_info, nullptr, &ret.set_layout[1]));
     }
 
-    VkPushConstantRange constant_range {
-        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-        .size = push_constant_size,
-    };
     VkPipelineLayoutCreateInfo pipeline_layout {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .setLayoutCount = ds_bindings1.size() > 0 ? 2u : 1u,
         .pSetLayouts = ret.set_layout,
         .pushConstantRangeCount = 1,
-        .pPushConstantRanges = &constant_range,
+        .pPushConstantRanges = ptr_of(VkPushConstantRange {
+            .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+            .size = push_constant_size,
+        }),
     };
+
     VK_CHECK(vkCreatePipelineLayout(device, &pipeline_layout, nullptr, &ret.layout));
     return ret;
 }
@@ -2059,14 +2071,40 @@ VkPipeline RendererVK::create_pipeline(const char* vs, const char* fs, VkPipelin
         .stageCount = 2,
         .pStages = shader_stages,
         .pVertexInputState = vertex_input ? vertex_input : &empty_vertex_input,
-        .pInputAssemblyState = &input_assembly,
+        .pInputAssemblyState = ptr_of<VkPipelineInputAssemblyStateCreateInfo>({
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+            .topology = primitive_topology,
+        }),
         .pTessellationState = {},
-        .pViewportState = &viewport,
-        .pRasterizationState = &rasterization,
-        .pMultisampleState = &multisample,
+        .pViewportState = ptr_of<VkPipelineViewportStateCreateInfo>({
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+            .viewportCount = 1,
+            .scissorCount = 1,
+        }),
+        .pRasterizationState = ptr_of<VkPipelineRasterizationStateCreateInfo>({
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+            .depthClampEnable = VK_FALSE,
+            .rasterizerDiscardEnable = VK_FALSE,
+            .polygonMode = VK_POLYGON_MODE_FILL,
+            .cullMode = VK_CULL_MODE_NONE,
+            .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+            .lineWidth = 1.0f,
+        }),
+        .pMultisampleState = ptr_of<VkPipelineMultisampleStateCreateInfo>({
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+            .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+        }),
         .pDepthStencilState = {},
-        .pColorBlendState = &blend,
-        .pDynamicState = &dynamic_state,
+        .pColorBlendState = ptr_of<VkPipelineColorBlendStateCreateInfo>({
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+            .attachmentCount = 1,
+            .pAttachments = &color_attachment,
+        }),
+        .pDynamicState = ptr_of<VkPipelineDynamicStateCreateInfo>({
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+            .dynamicStateCount = IM_ARRAYSIZE(dynamic_states),
+            .pDynamicStates = dynamic_states,
+        }),
         .layout = layout,
         .renderPass = fb_render_pass_,
         .subpass = 0,

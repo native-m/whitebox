@@ -80,9 +80,9 @@ struct RendererD3D11 : public Renderer {
     bool init();
     std::shared_ptr<Framebuffer> create_framebuffer(uint32_t width, uint32_t height) override;
     std::shared_ptr<SamplePeaks> create_sample_peaks(const Sample& sample, SamplePeaksPrecision precision) override;
+    void resize_viewport(ImGuiViewport* viewport, ImVec2 vec) override;
     void new_frame() override;
     void end_frame() override;
-    void refresh_window() override;
     void set_framebuffer(const std::shared_ptr<Framebuffer>& framebuffer) override;
     void begin_draw(Framebuffer* framebuffer, const ImVec4& clear_color) override;
     void finish_draw() override;
