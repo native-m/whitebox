@@ -129,8 +129,8 @@ void GuiBrowser::render() {
     if (!open)
         return;
 
-    if (!controls::begin_dockable_window("Browser", &open)) {
-        ImGui::End();
+    if (!controls::begin_window("Browser", &open)) {
+        controls::end_window();
         return;
     }
 
@@ -206,7 +206,7 @@ void GuiBrowser::render() {
         ImGui::EndPopup();
     }
 
-    ImGui::End();
+    controls::end_window();
 }
 
 GuiBrowser g_browser;

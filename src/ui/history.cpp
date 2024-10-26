@@ -8,8 +8,8 @@ void render_history_window() {
     if (!open)
         return;
 
-    if (!controls::begin_dockable_window("History", &open)) {
-        ImGui::End();
+    if (!controls::begin_window("History", &open)) {
+        controls::end_window();
         return;
     }
 
@@ -29,7 +29,7 @@ void render_history_window() {
         ImGui::EndListBox();
     }
 
-    ImGui::End();
+    controls::end_window();
 }
 
 void render_asset_window() {
@@ -37,8 +37,8 @@ void render_asset_window() {
     if (!open)
         return;
 
-    if (!controls::begin_dockable_window("Assets", &open)) {
-        ImGui::End();
+    if (!controls::begin_window("Assets", &open)) {
+        controls::end_window();
         return;
     }
 
@@ -57,7 +57,7 @@ void render_asset_window() {
         ImGui::EndListBox();
     }
 
-    ImGui::End();
+    controls::end_window();
 }
 
 } // namespace wb

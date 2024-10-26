@@ -30,31 +30,11 @@ struct SliderProperties {
     bool with_default_value_tick = false;
 };
 
-static bool begin_dockable_window(const char* title, bool* p_open = nullptr,
-                                  ImGuiWindowFlags flags = 0) {
-    auto state_storage = ImGui::GetStateStorage();
-    auto hide_background = state_storage->GetBoolRef(ImGui::GetID((const void*)title));
-    float border_size = GImGui->Style.WindowBorderSize;
-    if (*hide_background) {
-        flags |= ImGuiWindowFlags_NoBackground;
-        border_size = 0.0f;
-    }
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, border_size);
-    bool ret = ImGui::Begin(title, p_open, flags);
-    ImGuiDockNode* node = ImGui::GetWindowDockNode();
-    if (ret && node) {
-        if (node->HostWindow) {
-            // Don't draw background when the background is already drawn by the host window
-            *hide_background = (node->HostWindow->Flags & ImGuiWindowFlags_NoBackground) ==
-                               ImGuiWindowFlags_NoBackground;
-        } else {
-            *hide_background = false;
-        }
-    } else {
-        *hide_background = false;
-    }
-    ImGui::PopStyleVar();
-    return ret;
+bool begin_window(const char* title, bool* p_open = nullptr, ImGuiWindowFlags flags = 0);
+void end_window();
+
+static float get_item_height() {
+    return GImGui->FontSize + GImGui->Style.FramePadding.y * 2.0f + 4.0f;
 }
 
 static bool collapse_button(const char* str_id, bool* shown) {

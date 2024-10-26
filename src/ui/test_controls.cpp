@@ -5,8 +5,8 @@ void render_test_controls() {
     if (!g_test_control_shown)
         return;
 
-    if (!begin_dockable_window("Test Controls", &g_test_control_shown)) {
-        ImGui::End();
+    if (!begin_window("Test Controls", &g_test_control_shown)) {
+        end_window();
         return;
     }
 
@@ -37,7 +37,7 @@ void render_test_controls() {
         },
         "##slider_test2", ImVec2(20.f, 130.0f), 0xFFED961C, &slider_value, 0.0f, 1.0f);
 
-    ImGui::End();
+    end_window();
 }
 
 bool g_test_control_shown = true;

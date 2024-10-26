@@ -259,16 +259,11 @@ void GuiTimeline::render() {
     playhead = g_engine.playhead_ui.load(std::memory_order_relaxed);
     inv_ppq = 1.0 / g_engine.ppq;
 
-    ImGuiWindowClass window_class {};
-    window_class.ClassId = ImGui::GetID("TimelineClass");
-    window_class.ViewportFlagsOverrideClear = ImGuiViewportFlags_NoDecoration;
-    ImGui::SetNextWindowClass(&window_class);
-
     ImGui::SetNextWindowSize(ImVec2(640.0f, 480.0f), ImGuiCond_FirstUseEver);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 1.0f));
-    if (!controls::begin_dockable_window("Timeline", &open, ImGuiWindowFlags_NoDecoration)) {
+    if (!controls::begin_window("Timeline", &open)) {
         ImGui::PopStyleVar();
-        ImGui::End();
+        controls::end_window();
         return;
     }
     ImGui::PopStyleVar();
@@ -316,7 +311,7 @@ void GuiTimeline::render() {
     render_track_lanes();
 
     ImGui::EndChild();
-    ImGui::End();
+    controls::end_window();
 }
 
 // Render separator (resizer) between the track control and the track lane

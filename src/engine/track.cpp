@@ -372,7 +372,7 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
         return;
     }
 
-    if (refresh_voices) {
+    if (refresh_voices) [[unlikely]] {
         std::optional<uint32_t> clip_at_playhead = find_next_clip(time_pos);
         if (clip_at_playhead) {
             if (event_state.current_clip_idx) {

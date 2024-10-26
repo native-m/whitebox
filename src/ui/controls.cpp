@@ -1,13 +1,59 @@
 #include "controls.h"
 #include "core/color.h"
-#include "core/debug.h"
+#include "core/bit_manipulation.h"
 #include "core/core_math.h"
+#include "core/debug.h"
 #include "core/queue.h"
 #include "engine/engine.h"
 #include "gfx/draw.h"
 #include <fmt/format.h>
 
 namespace wb::controls {
+
+bool begin_window(const char* title, bool* p_open, ImGuiWindowFlags flags) {
+    ImGui::PushID(title);
+    auto state_storage = ImGui::GetStateStorage();
+    bool* hide_background = state_storage->GetBoolRef(ImGui::GetID("no_bg"));
+    bool* external_viewport = state_storage->GetBoolRef(ImGui::GetID("ext_vp"));
+    float border_size = GImGui->Style.WindowBorderSize;
+    
+    if (*hide_background) {
+        flags |= ImGuiWindowFlags_NoBackground;
+        border_size = 0.0f;
+    }
+    
+    // ImGuiWindowClass window_class {};
+    // window_class.ViewportFlagsOverrideClear = ImGuiViewportFlags_NoDecoration;
+    // ImGui::SetNextWindowClass(&window_class);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, border_size);
+
+    bool ret = ImGui::Begin(title, p_open, flags);
+    ImGuiViewport* viewport = ImGui::GetWindowViewport();
+    ImGuiDockNode* node = ImGui::GetWindowDockNode();
+    if (viewport) {
+        *external_viewport = viewport->ParentViewportId != 0;
+    }
+
+    if (ret && node) {
+        if (node->HostWindow) {
+            // Don't draw background when the background is already drawn by the host window
+            *hide_background =
+                (node->HostWindow->Flags & ImGuiWindowFlags_NoBackground) == ImGuiWindowFlags_NoBackground;
+        } else {
+            *hide_background = false;
+        }
+    } else {
+        *hide_background = false;
+    }
+
+    ImGui::PopStyleVar();
+    return ret;
+}
+
+void end_window() {
+    ImGui::End();
+    ImGui::PopID();
+}
 
 void song_position() {
     float font_size = 13.0f;
@@ -38,9 +84,8 @@ void song_position() {
 }
 
 template <typename T>
-static bool slider2_ranged(const SliderProperties& properties, const char* str_id,
-                           const ImVec2& size, const ImColor& color, T* value,
-                           const NonLinearRange& db_range, T default_value = 0.0f,
+static bool slider2_ranged(const SliderProperties& properties, const char* str_id, const ImVec2& size,
+                           const ImColor& color, T* value, const NonLinearRange& db_range, T default_value = 0.0f,
                            const char* format = "%.2f") {
     ImGuiWindow* window = GImGui->CurrentWindow;
     ImVec2 cursor_pos = window->DC.CursorPos;
@@ -74,8 +119,7 @@ static bool slider2_ranged(const SliderProperties& properties, const char* str_i
     // Log::debug("{}", normalized_value);
 
     if (ImGui::IsItemActivated()) {
-        g.SliderGrabClickOffset =
-            mouse_pos.y - ((1.0f - (float)normalized_value) * scroll_height + cursor_pos.y);
+        g.SliderGrabClickOffset = mouse_pos.y - ((1.0f - (float)normalized_value) * scroll_height + cursor_pos.y);
     }
 
     float inv_normalized_default_value = 0.0f;
@@ -85,9 +129,8 @@ static bool slider2_ranged(const SliderProperties& properties, const char* str_i
     if (held) {
         float current_grab_pos = math::round(mouse_pos.y - cursor_pos.y - g.SliderGrabClickOffset);
         float default_value_grab_pos = math::round(inv_normalized_default_value * scroll_height);
-        float val = !math::near_equal(current_grab_pos, default_value_grab_pos)
-                        ? current_grab_pos * inv_scroll_height
-                        : inv_normalized_default_value;
+        float val = !math::near_equal(current_grab_pos, default_value_grab_pos) ? current_grab_pos * inv_scroll_height
+                                                                                : inv_normalized_default_value;
         normalized_value = std::clamp(1.0f - val, 0.0f, 1.0f);
         *value = (T)db_range.normalized_to_plain(normalized_value);
     }
@@ -109,11 +152,9 @@ static bool slider2_ranged(const SliderProperties& properties, const char* str_i
     if (properties.with_default_value_tick) {
         float default_grab_pos = inv_normalized_default_value * scroll_height + half_grab_size_y;
         default_grab_pos = math::round(default_grab_pos + cursor_pos.y);
-        draw_list->AddLine(ImVec2(cursor_pos.x, default_grab_pos),
-                           ImVec2(center_x - frame_width, default_grab_pos),
+        draw_list->AddLine(ImVec2(cursor_pos.x, default_grab_pos), ImVec2(center_x - frame_width, default_grab_pos),
                            frame_col);
-        draw_list->AddLine(ImVec2(center_x + frame_width, default_grab_pos),
-                           ImVec2(bb.Max.x, default_grab_pos),
+        draw_list->AddLine(ImVec2(center_x + frame_width, default_grab_pos), ImVec2(bb.Max.x, default_grab_pos),
                            frame_col);
     }
 
@@ -123,8 +164,7 @@ static bool slider2_ranged(const SliderProperties& properties, const char* str_i
         ImVec2 grab_rect_min(center_x - grab_size.x * 0.5f, cursor_pos.y + math::round(grab_pos));
         ImVec2 grab_rect_max(grab_rect_min.x + grab_size.x, grab_rect_min.y + grab_size.y);
         draw_list->AddRectFilled(grab_rect_min, grab_rect_max, grab_col, properties.grab_roundness);
-        ImVec2 grab_tick_min(grab_rect_min.x + grab_tick_padding_x,
-                             grab_rect_min.y + grab_size.y * 0.5f);
+        ImVec2 grab_tick_min(grab_rect_min.x + grab_tick_padding_x, grab_rect_min.y + grab_size.y * 0.5f);
         ImVec2 grab_tick_max(grab_rect_min.x + grab_size.x - grab_tick_padding_x, grab_tick_min.y);
         draw_list->AddLine(grab_tick_min, grab_tick_max, 0xFFFFFFFF, 1.0f);
     } else {
@@ -153,8 +193,8 @@ static bool slider2_ranged(const SliderProperties& properties, const char* str_i
     return false;
 }
 
-bool param_drag_db(const char* str_id, float* value, float speed, float min_db, float max_db,
-                   const char* format, ImGuiSliderFlags flags) {
+bool param_drag_db(const char* str_id, float* value, float speed, float min_db, float max_db, const char* format,
+                   ImGuiSliderFlags flags) {
     char tmp[16] {};
     const char* str_value = tmp;
     flags |= ImGuiSliderFlags_AlwaysClamp | ImGuiSliderFlags_NoRoundToFormat;
@@ -190,12 +230,10 @@ bool param_drag_pan(const char* str_id, float* value, float speed, ImGuiSliderFl
     return ret;
 }
 
-bool param_slider_db(const SliderProperties& properties, const char* str_id, const ImVec2& size,
-                     const ImColor& color, float* value, const NonLinearRange& db_range,
-                     float default_value) {
+bool param_slider_db(const SliderProperties& properties, const char* str_id, const ImVec2& size, const ImColor& color,
+                     float* value, const NonLinearRange& db_range, float default_value) {
     const char* format = *value > db_range.min_val ? "%.3fdb" : "-INFdb";
-    return slider2_ranged<float>(properties, str_id, size, color, value, db_range, default_value,
-                                 format);
+    return slider2_ranged<float>(properties, str_id, size, color, value, db_range, default_value, format);
 }
 
 bool mixer_label(const char* caption, const float height, const ImColor& color) {
@@ -307,11 +345,9 @@ void level_meter(const char* str_id, const ImVec2& size, uint32_t count, VUMeter
                         if (level_norm < range.min)
                             break;
                         float level_start = (1.0f - range.min) * inner_height;
-                        float level_height =
-                            (1.0f - std::min(level_norm, range.max)) * inner_height;
-                        draw_list->AddRectFilled(
-                            ImVec2(channel_pos_x + 1.0f, level_height + inner_start_y),
-                            ImVec2(pos_x - 1.0f, level_start + inner_start_y), range.color);
+                        float level_height = (1.0f - std::min(level_norm, range.max)) * inner_height;
+                        draw_list->AddRectFilled(ImVec2(channel_pos_x + 1.0f, level_height + inner_start_y),
+                                                 ImVec2(pos_x - 1.0f, level_start + inner_start_y), range.color);
                     }
                     break;
                 }
@@ -324,9 +360,8 @@ void level_meter(const char* str_id, const ImVec2& size, uint32_t count, VUMeter
                         }
                     }
                     float level_height = (1.0f - level_norm) * inner_height;
-                    draw_list->AddRectFilled(
-                        ImVec2(channel_pos_x + 1.0f, level_height + inner_start_y),
-                        ImVec2(pos_x - 1.0f, end_pos.y - 1.0f), color);
+                    draw_list->AddRectFilled(ImVec2(channel_pos_x + 1.0f, level_height + inner_start_y),
+                                             ImVec2(pos_x - 1.0f, end_pos.y - 1.0f), color);
                     break;
                 }
             }

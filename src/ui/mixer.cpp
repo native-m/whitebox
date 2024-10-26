@@ -15,14 +15,15 @@ void GuiMixer::render() {
     ImVec2 window_padding = GImGui->Style.WindowPadding;
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(1.0f, 1.0f));
 
-    if (!controls::begin_dockable_window(
+    if (!controls::begin_window(
             "Mixer", &open, ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_HorizontalScrollbar)) {
         ImGui::PopStyleVar();
-        ImGui::End();
+        controls::end_window();
         return;
     }
 
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, window_padding);
+
     if (ImGui::BeginMenuBar()) {
         if (ImGui::BeginMenu("File")) {
             ImGui::MenuItem("Open mixer track state...");
@@ -102,11 +103,11 @@ void GuiMixer::render() {
         ImGui::PopID();
         id++;
     }
-    ImGui::PopStyleVar();
 
     ImGui::PopStyleVar();
+    ImGui::PopStyleVar();
 
-    ImGui::End();
+    controls::end_window();
 }
 
 GuiMixer g_mixer;

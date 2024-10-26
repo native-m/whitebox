@@ -30,9 +30,9 @@ void GuiPianoRoll::render() {
 
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
     ImGui::SetNextWindowSize(ImVec2(640.0f, 480.0f), ImGuiCond_FirstUseEver);
-    if (!controls::begin_dockable_window("Piano Roll", &open)) {
+    if (!controls::begin_window("Piano Roll", &open)) {
         ImGui::PopStyleVar();
-        ImGui::End();
+        controls::end_window();
         return;
     }
     ImGui::PopStyleVar();
@@ -124,7 +124,7 @@ void GuiPianoRoll::render() {
         ImGui::EndChild();
     }
 
-    ImGui::End();
+    controls::end_window();
 }
 
 void GuiPianoRoll::render_editor() {
