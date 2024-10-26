@@ -1604,6 +1604,11 @@ bool RendererVK::remove_viewport(ImGuiViewport* viewport) {
 }
 
 void RendererVK::resize_viewport(ImGuiViewport* viewport, ImVec2 vec) {
+    if (GImGui->Viewports[0] == viewport) {
+        vkDeviceWaitIdle(device_);
+        create_or_recreate_swapchain(main_swapchain_);
+        return;
+    }
     FramebufferVK* framebuffer = (FramebufferVK*)viewport->RendererUserData;
     vkDeviceWaitIdle(device_);
     create_or_recreate_swapchain(framebuffer->parent_swapchain);

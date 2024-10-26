@@ -378,7 +378,7 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
             if (event_state.current_clip_idx) {
                 uint32_t idx = *event_state.current_clip_idx;
                 if (idx >= clips.size()) {
-                    event_state.current_clip_idx = clips.size() - 1u;
+                    event_state.current_clip_idx = (uint32_t)clips.size() - 1;
                 } else {
                     Clip* clip = clips[idx];
                     if (idx != *clip_at_playhead || time_pos < clip->min_time || time_pos >= clip->max_time) {

@@ -38,6 +38,8 @@ namespace wb {
 
 static SDL_Window* main_window;
 static uint32_t main_window_id;
+static int32_t main_window_x;
+static int32_t main_window_y;
 static int32_t main_window_width;
 static int32_t main_window_height;
 static SDL_SysWMinfo main_wm_info;
@@ -64,12 +66,25 @@ static void setup_dark_mode(SDL_Window* window) {
 #endif
 }
 
-static void make_child_window(SDL_Window* window) {
+static void make_child_window(SDL_Window* window, bool imgui_window = false) {
     SDL_SysWMinfo wm_info {};
     SDL_VERSION(&wm_info.version);
     SDL_GetWindowWMInfo(window, &wm_info);
 #ifdef WB_PLATFORM_WINDOWS
-    SetWindowLongPtr(wm_info.info.win.window, GWLP_HWNDPARENT, (LONG_PTR)main_wm_info.info.win.window);
+    HWND handle = wm_info.info.win.window;
+    if (imgui_window) {
+        BOOL disable_transition = TRUE;
+        DWORD style = ::GetWindowLongPtr(handle, GWL_STYLE);
+        static const MARGINS shadow_state {1, 1, 1, 1};
+        //::DwmSetWindowAttribute(handle, DWMWA_TRANSITIONS_FORCEDISABLED, &disable_transition,
+        //                        sizeof(disable_transition));
+        style = WS_POPUP | WS_THICKFRAME | WS_CAPTION | WS_SYSMENU | WS_MAXIMIZEBOX | WS_MINIMIZEBOX;
+        ::SetWindowLongPtr(handle, GWL_STYLE, (LONG)style);
+        //::DwmExtendFrameIntoClientArea(handle, &shadow_state);
+        ::SetWindowPos(handle, nullptr, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
+        //::SetWindowLongPtr(handle, GWL_STYLE, )
+    }
+    ::SetWindowLongPtr(handle, GWLP_HWNDPARENT, (LONG_PTR)main_wm_info.info.win.window);
 #endif
 }
 
@@ -147,7 +162,7 @@ static void handle_events(SDL_Event& event) {
             if (event.window.windowID == main_window_id) {
                 switch (event.window.event) {
                     case SDL_WINDOWEVENT_RESIZED:
-                        //g_renderer->resize_viewport();
+                        // g_renderer->resize_viewport();
                         break;
                     case SDL_WINDOWEVENT_CLOSE:
                         is_running = false;
@@ -191,8 +206,10 @@ static void register_events() {
 
 static void imgui_renderer_create_window(ImGuiViewport* viewport) {
     SDL_Window* window = SDL_GetWindowFromID((uint32_t)(uint64_t)viewport->PlatformHandle);
-    uint32_t flags = SDL_GetWindowFlags(window);
-    make_child_window(window);
+    /*if (!has_bit(viewport->Flags, ImGuiViewportFlags_NoDecoration)) {
+        setup_dark_mode(window);
+    }*/
+    make_child_window(window, true);
     g_renderer->add_viewport(viewport);
 }
 
@@ -208,9 +225,11 @@ static void imgui_renderer_set_window_size(ImGuiViewport* viewport, ImVec2 size)
 static void imgui_renderer_render_window(ImGuiViewport* viewport, void* userdata) {
     Framebuffer* fb = (Framebuffer*)viewport->RendererUserData;
     // Log::info("{} {}", fb->width, fb->height);
-    g_renderer->begin_draw((Framebuffer*)viewport->RendererUserData, {0.0f, 0.0f, 0.0f, 1.0f});
-    g_renderer->render_imgui_draw_data(viewport->DrawData);
-    g_renderer->finish_draw();
+    if (!has_bit(viewport->Flags, ImGuiViewportFlags_IsMinimized)) {
+        g_renderer->begin_draw((Framebuffer*)viewport->RendererUserData, {0.0f, 0.0f, 0.0f, 1.0f});
+        g_renderer->render_imgui_draw_data(viewport->DrawData);
+        g_renderer->finish_draw();
+    }
 }
 
 static void imgui_renderer_swap_buffers(ImGuiViewport* viewport, void* userdata) {
@@ -558,26 +577,78 @@ void app_shutdown() {
     SDL_Quit();
 }
 
+static bool last_resized = false;
+
 int SDLCALL event_watcher(void* userdata, SDL_Event* event) {
     switch (event->type) {
         case SDL_WINDOWEVENT: {
-            if (event->window.windowID != main_window_id) {
-                break;
-            }
             int32_t w, h;
             switch (event->window.event) {
-                case SDL_WINDOWEVENT_MOVED:
-                    SDL_GetWindowSize(main_window, &w, &h);
-                    if (main_window_width == w && main_window_height == h) {
-                        main_window_width = w;
-                        main_window_height = h;
-                        app_render();
+                case SDL_WINDOWEVENT_MOVED: {
+                    if (event->window.windowID == main_window_id) {
+                        SDL_GetWindowSize(main_window, &w, &h);
+                        if ((main_window_x != event->window.data1 || main_window_y != event->window.data2) &&
+                            !last_resized) {
+                            main_window_x = event->window.data1;
+                            main_window_y = event->window.data2;
+                            app_render();
+                        }
+                    } else {
+                        bool moving = false;
+                        if (!last_resized) {
+                            for (uint32_t i = 0; i < GImGui->Viewports.Size; i++) {
+                                ImGuiViewport* vp = GImGui->Viewports[i];
+                                uint32_t window_id = (uint32_t)(uint64_t)vp->PlatformHandle;
+                                if (window_id == main_window_id)
+                                    continue;
+                                SDL_Window* window = SDL_GetWindowFromID(window_id);
+                                int32_t last_x = (int32_t)vp->Pos.x;
+                                int32_t last_y = (int32_t)vp->Pos.y;
+                                if (last_x != event->window.data1 && last_y != event->window.data2)
+                                    moving = true;
+                            }
+                        }
+                        if (moving)
+                            app_render();
+                    }
+                    last_resized = false;
+                    break;
+                }
+                case SDL_WINDOWEVENT_SIZE_CHANGED: {
+                    if (event->window.windowID == main_window_id) {
+                        if (main_window_width != event->window.data1 || main_window_height != event->window.data2) {
+                            main_window_width = event->window.data1;
+                            main_window_height = event->window.data2;
+                            g_renderer->resize_viewport(ImGui::GetMainViewport(),
+                                                        ImVec2((float)main_window_width, (float)main_window_height));
+                            app_render();
+                            last_resized = true;
+                        }
+                    } else {
+                        for (uint32_t i = 0; i < GImGui->Viewports.Size; i++) {
+                            ImGuiViewport* vp = GImGui->Viewports[i];
+                            uint32_t window_id = (uint32_t)(uint64_t)vp->PlatformHandle;
+                            if (window_id == main_window_id || window_id != event->window.windowID)
+                                continue;
+                            if (has_bit(vp->Flags, ImGuiViewportFlags_NoDecoration))
+                                continue;
+                            SDL_Window* window = SDL_GetWindowFromID(window_id);
+                            int32_t last_w = (int32_t)vp->Size.x;
+                            int32_t last_h = (int32_t)vp->Size.y;
+                            if (last_w != event->window.data1 || last_h != event->window.data2) {
+                                vp->Size.x = (float)event->window.data1;
+                                vp->Size.y = (float)event->window.data2;
+                                vp->PlatformRequestResize = true;
+                                last_resized = true;
+                            }
+                            // Log::debug("{} {}", last_w)
+                        }
+                        if (last_resized) {
+                            app_render();
+                        }
                     }
                     break;
-                case SDL_WINDOWEVENT_RESIZED:
-                    SDL_GetWindowSize(main_window, &main_window_width, &main_window_height);
-                    app_render();
-                    break;
+                }
                 default:
                     break;
             }
