@@ -15,9 +15,12 @@ static constexpr uint32_t project_midi_table_version = 1;
 static constexpr uint32_t project_track_version = 1;
 static constexpr uint32_t project_clip_version = 1;
 
-ProjectFileResult read_project_file(const std::filesystem::path& path, Engine& engine,
-                                    SampleTable& sample_table, MidiTable& midi_table,
-                                    GuiTimeline& timeline) {
+consteval uint32_t fourcc(const char ch[5]) {
+    return ch[0] | (ch[1] << 8) | (ch[2] << 16) | (ch[3] << 24);
+}
+
+ProjectFileResult read_project_file(const std::filesystem::path& path, Engine& engine, SampleTable& sample_table,
+                                    MidiTable& midi_table, GuiTimeline& timeline) {
     File file;
     uintmax_t size = std::filesystem::file_size(path);
     if (size < sizeof(PFHeader))
@@ -28,7 +31,7 @@ ProjectFileResult read_project_file(const std::filesystem::path& path, Engine& e
     PFHeader header;
     if (file.read(&header, sizeof(PFHeader)) < sizeof(PFHeader))
         return ProjectFileResult::ErrCorruptedFile;
-    if (header.magic_numbers != 'RPBW')
+    if (header.magic_numbers != fourcc("WBPR"))
         return ProjectFileResult::ErrInvalidFormat;
     if (header.version > project_header_version)
         return ProjectFileResult::ErrIncompatibleVersion;
@@ -57,7 +60,7 @@ ProjectFileResult read_project_file(const std::filesystem::path& path, Engine& e
     uint32_t sample_table_version;
     if (file.read_u32(&sample_table_magic_number) < 4) // Magic number
         return ProjectFileResult::ErrCorruptedFile;
-    if (sample_table_magic_number != 'TSBW')
+    if (sample_table_magic_number != fourcc("WBST"))
         return ProjectFileResult::ErrInvalidFormat;
     if (file.read_u32(&sample_table_version) < 4) // Version
         return ProjectFileResult::ErrCannotAccessFile;
@@ -110,7 +113,7 @@ ProjectFileResult read_project_file(const std::filesystem::path& path, Engine& e
     uint32_t midi_table_version;
     if (file.read_u32(&midi_table_magic_number) < 4) // Magic number
         return ProjectFileResult::ErrCorruptedFile;
-    if (midi_table_magic_number != 'TMBW')
+    if (midi_table_magic_number != fourcc("WBMT"))
         return ProjectFileResult::ErrInvalidFormat;
     if (file.read_u32(&midi_table_version) < 4) // Version
         return ProjectFileResult::ErrCorruptedFile;
@@ -144,7 +147,7 @@ ProjectFileResult read_project_file(const std::filesystem::path& path, Engine& e
         PFTrackHeader track_header;
         if (file.read(&track_header, sizeof(PFTrackHeader)) < sizeof(PFTrackHeader))
             return ProjectFileResult::ErrCorruptedFile;
-        if (track_header.magic_numbers != 'RTBW')
+        if (track_header.magic_numbers != fourcc("WBTR"))
             return ProjectFileResult::ErrInvalidFormat;
         if (track_header.version > project_track_version)
             return ProjectFileResult::ErrIncompatibleVersion;
@@ -169,7 +172,7 @@ ProjectFileResult read_project_file(const std::filesystem::path& path, Engine& e
             PFClipHeader clip_header;
             if (file.read(&clip_header, sizeof(PFClipHeader)) < sizeof(PFClipHeader))
                 return ProjectFileResult::ErrCorruptedFile;
-            if (clip_header.magic_numbers != 'LCBW')
+            if (clip_header.magic_numbers != fourcc("WBCL"))
                 return ProjectFileResult::ErrInvalidFormat;
             if (clip_header.version > project_clip_version)
                 return ProjectFileResult::ErrIncompatibleVersion;
@@ -181,8 +184,8 @@ ProjectFileResult read_project_file(const std::filesystem::path& path, Engine& e
 
             Clip* clip = (Clip*)track->clip_allocator.allocate();
             assert(clip && "Cannot allocate clip");
-            new (clip) Clip(std::move(name), ImColor(clip_header.color), clip_header.min_time,
-                            clip_header.max_time, clip_header.start_offset);
+            new (clip) Clip(std::move(name), ImColor(clip_header.color), clip_header.min_time, clip_header.max_time,
+                            clip_header.start_offset);
 
             clip->id = j;
             switch (clip_header.type) {
@@ -218,9 +221,8 @@ ProjectFileResult write_midi_data(const MidiData& data) {
     return ProjectFileResult::Ok;
 }
 
-ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& engine,
-                                     SampleTable& sample_table, MidiTable& midi_table,
-                                     GuiTimeline& timeline) {
+ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& engine, SampleTable& sample_table,
+                                     MidiTable& midi_table, GuiTimeline& timeline) {
     File file;
     if (!file.open(path, File::Write | File::Truncate)) {
         return ProjectFileResult::ErrCannotAccessFile;
