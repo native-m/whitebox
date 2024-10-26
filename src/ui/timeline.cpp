@@ -402,32 +402,53 @@ void GuiTimeline::render_track_controls() {
             }
 
             ImVec2 free_region = ImGui::GetWindowContentRegionMax();
+            float item_height = controls::get_item_height();
 
-            if (free_region.y) {
-                float volume = track->ui_parameter_state.volume_db;
+            float volume = track->ui_parameter_state.volume_db;
+            if (height < item_height * 2.5f) {
+                bool mute = track->ui_parameter_state.mute;
+                if (ImGui::Button("M")) {
+                    track->set_mute(!mute);
+                }
+                
+                ImGui::SameLine(0.0f, 2.0f);
+                if (ImGui::Button("S")) {
+                    g_engine.solo_track(i);
+                }
+                
+                ImGui::SameLine(0.0f, 2.0f);
+                ImVec2 pos = ImGui::GetCursorPos();
+                ImGui::SetNextItemWidth(free_region.x - pos.x);
+                if (controls::param_drag_db("##Vol.", &volume)) {
+                    track->set_volume(volume);
+                }
+            } else {
                 if (controls::param_drag_db("Vol.", &volume)) {
                     track->set_volume(volume);
                 }
             }
 
-            float pan = track->ui_parameter_state.pan;
-            if (controls::param_drag_pan("Pan", &pan)) {
-                track->set_pan(pan);
-            }
+            if (height > item_height * 2.5f) {
+                if (height > item_height * 3.5f) {
+                    float pan = track->ui_parameter_state.pan;
+                    if (controls::param_drag_pan("Pan", &pan)) {
+                        track->set_pan(pan);
+                    }
+                }
 
-            bool mute = track->ui_parameter_state.mute;
-            if (ImGui::SmallButton("M")) {
-                track->set_mute(!mute);
-            }
+                bool mute = track->ui_parameter_state.mute;
+                if (ImGui::SmallButton("M")) {
+                    track->set_mute(!mute);
+                }
 
-            ImGui::SameLine(0.0f, 2.0f);
-            if (ImGui::SmallButton("S")) {
-                g_engine.solo_track(i);
-            }
-
-            ImGui::SameLine(0.0f, 2.0f);
-            if (mute) {
-                ImGui::Text("Muted");
+                ImGui::SameLine(0.0f, 2.0f);
+                if (ImGui::SmallButton("S")) {
+                    g_engine.solo_track(i);
+                }
+                if (mute) {
+                    ImGui::SameLine(0.0f, 2.0f);
+                    ImGui::Text("Muted");
+                }
             }
 
             if (ImGui::IsWindowHovered() && !(ImGui::IsAnyItemActive() || ImGui::IsAnyItemHovered()) &&
