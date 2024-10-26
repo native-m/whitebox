@@ -1,8 +1,9 @@
 #include "timeline_base.h"
 #include "core/core_math.h"
+#include "core/debug.h"
 #include "engine/engine.h"
-#include <imgui.h>
 #include <fmt/format.h>
+#include <imgui.h>
 
 namespace wb {
 void TimelineBase::render_horizontal_scrollbar() {
@@ -10,8 +11,7 @@ void TimelineBase::render_horizontal_scrollbar() {
     ImGuiStyle& style = ImGui::GetStyle();
     float font_size = ImGui::GetFontSize();
     float btn_size_y = font_size + style.FramePadding.y * 2.0f;
-    ImVec2 arrow_btn_size =
-        ImGui::CalcItemSize(ImVec2(), font_size + style.FramePadding.x * 2.0f, btn_size_y);
+    ImVec2 arrow_btn_size = ImGui::CalcItemSize(ImVec2(), font_size + style.FramePadding.x * 2.0f, btn_size_y);
     ImGui::SetCursorPosX(math::max(separator_pos, min_track_control_size) + 2.0f);
     ImGui::PushButtonRepeat(true);
 
@@ -58,10 +58,8 @@ void TimelineBase::render_horizontal_scrollbar() {
 
     // Transform scroll units in pixels
     double min_space = 4.0 / scroll_btn_max_length;
-    float min_hscroll_pixels =
-        (float)std::round(math::min(min_hscroll, 1.0 - min_space) * scroll_btn_max_length);
-    float max_hscroll_pixels =
-        (float)std::round(math::min(max_hscroll, 1.0) * scroll_btn_max_length);
+    float min_hscroll_pixels = (float)std::round(math::min(min_hscroll, 1.0 - min_space) * scroll_btn_max_length);
+    float max_hscroll_pixels = (float)std::round(math::min(max_hscroll, 1.0) * scroll_btn_max_length);
     float dist_pixel = max_hscroll_pixels - min_hscroll_pixels;
 
     if (dist_pixel < 4.0f) {
@@ -78,23 +76,26 @@ void TimelineBase::render_horizontal_scrollbar() {
     ImVec2 rhs_max(rhs_x, scroll_btn_min_bb.y + btn_size_y);
 
     // Check whether the mouse hovering the left-hand side bound
-    if (!grabbing_scroll && ImGui::IsMouseHoveringRect(lhs_min, lhs_max)) {
+    if (!scrolling && ImGui::IsMouseHoveringRect(lhs_min, lhs_max)) {
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
-        if (active && !resizing_lhs_scroll_grab)
+        if (active && !resizing_lhs_scroll_grab) {
+            last_hscroll = min_hscroll;
             resizing_lhs_scroll_grab = true;
+        }
     }
     // Check whether the mouse hovering the right-hand side bound
-    else if (!grabbing_scroll && ImGui::IsMouseHoveringRect(rhs_min, rhs_max)) {
+    else if (!scrolling && ImGui::IsMouseHoveringRect(rhs_min, rhs_max)) {
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
         if (active && !resizing_rhs_scroll_grab) {
             if (max_hscroll > 1.0) {
                 max_hscroll -= max_hscroll - 1.0;
             }
+            last_hscroll = max_hscroll;
             resizing_rhs_scroll_grab = true;
         }
     }
     // Check whether the mouse is grabbing the scroll
-    else if (ImGui::IsMouseHoveringRect(lhs_min, rhs_max) && active && !grabbing_scroll) {
+    else if (ImGui::IsMouseHoveringRect(lhs_min, rhs_max) && active && !scrolling) {
         last_hscroll = min_hscroll;
         grabbing_scroll = true;
     }
@@ -102,10 +103,8 @@ void TimelineBase::render_horizontal_scrollbar() {
     else if (ImGui::IsItemActivated()) {
         double scroll_grab_length = max_hscroll - min_hscroll;
         double half_scroll_grab_length = scroll_grab_length * 0.5;
-        auto mouse_pos_x =
-            (ImGui::GetMousePos().x - scroll_btn_min_bb.x) / (double)scroll_btn_max_length;
-        double new_min_hscroll =
-            math::clamp(mouse_pos_x - half_scroll_grab_length, 0.0, 1.0 - scroll_grab_length);
+        auto mouse_pos_x = (ImGui::GetMousePos().x - scroll_btn_min_bb.x) / (double)scroll_btn_max_length;
+        double new_min_hscroll = math::clamp(mouse_pos_x - half_scroll_grab_length, 0.0, 1.0 - scroll_grab_length);
         max_hscroll = new_min_hscroll + scroll_grab_length;
         min_hscroll = new_min_hscroll;
         redraw = true;
@@ -113,30 +112,26 @@ void TimelineBase::render_horizontal_scrollbar() {
 
     if (resizing_lhs_scroll_grab) {
         auto drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left, 1.0f);
+        min_hscroll = math::clamp(last_hscroll + drag_delta.x / scroll_btn_max_length, 0.0, max_hscroll - min_space);
+        Log::debug("{}", min_hscroll, last_hscroll);
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
-        min_hscroll = math::clamp(min_hscroll + drag_delta.x / scroll_btn_max_length, 0.0,
-                                  max_hscroll - min_space);
-        ImGui::ResetMouseDragDelta(ImGuiMouseButton_Left);
     } else if (resizing_rhs_scroll_grab) {
         auto drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left, 1.0f);
+        max_hscroll = math::max(last_hscroll + drag_delta.x / scroll_btn_max_length, min_hscroll + min_space);
+        Log::debug("{} {}", max_hscroll, last_hscroll);
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
-        max_hscroll =
-            math::max(max_hscroll + drag_delta.x / scroll_btn_max_length, min_hscroll + min_space);
-        ImGui::ResetMouseDragDelta(ImGuiMouseButton_Left);
     } else if (grabbing_scroll) {
         ImVec2 drag_delta = ImGui::GetMouseDragDelta();
         double scroll_grab_length = max_hscroll - min_hscroll;
-        double new_min_hscroll =
-            math::max(last_hscroll + drag_delta.x / scroll_btn_max_length, 0.0);
+        double new_min_hscroll = math::max(last_hscroll + drag_delta.x / scroll_btn_max_length, 0.0);
         max_hscroll = new_min_hscroll + scroll_grab_length;
         min_hscroll = new_min_hscroll;
     }
 
-    draw_list->AddRectFilled(lhs_min, rhs_max, ImGui::GetColorU32(ImGuiCol_Button),
-                             style.GrabRounding);
+    draw_list->AddRectFilled(lhs_min, rhs_max, ImGui::GetColorU32(ImGuiCol_Button), style.GrabRounding);
     if (hovered || active) {
-        uint32_t color = active ? ImGui::GetColorU32(ImGuiCol_FrameBgActive)
-                                : ImGui::GetColorU32(ImGuiCol_FrameBgHovered);
+        uint32_t color =
+            active ? ImGui::GetColorU32(ImGuiCol_FrameBgActive) : ImGui::GetColorU32(ImGuiCol_FrameBgHovered);
         draw_list->AddRect(lhs_min, rhs_max, color, style.GrabRounding);
     }
 }
@@ -152,8 +147,7 @@ bool TimelineBase::render_time_ruler(double* time_value) {
     double view_scale = calc_view_scale();
     ImVec2 drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left);
     ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
-    auto size = ImVec2(ImGui::GetContentRegionAvail().x,
-                       ImGui::GetFontSize() + style.FramePadding.y * 2.0f);
+    auto size = ImVec2(ImGui::GetContentRegionAvail().x, ImGui::GetFontSize() + style.FramePadding.y * 2.0f);
     ImGui::InvisibleButton("##time_ruler_control", size);
 
     if (timeline_width == 0.0f) {
@@ -162,13 +156,11 @@ bool TimelineBase::render_time_ruler(double* time_value) {
 
     bool active = false;
     if (ImGui::IsItemActivated() || (ImGui::IsItemActive() && std::abs(drag_delta.x) > 0.001f)) {
-        double mapped_x_pos =
-            (double)(mouse_pos.x - cursor_pos.x) / song_length * view_scale + min_hscroll;
+        double mapped_x_pos = (double)(mouse_pos.x - cursor_pos.x) / song_length * view_scale + min_hscroll;
         double mouse_time_pos = mapped_x_pos * song_length * inv_ppq;
-        double mouse_time_pos_grid =
-            math::max(std::round(mouse_time_pos * grid_scale) / grid_scale, 0.0);
+        double mouse_time_pos_grid = math::max(std::round(mouse_time_pos * grid_scale) / grid_scale, 0.0);
         *time_value = mouse_time_pos_grid;
-        //g_engine.set_playhead_position(mouse_time_pos_grid);
+        // g_engine.set_playhead_position(mouse_time_pos_grid);
         ImGui::ResetMouseDragDelta();
         active = true;
     }
@@ -216,9 +208,9 @@ bool TimelineBase::render_time_ruler(double* time_value) {
     if (is_playing) {
         double playhead_start = g_engine.playhead_start * g_engine.ppq * inv_view_scale;
         float position = (float)std::round(scroll_offset + playhead_start) - size.y * 0.5f;
-        draw_list->AddTriangleFilled(
-            ImVec2(position, cursor_pos.y + 2.5f), ImVec2(position + size.y, cursor_pos.y + 2.5f),
-            ImVec2(position + size.y * 0.5f, cursor_pos.y + size.y - 2.5f), col);
+        draw_list->AddTriangleFilled(ImVec2(position, cursor_pos.y + 2.5f),
+                                     ImVec2(position + size.y, cursor_pos.y + 2.5f),
+                                     ImVec2(position + size.y * 0.5f, cursor_pos.y + size.y - 2.5f), col);
     }
 
     float tick_pos_y = cursor_pos.y + size.y;
@@ -228,8 +220,7 @@ bool TimelineBase::render_time_ruler(double* time_value) {
         int bar_point = i + count_offset;
         float rounded_gridline_pos_x = std::round(gridline_pos_x);
         fmt::format_to_n(digits, sizeof(digits), "{}", bar_point * step + 1);
-        draw_list->AddText(ImVec2(rounded_gridline_pos_x + 4.0f,
-                                  cursor_pos.y + style.FramePadding.y * 2.0f - 2.0f),
+        draw_list->AddText(ImVec2(rounded_gridline_pos_x + 4.0f, cursor_pos.y + style.FramePadding.y * 2.0f - 2.0f),
                            time_point_color, digits);
         draw_list->AddLine(ImVec2(rounded_gridline_pos_x, tick_pos_y - 8.0f),
                            ImVec2(rounded_gridline_pos_x, tick_pos_y - 3.0f), col);
@@ -238,11 +229,10 @@ bool TimelineBase::render_time_ruler(double* time_value) {
 
     float playhead_screen_position =
         (float)std::round(scroll_offset + playhead * g_engine.ppq * inv_view_scale) - size.y * 0.5f;
-    draw_list->AddTriangleFilled(
-        ImVec2(playhead_screen_position, cursor_pos.y + 2.5f),
-        ImVec2(playhead_screen_position + size.y, cursor_pos.y + 2.5f),
-        ImVec2(playhead_screen_position + size.y * 0.5f, cursor_pos.y + size.y - 2.5f),
-        playhead_color);
+    draw_list->AddTriangleFilled(ImVec2(playhead_screen_position, cursor_pos.y + 2.5f),
+                                 ImVec2(playhead_screen_position + size.y, cursor_pos.y + 2.5f),
+                                 ImVec2(playhead_screen_position + size.y * 0.5f, cursor_pos.y + size.y - 2.5f),
+                                 playhead_color);
 
     draw_list->PopClipRect();
 
@@ -268,16 +258,14 @@ void TimelineBase::scroll_horizontal(float drag_delta, double max_length, double
     }
 }
 
-void TimelineBase::zoom(float mouse_pos_x, float cursor_pos_x, double view_scale,
-                        float mouse_wheel) {
+void TimelineBase::zoom(float mouse_pos_x, float cursor_pos_x, double view_scale, float mouse_wheel) {
     if (max_hscroll > 1.0) {
         double dist = max_hscroll - 1.0;
         min_hscroll -= dist;
         max_hscroll -= dist;
     }
 
-    double zoom_position =
-        ((double)(mouse_pos_x - cursor_pos_x) / song_length * view_scale) + min_hscroll;
+    double zoom_position = ((double)(mouse_pos_x - cursor_pos_x) / song_length * view_scale) + min_hscroll;
     double dist_from_start = zoom_position - min_hscroll;
     double dist_to_end = max_hscroll - zoom_position;
     mouse_wheel *= 0.1f;

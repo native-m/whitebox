@@ -402,7 +402,6 @@ void GuiTimeline::render_track_controls() {
             }
 
             ImVec2 free_region = ImGui::GetWindowContentRegionMax();
-            ImVec2 item_size = ImGui::CalcItemSize(ImVec2(1.0f, ImGui::GetFontSize() + style.FramePadding.y * 2.0f));
 
             if (free_region.y) {
                 float volume = track->ui_parameter_state.volume_db;
