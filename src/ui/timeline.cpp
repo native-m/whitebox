@@ -410,12 +410,12 @@ void GuiTimeline::render_track_controls() {
                 if (ImGui::Button("M")) {
                     track->set_mute(!mute);
                 }
-                
+
                 ImGui::SameLine(0.0f, 2.0f);
                 if (ImGui::Button("S")) {
                     g_engine.solo_track(i);
                 }
-                
+
                 ImGui::SameLine(0.0f, 2.0f);
                 ImVec2 pos = ImGui::GetCursorPos();
                 ImGui::SetNextItemWidth(free_region.x - pos.x);
@@ -431,7 +431,7 @@ void GuiTimeline::render_track_controls() {
             if (height > item_height * 2.5f) {
                 if (height > item_height * 3.5f) {
                     float pan = track->ui_parameter_state.pan;
-                    if (controls::param_drag_pan("Pan", &pan)) {
+                    if (controls::param_drag_panning("Pan", &pan)) {
                         track->set_pan(pan);
                     }
                 }
@@ -623,7 +623,7 @@ void GuiTimeline::render_track_lanes() {
     }
 
     // The timeline is actually just a very large button that cover almost
-    // entire screen.
+    // entire window.
     ImGui::InvisibleButton("##timeline", ImVec2(timeline_width, std::max(timeline_area.y, area_size.y + vscroll)));
 
     double view_scale = calc_view_scale();
@@ -765,6 +765,7 @@ void GuiTimeline::render_track_lanes() {
                                                                     .min_time = target_sel_range.min,
                                                                     .max_time = target_sel_range.max,
                                                                 });
+                recalculate_timeline_length();
                 redraw = true;
             }
         }
@@ -944,7 +945,7 @@ void GuiTimeline::render_track_lanes() {
             if (hovering_current_track && edit_action == TimelineEditAction::None && !holding_ctrl) {
                 static constexpr float handle_offset = 4.0f;
                 ImRect clip_rect(min_bb, max_bb);
-                // Sizing handle hitboxes
+                // Hitboxes for sizing handle
                 ImRect left_handle(min_pos_x_in_pixel, track_pos_y, min_pos_x_in_pixel + handle_offset, max_bb.y);
                 ImRect right_handle(max_pos_x_in_pixel - handle_offset, track_pos_y, max_pos_x_in_pixel, max_bb.y);
 
@@ -1322,30 +1323,6 @@ void GuiTimeline::recalculate_timeline_length() {
         max_hscroll = max_hscroll * song_length / 10000.0;
         song_length = 10000.0;
     }
-}
-
-void GuiTimeline::delete_selected_range() {
-    double beat_duration = g_engine.beat_duration.load(std::memory_order_relaxed);
-    uint32_t first_track = target_sel_range.first_track;
-    uint32_t last_track = target_sel_range.last_track;
-    g_engine.edit_lock();
-
-    if (last_track < first_track) {
-        std::swap(first_track, last_track);
-    }
-
-    for (uint32_t i = first_track; i <= last_track; i++) {
-        Track* track = g_engine.tracks[i];
-        auto query_result = track->query_clip_by_range(target_sel_range.min, target_sel_range.max);
-        if (!query_result) {
-            continue;
-        }
-        Log::debug("first: {} {}, last: {} {}", query_result->first, query_result->first_offset, query_result->last,
-                   query_result->last_offset);
-        g_engine.reserve_track_region(track, query_result->first, query_result->last, target_sel_range.min,
-                                      target_sel_range.max, false, nullptr);
-    }
-    g_engine.edit_unlock();
 }
 
 GuiTimeline g_timeline;

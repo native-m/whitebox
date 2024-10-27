@@ -124,102 +124,11 @@ static bool resizable_horizontal_separator(T id, float* size, float default_size
     return is_separator_active;
 }
 
-template <typename T>
-static bool slider2(const SliderProperties& properties, const char* str_id, const ImVec2& size,
-                    const ImColor& color, T* value, T min, T max, T default_value = 1.0f,
-                    const char* format = "%.2f") {
-    ImGuiWindow* window = GImGui->CurrentWindow;
-    ImVec2 cursor_pos = window->DC.CursorPos;
-    // ImVec2 padded_size(size.x - properties.extra_padding.x, size.y - properties.extra_padding.y);
-    // cursor_pos.x += properties.extra_padding.x;
-    // cursor_pos.y += properties.extra_padding.y;
-
-    ImRect bb(ImVec2(cursor_pos.x, cursor_pos.y), ImVec2(cursor_pos.x, cursor_pos.y) + size);
-    ImGuiID id = ImGui::GetID(str_id);
-
-    ImGui::ItemSize(bb);
-    if (!ImGui::ItemAdd(bb, id))
-        return false;
-
-    bool hovered, held;
-    bool pressed = ImGui::ButtonBehavior(bb, id, &hovered, &held, ImGuiButtonFlags_None);
-    bool dragging = held && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0.0f);
-    ImGuiContext& g = *ImGui::GetCurrentContext();
-    const ImVec2& mouse_pos = g.IO.MousePos;
-    ImU32 frame_col = ImGui::GetColorU32(ImGui::GetStyleColorVec4(ImGuiCol_Border));
-    ImU32 grab_col = ImGui::GetColorU32(color.Value);
-    T range = max - min;
-    T normalized_value = (*value - min) / range;
-    float frame_width = std::max(properties.frame_width, 3.0f);
-    ImVec2 grab_size;
-
-    if (properties.grab_shape == SliderGrabShape::Rectangle) {
-        grab_size = properties.grab_size;
-        grab_size.x = math::min(properties.grab_size.x, size.x);
-    } else {
-        float diameter = math::min(properties.grab_size.x, properties.grab_size.y);
-        grab_size.x = diameter;
-        grab_size.y = diameter;
-    }
-
-    float scroll_height = size.y - grab_size.y;
-    float inv_scroll_height = 1.0f / scroll_height;
-    // Log::debug("{}", normalized_value);
-
-    if (ImGui::IsItemActivated())
-        g.SliderGrabClickOffset =
-            mouse_pos.y - ((1.0f - (float)normalized_value) * scroll_height + cursor_pos.y);
-
-    if (held) {
-        float val = (mouse_pos.y - cursor_pos.y - g.SliderGrabClickOffset) * inv_scroll_height;
-        normalized_value = std::clamp(1.0f - val, 0.0f, 1.0f);
-        *value = normalized_value * range + min;
-        // ImGui::SetNextWindowPos(ImVec2())
-        ImGui::BeginTooltip();
-        ImGui::Text(format, *value);
-        ImGui::EndTooltip();
-    }
-
-    float grab_pos = (1.0f - (float)normalized_value) * scroll_height;
-    ImDrawList* draw_list = ImGui::GetWindowDrawList();
-    float center_x = cursor_pos.x + size.x * 0.5f;
-    ImVec2 frame_rect_min(center_x - frame_width * 0.5f, cursor_pos.y + grab_size.y * 0.5f);
-    ImVec2 frame_rect_max(frame_rect_min.x + frame_width, frame_rect_min.y + scroll_height);
-
-    // draw_list->AddRect(cursor_pos, bb.Max, frame_col);
-    draw_list->AddRectFilled(frame_rect_min, frame_rect_max, frame_col);
-
-    if (properties.grab_shape == SliderGrabShape::Rectangle) {
-        ImVec2 grab_rect_min(center_x - grab_size.x * 0.5f, cursor_pos.y + math::round(grab_pos));
-        ImVec2 grab_rect_max(grab_rect_min.x + grab_size.x, grab_rect_min.y + grab_size.y);
-        draw_list->AddRectFilled(grab_rect_min, grab_rect_max, grab_col, properties.grab_roundness);
-        draw_list->AddLine(
-            ImVec2(grab_rect_min.x + 2.0f, grab_rect_min.y + grab_size.y * 0.5f),
-            ImVec2(grab_rect_min.x + grab_size.x - 2.0f, grab_rect_min.y + grab_size.y * 0.5f),
-            0xFFFFFFFF, 3.0f);
-    } else {
-        float radius1 = grab_size.x * 0.5f;
-        float radius2 = grab_size.x * 0.25f;
-        float pos_y = math::round(grab_pos) + radius1;
-        draw_list->AddCircleFilled(ImVec2(center_x, cursor_pos.y + pos_y), radius1, grab_col);
-        draw_list->AddCircleFilled(ImVec2(center_x, cursor_pos.y + pos_y), radius2, 0xFFFFFFFF);
-    }
-
-    if (dragging) {
-        ImVec2 delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left, 0.0f);
-        ImGui::ResetMouseDragDelta();
-        if (delta.y != 0.0f)
-            return true;
-    }
-
-    return false;
-}
-
 void song_position();
 bool param_drag_db(const char* str_id, float* value, float speed = 0.1f, float min_db = -72.0f,
                    float max_db = 6.0f, const char* format = "%.2fdB",
                    ImGuiSliderFlags flags = ImGuiSliderFlags_Vertical);
-bool param_drag_pan(const char* str_id, float* value, float speed = 1.0f,
+bool param_drag_panning(const char* str_id, float* value, float speed = 1.0f,
                     ImGuiSliderFlags flags = ImGuiSliderFlags_Vertical);
 bool param_slider_db(const SliderProperties& properties, const char* str_id, const ImVec2& size,
                      const ImColor& color, float* value, const NonLinearRange& db_range,

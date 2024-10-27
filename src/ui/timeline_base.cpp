@@ -113,12 +113,10 @@ void TimelineBase::render_horizontal_scrollbar() {
     if (resizing_lhs_scroll_grab) {
         auto drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left, 1.0f);
         min_hscroll = math::clamp(last_hscroll + drag_delta.x / scroll_btn_max_length, 0.0, max_hscroll - min_space);
-        Log::debug("{}", min_hscroll, last_hscroll);
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
     } else if (resizing_rhs_scroll_grab) {
         auto drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left, 1.0f);
         max_hscroll = math::max(last_hscroll + drag_delta.x / scroll_btn_max_length, min_hscroll + min_space);
-        Log::debug("{} {}", max_hscroll, last_hscroll);
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
     } else if (grabbing_scroll) {
         ImVec2 drag_delta = ImGui::GetMouseDragDelta();

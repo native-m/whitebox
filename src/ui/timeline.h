@@ -99,8 +99,6 @@ struct GuiTimeline : public TimelineBase {
     void finish_edit_action();
     void recalculate_timeline_length();
 
-    void delete_selected_range();
-
     inline void redraw_screen() { force_redraw = true; }
 };
 

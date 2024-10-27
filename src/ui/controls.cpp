@@ -85,7 +85,7 @@ void song_position() {
 
 template <typename T>
 static bool slider2_ranged(const SliderProperties& properties, const char* str_id, const ImVec2& size,
-                           const ImColor& color, T* value, const NonLinearRange& db_range, T default_value = 0.0f,
+                           const ImColor& color, T* value, const NonLinearRange& range, T default_value = 0.0f,
                            const char* format = "%.2f") {
     ImGuiWindow* window = GImGui->CurrentWindow;
     ImVec2 cursor_pos = window->DC.CursorPos;
@@ -111,7 +111,7 @@ static bool slider2_ranged(const SliderProperties& properties, const char* str_i
         grab_size.y = diameter;
     }
 
-    T normalized_value = (T)db_range.plain_to_normalized((float)*value);
+    T normalized_value = (T)range.plain_to_normalized((float)*value);
     ImGuiContext& g = *ImGui::GetCurrentContext();
     float scroll_height = size.y - grab_size.y;
     float inv_scroll_height = 1.0f / scroll_height;
@@ -124,7 +124,7 @@ static bool slider2_ranged(const SliderProperties& properties, const char* str_i
 
     float inv_normalized_default_value = 0.0f;
     if (held || properties.with_default_value_tick)
-        inv_normalized_default_value = 1.0f - (float)db_range.plain_to_normalized(default_value);
+        inv_normalized_default_value = 1.0f - (float)range.plain_to_normalized(default_value);
 
     if (held) {
         float current_grab_pos = math::round(mouse_pos.y - cursor_pos.y - g.SliderGrabClickOffset);
@@ -132,7 +132,7 @@ static bool slider2_ranged(const SliderProperties& properties, const char* str_i
         float val = !math::near_equal(current_grab_pos, default_value_grab_pos) ? current_grab_pos * inv_scroll_height
                                                                                 : inv_normalized_default_value;
         normalized_value = std::clamp(1.0f - val, 0.0f, 1.0f);
-        *value = (T)db_range.normalized_to_plain(normalized_value);
+        *value = (T)range.normalized_to_plain(normalized_value);
     }
 
     float half_grab_size_y = grab_size.y * 0.5f;
@@ -208,7 +208,7 @@ bool param_drag_db(const char* str_id, float* value, float speed, float min_db, 
     return ImGui::DragFloat(str_id, value, 0.1f, min_db, max_db, str_value, flags);
 }
 
-bool param_drag_pan(const char* str_id, float* value, float speed, ImGuiSliderFlags flags) {
+bool param_drag_panning(const char* str_id, float* value, float speed, ImGuiSliderFlags flags) {
     float pan = *value * 100.0f;
     char pan_value[16] {};
     if (pan < 0) {

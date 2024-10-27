@@ -70,9 +70,9 @@ ProjectFileResult read_project_file(const std::filesystem::path& path, Engine& e
         if (file.read_array(sample_path_str) < 4)
             return ProjectFileResult::ErrCorruptedFile;
         std::filesystem::path sample_path(sample_path_str);
-        // Check if this file exists. If not, do plan B or C.
-        // Plan B: Scan the file in project relative path.
-        // Plan C: Scan the file in user's directory path.
+        // Check if this file exists. If not, do B or C.
+        // B: Scan the file in project relative path.
+        // C: Scan the file in user's directory path.
         if (!std::filesystem::is_regular_file(sample_path)) {
             std::filesystem::path filename = sample_path.filename();
             bool found = false;

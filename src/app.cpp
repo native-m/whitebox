@@ -298,7 +298,6 @@ void app_render_control_bar() {
     bool new_project = false;
     bool open_project = false;
     bool save_project = false;
-    static float tempo = 150.0;
 
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_TitleBg));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 4.0f));
@@ -359,6 +358,7 @@ void app_render_control_bar() {
     controls::song_position();
     set_current_font(FontType::Nornal);
     ImGui::SameLine(0.0f, 4.0f);
+    float tempo = (float)g_engine.get_bpm();
     if (ImGui::DragFloat("##TEMPO_DRAG", &tempo, 1.0f, 0.0f, 0.0f, "%.2f BPM", ImGuiSliderFlags_Vertical)) {
         g_engine.set_bpm((double)tempo);
     }
