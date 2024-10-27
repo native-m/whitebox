@@ -15,10 +15,6 @@ static constexpr uint32_t project_midi_table_version = 1;
 static constexpr uint32_t project_track_version = 1;
 static constexpr uint32_t project_clip_version = 1;
 
-consteval uint32_t fourcc(const char ch[5]) {
-    return ch[0] | (ch[1] << 8) | (ch[2] << 16) | (ch[3] << 24);
-}
-
 ProjectFileResult read_project_file(const std::filesystem::path& path, Engine& engine, SampleTable& sample_table,
                                     MidiTable& midi_table, GuiTimeline& timeline) {
     File file;
@@ -229,7 +225,7 @@ ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& 
     }
 
     PFHeader header {
-        .magic_numbers = 'RPBW',
+        .magic_numbers = fourcc("WBPR"),
         .version = project_header_version,
         .track_count = (uint32_t)engine.tracks.size(),
         .sample_count = (uint32_t)sample_table.samples.size(),
@@ -263,7 +259,7 @@ ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& 
     engine.project_info.genre = std::move(project_info.genre);
 
     // Sample table header
-    if (file.write_u32('TSBW') < 4) // Magic number
+    if (file.write_u32(fourcc("WBST")) < 4) // Magic number
         return ProjectFileResult::ErrCannotAccessFile;
     if (file.write_u32(project_sample_table_version) < 4) // Version
         return ProjectFileResult::ErrCannotAccessFile;
@@ -281,7 +277,7 @@ ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& 
     idx = 0;
 
     // Midi table header
-    if (file.write_u32('TMBW') < 4) // Magic number
+    if (file.write_u32(fourcc("WBMT")) < 4) // Magic number
         return ProjectFileResult::ErrCannotAccessFile;
     if (file.write_u32(project_midi_table_version) < 4) // Version
         return ProjectFileResult::ErrCannotAccessFile;
@@ -313,7 +309,7 @@ ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& 
 
     for (const auto track : engine.tracks) {
         PFTrackHeader track_header {
-            .magic_numbers = 'RTBW',
+            .magic_numbers = fourcc("WBTR"),
             .version = project_track_version,
             .flags =
                 {
@@ -329,14 +325,14 @@ ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& 
             .clip_count = (uint32_t)track->clips.size(),
         };
         if (file.write(&track_header, sizeof(PFTrackHeader)) < sizeof(PFTrackHeader))
-            return ProjectFileResult::ErrCannotAccessFile;
+            return ProjectFileResult::ErrEndOfFile;
         if (track_header.flags.has_name)
             if (file.write_array(track->name) < 4)
-                return ProjectFileResult::ErrCannotAccessFile;
+                return ProjectFileResult::ErrEndOfFile;
 
         for (const auto clip : track->clips) {
             PFClipHeader clip_header {
-                .magic_numbers = 'LCBW',
+                .magic_numbers = fourcc("WBCL"),
                 .version = project_clip_version,
                 .type = clip->type,
                 .flags =
@@ -372,7 +368,7 @@ ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& 
             }
 
             if (file.write(&clip_header, sizeof(PFClipHeader)) < sizeof(PFClipHeader))
-                return ProjectFileResult::ErrCannotAccessFile;
+                return ProjectFileResult::ErrEndOfFile;
             if (clip_header.flags.has_name)
                 if (file.write_array(clip->name) < 4)
                     return ProjectFileResult::ErrCannotAccessFile;

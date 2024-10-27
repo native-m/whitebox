@@ -94,6 +94,11 @@ struct File {
     inline bool is_open() const { return open_; }
 };
 
+consteval uint32_t fourcc(const char ch[5]) {
+    // TODO: Big endian support
+    return ch[0] | (ch[1] << 8) | (ch[2] << 16) | (ch[3] << 24);
+}
+
 std::filesystem::path to_system_preferred_path(const std::filesystem::path& path);
 std::filesystem::path remove_filename_from_path(const std::filesystem::path& path);
 void explore_folder(const std::filesystem::path& path);
