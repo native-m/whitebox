@@ -23,6 +23,7 @@ struct Vector {
     using reference_type = T&;
     using pointer_type = T*;
     using size_type = size_t;
+    static constexpr uint32_t min_capacity = 8;
 
     detail::VectorInternal<T> intern_ {};
 
@@ -151,11 +152,10 @@ struct Vector {
             }
 
             T* item = nullptr;
-            if constexpr (std::is_aggregate_v<T>) {
+            if constexpr (std::is_aggregate_v<T>)
                 item = new (new_data + idx) T {std::forward<Args>(args)...};
-            } else {
+            else
                 item = new (new_data + idx) T(std::forward<Args>(args)...);
-            }
 
             intern_.data = new_data;
             intern_.capacity = new_capacity;
@@ -168,24 +168,21 @@ struct Vector {
         T* dst_ptr = begin_ptr + 1;
         T* end_ptr = intern_.data + idx;
         while (begin_ptr >= end_ptr) {
-            if constexpr (std::is_move_assignable_v<T>) {
+            if constexpr (std::is_move_assignable_v<T>)
                 *dst_ptr-- = std::move(*begin_ptr);
-            } else if constexpr (std::is_copy_assignable_v<T>) {
+            else if constexpr (std::is_copy_assignable_v<T>)
                 *dst_ptr-- = *begin_ptr;
-            }
             begin_ptr--;
         }
 
-        if constexpr (!std::is_trivially_destructible_v<T>) {
+        if constexpr (!std::is_trivially_destructible_v<T>)
             (intern_.data + idx)->~T();
-        }
 
         T* item;
-        if constexpr (std::is_aggregate_v<T>) {
+        if constexpr (std::is_aggregate_v<T>)
             item = new (intern_.data + idx) T {std::forward<Args>(args)...};
-        } else {
+        else
             item = new (intern_.data + idx) T(std::forward<Args>(args)...);
-        }
 
         intern_.size++;
         return *item;
@@ -193,9 +190,8 @@ struct Vector {
 
     template <typename... Args>
     inline T& emplace_back(Args&&... args) {
-        if (intern_.size == intern_.capacity) {
+        if (intern_.size == intern_.capacity)
             reserve_internal_(grow_capacity_());
-        }
         T* new_item = new (intern_.data + intern_.size) T(std::forward<Args>(args)...);
         intern_.size++;
         return *new_item;
@@ -216,9 +212,8 @@ struct Vector {
     inline void push_back(const T& item)
         requires std::copy_constructible<T>
     {
-        if (intern_.size == intern_.capacity) {
+        if (intern_.size == intern_.capacity)
             reserve_internal_(grow_capacity_());
-        }
         new (intern_.data + intern_.size) T(item);
         intern_.size++;
     }
@@ -226,9 +221,8 @@ struct Vector {
     inline void push_back(T&& item)
         requires std::move_constructible<T>
     {
-        if (intern_.size == intern_.capacity) {
+        if (intern_.size == intern_.capacity)
             reserve_internal_(grow_capacity_());
-        }
         new (intern_.data + intern_.size) T(std::move(item));
         intern_.size++;
     }
@@ -268,9 +262,8 @@ struct Vector {
     inline void resize_fast(size_t new_size)
         requires std::is_trivial_v<T>
     {
-        if (new_size > intern_.capacity) {
+        if (new_size > intern_.capacity)
             reserve_internal_(new_size);
-        }
         intern_.size = new_size;
     }
 
@@ -292,18 +285,15 @@ struct Vector {
     inline void reserve(size_t new_capacity) { reserve_internal_(new_capacity); }
 
     inline size_t grow_capacity_() {
-        size_t new_capacity = intern_.capacity ? (intern_.capacity + intern_.capacity / size_t(2)) : 8;
+        size_t new_capacity = intern_.capacity ? (intern_.capacity + intern_.capacity / size_t(2)) : min_capacity;
         return new_capacity;
-        // return new_capacity > new_size ? new_capacity : new_size;
     }
 
     inline void reserve_internal_(size_t new_capacity, size_t relocate_offset = 0) {
-        if (new_capacity <= intern_.capacity) {
+        if (new_capacity <= intern_.capacity)
             return;
-        }
-        if (new_capacity < 8) {
-            new_capacity = 8;
-        }
+        if (new_capacity < 8)
+            new_capacity = min_capacity;
         T* new_data = (T*)std::malloc(new_capacity * sizeof(T));
         assert(new_data && "Failed to allocate new storage");
         if (intern_.data) {
