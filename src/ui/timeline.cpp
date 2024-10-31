@@ -1256,14 +1256,12 @@ void GuiTimeline::render_track_lanes() {
                 break;
             case TimelineEditAction::ClipDuplicate:
                 if (!left_mouse_down) {
-                    double clip_length = edited_clip->max_time - edited_clip->min_time;
-                    if (edited_track == hovered_track) {
-                        edited_track->duplicate_clip(edited_clip, mouse_at_gridline, mouse_at_gridline + clip_length,
-                                                     beat_duration);
-                    } else if (hovered_track != nullptr) {
-                        hovered_track->duplicate_clip(edited_clip, mouse_at_gridline, mouse_at_gridline + clip_length,
-                                                      beat_duration);
-                    }
+                    g_cmd_manager.execute("Duplicate Clip", ClipDuplicateCmd {
+                                                                .src_track_id = edited_track_id.value(),
+                                                                .dst_track_id = hovered_track_id.value(),
+                                                                .clip_id = edited_clip->id,
+                                                                .relative_pos = relative_pos,
+                                                            });
                     finish_edit_action();
                     force_redraw = true;
                 }

@@ -21,8 +21,8 @@ struct EmptyCmd {
 
 struct HistoryItem {
     std::string name;
-    std::variant<EmptyCmd, ClipAddFromFileCmd, ClipMoveCmd, ClipShiftCmd, ClipResizeCmd, ClipDeleteCmd,
-                 ClipDeleteRegionCmd>
+    std::variant<EmptyCmd, ClipAddFromFileCmd, ClipMoveCmd, ClipShiftCmd, ClipResizeCmd, ClipDuplicateCmd,
+                 ClipDeleteCmd, ClipDeleteRegionCmd>
         data;
 
     template <CommandType T>

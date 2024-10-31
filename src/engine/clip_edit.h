@@ -7,7 +7,7 @@
 
 namespace wb {
 static inline ClipMoveResult calc_move_clip(Clip* clip, double relative_pos) {
-    double new_pos = math::max(clip->min_time + relative_pos, 0.0);
+    const double new_pos = math::max(clip->min_time + relative_pos, 0.0);
     return {
         new_pos,
         new_pos + (clip->max_time - clip->min_time),
@@ -27,7 +27,7 @@ static inline ClipResizeResult calc_resize_clip(Clip* clip, double relative_pos,
         };
     }
 
-    double old_min = clip->min_time;
+    const double old_min = clip->min_time;
     double new_min = math::max(clip->min_time + relative_pos, 0.0);
     if (new_min >= clip->max_time)
         new_min = clip->max_time - min_length;
@@ -63,20 +63,20 @@ static inline ClipResizeResult calc_resize_clip(Clip* clip, double relative_pos,
 }
 
 static inline double calc_shift_clip(Clip* clip, double relative_pos) {
-    double rel_offset = clip->start_offset;
+    const double rel_offset = clip->start_offset;
     return math::max(rel_offset - relative_pos, 0.0);
 }
 
 static inline double shift_clip_content(Clip* clip, double relative_pos, double beat_duration) {
     if (clip->is_audio()) {
         SampleAsset* asset = clip->audio.asset;
-        double sample_rate = (double)asset->sample_instance.sample_rate;
-        double rel_offset = samples_to_beat(clip->start_offset, sample_rate, beat_duration);
+        const double sample_rate = (double)asset->sample_instance.sample_rate;
+        const double rel_offset = samples_to_beat(clip->start_offset, sample_rate, beat_duration);
         return beat_to_samples(math::max(rel_offset - relative_pos, 0.0), sample_rate,
                                beat_duration);
     }
 
-    double rel_offset = clip->start_offset;
+    const double rel_offset = clip->start_offset;
     return math::max(rel_offset - relative_pos, 0.0);
 }
 } // namespace wb

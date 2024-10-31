@@ -64,8 +64,11 @@ struct ClipResizeCmd {
 };
 
 struct ClipDuplicateCmd {
-    uint32_t track_id;
-    uint32_t target_track_id;
+    uint32_t src_track_id;
+    uint32_t dst_track_id;
+    uint32_t clip_id;
+    double relative_pos;
+    TrackHistory track_history;
 
     void execute();
     void undo();

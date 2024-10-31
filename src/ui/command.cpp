@@ -76,7 +76,6 @@ void ClipMoveCmd::execute() {
         src_track_history.backup(g_engine.move_clip(src_track, clip, relative_pos));
     } else {
         Track* dst_track = g_engine.tracks[dst_track_id];
-        double beat_duration = g_engine.get_beat_duration();
         double new_pos = std::max(clip->min_time + relative_pos, 0.0);
         double length = clip->max_time - clip->min_time;
         dst_track_history.backup(g_engine.duplicate_clip(dst_track, clip, new_pos, new_pos + length));
@@ -135,6 +134,28 @@ void ClipResizeCmd::undo() {
     std::unique_lock editor_lock(g_engine.editor_lock);
     std::unique_lock delete_lock(g_engine.delete_lock);
     history.undo(track);
+    track->update_clip_ordering();
+    track->reset_playback_state(g_engine.playhead, true);
+}
+
+void ClipDuplicateCmd::execute() {
+    Track* src_track = g_engine.tracks[src_track_id];
+    Clip* clip = src_track->clips[clip_id];
+    const double min_time = math::max(clip->min_time + relative_pos, 0.0);
+    const double length = clip->max_time - clip->min_time;
+    const double max_time = min_time + length;
+    if (src_track_id == dst_track_id) {
+        track_history.backup(g_engine.duplicate_clip(src_track, clip, min_time, max_time));
+    } else {
+        Track* dst_track = g_engine.tracks[dst_track_id];
+        track_history.backup(g_engine.duplicate_clip(dst_track, clip, min_time, max_time));
+    }
+}
+
+void ClipDuplicateCmd::undo() {
+    Track* track = g_engine.tracks[src_track_id];
+    std::unique_lock editor_lock(g_engine.editor_lock);
+    track_history.undo(track);
     track->update_clip_ordering();
     track->reset_playback_state(g_engine.playhead, true);
 }
