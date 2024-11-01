@@ -4,7 +4,6 @@
 #ifdef WB_PLATFORM_WINDOWS
 #include "bit_manipulation.h"
 #include <Windows.h>
-#include <winternl.h>
 
 namespace wb {
 

@@ -63,7 +63,6 @@ void ClipAddFromFileCmd::execute() {
 void ClipAddFromFileCmd::undo() {
     Track* track = g_engine.tracks[track_id];
     std::unique_lock edit_lock(g_engine.editor_lock);
-    std::unique_lock delete_lock(g_engine.delete_lock);
     history.undo(track);
     track->update_clip_ordering();
     track->reset_playback_state(g_engine.playhead, true);
@@ -86,7 +85,6 @@ void ClipMoveCmd::execute() {
 void ClipMoveCmd::undo() {
     Track* src_track = g_engine.tracks[src_track_id];
     std::unique_lock edit_lock(g_engine.editor_lock);
-    std::unique_lock delete_lock(g_engine.delete_lock);
     if (src_track_id == dst_track_id) {
         src_track_history.undo(src_track);
         src_track->update_clip_ordering();
@@ -132,7 +130,6 @@ void ClipResizeCmd::undo() {
     Track* track = g_engine.tracks[track_id];
     Clip* clip = track->clips[clip_id];
     std::unique_lock editor_lock(g_engine.editor_lock);
-    std::unique_lock delete_lock(g_engine.delete_lock);
     history.undo(track);
     track->update_clip_ordering();
     track->reset_playback_state(g_engine.playhead, true);

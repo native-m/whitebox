@@ -10,10 +10,24 @@ void render_test_controls() {
         return;
     }
 
-    static float slider_value = 0.0f;
+    static float value = 0.2f;
     ImU32 grab_color = ImGui::GetColorU32(ImGuiCol_TabActive);
+    const KnobProperties knob_props {
+        .body_color = 0xFF444444,
+        .arc_color = 0xFFED961C,
+        .arc_bg_color = 0xFF333333,
+        .pointer_color = 0xFFAAAAAA,
+        .body_size = 0.8f,
+        .pointer_min_len = 0.4f,
+        .pointer_max_len = 0.9f,
+        .min_angle = std::numbers::pi_v<float> / 6.0f,
+        .max_angle = std::numbers::pi_v<float> * 11.0f / 6.0f,
+    };
 
     ImGui::Button("Test");
+
+    ImGui::SeparatorText("Knob");
+    controls::knob(knob_props, "##knob_test", ImVec2(100.0f, 100.0f), &value);
 
     /*
     controls::slider2<float>(
