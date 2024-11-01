@@ -15,8 +15,7 @@ void GuiMixer::render() {
     ImVec2 window_padding = GImGui->Style.WindowPadding;
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(1.0f, 1.0f));
 
-    if (!controls::begin_window(
-            "Mixer", &open, ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_HorizontalScrollbar)) {
+    if (!controls::begin_window("Mixer", &open, ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_HorizontalScrollbar)) {
         ImGui::PopStyleVar();
         controls::end_window();
         return;
@@ -44,11 +43,23 @@ void GuiMixer::render() {
     const NonLinearRange db_range(-72.0f, 6.0f, -2.4f);
     controls::SliderProperties mixer_slider = {
         .grab_shape = controls::SliderGrabShape::Rectangle,
-        .grab_size = {16.0f, (size.y < 200.0f) ? 24.0f : 28.0f},
+        .grab_size = {16.0f, 28.0f},
         .grab_roundness = 2.0f,
         .extra_padding = {0.0f, 4.0f},
         .frame_width = 4.0f,
         .with_default_value_tick = true,
+    };
+
+    controls::KnobProperties pan_knob = {
+        .body_color = 0xFF505050,
+        .arc_color = 0xFFED961C,
+        .arc_bg_color = 0xFF333333,
+        .pointer_color = 0xFFAAAAAA,
+        .body_size = 0.8f,
+        .pointer_min_len = 0.4f,
+        .pointer_max_len = 0.9f,
+        .min_angle = std::numbers::pi_v<float> / 6.0f,
+        .max_angle = std::numbers::pi_v<float> * 11.0f / 6.0f,
     };
 
     // Log::info("{}", size.y);
@@ -57,26 +68,45 @@ void GuiMixer::render() {
         ImGui::PushID(id);
         controls::mixer_label(track->name.c_str(), size.y, track->color);
         ImGui::SameLine();
-        ImGui::SetCursorPos(ImGui::GetCursorPos() + ImVec2(0.0f, 10.0f));
 
+        ImGui::BeginGroup();
+        ImGui::SetCursorPos(ImGui::GetCursorPos() + ImVec2(0.0f, 6.0f));
+
+        const float width = 48.0f;
+        float pan = track->ui_parameter_state.pan;
+        if (controls::knob(pan_knob, "##pan_knob", ImVec2(width, 35.0f), &pan)) {
+            track->set_pan(pan);
+        }
+
+        const float ms_btn_width = width * 0.5f - 1.0f;
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2.0f, 0.0f));
+        ImGui::Button("M", ImVec2(ms_btn_width, 0.0f));
+        ImGui::SameLine(0.0f, 2.0f);
+        ImGui::Button("S", ImVec2(ms_btn_width, 0.0f));
+        ImGui::PopStyleVar();
+
+        ImGui::SetCursorPos(ImGui::GetCursorPos() + ImVec2(0.0f, 2.0f));
+
+        const ImVec2 group_avail = ImGui::GetContentRegionAvail();
         float volume = track->ui_parameter_state.volume_db;
-        if (controls::param_slider_db(mixer_slider, "##mixer_vol", ImVec2(22.0f, size.y - 20.0f),
-                                      track->color, &volume, db_range)) {
+        if (controls::param_slider_db(mixer_slider, "##mixer_vol", ImVec2(22.0f, group_avail.y - 6.0f), track->color,
+                                      &volume, db_range)) {
             track->set_volume(volume);
         }
 
         if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
-            ImGui::OpenPopup("MIXER_VOLUME_CONTEXT_MENU"); 
+            ImGui::OpenPopup("MIXER_VOLUME_CONTEXT_MENU");
         }
 
         ImGui::SameLine();
 
-        ImGui::SetCursorPos(ImGui::GetCursorPos() + ImVec2(0.0f, 10.0f));
-        controls::level_meter("##mixer_vu_meter", ImVec2(18.0f, size.y - 20.0f), 2,
-                              track->level_meter, track->level_meter_color);
+        controls::level_meter("##mixer_vu_meter", ImVec2(18.0f, group_avail.y - 6.0f), 2, track->level_meter,
+                              track->level_meter_color);
         if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
             ImGui::OpenPopup("LEVEL_METER_MENU");
         }
+
+        ImGui::EndGroup();
         ImGui::SameLine();
 
         if (ImGui::BeginPopup("MIXER_VOLUME_CONTEXT_MENU")) {
@@ -84,7 +114,7 @@ void GuiMixer::render() {
                 track->set_volume(0.0f);
             }
             ImGui::EndPopup();
-        }   
+        }
 
         if (ImGui::BeginPopup("LEVEL_METER_MENU")) {
             ImGui::MenuItem("Color mode", nullptr, nullptr, false);
