@@ -269,12 +269,14 @@ static bool knob(const KnobProperties& props, const char* str_id, const ImVec2& 
         ImVec2 pos = ImGui::GetMousePos();
         GImGui->ColorPickerRef.x = pos.x;
         GImGui->ColorPickerRef.y = pos.y;
+        // Reset relative mouse state to prevent jumping
         set_mouse_pos((int)pos.x, (int)pos.y);
         reset_relative_mouse_state();
         enable_relative_mouse_mode(true);
     }
 
     if (ImGui::IsItemDeactivated()) {
+        // Reset mouse position back to its original click position
         enable_relative_mouse_mode(false);
         set_mouse_pos((int)GImGui->ColorPickerRef.x, (int)GImGui->ColorPickerRef.y);
     }

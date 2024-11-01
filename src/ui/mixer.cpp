@@ -88,6 +88,8 @@ void GuiMixer::render() {
         ImGui::SetCursorPos(ImGui::GetCursorPos() + ImVec2(0.0f, 2.0f));
 
         const ImVec2 group_avail = ImGui::GetContentRegionAvail();
+        mixer_slider.grab_size.y = (group_avail.y < 200.0f) ? 24.0f : 28.0f;
+
         float volume = track->ui_parameter_state.volume_db;
         if (controls::param_slider_db(mixer_slider, "##mixer_vol", ImVec2(22.0f, group_avail.y - 6.0f), track->color,
                                       &volume, db_range)) {
