@@ -112,6 +112,9 @@ set(WB_SOURCES
     "src/gfx/vk_stub.cpp"
     "src/gfx/vk_stub.h"
 
+    "src/platform/platform.cpp"
+    "src/platform/platform.h"
+
     "src/plughost/vst3host.cpp"
     "src/plughost/vst3host.h"
     "src/plughost/wb_plug.h"

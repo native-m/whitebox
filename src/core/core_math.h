@@ -104,8 +104,7 @@ inline bool near_equal_to_zero(T value, T eps = small_value<T>) {
 } // namespace math
 
 template <typename T, typename V>
-concept NormalizedRange = requires(T a, V v) {
-    { v } -> std::floating_point;
+concept NormalizedRange = std::floating_point<V> && requires(T a, V v) {
     { a.plain_to_normalized(v) } -> std::floating_point;
     { a.normalized_to_plain(v) } -> std::floating_point;
 };

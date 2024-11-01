@@ -6,6 +6,7 @@
 #include "engine/engine.h"
 #include "engine/project.h"
 #include "gfx/renderer.h"
+#include "platform/platform.h"
 #include "plughost/vst3host.h"
 #include "ui/IconsMaterialSymbols.h"
 #include "ui/browser.h"
@@ -23,14 +24,9 @@
 #include "ui/timeline.h"
 #include <SDL.h>
 #include <SDL_syswm.h>
+#include <SDL_mouse.h>
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
-
-#ifdef WB_PLATFORM_WINDOWS
-#include <dwmapi.h>
-#define DWM_ATTRIBUTE_USE_IMMERSIVE_DARK_MODE 20
-#define DWM_ATTRIBUTE_CAPTION_COLOR 35
-#endif
 
 using namespace std::literals::chrono_literals;
 
@@ -51,54 +47,16 @@ uint32_t AppEvent::audio_device_removed_event;
 static void apply_theme(ImGuiStyle& style);
 static int SDLCALL event_watcher(void* userdata, SDL_Event* event);
 
-// TODO(native-m): Replace with SDL function in SDL 3.0
-static void setup_dark_mode(SDL_Window* window) {
-    SDL_SysWMinfo wm_info {};
-    SDL_VERSION(&wm_info.version);
-    SDL_GetWindowWMInfo(window, &wm_info);
-    ImU32 title_bar_color = ImColor(0.15f, 0.15f, 0.15f, 1.00f) & 0x00FFFFFF;
-#ifdef WB_PLATFORM_WINDOWS
-    BOOL dark_mode = true;
-    ::DwmSetWindowAttribute(wm_info.info.win.window, DWM_ATTRIBUTE_USE_IMMERSIVE_DARK_MODE, &dark_mode,
-                            sizeof(dark_mode));
-    ::DwmSetWindowAttribute(wm_info.info.win.window, DWM_ATTRIBUTE_CAPTION_COLOR, &title_bar_color,
-                            sizeof(title_bar_color));
-#endif
-}
-
-static void make_child_window(SDL_Window* window, bool imgui_window = false) {
-    SDL_SysWMinfo wm_info {};
-    SDL_VERSION(&wm_info.version);
-    SDL_GetWindowWMInfo(window, &wm_info);
-#ifdef WB_PLATFORM_WINDOWS
-    HWND handle = wm_info.info.win.window;
-    if (imgui_window) {
-        BOOL disable_transition = TRUE;
-        DWORD style = ::GetWindowLongPtr(handle, GWL_STYLE);
-        static const MARGINS shadow_state {1, 1, 1, 1};
-        //::DwmSetWindowAttribute(handle, DWMWA_TRANSITIONS_FORCEDISABLED, &disable_transition,
-        //                        sizeof(disable_transition));
-        style = WS_POPUP | WS_THICKFRAME | WS_CAPTION | WS_SYSMENU | WS_MAXIMIZEBOX | WS_MINIMIZEBOX;
-        ::SetWindowLongPtr(handle, GWL_STYLE, (LONG)style);
-        //::DwmExtendFrameIntoClientArea(handle, &shadow_state);
-        ::SetWindowPos(handle, nullptr, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
-        //::SetWindowLongPtr(handle, GWL_STYLE, )
-    }
-    ::SetWindowLongPtr(handle, GWLP_HWNDPARENT, (LONG_PTR)main_wm_info.info.win.window);
-#endif
-}
-
 static void add_vst3_window(VST3Host& plug_instance, const char* name, uint32_t width, uint32_t height) {
 #ifdef WB_PLATFORM_WINDOWS
     // Create plugin window
     SDL_Window* window = SDL_CreateWindow(name, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, 0);
-    make_child_window(window);
+    make_child_window(window, main_window);
     SDL_SysWMinfo wm_info {};
     SDL_VERSION(&wm_info.version);
     SDL_GetWindowWMInfo(window, &wm_info);
     setup_dark_mode(window);
 
-    // TODO(native-m): Replace with SDL function in SDL 3.0
     uint32_t id = SDL_GetWindowID(window);
     plugin_windows.emplace(id, window);
     SDL_SetWindowData(window, "wb_vst3_instance", &plug_instance);
@@ -209,7 +167,7 @@ static void imgui_renderer_create_window(ImGuiViewport* viewport) {
     /*if (!has_bit(viewport->Flags, ImGuiViewportFlags_NoDecoration)) {
         setup_dark_mode(window);
     }*/
-    make_child_window(window, true);
+    make_child_window(window, main_window, true);
     g_renderer->add_viewport(viewport);
 }
 
@@ -577,6 +535,10 @@ void app_shutdown() {
     SDL_Quit();
 }
 
+void set_mouse_cursor_pos(float x, float y) {
+    SDL_WarpMouseGlobal((int)x, (int)y);
+}
+
 static bool last_resized = false;
 
 int SDLCALL event_watcher(void* userdata, SDL_Event* event) {
@@ -586,7 +548,6 @@ int SDLCALL event_watcher(void* userdata, SDL_Event* event) {
             switch (event->window.event) {
                 case SDL_WINDOWEVENT_MOVED: {
                     if (event->window.windowID == main_window_id) {
-                        SDL_GetWindowSize(main_window, &w, &h);
                         if ((main_window_x != event->window.data1 || main_window_y != event->window.data2) &&
                             !last_resized) {
                             main_window_x = event->window.data1;
