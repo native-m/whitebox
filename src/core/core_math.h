@@ -92,6 +92,11 @@ inline T normalize_value(T value, T min_val, T max_val) {
 }
 
 template <std::floating_point T>
+inline T unnormalize_value(T value, T min_val, T max_val) {
+    return value * (max_val - min_val) + min_val;
+}
+
+template <std::floating_point T>
 inline bool near_equal(T a, T b, T eps = small_value<T>) {
     return abs(a - b) < eps;
 }
@@ -107,6 +112,14 @@ template <typename T, typename V>
 concept NormalizedRange = std::floating_point<V> && requires(T a, V v) {
     { a.plain_to_normalized(v) } -> std::floating_point;
     { a.normalized_to_plain(v) } -> std::floating_point;
+};
+
+struct LinearRange {
+    float min_val;
+    float max_val;
+
+    inline float plain_to_normalized(float plain) const { return math::normalize_value(plain, min_val, max_val); }
+    inline float normalized_to_plain(float normalized) const { return math::unnormalize_value(normalized, min_val, max_val); }
 };
 
 struct NonLinearRange {
