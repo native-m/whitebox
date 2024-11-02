@@ -41,6 +41,7 @@ void GuiMixer::render() {
 
     ImVec2 size = ImGui::GetContentRegionAvail();
     const NonLinearRange db_range(-72.0f, 6.0f, -2.4f);
+    const LinearRange pan_range {-1.0f, 1.0f};
     controls::SliderProperties mixer_slider = {
         .grab_shape = controls::SliderGrabShape::Rectangle,
         .grab_size = {16.0f, 28.0f},
@@ -74,9 +75,8 @@ void GuiMixer::render() {
 
         const float width = 48.0f;
         float pan = track->ui_parameter_state.pan;
-        if (controls::knob(pan_knob, "##pan_knob", ImVec2(width, 35.0f), &pan)) {
+        if (controls::knob(pan_knob, "##pan_knob", ImVec2(width, 35.0f), &pan, pan_range))
             track->set_pan(pan);
-        }
 
         const float ms_btn_width = width * 0.5f - 1.0f;
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2.0f, 0.0f));
@@ -85,10 +85,9 @@ void GuiMixer::render() {
         ImGui::Button("S", ImVec2(ms_btn_width, 0.0f));
         ImGui::PopStyleVar();
 
-        ImGui::SetCursorPos(ImGui::GetCursorPos() + ImVec2(0.0f, 2.0f));
-
         const ImVec2 group_avail = ImGui::GetContentRegionAvail();
-        mixer_slider.grab_size.y = (group_avail.y < 200.0f) ? 24.0f : 28.0f;
+        mixer_slider.grab_size.y = (group_avail.y < 200.0f) ? 22.0f : 28.0f;
+        ImGui::SetCursorPos(ImGui::GetCursorPos() + ImVec2(0.0f, 2.0f));
 
         float volume = track->ui_parameter_state.volume_db;
         if (controls::param_slider_db(mixer_slider, "##mixer_vol", ImVec2(22.0f, group_avail.y - 6.0f), track->color,
@@ -96,25 +95,21 @@ void GuiMixer::render() {
             track->set_volume(volume);
         }
 
-        if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
             ImGui::OpenPopup("MIXER_VOLUME_CONTEXT_MENU");
-        }
 
         ImGui::SameLine();
 
         controls::level_meter("##mixer_vu_meter", ImVec2(18.0f, group_avail.y - 6.0f), 2, track->level_meter,
                               track->level_meter_color);
-        if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
             ImGui::OpenPopup("LEVEL_METER_MENU");
-        }
 
         ImGui::EndGroup();
-        ImGui::SameLine();
 
         if (ImGui::BeginPopup("MIXER_VOLUME_CONTEXT_MENU")) {
-            if (ImGui::MenuItem("Reset Value")) {
+            if (ImGui::MenuItem("Reset Value"))
                 track->set_volume(0.0f);
-            }
             ImGui::EndPopup();
         }
 
@@ -123,14 +118,14 @@ void GuiMixer::render() {
             ImGui::Separator();
             bool meter_color_normal = track->level_meter_color == LevelMeterColorMode::Normal;
             bool meter_color_line = track->level_meter_color == LevelMeterColorMode::Line;
-            if (ImGui::MenuItem("Normal", nullptr, &meter_color_normal)) {
+            if (ImGui::MenuItem("Normal", nullptr, &meter_color_normal))
                 track->level_meter_color = LevelMeterColorMode::Normal;
-            }
-            if (ImGui::MenuItem("Line", nullptr, &meter_color_line)) {
+            if (ImGui::MenuItem("Line", nullptr, &meter_color_line))
                 track->level_meter_color = LevelMeterColorMode::Line;
-            }
             ImGui::EndPopup();
         }
+
+        ImGui::SameLine();
 
         ImGui::PopID();
         id++;

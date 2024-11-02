@@ -250,8 +250,10 @@ static bool slider2(const SliderProperties& props, const char* str_id, const ImV
     return false;
 }
 
-template <typename T>
-static bool knob(const KnobProperties& props, const char* str_id, const ImVec2& size, T* value) {
+template <typename T, typename Range>
+    requires NormalizedRange<Range, T>
+static bool knob(const KnobProperties& props, const char* str_id, const ImVec2& size, T* value, const Range& range,
+                 T default_value = T(0), const char* format = "%.3f") {
     ImGuiWindow* window = GImGui->CurrentWindow;
     ImVec2 pos = window->DC.CursorPos;
     ImRect bb(ImVec2(pos.x, pos.y), ImVec2(pos.x, pos.y) + size);
@@ -286,35 +288,36 @@ static bool knob(const KnobProperties& props, const char* str_id, const ImVec2& 
     static constexpr float pointer_offset = 2.0f;
     const float radius = math::min(size.x, size.y) * 0.5f;
     const float body_radius = radius * props.body_size;
-    double current_value = (double)*value;
+    const float arc_len = props.max_angle - props.min_angle;
+    double current_value = (double)range.plain_to_normalized(*value);
 
     if (held) {
         int x, y;
         get_relative_mouse_state(&x, &y);
         ImGui::SetMouseCursor(ImGuiMouseCursor_None);
         if (y != 0.0f) {
-            const double circumference = (double)radius * two_pi;
+            static constexpr double speed = 0.25;
+            const double circumference = (double)(radius * arc_len);
             const double inc = (double)y / circumference;
-            current_value = math::clamp(current_value - inc * 0.5, 0.0, 1.0);
-            *value = (T)current_value;
+            current_value = math::clamp(current_value - inc * speed, 0.0, 1.0);
+            *value = (T)range.normalized_to_plain(current_value);
             dragging = true;
         }
     }
 
-    const float angle = (float)(math::lerp((float)current_value, props.min_angle, props.max_angle) + half_pi);
+    const float angle = math::lerp((float)current_value, props.min_angle, props.max_angle) + half_pi;
     const float dir_x = std::cos(angle);
     const float dir_y = std::sin(angle);
     const float min_radius = body_radius * props.pointer_min_len;
     const float max_radius = body_radius * props.pointer_max_len;
-    const float dist_angle = props.max_angle - props.min_angle;
     const ImVec2 center = pos + size * ImVec2(0.5f, 0.5f);
     ImDrawList* dl = window->DrawList;
 
     if (props.body_size < 1.0f) {
         const float min_angle = half_pi + props.min_angle;
         const float max_angle = half_pi + props.max_angle;
-        const bool partial_arc = dist_angle < (float)two_pi;
-        
+        const bool partial_arc = arc_len < (float)two_pi;
+
         // Draw arc background
         if (partial_arc) {
             dl->PathLineTo(center);

@@ -12,6 +12,7 @@ void render_test_controls() {
 
     static float value = 0.2f;
     ImU32 grab_color = ImGui::GetColorU32(ImGuiCol_TabActive);
+    const LinearRange range {0.0f, 1.0f};
     const KnobProperties knob_props {
         .body_color = 0xFF444444,
         .arc_color = 0xFFED961C,
@@ -27,7 +28,7 @@ void render_test_controls() {
     ImGui::Button("Test");
 
     ImGui::SeparatorText("Knob");
-    controls::knob(knob_props, "##knob_test", ImVec2(100.0f, 100.0f), &value);
+    controls::knob(knob_props, "##knob_test", ImVec2(100.0f, 100.0f), &value, range);
 
     /*
     controls::slider2<float>(
