@@ -53,9 +53,9 @@ void GuiMixer::render() {
     controls::KnobProperties pan_knob = {
         .body_color = 0xFF505050,
         .arc_color = 0xFFED961C,
-        .arc_bg_color = 0xFF333333,
+        .arc_bg_color = 0xFF353535,
         .pointer_color = 0xFFAAAAAA,
-        .body_size = 0.8f,
+        .body_size = 0.75f,
         .pointer_min_len = 0.4f,
         .pointer_max_len = 0.9f,
         .min_angle = std::numbers::pi_v<float> / 6.0f,

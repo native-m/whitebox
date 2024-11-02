@@ -1,13 +1,11 @@
 #pragma once
 
 #include "core/common.h"
-#include <SDL_syswm.h>
 #include <SDL_video.h>
 #include <optional>
 
 namespace wb {
 // Window
-SDL_SysWMinfo get_window_wm_info(SDL_Window* window);
 void setup_dark_mode(SDL_Window* window);
 void make_child_window(SDL_Window* window, SDL_Window* parent_window, bool imgui_window = false);
 
