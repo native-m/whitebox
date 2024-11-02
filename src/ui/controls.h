@@ -346,7 +346,16 @@ static bool knob(const KnobProperties& props, const char* str_id, const ImVec2& 
     dl->AddLine(center + ImVec2(dir_x * min_radius, dir_y * min_radius),
                 center + ImVec2(dir_x * max_radius, dir_y * max_radius), props.pointer_color, 3.0f);
 
-    //dl->AddRect(bb.Min, bb.Max, 0xFFFFFFFF);
+    if (held) {
+        static constexpr float tooltip_spacing = 6.0f;
+        const ImVec2 tooltip_pos(center.x, pos.y - tooltip_spacing);
+        ImGui::SetNextWindowPos(tooltip_pos, 0, ImVec2(0.5f, 1.0f));
+        ImGui::BeginTooltip();
+        ImGui::Text(format, *value);
+        ImGui::EndTooltip();
+    }
+
+    // dl->AddRect(bb.Min, bb.Max, 0xFFFFFFFF);
 
     return dragging;
 }
