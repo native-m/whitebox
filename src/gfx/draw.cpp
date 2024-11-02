@@ -1,5 +1,6 @@
 #include "draw.h"
 #include <limits>
+#include <cmath>
 
 namespace wb {
 
@@ -154,6 +155,20 @@ void draw_vertical_text(ImDrawList* draw_list, const char* text, ImVec2 pos, ImV
         }
         pos.y -= glyph->AdvanceX;
     }
+}
+
+void draw_line_segment(ImDrawList* draw_list, const ImVec2& p0, const ImVec2& p1, ImU32 col, float thickness) {
+    float tx = p1.x - p0.x;
+    float ty = p1.y - p0.y;
+    ImVec2 n(ty, -tx);
+    float inv_length = (thickness * 0.5f) / std::sqrt(n.x * n.x + n.y * n.y);
+    float nx = n.x * inv_length;
+    float ny = n.y * inv_length;
+    draw_list->PathLineTo(ImVec2(p0.x + nx, p0.y + ny));
+    draw_list->PathLineTo(ImVec2(p1.x + nx, p1.y + ny));
+    draw_list->PathLineTo(ImVec2(p1.x - nx, p1.y - ny));
+    draw_list->PathLineTo(ImVec2(p0.x - nx, p0.y - ny));
+    draw_list->PathFillConvex(col);
 }
 
 } // namespace wb

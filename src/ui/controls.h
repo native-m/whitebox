@@ -1,13 +1,10 @@
 #pragma once
 
 #include "core/debug.h"
-#include "engine/audio_param.h"
-#include "engine/param_changes.h"
 #include "engine/vu_meter.h"
+#include "gfx/draw.h"
 #include "platform/platform.h"
 #include <algorithm>
-#include <imgui.h>
-#include <imgui_internal.h>
 #include <numbers>
 
 namespace wb::controls {
@@ -45,6 +42,7 @@ struct KnobProperties {
     ImU32 arc_bg_color;
     ImU32 pointer_color;
     float body_size = 1.0f;
+    float pointer_thickness = 3.0f;
     float pointer_min_len = 0.0f;
     float pointer_max_len = 1.0f;
     float min_angle = 0.0f;
@@ -343,8 +341,9 @@ static bool knob(const KnobProperties& props, const char* str_id, const ImVec2& 
     // Draw body and pointer
     const ImU32 body_color = !(hovered || held || dragging) ? props.body_color : props.body_color + 0x00101010;
     dl->AddCircleFilled(center, body_radius, body_color);
-    dl->AddLine(center + ImVec2(dir_x * min_radius, dir_y * min_radius),
-                center + ImVec2(dir_x * max_radius, dir_y * max_radius), props.pointer_color, 3.0f);
+    draw_line_segment(dl, center + ImVec2(dir_x * min_radius, dir_y * min_radius),
+                      center + ImVec2(dir_x * max_radius, dir_y * max_radius), props.pointer_color,
+                      props.pointer_thickness);
 
     if (held) {
         static constexpr float tooltip_spacing = 6.0f;
