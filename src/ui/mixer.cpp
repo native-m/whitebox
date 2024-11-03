@@ -42,16 +42,8 @@ void GuiMixer::render() {
     ImVec2 size = ImGui::GetContentRegionAvail();
     const NonLinearRange db_range(-72.0f, 6.0f, -2.4f);
     const LinearRange pan_range {-1.0f, 1.0f};
-    controls::SliderProperties mixer_slider = {
-        .grab_shape = controls::SliderGrabShape::Rectangle,
-        .grab_size = {16.0f, 28.0f},
-        .grab_roundness = 2.0f,
-        .extra_padding = {0.0f, 4.0f},
-        .frame_width = 4.0f,
-        .with_default_value_tick = true,
-    };
-
-    controls::KnobProperties pan_knob = {
+    const ImVec4 muted_color(0.951f, 0.322f, 0.322f, 1.000f);
+    const controls::KnobProperties pan_knob = {
         .body_color = 0xFF505050,
         .arc_color = 0xFFED961C,
         .arc_bg_color = 0xFF353535,
@@ -64,9 +56,22 @@ void GuiMixer::render() {
         .max_angle = std::numbers::pi_v<float> * 11.0f / 6.0f,
     };
 
+    controls::SliderProperties mixer_slider = {
+        .grab_shape = controls::SliderGrabShape::Rectangle,
+        .grab_size = {16.0f, 28.0f},
+        .grab_roundness = 2.0f,
+        .extra_padding = {0.0f, 4.0f},
+        .frame_width = 4.0f,
+        .with_default_value_tick = true,
+    };
+
     // Log::info("{}", size.y);
     int id = 0;
     for (auto track : g_engine.tracks) {
+        float volume = track->ui_parameter_state.volume_db;
+        float pan = track->ui_parameter_state.pan;
+        bool mute = track->ui_parameter_state.mute;
+
         ImGui::PushID(id);
         controls::mixer_label(track->name.c_str(), size.y, track->color);
         ImGui::SameLine();
@@ -75,22 +80,22 @@ void GuiMixer::render() {
         ImGui::SetCursorPos(ImGui::GetCursorPos() + ImVec2(0.0f, 6.0f));
 
         const float width = 48.0f;
-        float pan = track->ui_parameter_state.pan;
         if (controls::knob(pan_knob, "##pan_knob", ImVec2(width, 35.0f), &pan, pan_range))
             track->set_pan(pan);
 
         const float ms_btn_width = width * 0.5f - 1.0f;
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2.0f, 0.0f));
-        ImGui::Button("M", ImVec2(ms_btn_width, 0.0f));
+        if (controls::toggle_button("M", &mute, muted_color, ImVec2(ms_btn_width, 0.0f)))
+            track->set_mute(!mute);
+
         ImGui::SameLine(0.0f, 2.0f);
-        ImGui::Button("S", ImVec2(ms_btn_width, 0.0f));
+        if (ImGui::Button("S", ImVec2(ms_btn_width, 0.0f)))
+            g_engine.solo_track(id);
         ImGui::PopStyleVar();
 
         const ImVec2 group_avail = ImGui::GetContentRegionAvail();
         mixer_slider.grab_size.y = (group_avail.y < 200.0f) ? 22.0f : 28.0f;
         ImGui::SetCursorPos(ImGui::GetCursorPos() + ImVec2(0.0f, 2.0f));
-
-        float volume = track->ui_parameter_state.volume_db;
         if (controls::param_slider_db(mixer_slider, "##mixer_vol", ImVec2(22.0f, group_avail.y - 6.0f), track->color,
                                       &volume, db_range)) {
             track->set_volume(volume);
@@ -99,8 +104,8 @@ void GuiMixer::render() {
         if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
             ImGui::OpenPopup("MIXER_VOLUME_CONTEXT_MENU");
 
-        ImGui::SameLine();
 
+        ImGui::SameLine();
         controls::level_meter("##mixer_vu_meter", ImVec2(18.0f, group_avail.y - 6.0f), 2, track->level_meter,
                               track->level_meter_color);
         if (ImGui::IsItemClicked(ImGuiMouseButton_Right))

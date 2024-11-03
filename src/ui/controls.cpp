@@ -1,6 +1,6 @@
 #include "controls.h"
-#include "core/color.h"
 #include "core/bit_manipulation.h"
+#include "core/color.h"
 #include "core/core_math.h"
 #include "core/debug.h"
 #include "core/queue.h"
@@ -16,12 +16,12 @@ bool begin_window(const char* title, bool* p_open, ImGuiWindowFlags flags) {
     bool* hide_background = state_storage->GetBoolRef(ImGui::GetID("no_bg"));
     bool* external_viewport = state_storage->GetBoolRef(ImGui::GetID("ext_vp"));
     float border_size = GImGui->Style.WindowBorderSize;
-    
+
     if (*hide_background) {
         flags |= ImGuiWindowFlags_NoBackground;
         border_size = 0.0f;
     }
-    
+
     // ImGuiWindowClass window_class {};
     // window_class.ViewportFlagsOverrideClear = ImGuiViewportFlags_NoDecoration;
     // ImGui::SetNextWindowClass(&window_class);
@@ -79,6 +79,24 @@ void song_position() {
     float half_font_size = font->FontSize * 0.5f;
     draw_list->AddRectFilled(bb.Min, bb.Max, ImGui::GetColorU32(ImGuiCol_Button), 2.0f);
     draw_list->AddText(text_pos, ImGui::GetColorU32(ImGuiCol_Text), buf);
+}
+
+bool toggle_button(const char* str, bool* value, const ImVec4& toggled_color, const ImVec2& size) {
+    if (*value)
+        ImGui::PushStyleColor(ImGuiCol_Button, toggled_color);
+    bool ret = ImGui::Button(str, size);
+    if (*value)
+        ImGui::PopStyleColor();
+    return ret;
+}
+
+bool small_toggle_button(const char* str, bool* value, const ImVec4& toggled_color) {
+    if (*value)
+        ImGui::PushStyleColor(ImGuiCol_Button, toggled_color);
+    bool ret = ImGui::SmallButton(str);
+    if (*value)
+        ImGui::PopStyleColor();
+    return ret;
 }
 
 bool param_drag_db(const char* str_id, float* value, float speed, float min_db, float max_db, const char* format,

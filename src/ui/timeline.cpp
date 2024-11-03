@@ -371,6 +371,7 @@ void GuiTimeline::render_track_controls() {
         const ImVec2 tmp_item_spacing = style.ItemSpacing;
         const ImVec2 track_color_min = ImGui::GetCursorScreenPos();
         const ImVec2 track_color_max = ImVec2(track_color_min.x + track_color_width, track_color_min.y + height);
+        const ImVec4 muted_color(0.951f, 0.322f, 0.322f, 1.000f);
 
         // Draw track color
         if (ImGui::IsRectVisible(track_color_min, track_color_max)) {
@@ -412,36 +413,30 @@ void GuiTimeline::render_track_controls() {
                 if (free_region.y < (item_height - style.ItemSpacing.y)) {
                     if (free_region.y >= item_height * 0.5f) {
                         // Mute & solo only
-                        if (ImGui::SmallButton("M")) {
+                        if (controls::small_toggle_button("M", &mute, muted_color))
                             track->set_mute(!mute);
-                        }
                         ImGui::SameLine(0.0f, 2.0f);
-                        if (ImGui::SmallButton("S")) {
+                        if (ImGui::SmallButton("S"))
                             g_engine.solo_track(i);
-                        }
                     }
                 } else [[likely]] {
                     // Compact
-                    if (ImGui::Button("M")) {
+                    if (controls::toggle_button("M", &mute, muted_color))
                         track->set_mute(!mute);
-                    }
                     ImGui::SameLine(0.0f, 2.0f);
-                    if (ImGui::Button("S")) {
+                    if (ImGui::Button("S"))
                         g_engine.solo_track(i);
-                    }
 
                     ImGui::SameLine(0.0f, 2.0f);
                     ImVec2 pos = ImGui::GetCursorPos();
                     ImGui::SetNextItemWidth(free_region.x - pos.x);
-                    if (controls::param_drag_db("##Vol.", &volume)) {
+                    if (controls::param_drag_db("##Vol.", &volume))
                         track->set_volume(volume);
-                    }
                 }
             } else {
                 // Large
-                if (controls::param_drag_db("Vol.", &volume)) {
+                if (controls::param_drag_db("Vol.", &volume))
                     track->set_volume(volume);
-                }
 
                 if (free_region.y >= item_height * 2.5f) {
                     float pan = track->ui_parameter_state.pan;
@@ -450,19 +445,11 @@ void GuiTimeline::render_track_controls() {
                     }
                 }
 
-                if (ImGui::SmallButton("M")) {
+                if (controls::small_toggle_button("M", &mute, muted_color))
                     track->set_mute(!mute);
-                }
-
                 ImGui::SameLine(0.0f, 2.0f);
-                if (ImGui::SmallButton("S")) {
+                if (ImGui::SmallButton("S"))
                     g_engine.solo_track(i);
-                }
-
-                if (mute) {
-                    ImGui::SameLine(0.0f, 2.0f);
-                    ImGui::Text("Muted");
-                }
             }
 
             if (ImGui::IsWindowHovered() && !(ImGui::IsAnyItemActive() || ImGui::IsAnyItemHovered()) &&
