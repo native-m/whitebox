@@ -54,6 +54,7 @@ void GuiMixer::render() {
         .pointer_max_len = 0.9f,
         .min_angle = std::numbers::pi_v<float> / 6.0f,
         .max_angle = std::numbers::pi_v<float> * 11.0f / 6.0f,
+        .bipolar = true,
     };
 
     controls::SliderProperties mixer_slider = {

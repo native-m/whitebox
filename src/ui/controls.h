@@ -47,6 +47,7 @@ struct KnobProperties {
     float pointer_max_len = 1.0f;
     float min_angle = 0.0f;
     float max_angle = 2.0f * std::numbers::pi_v<float>;
+    bool bipolar = false;
 };
 
 static float get_item_height() {
@@ -326,14 +327,30 @@ static bool knob(const KnobProperties& props, const char* str_id, const ImVec2& 
         }
 
         // Draw indicator arc
-        if (current_value > 0.0) {
-            if (current_value < 1.0 || partial_arc) {
-                float dist = angle - min_angle;
+        if (props.bipolar) {
+            float normalized_default_value = (float)range.plain_to_normalized(default_value);
+            if (!math::near_equal((float)current_value, normalized_default_value)) {
+                float center_angle = math::lerp(normalized_default_value, props.min_angle, props.max_angle) + half_pi;
+                float current_angle = angle;
+                if (current_value < normalized_default_value)
+                    std::swap(current_angle, center_angle);
+                float indicator_len = current_angle - center_angle;
+                int segment_count = (int)math::round(indicator_len * radius);
                 dl->PathLineTo(center);
-                dl->PathArcTo(center, radius, min_angle, angle, (int)(dist * body_radius * 0.5f));
+                dl->PathArcTo(center, radius, center_angle, current_angle, segment_count);
                 dl->PathFillConcave(props.arc_color);
-            } else {
-                dl->AddCircleFilled(center, radius, props.arc_color);
+            }
+        } else {
+            if (current_value > 0.0) {
+                if (current_value < 1.0 || partial_arc) {
+                    float indicator_len = angle - min_angle;
+                    int segment_count = (int)math::round(indicator_len * radius);
+                    dl->PathLineTo(center);
+                    dl->PathArcTo(center, radius, min_angle, angle, segment_count);
+                    dl->PathFillConcave(props.arc_color);
+                } else {
+                    dl->AddCircleFilled(center, radius, props.arc_color);
+                }
             }
         }
     }
