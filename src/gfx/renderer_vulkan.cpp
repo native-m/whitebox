@@ -159,7 +159,6 @@ void ResourceDisposalVK::dispose_buffer(VmaAllocation allocation, VkBuffer buf) 
 
 void ResourceDisposalVK::dispose_framebuffer(FramebufferVK* obj) {
     std::scoped_lock lock(mtx);
-    // I don't know if this will work properly...
     for (uint32_t i = 0; i < obj->num_buffers; i++) {
         fb.push_back(FramebufferDisposalVK {
             .frame_id = current_frame_id,
@@ -282,7 +281,7 @@ void ResourceDisposalVK::flush(VkDevice device, VkInstance instance, VmaAllocato
         vkDestroySemaphore(device, semaphore, nullptr);
         sync_objs.pop_front();
 #if VULKAN_LOG_RESOURCE_DISPOSAL
-        Log::debug("Swapchain disposed: {:x}, frame_id: {}", (uint64_t)swapchain, frame_id);
+        Log::debug("Semaphore disposed: {:x}, frame_id: {}", (uint64_t)semaphore, frame_id);
 #endif
     }
 
@@ -1594,6 +1593,7 @@ bool RendererVK::remove_viewport(ImGuiViewport* viewport) {
         }
         new_swapchains.push_back(swapchain);
     }
+    Log::debug("Resize viewport ({}, {}): {}", removed_swapchain->image_index, frame_id_, viewport->ID);
     if (removed_swapchain) {
         swapchains = std::move(new_swapchains);
         resource_disposal_.dispose_swapchain(removed_swapchain, removed_swapchain->surface);
@@ -1613,6 +1613,7 @@ void RendererVK::resize_viewport(ImGuiViewport* viewport, ImVec2 vec) {
     vkDeviceWaitIdle(device_);
     create_or_recreate_swapchain(framebuffer->parent_swapchain);
     framebuffer->parent_swapchain->acquire(device_);
+    Log::debug("Resize viewport ({}, {}): {}", framebuffer->parent_swapchain->image_index, frame_id_, viewport->ID);
     // init_swapchain_();
 }
 
@@ -1622,7 +1623,7 @@ void RendererVK::present() {
         swapchain_present.push_back(swapchain->swapchain);
         sc_image_index_present.push_back(swapchain->image_index);
     }
-    swapchain_results.resize(swapchain_present.size());
+    swapchain_results.resize(swapchains.size());
 
     VkPresentInfoKHR present_info {
         .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
@@ -1754,6 +1755,7 @@ bool RendererVK::create_or_recreate_swapchain(SwapchainVK* swapchain) {
     swapchain->swapchain = vk_swapchain;
     swapchain->num_sync = sync_count_;
     swapchain->sync_id = 0;
+    swapchain->image_index = 0;
     swapchain->fb.parent_swapchain = swapchain;
     swapchain->fb.window_framebuffer = true;
     swapchain->fb.num_buffers = 2;
@@ -1892,15 +1894,17 @@ vk_create_pipeline_layout(VkDevice device, uint32_t push_constant_size,
         VK_CHECK(vkCreateDescriptorSetLayout(device, &set_layout_info, nullptr, &ret.set_layout[1]));
     }
 
+    VkPushConstantRange push_constant_range {
+        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+        .size = push_constant_size,
+    };
+
     VkPipelineLayoutCreateInfo pipeline_layout {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .setLayoutCount = ds_bindings1.size() > 0 ? 2u : 1u,
         .pSetLayouts = ret.set_layout,
         .pushConstantRangeCount = 1,
-        .pPushConstantRanges = ptr_of(VkPushConstantRange {
-            .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-            .size = push_constant_size,
-        }),
+        .pPushConstantRanges = &push_constant_range,
     };
 
     VK_CHECK(vkCreatePipelineLayout(device, &pipeline_layout, nullptr, &ret.layout));
@@ -2076,40 +2080,14 @@ VkPipeline RendererVK::create_pipeline(const char* vs, const char* fs, VkPipelin
         .stageCount = 2,
         .pStages = shader_stages,
         .pVertexInputState = vertex_input ? vertex_input : &empty_vertex_input,
-        .pInputAssemblyState = ptr_of<VkPipelineInputAssemblyStateCreateInfo>({
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-            .topology = primitive_topology,
-        }),
+        .pInputAssemblyState = &input_assembly,
         .pTessellationState = {},
-        .pViewportState = ptr_of<VkPipelineViewportStateCreateInfo>({
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-            .viewportCount = 1,
-            .scissorCount = 1,
-        }),
-        .pRasterizationState = ptr_of<VkPipelineRasterizationStateCreateInfo>({
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-            .depthClampEnable = VK_FALSE,
-            .rasterizerDiscardEnable = VK_FALSE,
-            .polygonMode = VK_POLYGON_MODE_FILL,
-            .cullMode = VK_CULL_MODE_NONE,
-            .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
-            .lineWidth = 1.0f,
-        }),
-        .pMultisampleState = ptr_of<VkPipelineMultisampleStateCreateInfo>({
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-            .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
-        }),
+        .pViewportState = &viewport,
+        .pRasterizationState = &rasterization,
+        .pMultisampleState = &multisample,
         .pDepthStencilState = {},
-        .pColorBlendState = ptr_of<VkPipelineColorBlendStateCreateInfo>({
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-            .attachmentCount = 1,
-            .pAttachments = &color_attachment,
-        }),
-        .pDynamicState = ptr_of<VkPipelineDynamicStateCreateInfo>({
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
-            .dynamicStateCount = IM_ARRAYSIZE(dynamic_states),
-            .pDynamicStates = dynamic_states,
-        }),
+        .pColorBlendState = &blend,
+        .pDynamicState = &dynamic_state,
         .layout = layout,
         .renderPass = fb_render_pass_,
         .subpass = 0,

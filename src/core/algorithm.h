@@ -6,11 +6,6 @@
 
 namespace wb {
 
-template <typename T>
-constexpr const T* ptr_of(const T&& v) noexcept {
-    return __builtin_addressof(v);
-}
-
 template <typename T, typename Tcmp, typename... Args>
 inline bool any_of(T value, Tcmp cmp, Args... cmp_args) noexcept {
     return value == cmp || ((value == cmp_args) || ...);
