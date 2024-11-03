@@ -19,13 +19,6 @@ enum class SliderScale {
     Logarithm
 };
 
-struct KnobFlags {
-    enum {
-        NoArc,
-        NoPointer,
-    };
-};
-
 struct SliderProperties {
     SliderScale scale = SliderScale::Linear;
     SliderGrabShape grab_shape = SliderGrabShape::Circle;
@@ -312,55 +305,64 @@ static bool knob(const KnobProperties& props, const char* str_id, const ImVec2& 
     const ImVec2 center = pos + size * ImVec2(0.5f, 0.5f);
     ImDrawList* dl = window->DrawList;
 
-    if (props.body_size < 1.0f) {
+    if (props.body_size < 1.0f && (props.arc_bg_color != 0 || props.arc_color != 0)) {
         const float min_angle = half_pi + props.min_angle;
         const float max_angle = half_pi + props.max_angle;
         const bool partial_arc = arc_len < (float)two_pi;
 
         // Draw arc background
-        if (partial_arc) {
-            dl->PathLineTo(center);
-            dl->PathArcTo(center, radius, min_angle, max_angle);
-            dl->PathFillConcave(props.arc_bg_color);
-        } else {
-            dl->AddCircleFilled(center, radius, props.arc_bg_color);
+        if (props.arc_bg_color != 0) {
+            if (partial_arc) {
+                dl->PathLineTo(center);
+                dl->PathArcTo(center, radius, min_angle, max_angle);
+                dl->PathFillConcave(props.arc_bg_color);
+            } else {
+                dl->AddCircleFilled(center, radius, props.arc_bg_color);
+            }
         }
 
         // Draw indicator arc
-        if (props.bipolar) {
-            float normalized_default_value = (float)range.plain_to_normalized(default_value);
-            if (!math::near_equal((float)current_value, normalized_default_value)) {
-                float center_angle = math::lerp(normalized_default_value, props.min_angle, props.max_angle) + half_pi;
-                float current_angle = angle;
-                if (current_value < normalized_default_value)
-                    std::swap(current_angle, center_angle);
-                float indicator_len = current_angle - center_angle;
-                int segment_count = (int)math::round(indicator_len * radius);
-                dl->PathLineTo(center);
-                dl->PathArcTo(center, radius, center_angle, current_angle, segment_count);
-                dl->PathFillConcave(props.arc_color);
-            }
-        } else {
-            if (current_value > 0.0) {
-                if (current_value < 1.0 || partial_arc) {
-                    float indicator_len = angle - min_angle;
+        if (props.arc_color) {
+            if (props.bipolar) {
+                float normalized_default_value = (float)range.plain_to_normalized(default_value);
+                if (!math::near_equal((float)current_value, normalized_default_value)) {
+                    float center_angle =
+                        math::lerp(normalized_default_value, props.min_angle, props.max_angle) + half_pi;
+                    float current_angle = angle;
+                    if (current_value < normalized_default_value)
+                        std::swap(current_angle, center_angle);
+                    float indicator_len = current_angle - center_angle;
                     int segment_count = (int)math::round(indicator_len * radius);
                     dl->PathLineTo(center);
-                    dl->PathArcTo(center, radius, min_angle, angle, segment_count);
+                    dl->PathArcTo(center, radius, center_angle, current_angle, segment_count);
                     dl->PathFillConcave(props.arc_color);
-                } else {
-                    dl->AddCircleFilled(center, radius, props.arc_color);
+                }
+            } else {
+                if (current_value > 0.0) {
+                    if (current_value < 1.0 || partial_arc) {
+                        float indicator_len = angle - min_angle;
+                        int segment_count = (int)math::round(indicator_len * radius);
+                        dl->PathLineTo(center);
+                        dl->PathArcTo(center, radius, min_angle, angle, segment_count);
+                        dl->PathFillConcave(props.arc_color);
+                    } else {
+                        dl->AddCircleFilled(center, radius, props.arc_color);
+                    }
                 }
             }
         }
     }
 
     // Draw body and pointer
-    const ImU32 body_color = !(hovered || held || dragging) ? props.body_color : props.body_color + 0x00101010;
-    dl->AddCircleFilled(center, body_radius, body_color);
-    draw_line_segment(dl, center + ImVec2(dir_x * min_radius, dir_y * min_radius),
-                      center + ImVec2(dir_x * max_radius, dir_y * max_radius), props.pointer_color,
-                      props.pointer_thickness);
+    if (props.body_color != 0) {
+        const ImU32 body_color = !(hovered || held || dragging) ? props.body_color : props.body_color + 0x00101010;
+        dl->AddCircleFilled(center, body_radius, body_color);
+    }
+    if (props.pointer_color != 0) {
+        draw_line_segment(dl, center + ImVec2(dir_x * min_radius, dir_y * min_radius),
+                          center + ImVec2(dir_x * max_radius, dir_y * max_radius), props.pointer_color,
+                          props.pointer_thickness);
+    }
 
     if (held) {
         static constexpr float tooltip_spacing = 6.0f;
