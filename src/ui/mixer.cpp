@@ -94,9 +94,10 @@ void GuiMixer::render() {
             g_engine.solo_track(id);
         ImGui::PopStyleVar();
 
+        ImGui::SetCursorPos(ImGui::GetCursorPos() + ImVec2(0.0f, 2.0f));
+
         const ImVec2 group_avail = ImGui::GetContentRegionAvail();
         mixer_slider.grab_size.y = (group_avail.y < 200.0f) ? 22.0f : 28.0f;
-        ImGui::SetCursorPos(ImGui::GetCursorPos() + ImVec2(0.0f, 2.0f));
         if (controls::param_slider_db(mixer_slider, "##mixer_vol", ImVec2(22.0f, group_avail.y - 6.0f), track->color,
                                       &volume, db_range)) {
             track->set_volume(volume);
