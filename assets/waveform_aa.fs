@@ -7,6 +7,6 @@ layout(location = 0) in float coverage;
 layout(location = 0) out vec4 color;
 
 void main() {
-    color = draw_cmd.color;
+    color = unpackUnorm4x8(draw_cmd.color);
     color.a *= coverage;
 }

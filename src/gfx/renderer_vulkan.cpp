@@ -107,7 +107,7 @@ struct ClipContentDrawCmdVK {
     float origin_y;
     float scale_x;
     float scale_y;
-    ImColor color;
+    uint32_t color;
     float vp_width;
     float vp_height;
     int is_min;

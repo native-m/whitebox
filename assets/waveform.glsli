@@ -2,7 +2,7 @@ layout(push_constant) uniform DrawCmd {
     vec2 origin;
     float scale_x;
     float scale_y;
-    vec4 color;
+    uint color;
     float vp_width;
     float vp_height;
     int is_min;
@@ -12,12 +12,21 @@ layout(push_constant) uniform DrawCmd {
 
 layout(set = 0, binding = 0) readonly buffer WaveformBuffer {
     uint minmax[];
-} vertex_input;
+} waveform;
 
-float lookup_value(uint pos) {
+vec2 lookup_value(uint pos) {
     if (pos < draw_cmd.sample_count) {
-        vec2 values = unpackSnorm2x16(vertex_input.minmax[pos / 2]);
-        return (pos % 2) == 0 ? values.x : values.y;
+        vec2 l = unpackSnorm2x16(waveform.minmax[pos / 2]);
+        vec2 r = unpackSnorm2x16(waveform.minmax[(pos + draw_cmd.sample_count) / 2]);
+        return (pos % 2) == 0 ? vec2(l.x, r.x) : vec2(l.y, r.y);
+    }
+    return vec2(0.0);
+}
+
+float lookup_value2(uint pos) {
+    if (pos < draw_cmd.sample_count) {
+        vec2 l = unpackSnorm2x16(waveform.minmax[pos / 2]);
+        return (pos % 2) == 0 ? l.x : l.y;
     }
     return 0.0;
 }
@@ -30,9 +39,12 @@ vec2 get_minmax_value(uint pos) {
     float max_val = -1.0;
 
     for (uint i = 0; i < scan_len; i++) {
-        float s = lookup_value(uint(sample_pos) + i);
+        float s = lookup_value2(uint(sample_pos) + i);
         min_val = min(min_val, s);
         max_val = max(max_val, s);
+        /*vec2 s = lookup_value(uint(sample_pos) + i);
+        min_val = min(min_val, min(s.x, s.y));
+        max_val = max(max_val, max(s.x, s.y));*/
     }
     
     return vec2(min_val, max_val);

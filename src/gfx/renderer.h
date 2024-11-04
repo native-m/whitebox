@@ -24,7 +24,7 @@ struct ClipContentDrawCmd {
     SamplePeaks* peaks;
     ImVec2 min_bb;
     ImVec2 max_bb;
-    ImColor color;
+    uint32_t color;
     float scale_x;
     int32_t mip_index;
     uint32_t start_idx;
