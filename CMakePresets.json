@@ -25,7 +25,7 @@
       "inherits": "windows-base",
       "cacheVariables": {
         "CMAKE_C_COMPILER": "clang.exe",
-        "CMAKE_CXX_COMPILER": "clang.exe",
+        "CMAKE_CXX_COMPILER": "clang.exe"
       },
       "condition": {
         "type": "equals",
@@ -92,6 +92,14 @@
         "microsoft.com/VisualStudioRemoteSettings/CMake/1.0": {
           "sourceDir": "$env{HOME}/.vs/$ms{projectDirName}"
         }
+      }
+    },
+    {
+      "name": "linux-release",
+      "displayName": "Linux Release",
+      "inherits": "linux-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
       }
     },
     {

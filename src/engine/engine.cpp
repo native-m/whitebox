@@ -444,6 +444,17 @@ void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
         output_buffer.mix(mixing_buffer);
     }
 
+    for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
+        float* channel = output_buffer.get_write_pointer(i);
+        for (uint32_t j = 0; j < output_buffer.n_samples; j++) {
+            if (channel[j] > 1.0) {
+                channel[j] = 1.0;
+            } else if (channel[j] < -1.0) {
+                channel[j] = -1.0;
+            }
+        }
+    }
+
     editor_lock.unlock();
 
     if (has_deleted_clips.load(std::memory_order_relaxed)) {

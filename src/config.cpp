@@ -79,6 +79,8 @@ void load_settings_data() {
             std::string audio_io_type_str = audio["type"].get<std::string>();
             if (audio_io_type_str == "wasapi") {
                 g_audio_io_type = AudioIOType::WASAPI;
+            } else if (audio_io_type_str == "pulseaudio") {
+                g_audio_io_type = AudioIOType::PulseAudio;
             } else {
                 g_audio_io_type = default_type;
             }
@@ -158,7 +160,6 @@ void load_default_settings() {
     init_audio_io(g_audio_io_type);
     g_output_device_properties = g_audio_io->default_output_device;
     g_input_device_properties = g_audio_io->default_input_device;
-
     g_audio_io->open_device(g_output_device_properties.id, g_input_device_properties.id);
 
     g_audio_sample_rate = g_audio_io->shared_mode_sample_rate;

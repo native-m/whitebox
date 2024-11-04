@@ -654,17 +654,6 @@ void AudioIOWASAPI::audio_thread_runner(AudioIOWASAPI* instance, AudioThreadPrio
     while (instance->running.load(std::memory_order_relaxed)) {
         engine->process(output_buffer, sample_rate);
 
-        for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
-            float* channel = output_buffer.get_write_pointer(i);
-            for (uint32_t j = 0; j < output_buffer.n_samples; j++) {
-                if (channel[j] > 1.0) {
-                    channel[j] = 1.0;
-                } else if (channel[j] < -1.0) {
-                    channel[j] = -1.0;
-                }
-            }
-        }
-
 #if LOG_BUFFERING
         Log::debug("Splitting buffer");
 #endif
