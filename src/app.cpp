@@ -345,9 +345,22 @@ void app_render_control_bar() {
             ImGui::Separator();
             ImGui::MenuItem("Project Info...", nullptr, &g_show_project_dialog);
             ImGui::Separator();
-            if (ImGui::MenuItem("Open VST3 plugin")) {
+            if (ImGui::MenuItem("Open VST3 plugin (folder)")) {
 #ifdef WB_PLATFORM_WINDOWS
                 if (auto folder = pick_folder_dialog()) {
+                    if (vst3_host.open_module(folder.value().string())) {
+                        if (vst3_host.init_view()) {
+                            Steinberg::ViewRect rect;
+                            vst3_host.view->getSize(&rect);
+                            add_vst3_window(vst3_host, "whitebox plugin host", rect.getWidth(), rect.getHeight());
+                        }
+                    }
+                }
+#endif
+            }
+            if (ImGui::MenuItem("Open VST3 Plugin (file)")) {
+#ifdef WB_PLATFORM_WINDOWS
+                if (auto folder = open_file_dialog({{"VST3 Plugin", "vst3"}})) {
                     if (vst3_host.open_module(folder.value().string())) {
                         if (vst3_host.init_view()) {
                             Steinberg::ViewRect rect;
