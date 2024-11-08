@@ -24,8 +24,8 @@
       "hidden": true,
       "inherits": "windows-base",
       "cacheVariables": {
-        "CMAKE_C_COMPILER": "clang.exe",
-        "CMAKE_CXX_COMPILER": "clang.exe"
+        "CMAKE_C_COMPILER": "clang-cl.exe",
+        "CMAKE_CXX_COMPILER": "clang-cl.exe"
       },
       "condition": {
         "type": "equals",
