@@ -38,10 +38,17 @@ struct BrowserItem {
         File,
     };
 
+    enum FileType {
+        Unknown,
+        Sample,
+        Midi,
+    };
+
     Type type;
+    FileType file_type;
     BrowserItem* parent;
-    std::u8string name;
     FileSize size;
+    std::u8string name;
     bool root_dir;
     bool open;
     std::optional<std::vector<BrowserItem>> dir_items;
@@ -51,8 +58,7 @@ struct BrowserItem {
         std::filesystem::path ret;
         const BrowserItem* item = this;
         while (item != nullptr) {
-            ret = (item != this) ? std::filesystem::path(item->name) / ret
-                                 : std::filesystem::path(item->name);
+            ret = (item != this) ? std::filesystem::path(item->name) / ret : std::filesystem::path(item->name);
             item = item->parent;
         }
         return root.parent_path() / ret;
@@ -65,8 +71,10 @@ struct BrowserDir {
 };
 
 struct BrowserFilePayload {
-    const std::filesystem::path* root_dir;
-    const BrowserItem* item;
+    BrowserItem::FileType type;
+    double content_length;
+    double sample_rate;
+    std::filesystem::path path;
 };
 
 struct GuiBrowser {
@@ -79,6 +87,10 @@ struct GuiBrowser {
     bool open_context_menu = false;
     std::filesystem::path context_menu_path;
     BrowserItem::Type context_menu_path_type;
+
+    BrowserItem* last_dragged_item = nullptr;
+    BrowserItem* dragging_item = nullptr;
+    BrowserFilePayload drop_payload;
 
     GuiBrowser();
     void add_directory(const std::filesystem::path& path);

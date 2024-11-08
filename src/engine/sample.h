@@ -3,11 +3,17 @@
 #include "core/audio_format.h"
 #include "engine/sample_peaks.h"
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <vector>
-#include <optional>
 
 namespace wb {
+
+struct SampleInfo {
+    uint64_t sample_count;
+    uint32_t channel_count;
+    uint32_t rate;
+};
 
 struct Sample {
     std::string name;
@@ -50,5 +56,7 @@ struct Sample {
     static std::optional<Sample> load_flac_file(const std::filesystem::path& path) noexcept;
 
     static std::optional<Sample> load_ogg_vorbis_file(const std::filesystem::path& path) noexcept;
+
+    static std::optional<SampleInfo> get_file_info(const std::filesystem::path& path) noexcept;
 };
 } // namespace wb

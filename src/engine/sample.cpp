@@ -1,6 +1,7 @@
 #include "sample.h"
 #include "core/core_math.h"
 #include "core/debug.h"
+#include "core/defer.h"
 #include "extern/dr_mp3.h"
 #include <memory>
 #include <sndfile.h>
@@ -30,9 +31,8 @@ AudioFormat from_sf_format(int sf_format) {
 }
 
 template <typename T>
-static sf_count_t deinterleave_samples(std::vector<std::byte*>& dst, const T* src,
-                                       sf_count_t num_read, sf_count_t dst_frames,
-                                       sf_count_t num_frames_written, int channels) {
+static sf_count_t deinterleave_samples(std::vector<std::byte*>& dst, const T* src, sf_count_t num_read,
+                                       sf_count_t dst_frames, sf_count_t num_frames_written, int channels) {
     for (int i = 0; i < channels; i++) {
         T* channel_data = (T*)dst[i];
         for (sf_count_t j = 0; j < num_read; j++)
@@ -58,9 +58,8 @@ Sample::~Sample() {
 }
 
 template <typename T>
-static void summarize_for_mipmaps_impl(AudioFormat sample_format, size_t sample_count,
-                                       const std::byte* sample_data, size_t chunk_count,
-                                       size_t block_count, size_t output_count, T* output_data) {
+static void summarize_for_mipmaps_impl(AudioFormat sample_format, size_t sample_count, const std::byte* sample_data,
+                                       size_t chunk_count, size_t block_count, size_t output_count, T* output_data) {
     switch (sample_format) {
         case AudioFormat::I8: {
             const int8_t* sample = (const int8_t*)sample_data;
@@ -72,10 +71,10 @@ static void summarize_for_mipmaps_impl(AudioFormat sample_format, size_t sample_
                 size_t min_idx = 0;
                 size_t max_idx = 0;
 
-                static constexpr float conv_div_min = (float)std::numeric_limits<T>::min() /
-                                                      (float)std::numeric_limits<int8_t>::min();
-                static constexpr float conv_div_max = (float)std::numeric_limits<T>::max() /
-                                                      (float)std::numeric_limits<int8_t>::max();
+                static constexpr float conv_div_min =
+                    (float)std::numeric_limits<T>::min() / (float)std::numeric_limits<int8_t>::min();
+                static constexpr float conv_div_max =
+                    (float)std::numeric_limits<T>::max() / (float)std::numeric_limits<int8_t>::max();
                 const int8_t* chunk = &sample[i * block_count];
                 for (size_t j = 0; j < chunk_length; j++) {
                     float conv = (float)chunk[j] * (chunk[j] >= 0 ? conv_div_max : conv_div_min);
@@ -111,10 +110,10 @@ static void summarize_for_mipmaps_impl(AudioFormat sample_format, size_t sample_
                 size_t min_idx = 0;
                 size_t max_idx = 0;
 
-                static constexpr float conv_div_min = (float)std::numeric_limits<T>::min() /
-                                                      (float)std::numeric_limits<int16_t>::min();
-                static constexpr float conv_div_max = (float)std::numeric_limits<T>::max() /
-                                                      (float)std::numeric_limits<int16_t>::max();
+                static constexpr float conv_div_min =
+                    (float)std::numeric_limits<T>::min() / (float)std::numeric_limits<int16_t>::min();
+                static constexpr float conv_div_max =
+                    (float)std::numeric_limits<T>::max() / (float)std::numeric_limits<int16_t>::max();
                 const int16_t* chunk = &sample[i * block_count];
                 for (size_t j = 0; j < chunk_length; j++) {
                     float conv = (float)chunk[j] * (chunk[j] >= 0 ? conv_div_max : conv_div_min);
@@ -150,10 +149,10 @@ static void summarize_for_mipmaps_impl(AudioFormat sample_format, size_t sample_
                 size_t min_idx = 0;
                 size_t max_idx = 0;
 
-                static constexpr double conv_div_min = (double)std::numeric_limits<T>::min() /
-                                                       (double)std::numeric_limits<int32_t>::min();
-                static constexpr double conv_div_max = (double)std::numeric_limits<T>::max() /
-                                                       (double)std::numeric_limits<int32_t>::max();
+                static constexpr double conv_div_min =
+                    (double)std::numeric_limits<T>::min() / (double)std::numeric_limits<int32_t>::min();
+                static constexpr double conv_div_max =
+                    (double)std::numeric_limits<T>::max() / (double)std::numeric_limits<int32_t>::max();
                 const int32_t* chunk = &sample[i * block_count];
                 for (size_t j = 0; j < chunk_length; j++) {
                     double conv = (double)chunk[j] * (chunk[j] >= 0 ? conv_div_max : conv_div_min);
@@ -191,9 +190,8 @@ static void summarize_for_mipmaps_impl(AudioFormat sample_format, size_t sample_
 
                 const float* chunk = &sample[i * block_count];
                 for (size_t j = 0; j < chunk_length; j++) {
-                    float conv =
-                        (float)chunk[j] * (chunk[j] >= 0.0f ? std::numeric_limits<T>::max()
-                                                            : -std::numeric_limits<T>::min());
+                    float conv = (float)chunk[j] *
+                                 (chunk[j] >= 0.0f ? std::numeric_limits<T>::max() : -std::numeric_limits<T>::min());
 
                     T value = (T)conv;
                     if (value < min_val) {
@@ -221,9 +219,8 @@ static void summarize_for_mipmaps_impl(AudioFormat sample_format, size_t sample_
     }
 }
 
-bool Sample::summarize_for_mipmaps(SamplePeaksPrecision precision, uint32_t channel,
-                                   uint32_t mip_level, size_t output_offset, size_t* output_count,
-                                   void* output_data) const {
+bool Sample::summarize_for_mipmaps(SamplePeaksPrecision precision, uint32_t channel, uint32_t mip_level,
+                                   size_t output_offset, size_t* output_count, void* output_data) const {
     size_t chunk_count = 1ull << mip_level;
     size_t block_count = 1ull << (mip_level - 1);
     size_t mip_data_count = count / block_count;
@@ -244,12 +241,12 @@ bool Sample::summarize_for_mipmaps(SamplePeaksPrecision precision, uint32_t chan
 
     switch (precision) {
         case SamplePeaksPrecision::Low:
-            summarize_for_mipmaps_impl(format, count, sample, chunk_count, block_count,
-                                       mip_data_count, (int8_t*)output_data + output_offset);
+            summarize_for_mipmaps_impl(format, count, sample, chunk_count, block_count, mip_data_count,
+                                       (int8_t*)output_data + output_offset);
             break;
         case SamplePeaksPrecision::High:
-            summarize_for_mipmaps_impl(format, count, sample, chunk_count, block_count,
-                                       mip_data_count, (int16_t*)output_data + output_offset);
+            summarize_for_mipmaps_impl(format, count, sample, chunk_count, block_count, mip_data_count,
+                                       (int16_t*)output_data + output_offset);
             break;
     }
 
@@ -305,22 +302,22 @@ std::optional<Sample> Sample::load_file(const std::filesystem::path& path) noexc
         case AudioFormat::I16: {
             int16_t* buffer = (int16_t*)decode_buffer;
             while ((num_frames_read = sf_readf_short(file, buffer, buffer_len_per_channel)))
-                num_frames_written = deinterleave_samples(
-                    data, buffer, num_frames_read, info.frames, num_frames_written, info.channels);
+                num_frames_written =
+                    deinterleave_samples(data, buffer, num_frames_read, info.frames, num_frames_written, info.channels);
             break;
         }
         case AudioFormat::I32: {
             int32_t* buffer = (int32_t*)decode_buffer;
             while ((num_frames_read = sf_readf_int(file, buffer, buffer_len_per_channel)))
-                num_frames_written = deinterleave_samples(
-                    data, buffer, num_frames_read, info.frames, num_frames_written, info.channels);
+                num_frames_written =
+                    deinterleave_samples(data, buffer, num_frames_read, info.frames, num_frames_written, info.channels);
             break;
         }
         case AudioFormat::F32: {
             float* buffer = (float*)decode_buffer;
             while ((num_frames_read = sf_readf_float(file, buffer, buffer_len_per_channel)))
-                num_frames_written = deinterleave_samples(
-                    data, buffer, num_frames_read, info.frames, num_frames_written, info.channels);
+                num_frames_written =
+                    deinterleave_samples(data, buffer, num_frames_read, info.frames, num_frames_written, info.channels);
             break;
         }
         case AudioFormat::F64:
@@ -347,12 +344,10 @@ std::optional<Sample> Sample::load_file(const std::filesystem::path& path) noexc
 }
 
 std::optional<Sample> Sample::load_compressed_file(const std::filesystem::path& path) noexcept {
-    if (auto mp3 = load_mp3_file(path)) {
+    if (auto mp3 = load_mp3_file(path))
         return mp3;
-    }
-    if (auto ogv = load_ogg_vorbis_file(path)) {
+    if (auto ogv = load_ogg_vorbis_file(path))
         return ogv;
-    }
     return {};
 }
 
@@ -366,8 +361,7 @@ std::optional<Sample> Sample::load_mp3_file(const std::filesystem::path& path) n
     }
 
     uint64_t buffer_len_per_channel = 1024;
-    float* decode_buffer =
-        (float*)std::malloc(buffer_len_per_channel * mp3_file.channels * sizeof(float));
+    float* decode_buffer = (float*)std::malloc(buffer_len_per_channel * mp3_file.channels * sizeof(float));
     if (!decode_buffer) {
         drmp3_uninit(&mp3_file);
         return {};
@@ -391,14 +385,12 @@ std::optional<Sample> Sample::load_mp3_file(const std::filesystem::path& path) n
     uint64_t num_frames_read = 0;
     sf_count_t num_frames_written = 0;
     while (true) {
-        num_frames_read =
-            drmp3_read_pcm_frames_f32(&mp3_file, buffer_len_per_channel, decode_buffer);
+        num_frames_read = drmp3_read_pcm_frames_f32(&mp3_file, buffer_len_per_channel, decode_buffer);
         if (num_frames_read == 0) {
             break;
         }
-        num_frames_written =
-            deinterleave_samples(channel_samples, decode_buffer, num_frames_read, total_frame_count,
-                                 num_frames_written, mp3_file.channels);
+        num_frames_written = deinterleave_samples(channel_samples, decode_buffer, num_frames_read, total_frame_count,
+                                                  num_frames_written, mp3_file.channels);
     }
 
     drmp3_uninit(&mp3_file);
@@ -451,8 +443,7 @@ std::optional<Sample> Sample::load_ogg_vorbis_file(const std::filesystem::path& 
     int current_bitstream = 0;
     float** decode_channels = nullptr;
     while (true) {
-        int ret = ov_read_float(&vf, &decode_channels, buffer_len_per_channel,
-                          &current_bitstream);
+        int ret = ov_read_float(&vf, &decode_channels, buffer_len_per_channel, &current_bitstream);
         if (ret == 0) {
             break;
         } else if (ret < 0) {
@@ -480,6 +471,42 @@ std::optional<Sample> Sample::load_ogg_vorbis_file(const std::filesystem::path& 
     ov_clear(&vf);
 
     return ret;
+}
+
+std::optional<SampleInfo> Sample::get_file_info(const std::filesystem::path& path) noexcept {
+    SF_INFO sf_info {};
+    std::string str_path = path.generic_string();
+    SNDFILE* file = sf_open(str_path.c_str(), SFM_READ, &sf_info);
+    if (file) {
+        sf_close(file);
+        return SampleInfo {
+            .sample_count = (uint64_t)sf_info.frames,
+            .channel_count = (uint32_t)sf_info.channels,
+            .rate = (uint32_t)sf_info.samplerate,
+        };
+    }
+
+    drmp3 mp3 {};
+    if (drmp3_init_file(&mp3, str_path.c_str(), nullptr)) {
+        defer(drmp3_uninit(&mp3));
+        return SampleInfo {
+            .sample_count = drmp3_get_pcm_frame_count(&mp3),
+            .channel_count = mp3.channels,
+            .rate = mp3.sampleRate,
+        };
+    }
+
+    OggVorbis_File vf;
+    if (ov_fopen(path.generic_string().c_str(), &vf) == 0) {
+        defer(ov_clear(&vf));
+        return SampleInfo {
+            .sample_count = (uint64_t)ov_pcm_total(&vf, -1),
+            .channel_count = (uint32_t)vf.vi->channels,
+            .rate = (uint32_t)vf.vi->rate,
+        };
+    }
+
+    return {};
 }
 
 } // namespace wb

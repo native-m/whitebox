@@ -85,9 +85,9 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
                 const double mult = std::pow(4.0, (double)index - 1.0);
                 const double mip_scale =
                     std::pow(4.0, 2.0 * (mip_index - (double)index)) * 8.0 * mult; // Index -> Mip Scale
-                // double mip_index = std::log(scale_x * 0.5) * log_base4; //
-                // Scale -> Index double mip_scale = std::pow(4.0, (mip_index -
-                // (double)index)) * 2.0; // Index -> Mip Scale
+                const double mip_div = math::round(scale_x / mip_scale);
+                // double mip_index = std::log(scale_x * 0.5) * log_base4; // Scale -> Index
+                // double mip_scale = std::pow(4.0, (mip_index - (double)index)) * 2.0; // Index -> Mip Scale
 
                 const double waveform_start = start_offset * inv_scale_x;
                 const double waveform_len = ((double)asset->sample_instance.count - start_offset) * inv_scale_x;
@@ -98,6 +98,9 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
                     math::min(math::min(rel_max_x, rel_min_x + waveform_len), (double)(timeline_width + 2.0));
                 const double draw_count = math::max(max_pos_x - min_pos_x, 0.0);
                 const double start_idx = math::max(-rel_min_x, 0.0) + waveform_start;
+
+                /*Log::debug("{} {} {} {} {}", sample_peaks->sample_count / (size_t)mip_div, mip_div, index,
+                           math::round(start_offset / mip_div), mip_scale);*/
 
                 if (draw_count) {
                     clip_content_cmds.push_back({
@@ -672,13 +675,13 @@ void GuiTimeline::render_track_lanes() {
     }
 
     bool dragging_file = false;
-    BrowserFilePayload item_drop {};
+    bool item_dropped = false;
+    BrowserFilePayload* drop_payload_data {};
     if (ImGui::BeginDragDropTarget()) {
-        constexpr ImGuiDragDropFlags drag_drop_flags = ImGuiDragDropFlags_AcceptPeekOnly;
-        if (ImGui::AcceptDragDropPayload("WB_FILEDROP", drag_drop_flags)) {
-            auto drop_payload = ImGui::AcceptDragDropPayload("WB_FILEDROP", ImGuiDragDropFlags_AcceptNoDrawDefaultRect);
-            if (drop_payload)
-                std::memcpy(&item_drop, drop_payload->Data, drop_payload->DataSize);
+        auto payload = ImGui::GetDragDropPayload();
+        if (payload->IsDataType("WB_FILEDROP")) {
+            item_dropped = ImGui::AcceptDragDropPayload("WB_FILEDROP", ImGuiDragDropFlags_AcceptNoDrawDefaultRect);
+            std::memcpy(&drop_payload_data, payload->Data, payload->DataSize);
             dragging_file = true;
         }
         ImGui::EndDragDropTarget();
@@ -1004,19 +1007,25 @@ void GuiTimeline::render_track_lanes() {
         // Handle file drag & drop
         if (hovering_track_rect && dragging_file) {
             // Highlight drop target
-            float highlight_pos = (float)mouse_at_gridline; // Snap to grid
-            layer3_draw_list->AddRectFilled(
-                ImVec2(timeline_scroll_offset_x_f32 + highlight_pos * (float)clip_scale, track_pos_y),
-                ImVec2(timeline_scroll_offset_x_f32 + (highlight_pos + 1.0f) * (float)clip_scale, track_pos_y + height),
-                ImGui::GetColorU32(ImGuiCol_Border));
+            static constexpr uint32_t highlight_color = 0x9F555555;
+            double highlight_pos = mouse_at_gridline; // Snap to grid
+            double length =
+                drop_payload_data->type == BrowserItem::Sample
+                    ? samples_to_beat(drop_payload_data->content_length, drop_payload_data->sample_rate, beat_duration)
+                    : 1.0;
+            double min_pos = highlight_pos * clip_scale;
+            double max_pos = (highlight_pos + length) * clip_scale;
+
+            layer3_draw_list->AddRectFilled(ImVec2(timeline_scroll_offset_x_f32 + (float)min_pos, track_pos_y),
+                                            ImVec2(timeline_scroll_offset_x_f32 + (float)max_pos, track_pos_y + height),
+                                            highlight_color);
 
             // We have file dropped
-            if (item_drop.item) {
-                std::filesystem::path file_path = item_drop.item->get_file_path(*item_drop.root_dir);
+            if (item_dropped) {
                 g_cmd_manager.execute("Add clip from file", ClipAddFromFileCmd {
                                                                 .track_id = i,
                                                                 .cursor_pos = mouse_at_gridline,
-                                                                .file = std::move(file_path),
+                                                                .file = std::move(drop_payload_data->path),
                                                             });
                 Log::info("Dropped at: {}", mouse_at_gridline);
                 force_redraw = true;
@@ -1125,7 +1134,7 @@ void GuiTimeline::render_track_lanes() {
                 track_pos_y += track->height + track_separator_height;
             }
 
-            static const ImU32 selection_range_fill = ImColor(28, 150, 237, 64);
+            static const ImU32 selection_range_fill = ImColor(28, 150, 237, 78);
             static const ImU32 selection_range_border = ImColor(28, 150, 237, 127);
             double min_time = math::round(target_sel_range.min * clip_scale);
             double max_time = math::round(target_sel_range.max * clip_scale);
@@ -1274,7 +1283,7 @@ void GuiTimeline::render_track_lanes() {
 
     clip_context_menu();
 
-    if (item_drop.item) {
+    if (item_dropped) {
         recalculate_timeline_length();
     }
 

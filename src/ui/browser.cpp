@@ -2,12 +2,24 @@
 #include "controls.h"
 #include "core/algorithm.h"
 #include "core/fs.h"
+#include "engine/sample.h"
 #include "file_dropper.h"
 #include <nfd.hpp>
 
 namespace fs = std::filesystem;
 
 namespace wb {
+
+static std::pair<double, double> get_item_content_info(const std::filesystem::path& path) {
+    if (auto length = Sample::get_file_info(path)) {
+        return {
+            (double)length->sample_count,
+            (double)length->rate,
+        };
+    }
+    return {};
+}
+
 GuiBrowser::GuiBrowser() {
 }
 
@@ -24,30 +36,32 @@ void GuiBrowser::add_directory(const std::filesystem::path& path) {
 }
 
 void GuiBrowser::sort_directory() {
-    std::stable_sort(directories.begin(), directories.end(),
-                     [](const DirectoryRefItem& a, const DirectoryRefItem& b) {
-                         return a.second.name < b.second.name;
-                     });
+    std::stable_sort(directories.begin(), directories.end(), [](const DirectoryRefItem& a, const DirectoryRefItem& b) {
+        return a.second.name < b.second.name;
+    });
 }
 
 void GuiBrowser::glob_path(const std::filesystem::path& path, BrowserItem& item) {
     item.dir_items.emplace();
     item.file_items.emplace();
-    for (const auto& dir_entry :
-         fs::directory_iterator(path, fs::directory_options::skip_permission_denied)) {
+    for (const auto& dir_entry : fs::directory_iterator(path, fs::directory_options::skip_permission_denied)) {
         if (dir_entry.is_directory()) {
-            BrowserItem& child_item = item.dir_items->emplace_back(
-                BrowserItem::Directory, &item, dir_entry.path().filename().generic_u8string());
+            BrowserItem& child_item =
+                item.dir_items->emplace_back(BrowserItem::Directory, BrowserItem::Unknown, &item, FileSize(),
+                                             dir_entry.path().filename().generic_u8string());
         } else if (dir_entry.is_regular_file()) {
             std::filesystem::path filename {dir_entry.path().filename()};
             std::filesystem::path ext {filename.extension()};
-            if (!any_of(ext, ".wav", ".wave", ".aiff", ".mp3", ".ogg", ".mid", ".midi", ".aifc",
-                        ".aif", ".iff", ".8svx")) {
+            BrowserItem::FileType file_type {};
+            if (any_of(ext, ".wav", ".wave", ".aiff", ".mp3", ".ogg", ".aifc", ".aif", ".iff", ".8svx")) {
+                file_type = BrowserItem::Sample;
+            } else if (any_of(ext, ".mid", ".midi")) {
+                file_type = BrowserItem::Midi;
+            } else {
                 continue;
             }
-            BrowserItem& child_item =
-                item.file_items->emplace_back(BrowserItem::File, &item, filename.generic_u8string(),
-                                              FileSize(dir_entry.file_size()));
+            BrowserItem& child_item = item.file_items->emplace_back(
+                BrowserItem::File, file_type, &item, FileSize(dir_entry.file_size()), filename.generic_u8string());
         }
     }
 }
@@ -57,13 +71,11 @@ void GuiBrowser::render_item(const std::filesystem::path& root_path, BrowserItem
     ImGui::TableSetColumnIndex(0);
 
     if (item.type == BrowserItem::Directory) {
-        constexpr ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_SpanFullWidth |
-                                             ImGuiTreeNodeFlags_FramePadding |
-                                             ImGuiTreeNodeFlags_SpanAllColumns;
+        constexpr ImGuiTreeNodeFlags flags =
+            ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_FramePadding | ImGuiTreeNodeFlags_SpanAllColumns;
         ImGui::PushID((const void*)item.name.data());
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(GImGui->Style.FramePadding.x, 2.0f));
-        bool directory_open =
-            ImGui::TreeNodeEx("##browser_dir", flags, (const char*)item.name.data());
+        bool directory_open = ImGui::TreeNodeEx("##browser_dir", flags, (const char*)item.name.data());
         ImGui::PopStyleVar();
 
         if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
@@ -95,10 +107,9 @@ void GuiBrowser::render_item(const std::filesystem::path& root_path, BrowserItem
         }
         ImGui::PopID();
     } else {
-        constexpr ImGuiTreeNodeFlags flags =
-            ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen |
-            ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_FramePadding |
-            ImGuiTreeNodeFlags_SpanAllColumns;
+        constexpr ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen |
+                                             ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_FramePadding |
+                                             ImGuiTreeNodeFlags_SpanAllColumns;
         ImGui::PushID((const void*)item.name.data());
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(GImGui->Style.FramePadding.x, 2.0f));
         ImGui::TreeNodeEx("##browser_item", flags, (const char*)item.name.data());
@@ -111,9 +122,21 @@ void GuiBrowser::render_item(const std::filesystem::path& root_path, BrowserItem
         }
 
         if (ImGui::BeginDragDropSource()) {
-            BrowserFilePayload payload {.root_dir = &root_path, .item = &item};
-            ImGui::SetDragDropPayload("WB_FILEDROP", &payload, sizeof(BrowserFilePayload),
-                                      ImGuiCond_Once);
+            dragging_item = &item;
+            if (last_dragged_item != dragging_item) {
+                last_dragged_item = dragging_item;
+                if (last_dragged_item != nullptr) {
+                    auto path = item.get_file_path(root_path);
+                    auto [length, sample_rate] = get_item_content_info(path);
+                    drop_payload.type = item.file_type;
+                    drop_payload.content_length = length;
+                    drop_payload.sample_rate = sample_rate;
+                    drop_payload.path = std::move(path);
+                }
+            }
+
+            BrowserFilePayload* payload = &drop_payload;
+            ImGui::SetDragDropPayload("WB_FILEDROP", &payload, sizeof(BrowserFilePayload*), ImGuiCond_Once);
             ImGui::Text((const char*)item.name.data());
             ImGui::EndDragDropSource();
         }
@@ -151,15 +174,16 @@ void GuiBrowser::render() {
         }
     }
 
-    static constexpr auto table_flags = ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter |
-                                        ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY;
+    dragging_item = nullptr;
+
+    static constexpr auto table_flags =
+        ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY;
     auto default_item_spacing = ImGui::GetStyle().ItemSpacing;
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(default_item_spacing.x, 0.0f));
     if (ImGui::BeginTable("content_browser", 2, table_flags)) {
         ImGui::TableSetupScrollFreeze(0, 1);
         ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_NoHide);
-        ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_WidthFixed,
-                                ImGui::GetFontSize() * 13.0f);
+        ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 13.0f);
         ImGui::TableHeadersRow();
 
         ImGui::PushStyleVar(ImGuiStyleVar_IndentSpacing, 8.0f);
@@ -170,8 +194,8 @@ void GuiBrowser::render() {
         ImGui::EndTable();
 
         if (ImGui::BeginDragDropTarget()) {
-            static constexpr auto drag_drop_flags = ImGuiDragDropFlags_AcceptBeforeDelivery |
-                                                    ImGuiDragDropFlags_AcceptNoDrawDefaultRect;
+            static constexpr auto drag_drop_flags =
+                ImGuiDragDropFlags_AcceptBeforeDelivery | ImGuiDragDropFlags_AcceptNoDrawDefaultRect;
             if (ImGui::AcceptDragDropPayload("ExternalFileDrop", drag_drop_flags)) {
                 for (const auto& item : g_file_drop)
                     add_directory(item);
