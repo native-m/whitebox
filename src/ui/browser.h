@@ -88,6 +88,7 @@ struct GuiBrowser {
     std::filesystem::path context_menu_path;
     BrowserItem::Type context_menu_path_type;
 
+    bool is_dragging_item = false;
     BrowserItem* last_dragged_item = nullptr;
     BrowserItem* dragging_item = nullptr;
     BrowserFilePayload drop_payload;

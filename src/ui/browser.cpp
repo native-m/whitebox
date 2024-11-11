@@ -123,6 +123,7 @@ void GuiBrowser::render_item(const std::filesystem::path& root_path, BrowserItem
 
         if (ImGui::BeginDragDropSource()) {
             dragging_item = &item;
+            is_dragging_item = true;
             if (last_dragged_item != dragging_item) {
                 last_dragged_item = dragging_item;
                 if (last_dragged_item != nullptr) {
@@ -174,6 +175,7 @@ void GuiBrowser::render() {
         }
     }
 
+    is_dragging_item = false;
     dragging_item = nullptr;
 
     static constexpr auto table_flags =
@@ -205,6 +207,10 @@ void GuiBrowser::render() {
         }
     }
     ImGui::PopStyleVar();
+
+    if (!is_dragging_item && last_dragged_item != nullptr) {
+        last_dragged_item = nullptr;
+    }
 
     if (open_context_menu) {
         ImGui::OpenPopup("browser_context_menu");
