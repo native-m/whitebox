@@ -21,12 +21,12 @@ inline auto abs(NumericalType auto x) {
 }
 
 template <typename T>
-inline T min(T a, T b) {
+inline constexpr T min(T a, T b) {
     return a < b ? a : b;
 }
 
 template <typename T>
-inline T max(T a, T b) {
+inline constexpr T max(T a, T b) {
     return b < a ? a : b;
 }
 

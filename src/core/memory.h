@@ -1,11 +1,15 @@
 #pragma once
 
 #include "common.h"
-#include <algorithm>
+#include "core_math.h"
 #include <cstring>
 #include <memory>
 
 namespace wb {
+    
+void* allocate_virtual(size_t size) noexcept;
+void free_virtual(void* ptr, size_t size) noexcept;
+uint32_t get_virtual_page_size() noexcept;
 
 inline void* allocate_aligned(size_t size, size_t alignment = 16) noexcept {
 #ifdef WB_PLATFORM_WINDOWS
@@ -34,11 +38,12 @@ struct PoolChunk {
 // Growable pool
 template <typename T>
 struct Pool {
-    static constexpr size_t alloc_size = std::max(sizeof(T), sizeof(PoolHeader));
-    static constexpr size_t alloc_alignment = std::max(alignof(T), sizeof(PoolHeader));
+    static constexpr size_t block_size = 65536;
+    static constexpr size_t alloc_size = math::max(sizeof(T), sizeof(PoolHeader));
+    static constexpr size_t alloc_alignment = math::max(alignof(T), sizeof(PoolHeader));
     static constexpr size_t aligned_size =
         alloc_size + (alloc_alignment - alloc_size % alloc_alignment) % alloc_alignment;
-    static constexpr size_t objects_per_block = 65536 / aligned_size;
+    static constexpr size_t objects_per_block = block_size / aligned_size;
 
     PoolHeader* first_pool = nullptr;
     PoolHeader* current_pool = nullptr;
@@ -80,9 +85,8 @@ struct Pool {
     }
 
     bool _reserve_new_block() noexcept {
-        // Allocate the pool
         // One extra storage is required for the pool header. It may waste space a bit if the object
-        // is too large.
+        // is too large. 
         std::size_t size = aligned_size * (objects_per_block + 1);
         uint8_t* pool = (uint8_t*)allocate_aligned(size, alloc_alignment);
 
