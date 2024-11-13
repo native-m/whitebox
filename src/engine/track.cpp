@@ -3,6 +3,8 @@
 #include "clip_edit.h"
 #include "core/core_math.h"
 #include "core/debug.h"
+#include "core/dsp_ops.h"
+#include "core/panning_law.h"
 #include "core/queue.h"
 #include <algorithm>
 
@@ -381,7 +383,9 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
                     event_state.current_clip_idx = (uint32_t)clips.size() - 1;
                 } else {
                     Clip* clip = clips[idx];
-                    if (idx != *clip_at_playhead || time_pos < clip->min_time || time_pos >= clip->max_time) {
+                    double min_time = math::uround(clip->min_time * ppq) * inv_ppq;
+                    double max_time = math::uround(clip->max_time * ppq) * inv_ppq;
+                    if (idx != *clip_at_playhead || time_pos < min_time || time_pos >= max_time) {
                         audio_event_buffer.push_back({
                             .type = EventType::StopSample,
                             .buffer_offset = buffer_offset,
@@ -635,12 +639,17 @@ void Track::process(AudioBuffer<float>& output_buffer, double sample_rate, bool 
                 Log::debug("Volume changed: {} {}", parameter_state.volume, math::linear_to_db(parameter_state.volume));
 #endif
                 break;
-            case TrackParameter_Pan:
+            case TrackParameter_Pan: {
                 parameter_state.pan = (float)last_value;
+                PanningCoefficient pan = calculate_panning_coefs(parameter_state.pan, PanningLaw::ConstantPower_3db);
+                parameter_state.pan_coeffs[0] = pan.left;
+                parameter_state.pan_coeffs[1] = pan.right;
 #ifdef WB_DBG_LOG_PARAMETER_UPDATE
-                Log::debug("Pan changed: {}", parameter_state.pan);
+                Log::debug("Pan changed: {} {} {}", parameter_state.pan, parameter_state.pan_coeffs[0],
+                           parameter_state.pan_coeffs[1]);
 #endif
                 break;
+            }
             case TrackParameter_Mute:
                 parameter_state.mute = last_value > 0.0 ? 1.0f : 0.0f;
 #ifdef WB_DBG_LOG_PARAMETER_UPDATE
@@ -683,7 +692,10 @@ void Track::process(AudioBuffer<float>& output_buffer, double sample_rate, bool 
 
     process_test_synth(output_buffer, sample_rate, playing);
 
+    float volume = parameter_state.mute ? 0.0f : parameter_state.volume;
     for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
+        float* buf = output_buffer.channel_buffers[i];
+        dsp::apply_gain(buf, output_buffer.n_samples, volume * parameter_state.pan_coeffs[i]);
         level_meter[i].push_samples(output_buffer, i);
     }
 
@@ -725,8 +737,6 @@ void Track::stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uin
     static constexpr double i24_pcm_normalizer = 1.0 / static_cast<double>((1 << 23) - 1);
     static constexpr double i32_pcm_normalizer = 1.0 / static_cast<double>(std::numeric_limits<int32_t>::max());
 
-    float volume = parameter_state.mute ? 0.0f : parameter_state.volume;
-
     switch (sample->format) {
         case AudioFormat::I16:
             for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
@@ -734,7 +744,7 @@ void Track::stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uin
                 auto sample_data = sample->get_read_pointer<int16_t>(i % sample->channels);
                 for (uint32_t j = 0; j < num_samples; j++) {
                     float sample = (float)sample_data[sample_offset + j] * i16_pcm_normalizer;
-                    output[j + buffer_offset] += std::clamp(sample, -1.0f, 1.0f) * volume;
+                    output[j + buffer_offset] += std::clamp(sample, -1.0f, 1.0f);
                 }
             }
             break;
@@ -744,7 +754,7 @@ void Track::stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uin
                 auto sample_data = sample->get_read_pointer<int32_t>(i % sample->channels);
                 for (uint32_t j = 0; j < num_samples; j++) {
                     double sample = (double)sample_data[sample_offset + j] * i24_pcm_normalizer;
-                    output[j + buffer_offset] += (float)std::clamp(sample, -1.0, 1.0) * volume;
+                    output[j + buffer_offset] += (float)std::clamp(sample, -1.0, 1.0);
                 }
             }
             break;
@@ -754,7 +764,7 @@ void Track::stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uin
                 auto sample_data = sample->get_read_pointer<int32_t>(i % sample->channels);
                 for (uint32_t j = 0; j < num_samples; j++) {
                     double sample = (double)sample_data[sample_offset + j] * i32_pcm_normalizer;
-                    output[j + buffer_offset] += (float)std::clamp(sample, -1.0, 1.0) * volume;
+                    output[j + buffer_offset] += (float)std::clamp(sample, -1.0, 1.0);
                 }
             }
             break;
@@ -763,7 +773,7 @@ void Track::stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uin
                 float* output = output_buffer.get_write_pointer(i);
                 auto sample_data = sample->get_read_pointer<float>(i % sample->channels);
                 for (uint32_t j = 0; j < num_samples; j++) {
-                    output[j + buffer_offset] += sample_data[sample_offset + j] * volume;
+                    output[j + buffer_offset] += sample_data[sample_offset + j];
                 }
             }
             break;
@@ -772,7 +782,7 @@ void Track::stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uin
                 float* output = output_buffer.get_write_pointer(i);
                 auto sample_data = sample->get_read_pointer<double>(i % sample->channels);
                 for (uint32_t j = 0; j < num_samples; j++) {
-                    output[j + buffer_offset] += (float)sample_data[sample_offset + j] * volume;
+                    output[j + buffer_offset] += (float)sample_data[sample_offset + j];
                 }
             }
             break;

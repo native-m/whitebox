@@ -51,6 +51,7 @@ set(WB_SOURCES
     "src/core/debug.cpp"
     "src/core/debug.h"
     "src/core/defer.h"
+    "src/core/dsp_ops.h"
     "src/core/fs.cpp"
     "src/core/fs.h"
     "src/core/fs_win32.cpp"

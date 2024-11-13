@@ -123,9 +123,10 @@ struct TrackEventState {
 };
 
 struct TrackParameterState {
-    float volume_db; // UI-part only
+    float volume_db; // UI only
     float volume;
     float pan;
+    float pan_coeffs[2]; // Audio only
     bool mute;
     bool solo; // UI only
 };
