@@ -1,6 +1,7 @@
 #include "env_editor.h"
-#include "core/debug.h"
+#include "core/algorithm.h"
 #include "core/core_math.h"
+#include "core/debug.h"
 #include <imgui_internal.h>
 
 namespace wb {
@@ -31,8 +32,8 @@ float dist_point_line(const ImVec2& a, const ImVec2& b, const ImVec2& p) {
     return num / den;
 }
 
-void subdivide_curve(ImDrawList* draw_list, const ImVec2& offset, float left, float middle,
-                     float right, float max_x, float max_y) {
+void subdivide_curve(ImDrawList* draw_list, const ImVec2& offset, float left, float middle, float right, float max_x,
+                     float max_y) {
     constexpr float p = 4.0f;
     constexpr float tolerance = 0.1f;
 
@@ -41,8 +42,7 @@ void subdivide_curve(ImDrawList* draw_list, const ImVec2& offset, float left, fl
     float middle_y = math::exponential_ease(middle * inv_max_x, p) * max_y;
     float right_y = math::exponential_ease(right * inv_max_x, p) * max_y;
 
-    if (dist_point_line(ImVec2(left, left_y), ImVec2(middle, middle_y), ImVec2(right, right_y)) <
-        tolerance) {
+    if (dist_point_line(ImVec2(left, left_y), ImVec2(middle, middle_y), ImVec2(right, right_y)) < tolerance) {
         draw_list->PathLineTo(offset + ImVec2(middle, middle_y));
     } else {
         subdivide_curve(draw_list, offset, left, (left + middle) * 0.5f, middle, max_x, max_y);
@@ -50,19 +50,20 @@ void subdivide_curve(ImDrawList* draw_list, const ImVec2& offset, float left, fl
     }
 };
 
-void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, double scroll_pos,
-                double scale) {
+void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, double scroll_pos, double scale) {
     ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
     ImVec2 global_mouse_pos = ImGui::GetMousePos();
     ImVec2 mouse_pos = global_mouse_pos - cursor_pos;
     size_t num_points = state.points.size();
     ImVector<EnvelopePoint>& points = state.points;
 
-    ImGui::InvisibleButton(str_id, size);
+    ImGui::InvisibleButton(str_id, size, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight);
+    bool hovered = ImGui::IsItemHovered();
     bool mouse_down = ImGui::IsItemActive();
-    bool activated = ImGui::IsItemActivated();
-    bool deactivated = ImGui::IsItemDeactivated();
+    bool left_click = ImGui::IsItemClicked(ImGuiMouseButton_Left);
     bool right_click = ImGui::IsItemClicked(ImGuiMouseButton_Right);
+    bool deactivated = ImGui::IsItemDeactivated();
+    bool right_mouse_down = ImGui::IsMouseDown(ImGuiMouseButton_Right);
     float end_y = cursor_pos.y + size.y;
     float view_height = size.y;
 
@@ -70,6 +71,8 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
         if (right_click) {
             double x = (double)mouse_pos.x / scale;
             double y = 1.0 - (double)mouse_pos.y / (double)view_height;
+            state.last_click_pos = mouse_pos;
+            state.move_point = 0;
             state.add_point({
                 .point_type = EnvelopePointType::Linear,
                 .param = 0.0f,
@@ -81,6 +84,7 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
     }
 
     if (deactivated && state.move_point) {
+        Log::debug("Test");
         uint32_t move_index = state.move_point.value();
         EnvelopePoint& point = points[move_index];
         ImVec2 offset = mouse_pos - state.last_click_pos;
@@ -102,6 +106,7 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
     ImVec2 white_pixel = ImGui::GetDrawListSharedData()->TexUvWhitePixel;
     double px = points[0].x;
     double py = points[0].y;
+    int32_t hovered_point = -1;
 
     if (state.move_point && state.move_point == 0) {
         ImVec2 offset = mouse_pos - state.last_click_pos;
@@ -120,9 +125,13 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
     ImVec2 last_pos(x, y);
     float dist = ImLengthSqr(last_pos - global_mouse_pos);
 
+    if (x < global_mouse_pos.x && hovered) {
+        hovered_point = 0;
+    }
+
     if (dist <= click_dist_sq) {
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
-        if (activated) {
+        if (left_click) {
             state.move_point = 0;
             state.last_click_pos = mouse_pos;
         } else if (right_click) {
@@ -155,9 +164,13 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
         ImVec2 pos(x, y);
         float dist = ImLengthSqr(pos - global_mouse_pos);
 
+        if (x < global_mouse_pos.x && hovered) {
+            hovered_point = (int32_t)i;
+        }
+
         if (dist <= click_dist_sq) {
             ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
-            if (activated) {
+            if (left_click) {
                 state.move_point = i;
                 state.last_click_pos = mouse_pos;
             } else if (right_click) {
@@ -167,11 +180,12 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
         }
 
         draw_list->PrimReserve(6, 4);
-        draw_list->PrimQuadUV(last_pos, pos, ImVec2(pos.x, end_y), ImVec2(last_pos.x, end_y),
-                              white_pixel, white_pixel, white_pixel, white_pixel, 0x2F53A3F9);
-        draw_list->AddLine(last_pos, pos, 0xFF53A3F9, 1.5f);
+        draw_list->PrimQuadUV(last_pos, pos, ImVec2(pos.x, end_y), ImVec2(last_pos.x, end_y), white_pixel, white_pixel,
+                              white_pixel, white_pixel, 0x2F53A3F9);
+        draw_list->AddLine(last_pos, pos, 0xFF53A3F9, 1.25f);
         draw_list->AddCircleFilled(pos, 4.0f, 0xFF53A3F9);
         draw_list->AddCircle(last_pos + (pos - last_pos) * 0.5f, 4.0f, 0xFF53A3F9);
+        draw_list->AddText(pos, 0xFFFFFFFF, "");
         last_pos = pos;
     }
 
@@ -208,6 +222,8 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
     if (right_click && popup_closed) {
         double x = (double)mouse_pos.x / scale;
         double y = 1.0 - (double)mouse_pos.y / (double)view_height;
+        state.move_point = hovered_point + 1;
+        state.last_click_pos = mouse_pos;
         state.add_point({
             .point_type = EnvelopePointType::Linear,
             .param = 0.0f,
