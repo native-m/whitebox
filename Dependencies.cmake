@@ -50,7 +50,7 @@ CPMAddPackage(
 
 CPMAddPackage(
     NAME                imgui
-    VERSION             1.91.4-docking
+    VERSION             1.91.5-docking
     GITHUB_REPOSITORY   ocornut/imgui
     DOWNLOAD_ONLY       YES
 )
@@ -143,6 +143,15 @@ CPMAddPackage(
                         "BUILD_TESTING OFF"
     EXCLUDE_FROM_ALL
 )
+
+#CPMAddPackage(
+#    NAME                faad2
+#    GITHUB_REPOSITORY   knik0/faad2
+#    VERSION             2.11.1
+#    GIT_TAG             2.11.1
+#    OPTIONS             "FAAD_BUILD_CLI OFF"
+#    EXCLUDE_FROM_ALL
+#)
 
 CPMAddPackage(
     NAME                midi_parser
