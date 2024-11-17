@@ -2,6 +2,7 @@
 #include "core/core_math.h"
 #include "core/debug.h"
 #include "engine/engine.h"
+#include "platform/platform.h"
 #include <fmt/format.h>
 #include <imgui.h>
 
@@ -143,10 +144,11 @@ bool TimelineBase::render_time_ruler(double* time_value) {
     ImGui::SetCursorPosX(math::max(separator_pos, min_track_control_size) + 2.0f);
 
     double view_scale = calc_view_scale();
-    ImVec2 drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left);
     ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
+    ImVec2 drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left);
     auto size = ImVec2(ImGui::GetContentRegionAvail().x, ImGui::GetFontSize() + style.FramePadding.y * 2.0f);
     ImGui::InvisibleButton("##time_ruler_control", size);
+    bool hovered = ImGui::IsItemHovered();
 
     if (timeline_width == 0.0f) {
         return false;
@@ -165,26 +167,41 @@ bool TimelineBase::render_time_ruler(double* time_value) {
 
     // Handle zoom scrolling on ruler
     float mouse_wheel = ImGui::GetIO().MouseWheel;
-    if (ImGui::IsItemHovered() && mouse_wheel != 0.0f) {
+    if (hovered && mouse_wheel != 0.0f) {
         zoom(mouse_pos.x, cursor_pos.x, view_scale, mouse_wheel);
         view_scale = calc_view_scale();
     }
 
     // Start zoom
-    if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Middle))
+    if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Middle)) {
+        ImVec2 pos = ImGui::GetMousePos();
         zooming_on_ruler = true;
+        GImGui->ColorPickerRef.x = pos.x;
+        GImGui->ColorPickerRef.y = pos.y;
+        // Reset relative mouse state to prevent jumping
+        set_mouse_pos((int)pos.x, (int)pos.y);
+        reset_relative_mouse_state();
+        enable_relative_mouse_mode(true);
+    }
 
     if (zooming_on_ruler) {
-        auto drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Middle, 0.0f);
-        zoom(mouse_pos.x, cursor_pos.x, view_scale, drag_delta.y * 0.1f);
-        view_scale = calc_view_scale();
-        ImGui::ResetMouseDragDelta(ImGuiMouseButton_Middle);
+        // auto drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Middle, 0.0f);
+        int x, y;
+        get_relative_mouse_state(&x, &y);
+        ImGui::SetMouseCursor(ImGuiMouseCursor_Arrow);
+        if (y != 0) {
+            zoom(mouse_pos.x, cursor_pos.x, view_scale, (float)y * 0.1f);
+            view_scale = calc_view_scale();
+        }
+        // ImGui::ResetMouseDragDelta(ImGuiMouseButton_Middle);
     }
 
     // Release zoom
     if (zooming_on_ruler && !ImGui::IsMouseDown(ImGuiMouseButton_Middle)) {
         view_scale = calc_view_scale();
         zooming_on_ruler = false;
+        enable_relative_mouse_mode(false);
+        set_mouse_pos((int)GImGui->ColorPickerRef.x, (int)GImGui->ColorPickerRef.y);
     }
 
     ImFont* font = ImGui::GetFont();
