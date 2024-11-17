@@ -523,6 +523,12 @@ void GuiTimeline::track_context_menu(Track& track, int track_id) {
             ImGui::EndMenu();
         }
 
+        if (ImGui::MenuItem("Apply Track Color to Every Clip")) {
+            for (auto clip : track.clips)
+                clip->color = track.color;
+            redraw = true;
+        }
+
         if (ImGui::MenuItem("Delete")) {
             g_engine.delete_track((uint32_t)track_id);
             redraw = true;
@@ -872,9 +878,8 @@ void GuiTimeline::render_track_lanes() {
         const float track_view_min_y = offset_y - height - track_separator_height;
         const float expand_min_y = !dragging ? 0.0f : math::max(track_view_min_y - mouse_pos.y, 0.0f);
 
-        if (track_pos_y > view_max.y + expand_max_y) {
+        if (track_pos_y > view_max.y + expand_max_y)
             break;
-        }
 
         if (track_pos_y < track_view_min_y - expand_min_y) {
             track_pos_y += height + track_separator_height;
@@ -903,9 +908,8 @@ void GuiTimeline::render_track_lanes() {
             selecting_range = true;
         }
 
-        if (hovering_current_track && selecting_range) {
+        if (hovering_current_track && selecting_range)
             target_sel_range.last_track = i;
-        }
 
         const float next_pos_y = track_pos_y + height;
 
@@ -918,9 +922,8 @@ void GuiTimeline::render_track_lanes() {
         for (size_t j = 0; j < track->clips.size(); j++) {
             Clip* clip = track->clips[j];
 
-            if (has_deleted_clips && clip->is_deleted()) {
+            if (has_deleted_clips && clip->is_deleted())
                 continue;
-            }
 
             const double min_time = clip->min_time;
             const double max_time = clip->max_time;
