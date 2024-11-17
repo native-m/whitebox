@@ -5,6 +5,9 @@
 #include <imgui_internal.h>
 
 namespace wb {
+
+EnvEditorWindow g_env_window;
+
 void EnvEditorWindow::render() {
     ImGui::SetNextWindowSize(ImVec2(640.0f, 480.0f), ImGuiCond_FirstUseEver);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 1.0f));
@@ -22,8 +25,6 @@ void EnvEditorWindow::render() {
     ImGui::End();
 }
 
-EnvEditorWindow g_env_window;
-
 float dist_point_line(const ImVec2& a, const ImVec2& b, const ImVec2& p) {
     float dx = b.x - a.x;
     float dy = b.y - a.y;
@@ -32,23 +33,71 @@ float dist_point_line(const ImVec2& a, const ImVec2& b, const ImVec2& p) {
     return num / den;
 }
 
-void subdivide_curve(ImDrawList* draw_list, const ImVec2& offset, float left, float middle, float right, float max_x,
-                     float max_y) {
-    constexpr float p = 4.0f;
-    constexpr float tolerance = 0.1f;
+void subdivide_curve(ImDrawList* draw_list, ImVec2 offset, float start, float mid, float end, float width, float height,
+                     float power) {
+    constexpr float tolerance = 0.5f;
 
-    float inv_max_x = 1.0f / max_x;
-    float left_y = math::exponential_ease(left * inv_max_x, p) * max_y;
-    float middle_y = math::exponential_ease(middle * inv_max_x, p) * max_y;
-    float right_y = math::exponential_ease(right * inv_max_x, p) * max_y;
-
-    if (dist_point_line(ImVec2(left, left_y), ImVec2(middle, middle_y), ImVec2(right, right_y)) < tolerance) {
-        draw_list->PathLineTo(offset + ImVec2(middle, middle_y));
-    } else {
-        subdivide_curve(draw_list, offset, left, (left + middle) * 0.5f, middle, max_x, max_y);
-        subdivide_curve(draw_list, offset, middle, (middle + right) * 0.5f, right, max_x, max_y);
+    if (math::near_equal(start, mid)) {
+        return;
     }
-};
+
+    float inv_max_x = 1.0f / width;
+    float left_y = math::exponential_ease(start * inv_max_x, power) * height;
+    float middle_y = math::exponential_ease(mid * inv_max_x, power) * height;
+    float right_y = math::exponential_ease(end * inv_max_x, power) * height;
+
+    if (dist_point_line(ImVec2(start, left_y), ImVec2(mid, middle_y), ImVec2(end, right_y)) < tolerance) {
+        draw_list->PathLineTo(offset + ImVec2(mid, middle_y));
+    } else {
+        subdivide_curve(draw_list, offset, start, (start + mid) * 0.5f, mid, width, height, power);
+        subdivide_curve(draw_list, offset, mid, (mid + end) * 0.5f, end, width, height, power);
+    }
+}
+
+void draw_curve_area(ImDrawList* draw_list, float end_y, uint32_t col) {
+    if (draw_list->_Path.Size > 2) {
+        draw_list->PrimReserve(6 * (draw_list->_Path.Size - 1), 2 * draw_list->_Path.Size);
+
+        ImVec2 last_pos = draw_list->_Path[0];
+        uint32_t idx = draw_list->_VtxCurrentIdx;
+        ImDrawVert* vtx_write_ptr = draw_list->_VtxWritePtr;
+        ImVec2 white_pixel = ImGui::GetDrawListSharedData()->TexUvWhitePixel;
+        uint32_t* idx_write_ptr = draw_list->_IdxWritePtr;
+        vtx_write_ptr[0].pos = last_pos;
+        vtx_write_ptr[0].uv = white_pixel;
+        vtx_write_ptr[0].col = col;
+        vtx_write_ptr[1].pos.x = last_pos.x;
+        vtx_write_ptr[1].pos.y = end_y;
+        vtx_write_ptr[1].uv = white_pixel;
+        vtx_write_ptr[1].col = col;
+        vtx_write_ptr += 2;
+
+        for (uint32_t i = 1; i < draw_list->_Path.Size; i++) {
+            const ImVec2& pos = draw_list->_Path[i];
+            vtx_write_ptr[0].pos = pos;
+            vtx_write_ptr[0].uv = white_pixel;
+            vtx_write_ptr[0].col = col;
+            vtx_write_ptr[1].pos.x = pos.x;
+            vtx_write_ptr[1].pos.y = end_y;
+            vtx_write_ptr[1].uv = white_pixel;
+            vtx_write_ptr[1].col = col;
+            idx_write_ptr[0] = idx;
+            idx_write_ptr[1] = (ImDrawIdx)(idx + 1);
+            idx_write_ptr[2] = (ImDrawIdx)(idx + 3);
+            idx_write_ptr[3] = idx;
+            idx_write_ptr[4] = (ImDrawIdx)(idx + 3);
+            idx_write_ptr[5] = (ImDrawIdx)(idx + 2);
+            idx_write_ptr += 6;
+            vtx_write_ptr += 2;
+            idx += 2;
+            last_pos = pos;
+        }
+
+        draw_list->_VtxCurrentIdx = idx + 2;
+        draw_list->_VtxWritePtr = vtx_write_ptr;
+        draw_list->_IdxWritePtr = idx_write_ptr;
+    }
+}
 
 void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, double scroll_pos, double scale) {
     ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
@@ -69,13 +118,13 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
 
     if (num_points == 0) {
         if (right_click) {
-            double x = (double)mouse_pos.x / scale;
-            double y = 1.0 - (double)mouse_pos.y / (double)view_height;
+            const double x = (double)mouse_pos.x / scale;
+            const double y = 1.0 - (double)mouse_pos.y / (double)view_height;
             state.last_click_pos = mouse_pos;
             state.move_point = 0;
             state.add_point({
-                .point_type = EnvelopePointType::Linear,
-                .param = 0.0f,
+                .point_type = EnvelopePointType::ExpUnipolar,
+                .param = 4.0f,
                 .x = x,
                 .y = y,
             });
@@ -84,10 +133,9 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
     }
 
     if (deactivated && state.move_point) {
-        Log::debug("Test");
-        uint32_t move_index = state.move_point.value();
+        const ImVec2 offset = mouse_pos - state.last_click_pos;
+        const uint32_t move_index = state.move_point.value();
         EnvelopePoint& point = points[move_index];
-        ImVec2 offset = mouse_pos - state.last_click_pos;
         point.x += (double)offset.x / scale;
         point.y -= (double)offset.y / (double)view_height;
         point.x = math::max(point.x, 0.0);
@@ -101,12 +149,27 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
         state.move_point.reset();
     }
 
+    if (deactivated && state.move_control_point) {
+        const ImVec2 offset = mouse_pos - state.last_click_pos;
+        const uint32_t move_index = state.move_control_point.value();
+        const EnvelopePoint& next_point = points[move_index + 1];
+        EnvelopePoint& point = points[move_index];
+        float height = math::clamp(offset.y, -500.0f, 500.0f) / 500.0f * 60.0f;
+        if (point.y > next_point.y)
+            height = -height;
+        point.param = math::clamp(point.param + height, -30.0f, 30.0f);
+        state.move_control_point.reset();
+    }
+
+    static constexpr uint32_t fill_col = 0x2F53A3F9;
+    static constexpr uint32_t col = 0xFF53A3F9;
     constexpr float click_dist_sq = 25.0f; // 4^2
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
     ImVec2 white_pixel = ImGui::GetDrawListSharedData()->TexUvWhitePixel;
     double px = points[0].x;
     double py = points[0].y;
     int32_t hovered_point = -1;
+    bool control_point_hovered = false;
 
     if (state.move_point && state.move_point == 0) {
         ImVec2 offset = mouse_pos - state.last_click_pos;
@@ -120,15 +183,17 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
     }
 
-    float x = cursor_pos.x + (float)(px * scale);
-    float y = cursor_pos.y + (float)(1.0 - py) * view_height;
+    const float x = cursor_pos.x + (float)(px * scale);
+    const float y = cursor_pos.y + (float)(1.0 - py) * view_height;
+    EnvelopePointType last_point_type = points[0].point_type;
+    float last_param = points[0].param;
     ImVec2 last_pos(x, y);
-    float dist = ImLengthSqr(last_pos - global_mouse_pos);
 
     if (x < global_mouse_pos.x && hovered) {
         hovered_point = 0;
     }
 
+    float dist = ImLengthSqr(last_pos - global_mouse_pos);
     if (dist <= click_dist_sq) {
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
         if (left_click) {
@@ -140,10 +205,12 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
         }
     }
 
-    draw_list->AddCircleFilled(last_pos, 4.0f, 0xE553A3F9);
+    draw_list->AddCircleFilled(last_pos, 4.0f, col);
 
     for (uint32_t i = 1; i < state.points.size(); i++) {
         const EnvelopePoint& point = state.points[i];
+        const EnvelopePoint& last_point = state.points[i - 1];
+        float param = last_point.param;
         double px = point.x;
         double py = point.y;
 
@@ -159,16 +226,52 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
             ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
         }
 
-        float x = cursor_pos.x + (float)(px * scale);
-        float y = cursor_pos.y + (float)(1.0 - py) * view_height;
-        ImVec2 pos(x, y);
-        float dist = ImLengthSqr(pos - global_mouse_pos);
+        if (state.move_control_point && state.move_control_point == (i - 1)) {
+            ImVec2 offset = mouse_pos - state.last_click_pos;
+            float height = math::clamp(offset.y, -500.0f, 500.0f) / 500.0f * 60.0f;
+            if (point.y < last_point.y)
+                height = -height;
+            param = math::clamp(param + height, -30.0f, 30.0f);
+        }
+
+        const float x = cursor_pos.x + (float)(px * scale);
+        const float y = cursor_pos.y + (float)(1.0 - py) * view_height;
+        const ImVec2 pos(x, y);
 
         if (x < global_mouse_pos.x && hovered) {
             hovered_point = (int32_t)i;
         }
 
-        if (dist <= click_dist_sq) {
+        bool has_control_point = false;
+        ImVec2 control_point_pos;
+        switch (last_point_type) {
+            case EnvelopePointType::Linear: {
+                draw_list->PrimReserve(6, 4);
+                draw_list->PrimQuadUV(last_pos, pos, ImVec2(pos.x, end_y), ImVec2(last_pos.x, end_y), white_pixel,
+                                      white_pixel, white_pixel, white_pixel, fill_col);
+                draw_list->AddLine(last_pos, pos, col, 1.25f);
+                break;
+            }
+            case EnvelopePointType::ExpUnipolar: {
+                float width = pos.x - last_pos.x;
+                float height = pos.y - last_pos.y;
+                float middle_y = math::exponential_ease(0.5f, param) * height;
+                control_point_pos = last_pos + ImVec2(width * 0.5f, middle_y);
+                draw_list->PathLineTo(last_pos);
+                subdivide_curve(draw_list, last_pos, 0.0f, width * 0.5f, width, width, height, param);
+                draw_list->PathLineTo(pos);
+                draw_curve_area(draw_list, end_y, fill_col);
+                draw_list->PathStroke(0xFF53A3F9, 0, 1.5f);
+                draw_list->AddCircle(control_point_pos, 4.0f, col);
+                has_control_point = true;
+                break;
+            }
+        }
+
+        draw_list->AddCircleFilled(pos, 4.0f, col);
+
+        float dist = ImLengthSqr(pos - global_mouse_pos);
+        if (dist <= click_dist_sq && !state.move_point) {
             ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
             if (left_click) {
                 state.move_point = i;
@@ -179,20 +282,30 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
             }
         }
 
-        draw_list->PrimReserve(6, 4);
-        draw_list->PrimQuadUV(last_pos, pos, ImVec2(pos.x, end_y), ImVec2(last_pos.x, end_y), white_pixel, white_pixel,
-                              white_pixel, white_pixel, 0x2F53A3F9);
-        draw_list->AddLine(last_pos, pos, 0xFF53A3F9, 1.25f);
-        draw_list->AddCircleFilled(pos, 4.0f, 0xFF53A3F9);
-        draw_list->AddCircle(last_pos + (pos - last_pos) * 0.5f, 4.0f, 0xFF53A3F9);
-        draw_list->AddText(pos, 0xFFFFFFFF, "");
+        if (has_control_point && !state.move_control_point) {
+            float dist = ImLengthSqr(control_point_pos - global_mouse_pos);
+            if (dist <= click_dist_sq) {
+                if (left_click) {
+                    state.move_control_point = i - 1;
+                    state.last_click_pos = mouse_pos;
+                } else if (right_click) {
+                    points[i - 1].param = 0.0f;
+                }
+                control_point_hovered = true; 
+            }
+        }
+
+        // draw_list->AddCircle(last_pos + (pos - last_pos) * 0.5f, 4.0f, col);
+        last_point_type = point.point_type;
+        last_param = point.param;
         last_pos = pos;
     }
 
-    draw_list->PathLineTo(cursor_pos);
+    /*draw_list->PathLineTo(cursor_pos);
     subdivide_curve(draw_list, cursor_pos, 0.0f, 100.0f, 200.0f, 200.0f, 200.0f);
     draw_list->PathLineTo(cursor_pos + ImVec2(200.0f, 200.0f));
-    draw_list->PathStroke(0xFF53A3F9, 0, 1.5f);
+    draw_curve_area(draw_list, end_y, fill_col);
+    draw_list->PathStroke(0xFF53A3F9, 0, 1.5f);*/
 
     bool popup_closed = true;
     if (ImGui::BeginPopup("env_editor_popup")) {
@@ -219,14 +332,14 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
         ImGui::EndPopup();
     }
 
-    if (right_click && popup_closed) {
+    if (right_click && popup_closed && !control_point_hovered) {
         double x = (double)mouse_pos.x / scale;
         double y = 1.0 - (double)mouse_pos.y / (double)view_height;
         state.move_point = hovered_point + 1;
         state.last_click_pos = mouse_pos;
         state.add_point({
-            .point_type = EnvelopePointType::Linear,
-            .param = 0.0f,
+            .point_type = EnvelopePointType::ExpUnipolar,
+            .param = 4.0f,
             .x = x,
             .y = y,
         });

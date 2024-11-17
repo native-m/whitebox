@@ -25,9 +25,10 @@ struct EnvelopePoint {
 
 struct EnvelopeState {
     ImVector<EnvelopePoint> points;
-
     ImVec2 last_click_pos;
+    bool holding_point = false;
     std::optional<uint32_t> move_point;
+    std::optional<uint32_t> move_control_point;
     std::optional<uint32_t> context_menu_point;
 
     void add_point(const EnvelopePoint& point) {
