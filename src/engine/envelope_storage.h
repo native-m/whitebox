@@ -9,16 +9,16 @@ namespace wb {
 
 enum class EnvelopePointType {
     Linear,
-    ExpUnipolar,
-    ExpBipolar,
-    PowUnipolar,
-    PowBipolar,
+    ExpSingle,
+    ExpDual,
+    PowSingle,
+    PowDual,
     Step,
 };
 
 struct EnvelopePoint {
     EnvelopePointType point_type;
-    float param;
+    float tension;
     double x;
     double y;
 };
@@ -26,9 +26,10 @@ struct EnvelopePoint {
 struct EnvelopeState {
     ImVector<EnvelopePoint> points;
     ImVec2 last_click_pos;
+    float last_tension_value = 1.0f;
     bool holding_point = false;
-    std::optional<uint32_t> move_point;
     std::optional<uint32_t> move_control_point;
+    std::optional<uint32_t> move_tension_point;
     std::optional<uint32_t> context_menu_point;
 
     void add_point(const EnvelopePoint& point) {
