@@ -189,7 +189,7 @@ if (imgui_ADDED)
 
     add_library(imgui STATIC ${IMGUI_SRC_FILES})
     target_include_directories(imgui PUBLIC "${imgui_SOURCE_DIR}")
-    target_compile_definitions(imgui PUBLIC IMGUI_DEFINE_MATH_OPERATORS)
+    target_compile_definitions(imgui PUBLIC IMGUI_DEFINE_MATH_OPERATORS ImDrawIdx=ImU32)
     target_precompile_headers(imgui
         PUBLIC
             "$<$<COMPILE_LANGUAGE:CXX>:${imgui_SOURCE_DIR}/imgui.h>"
