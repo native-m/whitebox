@@ -41,21 +41,27 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
                                       : text_color;
 
     const bool is_active = clip->is_active();
-    const float min_x2 = (float)math::round(min_x);
-    const float max_x2 = (float)math::round(max_x);
+    const ImVec4& rect = layer1_draw_list->_ClipRectStack.back();
+    const float min_pos_x = (float)math::round(min_x);
+    const float max_pos_x = (float)math::round(max_x);
+    const float min_pos_clamped_x = math::max(min_pos_x, rect.x - 3.0f);
+    const float max_pos_clamped_x = math::min(max_pos_x, rect.z + 3.0f);
     const float font_size = font->FontSize;
     const float clip_title_max_y = track_pos_y + font_size + 4.0f;
-    const ImVec2 clip_title_min_bb(min_x2, track_pos_y);
-    const ImVec2 clip_title_max_bb(max_x2, clip_title_max_y);
-    const ImVec2 clip_content_min(min_x2, clip_title_max_y);
-    const ImVec2 clip_content_max(max_x2, track_pos_y + track_height);
+    const ImVec2 clip_title_min_bb(min_pos_clamped_x, track_pos_y);
+    const ImVec2 clip_title_max_bb(max_pos_clamped_x, clip_title_max_y);
+    const ImVec2 clip_content_min(min_pos_clamped_x, clip_title_max_y);
+    const ImVec2 clip_content_max(max_pos_clamped_x, track_pos_y + track_height);
     const ImColor color = is_active ? clip->color : color_adjust_alpha(clip->color, 0.75f);
-    const ImColor bg_color = color_adjust_alpha(color, color.Value.w * 0.65f);
+    const ImU32 bg_color = color_premul_alpha(color_adjust_alpha(color, color.Value.w * 0.72f));
     const ImU32 content_color =
         is_active ? color_brighten(color, 1.45f) : color_premul_alpha(color_brighten(color, 1.45f));
 
     // Draw clip background and its header
-    layer1_draw_list->AddRectFilled(clip_title_min_bb, clip_content_max, color_premul_alpha(bg_color), 2.5f);
+    layer1_draw_list->AddRectFilled(clip_title_min_bb, clip_title_max_bb, bg_color - 0x00070707U, 2.5f,
+                                    ImDrawFlags_RoundCornersTopLeft | ImDrawFlags_RoundCornersTopRight);
+    layer1_draw_list->AddRectFilled(clip_content_min, clip_content_max, bg_color, 2.5f,
+                                    ImDrawFlags_RoundCornersBottomLeft | ImDrawFlags_RoundCornersBottomRight);
     layer1_draw_list->AddRect(clip_title_min_bb, clip_content_max, color_adjust_alpha(clip->color, 0.5f), 2.5f);
 
     if (!is_active) {
@@ -133,8 +139,8 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
             const float note_height = content_height / (float)note_range;
             float max_note_size = math::min(note_height, max_note_size_px);
             const float min_note_size = math::max(max_note_size, min_note_size_px);
-            const float min_view = math::max(min_x2, min_draw_x);
-            const float max_view = math::min(max_x2, min_draw_x + timeline_width);
+            const float min_view = math::max(min_pos_clamped_x, min_draw_x);
+            const float max_view = math::min(max_pos_clamped_x, min_draw_x + timeline_width);
             const float offset_y = clip_content_min.y + ((content_height * 0.5f) - (max_note_size * note_range * 0.5f));
 
             // Fix note overflow
@@ -193,10 +199,12 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
     // clip_content_max, content_color, 1.5f);
 
     if (clip->hover_state == ClipHover::All) {
-        layer2_draw_list->AddCircle(clip_content_min, 6.0f, border_color, 0, 3.5f);
-        layer2_draw_list->AddCircleFilled(clip_content_min, 6.0f, content_color);
-        layer2_draw_list->AddCircle(ImVec2(clip_content_max.x, clip_content_min.y), 6.0f, border_color, 0, 3.5f);
-        layer2_draw_list->AddCircleFilled(ImVec2(clip_content_max.x, clip_content_min.y), 6.0f, content_color);
+        const ImVec2 start_fade_pos(min_pos_x, clip_title_max_y);
+        const ImVec2 end_fade_pos(max_pos_x, clip_content_min.y);
+        layer2_draw_list->AddCircle(start_fade_pos, 6.0f, border_color, 0, 3.5f);
+        layer2_draw_list->AddCircleFilled(start_fade_pos, 6.0f, content_color);
+        layer2_draw_list->AddCircle(end_fade_pos, 6.0f, border_color, 0, 3.5f);
+        layer2_draw_list->AddCircleFilled(end_fade_pos, 6.0f, content_color);
     }
 
     layer2_draw_list->PopClipRect();
@@ -204,15 +212,15 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
     if (clip->hover_state != ClipHover::None) {
         switch (clip->hover_state) {
             case ClipHover::LeftHandle: {
-                ImVec2 min_bb(min_x2, track_pos_y);
-                ImVec2 max_bb(max_x2, track_pos_y + track_height);
+                ImVec2 min_bb(min_pos_x, track_pos_y);
+                ImVec2 max_bb(max_pos_x, track_pos_y + track_height);
                 layer2_draw_list->AddLine(ImVec2(min_bb.x + 1.0f, min_bb.y), ImVec2(min_bb.x + 1.0f, max_bb.y),
                                           ImGui::GetColorU32(ImGuiCol_ButtonActive), 3.0f);
                 break;
             }
             case ClipHover::RightHandle: {
-                ImVec2 min_bb(min_x2, track_pos_y);
-                ImVec2 max_bb(max_x2, track_pos_y + track_height);
+                ImVec2 min_bb(min_pos_x, track_pos_y);
+                ImVec2 max_bb(max_pos_x, track_pos_y + track_height);
                 layer2_draw_list->AddLine(ImVec2(max_bb.x - 2.0f, min_bb.y), ImVec2(max_bb.x - 2.0f, max_bb.y),
                                           ImGui::GetColorU32(ImGuiCol_ButtonActive), 3.0f);
                 break;
