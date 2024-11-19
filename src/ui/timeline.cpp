@@ -507,7 +507,7 @@ void GuiTimeline::track_context_menu(Track& track, int track_id) {
             ImGui::EndMenu();
         }
 
-        if (ImGui::BeginMenu("Change Color")) {
+        if (ImGui::BeginMenu("Change color")) {
             FormResult result = color_picker_form(&context_menu_track->color, tmp_color);
             switch (result) {
                 case FormResult::ValueChanged:
@@ -523,7 +523,7 @@ void GuiTimeline::track_context_menu(Track& track, int track_id) {
             ImGui::EndMenu();
         }
 
-        if (ImGui::MenuItem("Apply Track Color to Every Clip")) {
+        if (ImGui::MenuItem("Apply track color to every clip")) {
             for (auto clip : track.clips)
                 clip->color = track.color;
             redraw = true;
@@ -536,7 +536,7 @@ void GuiTimeline::track_context_menu(Track& track, int track_id) {
 
         ImGui::Separator();
 
-        if (ImGui::MenuItem("Reset Height")) {
+        if (ImGui::MenuItem("Reset height")) {
             ImGui::CloseCurrentPopup();
             redraw = true;
             track.height = 56.0f;
