@@ -2,6 +2,7 @@
 #include "core/algorithm.h"
 #include "core/core_math.h"
 #include "core/debug.h"
+#include "platform/platform.h"
 #include <imgui_internal.h>
 
 namespace wb {
@@ -36,16 +37,13 @@ float dist_point_line(const ImVec2& a, const ImVec2& b, const ImVec2& p) {
 template <typename Fn>
 void subdivide_curve(ImDrawList* draw_list, ImVec2 offset, float start, float mid, float end, float width, float height,
                      Fn&& curve_fn) {
-    constexpr float tolerance = 0.5f;
+    static constexpr float tolerance = 0.4f;
 
     if (math::near_equal(start, mid)) {
         return;
     }
 
     float inv_max_x = 1.0f / width;
-    /*float left_y = math::exponential_ease(start * inv_max_x, power) * height;
-    float middle_y = math::exponential_ease(mid * inv_max_x, power) * height;
-    float right_y = math::exponential_ease(end * inv_max_x, power) * height;*/
     float left_y = curve_fn(start * inv_max_x) * height;
     float middle_y = curve_fn(mid * inv_max_x) * height;
     float right_y = curve_fn(end * inv_max_x) * height;
@@ -118,6 +116,7 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
     bool right_click = ImGui::IsItemClicked(ImGuiMouseButton_Right);
     bool deactivated = ImGui::IsItemDeactivated();
     bool right_mouse_down = ImGui::IsMouseDown(ImGuiMouseButton_Right);
+    bool moving_point = state.move_control_point || state.move_tension_point;
     float end_y = cursor_pos.y + size.y;
     float view_height = size.y;
 
@@ -135,6 +134,11 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
             });
         }
         return;
+    }
+
+    int mouse_rel_x, mouse_rel_y;
+    if (state.move_tension_point) {
+        get_relative_mouse_state(&mouse_rel_x, &mouse_rel_y);
     }
 
     if (deactivated && state.move_control_point) {
@@ -156,17 +160,30 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
     }
 
     if (deactivated && state.move_tension_point) {
-        Log::debug("Test {}", state.move_tension_point.value());
-        const ImVec2 offset = mouse_pos - state.last_click_pos;
         const uint32_t move_index = state.move_tension_point.value();
         const EnvelopePoint& next_point = points[move_index + 1];
         EnvelopePoint& point = points[move_index];
-        float height = math::clamp(offset.y, -500.0f, 500.0f) / 500.0f * 60.0f;
-        if (point.y > next_point.y)
-            height = -height;
-        point.tension = math::clamp(point.tension + height, -30.0f, 30.0f);
         state.last_tension_value = point.tension;
         state.move_tension_point.reset();
+
+        // Set new cursor position
+        float mid_y = 0.0;
+        switch (point.point_type) {
+            case EnvelopePointType::ExpSingle:
+                mid_y = math::exponential_ease(0.5f, point.tension * -30.0f);
+                break;
+            default:
+                mid_y = (point.y + next_point.y) * 0.5f;
+                break;
+        }
+
+        const float x0 = cursor_pos.x + (float)(point.x * scale);
+        const float x1 = cursor_pos.x + (float)(next_point.x * scale);
+        const float slope = (point.y - next_point.y) * view_height;
+        const float mouse_x = (x0 + x1) * 0.5f;
+        const float mouse_y = cursor_pos.y + (1.0 - next_point.y) * view_height - mid_y * slope;
+        enable_relative_mouse_mode(false);
+        set_mouse_pos((int)mouse_x, (int)mouse_y);
     }
 
     static constexpr uint32_t fill_col = 0x2F53A3F9;
@@ -177,7 +194,7 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
     double px = points[0].x;
     double py = points[0].y;
     int32_t hovered_point = -1;
-    bool control_point_hovered = false;
+    bool tension_point_hovered = false;
 
     if (state.move_control_point && state.move_control_point == 0) {
         ImVec2 offset = mouse_pos - state.last_click_pos;
@@ -234,11 +251,11 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
         }
 
         if (state.move_tension_point && state.move_tension_point == (i - 1)) {
-            ImVec2 offset = mouse_pos - state.last_click_pos;
-            float height = math::clamp(offset.y, -500.0f, 500.0f) / 500.0f * 60.0f;
+            float inc = mouse_rel_y / 500.0f;
             if (point.y < last_point.y)
-                height = -height;
-            tension = math::clamp(tension + height, -30.0f, 30.0f);
+                inc = -inc;
+            tension = math::clamp(tension + inc, -1.0f, 1.0f);
+            last_point.tension = tension;
         }
 
         const float x = cursor_pos.x + (float)(px * scale);
@@ -250,7 +267,7 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
         }
 
         bool has_control_point = false;
-        ImVec2 control_point_pos;
+        ImVec2 tension_point_pos;
         switch (last_point_type) {
             case EnvelopePointType::Linear: {
                 draw_list->PrimReserve(6, 4);
@@ -262,19 +279,21 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
             case EnvelopePointType::ExpSingle: {
                 float width = pos.x - last_pos.x;
                 float height = pos.y - last_pos.y;
-                float middle_y = math::exponential_ease(0.5f, tension) * height;
-                auto curve_fn = [=](float pos) { return math::exponential_ease(pos, tension); };
-                control_point_pos = last_pos + ImVec2(width * 0.5f, middle_y);
+                float power = tension * 30.0f;
+                float middle_y = math::exponential_ease(0.5f, power) * height;
+                auto curve_fn = [=](float pos) { return math::exponential_ease(pos, power); };
+                tension_point_pos = last_pos + ImVec2(width * 0.5f, middle_y);
                 draw_list->PathLineTo(last_pos);
                 subdivide_curve(draw_list, last_pos, 0.0f, width * 0.5f, width, width, height, curve_fn);
                 draw_list->PathLineTo(pos);
                 draw_curve_area(draw_list, end_y, fill_col);
-                draw_list->PathStroke(0xFF53A3F9, 0, 1.5f);
-                draw_list->AddCircle(control_point_pos, 4.0f, col);
+                draw_list->PathStroke(0xFF53A3F9, 0, 1.25f);
+                draw_list->AddCircle(tension_point_pos, 4.0f, col);
                 has_control_point = true;
                 break;
             }
             case EnvelopePointType::PowSingle: {
+                has_control_point = true;
                 break;
             }
             default:
@@ -284,8 +303,10 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
         draw_list->AddCircleFilled(pos, 4.0f, col);
 
         float dist = ImLengthSqr(pos - global_mouse_pos);
-        if (dist <= click_dist_sq && !state.move_control_point) {
+        bool control_point_hovered = false;
+        if (dist <= click_dist_sq && !moving_point) {
             ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+            control_point_hovered = true;
             if (left_click) {
                 state.move_control_point = i;
                 state.last_click_pos = mouse_pos;
@@ -295,18 +316,21 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
             }
         }
 
-        if (has_control_point && !state.move_tension_point) {
-            float dist = ImLengthSqr(control_point_pos - global_mouse_pos);
+        if (has_control_point && !moving_point && !control_point_hovered) {
+            float dist = ImLengthSqr(tension_point_pos - global_mouse_pos);
             if (dist <= click_dist_sq) {
                 ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
+                tension_point_hovered = true;
                 if (left_click) {
                     state.move_tension_point = i - 1;
                     state.last_click_pos = mouse_pos;
+                    set_mouse_pos((int)global_mouse_pos.x, (int)global_mouse_pos.y);
+                    reset_relative_mouse_state();
+                    enable_relative_mouse_mode(true);
                 } else if (right_click) {
                     last_point.tension = 0.0f;
                     state.last_tension_value = 0.0f;
                 }
-                control_point_hovered = true;
             }
         }
 
@@ -335,7 +359,7 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
             point.y = std::stod(str);
         }
 
-        if (points.size() != 1) {
+        if (point_idx != 0) {
             EnvelopePointType& point_type = points[point_idx - 1].point_type;
             bool linear = point_type == EnvelopePointType::Linear;
             bool exp_single = point_type == EnvelopePointType::ExpSingle;
@@ -351,7 +375,7 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
         ImGui::EndPopup();
     }
 
-    if (right_click && popup_closed && !control_point_hovered) {
+    if (right_click && popup_closed && !tension_point_hovered) {
         double x = (double)mouse_pos.x / scale;
         double y = 1.0 - (double)mouse_pos.y / (double)view_height;
         state.move_control_point = hovered_point + 1;
