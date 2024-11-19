@@ -102,6 +102,21 @@ void draw_curve_area(ImDrawList* draw_list, float end_y, uint32_t col) {
     }
 }
 
+template <typename Fn>
+inline static void draw_curve(ImDrawList* draw_list, const ImVec2& p0, const ImVec2& p1, float end_y, uint32_t fill_col,
+                              uint32_t col, ImVec2* tension_point_pos, Fn&& curve_fn) {
+    float width = p1.x - p0.x;
+    float height = p1.y - p0.y;
+    float middle_y = curve_fn(0.5f) * height; // math::exponential_ease(0.5f, power) * height;
+    *tension_point_pos = p0 + ImVec2(width * 0.5f, middle_y);
+    draw_list->PathLineTo(p0);
+    subdivide_curve(draw_list, p0, 0.0f, width * 0.5f, width, width, height, curve_fn);
+    draw_list->PathLineTo(p1);
+    draw_curve_area(draw_list, end_y, fill_col);
+    draw_list->PathStroke(0xFF53A3F9, 0, 1.25f);
+    draw_list->AddCircle(*tension_point_pos, 4.0f, col);
+}
+
 void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, double scroll_pos, double scale) {
     ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
     ImVec2 global_mouse_pos = ImGui::GetMousePos();
@@ -172,6 +187,9 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
             case EnvelopePointType::ExpSingle:
                 mid_y = math::exponential_ease(0.5f, point.tension * -30.0f);
                 break;
+            case EnvelopePointType::ExpAltSingle:
+                mid_y = math::exponential_ease2(0.5f, point.tension * -0.99f);
+                break;
             default:
                 mid_y = (point.y + next_point.y) * 0.5f;
                 break;
@@ -179,9 +197,9 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
 
         const float x0 = cursor_pos.x + (float)(point.x * scale);
         const float x1 = cursor_pos.x + (float)(next_point.x * scale);
-        const float slope = (point.y - next_point.y) * view_height;
+        const float slope = float(point.y - next_point.y) * view_height;
         const float mouse_x = (x0 + x1) * 0.5f;
-        const float mouse_y = cursor_pos.y + (1.0 - next_point.y) * view_height - mid_y * slope;
+        const float mouse_y = cursor_pos.y + (1.0f - float(next_point.y)) * view_height - mid_y * slope;
         enable_relative_mouse_mode(false);
         set_mouse_pos((int)mouse_x, (int)mouse_y);
     }
@@ -234,7 +252,7 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
     for (uint32_t i = 1; i < state.points.size(); i++) {
         const EnvelopePoint& point = state.points[i];
         EnvelopePoint& last_point = state.points[i - 1];
-        float tension = last_point.tension;
+        float normalized_tension = last_point.tension;
         double px = point.x;
         double py = point.y;
 
@@ -252,10 +270,12 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
 
         if (state.move_tension_point && state.move_tension_point == (i - 1)) {
             float inc = mouse_rel_y / 500.0f;
+            if (ImGui::IsKeyDown(ImGuiKey_LeftShift))
+                inc *= 0.25f;
             if (point.y < last_point.y)
                 inc = -inc;
-            tension = math::clamp(tension + inc, -1.0f, 1.0f);
-            last_point.tension = tension;
+            normalized_tension = math::clamp(normalized_tension + inc, -1.0f, 1.0f);
+            last_point.tension = normalized_tension;
         }
 
         const float x = cursor_pos.x + (float)(px * scale);
@@ -266,6 +286,7 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
             hovered_point = (int32_t)i;
         }
 
+        // Draw the curve
         bool has_control_point = false;
         ImVec2 tension_point_pos;
         switch (last_point_type) {
@@ -277,18 +298,18 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
                 break;
             }
             case EnvelopePointType::ExpSingle: {
-                float width = pos.x - last_pos.x;
-                float height = pos.y - last_pos.y;
-                float power = tension * 30.0f;
-                float middle_y = math::exponential_ease(0.5f, power) * height;
+                constexpr float max_tension = 30.0f;
+                float power = normalized_tension * max_tension;
                 auto curve_fn = [=](float pos) { return math::exponential_ease(pos, power); };
-                tension_point_pos = last_pos + ImVec2(width * 0.5f, middle_y);
-                draw_list->PathLineTo(last_pos);
-                subdivide_curve(draw_list, last_pos, 0.0f, width * 0.5f, width, width, height, curve_fn);
-                draw_list->PathLineTo(pos);
-                draw_curve_area(draw_list, end_y, fill_col);
-                draw_list->PathStroke(0xFF53A3F9, 0, 1.25f);
-                draw_list->AddCircle(tension_point_pos, 4.0f, col);
+                draw_curve(draw_list, last_pos, pos, end_y, fill_col, col, &tension_point_pos, curve_fn);
+                has_control_point = true;
+                break;
+            }
+            case EnvelopePointType::ExpAltSingle: {
+                constexpr float max_tension = 0.99f;
+                float power = normalized_tension * max_tension;
+                auto curve_fn = [=](float pos) { return math::exponential_ease2(pos, power); };
+                draw_curve(draw_list, last_pos, pos, end_y, fill_col, col, &tension_point_pos, curve_fn);
                 has_control_point = true;
                 break;
             }
@@ -363,12 +384,15 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
             EnvelopePointType& point_type = points[point_idx - 1].point_type;
             bool linear = point_type == EnvelopePointType::Linear;
             bool exp_single = point_type == EnvelopePointType::ExpSingle;
+            bool exp2_single = point_type == EnvelopePointType::ExpAltSingle;
             ImGui::Separator();
             ImGui::MenuItem("Curve type", nullptr, nullptr, false);
             if (ImGui::MenuItem("Linear", nullptr, &linear))
                 point_type = EnvelopePointType::Linear;
             if (ImGui::MenuItem("Exponential", nullptr, &exp_single))
                 point_type = EnvelopePointType::ExpSingle;
+            if (ImGui::MenuItem("Exponential Alt.", nullptr, &exp2_single))
+                point_type = EnvelopePointType::ExpAltSingle;
         }
 
         popup_closed = false;

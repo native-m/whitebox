@@ -8,9 +8,12 @@
 namespace wb {
 
 enum class EnvelopePointType {
+    Hold,
     Linear,
     ExpSingle,
     ExpDual,
+    ExpAltSingle,
+    ExpAltDual,
     PowSingle,
     PowDual,
     Step,

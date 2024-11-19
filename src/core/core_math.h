@@ -69,6 +69,11 @@ inline T exponential_ease(T x, T y, T linear_thresh = T(0.01)) {
 }
 
 template <std::floating_point T>
+inline T exponential_ease2(T x, T y) {
+    return (x - y * x) / (y - T(2.0) * y * abs(x) + T(1.0));
+}
+
+template <std::floating_point T>
 inline T db_to_linear(T x, T threshold = -72.0f) {
     if (x <= threshold) {
         return 0.0f;
@@ -122,6 +127,7 @@ struct LinearRange {
     inline float normalized_to_plain(float normalized) const { return math::unnormalize_value(normalized, min_val, max_val); }
 };
 
+// The non-linear calculation is based on math::exponential_ease
 struct NonLinearRange {
     float min_val;
     float max_val;
