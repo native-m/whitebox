@@ -384,14 +384,14 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
             EnvelopePointType& point_type = points[point_idx - 1].point_type;
             bool linear = point_type == EnvelopePointType::Linear;
             bool exp_single = point_type == EnvelopePointType::ExpSingle;
-            bool exp2_single = point_type == EnvelopePointType::ExpAltSingle;
+            bool exp_alt_single = point_type == EnvelopePointType::ExpAltSingle;
             ImGui::Separator();
             ImGui::MenuItem("Curve type", nullptr, nullptr, false);
             if (ImGui::MenuItem("Linear", nullptr, &linear))
                 point_type = EnvelopePointType::Linear;
             if (ImGui::MenuItem("Exponential", nullptr, &exp_single))
                 point_type = EnvelopePointType::ExpSingle;
-            if (ImGui::MenuItem("Exponential Alt.", nullptr, &exp2_single))
+            if (ImGui::MenuItem("Exponential Alt.", nullptr, &exp_alt_single))
                 point_type = EnvelopePointType::ExpAltSingle;
         }
 
@@ -402,12 +402,16 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
     if (right_click && popup_closed && !tension_point_hovered) {
         double x = (double)mouse_pos.x / scale;
         double y = 1.0 - (double)mouse_pos.y / (double)view_height;
+        float hovered_tension = 0.0f;
         state.move_control_point = hovered_point + 1;
         state.last_click_pos = mouse_pos;
-        state.points[hovered_point].tension = state.last_tension_value;
+        if (hovered_point > -1) {
+            hovered_tension = state.points[hovered_point].tension;
+            state.points[hovered_point].tension = state.last_tension_value;
+        }
         state.add_point({
             .point_type = EnvelopePointType::ExpSingle,
-            .tension = state.last_tension_value,
+            .tension = hovered_tension,
             .x = x,
             .y = y,
         });
