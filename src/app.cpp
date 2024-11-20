@@ -338,12 +338,12 @@ void app_render_control_bar() {
         if (ImGui::BeginMenu("File")) {
             new_project = ImGui::MenuItem("New");
             open_project = ImGui::MenuItem("Open...", "Ctrl+O");
-            ImGui::MenuItem("Open Recent");
+            ImGui::MenuItem("Open recent");
             ImGui::Separator();
             ImGui::MenuItem("Save", "Ctrl+S");
-            save_project = ImGui::MenuItem("Save As...", "Shift+Ctrl+S");
+            save_project = ImGui::MenuItem("Save as...", "Shift+Ctrl+S");
             ImGui::Separator();
-            ImGui::MenuItem("Project Info...", nullptr, &g_show_project_dialog);
+            ImGui::MenuItem("Project info...", nullptr, &g_show_project_dialog);
             ImGui::Separator();
             if (ImGui::MenuItem("Open VST3 plugin (folder)")) {
 #ifdef WB_PLATFORM_WINDOWS
@@ -358,7 +358,7 @@ void app_render_control_bar() {
                 }
 #endif
             }
-            if (ImGui::MenuItem("Open VST3 Plugin (file)")) {
+            if (ImGui::MenuItem("Open VST3 plugin (file)")) {
 #ifdef WB_PLATFORM_WINDOWS
                 if (auto folder = open_file_dialog({{"VST3 Plugin", "vst3"}})) {
                     if (vst3_host.open_module(folder.value().string())) {
@@ -390,7 +390,7 @@ void app_render_control_bar() {
             ImGui::MenuItem("Mixer", nullptr, &g_mixer.open);
             ImGui::MenuItem("Browser", nullptr, &g_browser.open);
             ImGui::MenuItem("Settings", nullptr, &g_settings.open);
-            ImGui::MenuItem("Test Controls", nullptr, &controls::g_test_control_shown);
+            ImGui::MenuItem("Test controls", nullptr, &controls::g_test_control_shown);
             ImGui::EndMenu();
         }
 
@@ -693,7 +693,7 @@ void apply_theme(ImGuiStyle& style) {
     colors[ImGuiCol_Button] = ImVec4(0.20f, 0.20f, 0.22f, 1.00f);
     colors[ImGuiCol_ButtonHovered] = ImVec4(0.11f, 0.59f, 0.93f, 1.00f);
     colors[ImGuiCol_ButtonActive] = ImVec4(0.00f, 0.47f, 0.78f, 1.00f);
-    colors[ImGuiCol_Header] = ImVec4(0.20f, 0.20f, 0.22f, 1.00f);
+    colors[ImGuiCol_Header] = ImVec4(0.224f, 0.224f, 0.249f, 1.000f);
     colors[ImGuiCol_HeaderHovered] = ImVec4(0.11f, 0.59f, 0.93f, 1.00f);
     colors[ImGuiCol_HeaderActive] = ImVec4(0.00f, 0.47f, 0.78f, 1.00f);
     colors[ImGuiCol_Separator] = ImVec4(0.31f, 0.31f, 0.31f, 1.00f);
