@@ -147,15 +147,19 @@ bool TimelineBase::render_time_ruler(double* time_value) {
     ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
     ImVec2 drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left);
     auto size = ImVec2(ImGui::GetContentRegionAvail().x, ImGui::GetFontSize() + style.FramePadding.y * 2.0f);
-    ImGui::InvisibleButton("##time_ruler_control", size);
+    ImGui::InvisibleButton("##time_ruler_control", size,
+                           ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonMiddle);
     bool hovered = ImGui::IsItemHovered();
+    bool left_clicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
+    bool holding_left = ImGui::IsItemActive() && ImGui::IsMouseDown(ImGuiMouseButton_Left);
+    bool middle_clicked = ImGui::IsItemClicked(ImGuiMouseButton_Middle);
 
     if (timeline_width == 0.0f) {
         return false;
     }
 
     bool active = false;
-    if (ImGui::IsItemActivated() || (ImGui::IsItemActive() && std::abs(drag_delta.x) > 0.001f)) {
+    if (left_clicked || (holding_left && std::abs(drag_delta.x) > 0.001f)) {
         double mapped_x_pos = (double)(mouse_pos.x - cursor_pos.x) / song_length * view_scale + min_hscroll;
         double mouse_time_pos = mapped_x_pos * song_length * inv_ppq;
         double mouse_time_pos_grid = math::max(std::round(mouse_time_pos * grid_scale) / grid_scale, 0.0);
@@ -173,7 +177,7 @@ bool TimelineBase::render_time_ruler(double* time_value) {
     }
 
     // Start zoom
-    if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Middle)) {
+    if (middle_clicked) {
         ImVec2 pos = ImGui::GetMousePos();
         zooming_on_ruler = true;
         GImGui->ColorPickerRef.x = pos.x;
@@ -185,7 +189,6 @@ bool TimelineBase::render_time_ruler(double* time_value) {
     }
 
     if (zooming_on_ruler) {
-        // auto drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Middle, 0.0f);
         int x, y;
         get_relative_mouse_state(&x, &y);
         ImGui::SetMouseCursor(ImGuiMouseCursor_Arrow);
@@ -193,7 +196,6 @@ bool TimelineBase::render_time_ruler(double* time_value) {
             zoom(mouse_pos.x, cursor_pos.x, view_scale, (float)y * 0.1f);
             view_scale = calc_view_scale();
         }
-        // ImGui::ResetMouseDragDelta(ImGuiMouseButton_Middle);
     }
 
     // Release zoom
@@ -228,6 +230,7 @@ bool TimelineBase::render_time_ruler(double* time_value) {
                                      ImVec2(position + size.y * 0.5f, cursor_pos.y + size.y - 2.5f), col);
     }
 
+    // Draw tick
     float tick_pos_y = cursor_pos.y + size.y;
     uint32_t step = (uint32_t)division;
     for (int i = 0; i <= line_count; i++) {
