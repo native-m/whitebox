@@ -1,6 +1,6 @@
 #include "settings.h"
-#include "engine/audio_io.h"
 #include "config.h"
+#include "engine/audio_io.h"
 #include <fmt/format.h>
 #include <imgui.h>
 
@@ -39,9 +39,8 @@ void GuiSettings::render() {
         if (ImGui::BeginTabItem("Audio")) {
             uint32_t io_type_index = static_cast<uint32_t>(g_audio_io_type);
             const char* io_type_preview = io_types[io_type_index];
-            const AudioDeviceProperties& current_output_devprop =
-                g_output_device_properties;
-
+            const AudioDeviceProperties& current_output_devprop = g_output_device_properties;
+            const AudioDeviceProperties& current_input_devprop = g_input_device_properties;
             bool audio_io_type_changed = false;
             bool audio_settings_changed = false;
 
@@ -69,10 +68,26 @@ void GuiSettings::render() {
                 ImGui::EndCombo();
             }
 
+            if (ImGui::BeginCombo("Input", current_input_devprop.name)) {
+                for (uint32_t i = 0; i < g_audio_io->get_input_device_count(); i++) {
+                    const AudioDeviceProperties& device_properties = g_audio_io->get_input_device_properties(i);
+                    const bool is_selected = device_properties.id == g_input_device_properties.id;
+
+                    if (ImGui::Selectable(device_properties.name, is_selected)) {
+                        if (!is_selected)
+                            audio_settings_changed = true;
+                        g_input_device_properties = device_properties;
+                    }
+
+                    if (is_selected)
+                        ImGui::SetItemDefaultFocus();
+                }
+                ImGui::EndCombo();
+            }
+
             if (ImGui::BeginCombo("Output", current_output_devprop.name)) {
                 for (uint32_t i = 0; i < g_audio_io->get_output_device_count(); i++) {
-                    const AudioDeviceProperties& device_properties =
-                        g_audio_io->get_output_device_properties(i);
+                    const AudioDeviceProperties& device_properties = g_audio_io->get_output_device_properties(i);
                     const bool is_selected = device_properties.id == g_output_device_properties.id;
 
                     if (ImGui::Selectable(device_properties.name, is_selected)) {
@@ -157,17 +172,15 @@ void GuiSettings::render() {
                     buffer_size_to_period(current_buffer_size, current_sample_rate_value);
                 double current_period_ms = period_to_ms(current_period);
 
-                std::snprintf(tmp, sizeof(tmp), "%u (%.2f ms)", current_buffer_size,
-                              current_period_ms);
+                std::snprintf(tmp, sizeof(tmp), "%u (%.2f ms)", current_buffer_size, current_period_ms);
 
                 if (ImGui::BeginCombo("Buffer Size", tmp)) {
-                    uint32_t min_buffer_size =
-                        period_to_buffer_size(g_audio_io->min_period, current_sample_rate_value);
+                    uint32_t min_buffer_size = period_to_buffer_size(g_audio_io->min_period, current_sample_rate_value);
 
                     while (min_buffer_size <= 8192) {
                         const bool is_selected = min_buffer_size == current_buffer_size;
-                        double period_ms = period_to_ms(
-                            buffer_size_to_period(min_buffer_size, current_sample_rate_value));
+                        double period_ms =
+                            period_to_ms(buffer_size_to_period(min_buffer_size, current_sample_rate_value));
 
                         std::snprintf(tmp, sizeof(tmp), "%u (%.2f ms)", min_buffer_size, period_ms);
 
