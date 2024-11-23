@@ -82,7 +82,7 @@ struct Engine {
         Process the whole thing.
         This runs on the audio thread.
     */
-    void process(AudioBuffer<float>& output_buffer, double sample_rate);
+    void process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>& output_buffer, double sample_rate);
 
     inline double playhead_pos() const { return playhead_ui.load(std::memory_order_relaxed); }
 

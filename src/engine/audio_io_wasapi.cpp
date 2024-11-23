@@ -64,8 +64,7 @@ inline static FormatBitSizes get_bit_sizes(AudioFormat audio_format) {
     return {};
 }
 
-inline static WAVEFORMATEXTENSIBLE to_waveformatex(AudioFormat sample_format, uint32_t sample_rate,
-                                                   uint16_t channels) {
+inline static WAVEFORMATEXTENSIBLE to_waveformatex(AudioFormat sample_format, uint32_t sample_rate, uint16_t channels) {
     // NOTE: Some drivers does not work with WAVEFORMATEXTENSIBLE!
     auto [format, bits, valid_bits] = get_bit_sizes(sample_format);
     WAVEFORMATEXTENSIBLE waveformat {};
@@ -103,25 +102,21 @@ struct AudioDeviceWASAPI {
 struct EndpointNotificationWASAPI : public IMMNotificationClient {
     AudioIOWASAPI* io {};
 
-    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid,
-                                             void __RPC_FAR* __RPC_FAR* ppvObject) override;
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void __RPC_FAR* __RPC_FAR* ppvObject) override;
 
     ULONG STDMETHODCALLTYPE AddRef(void) override { return 1; }
 
     ULONG STDMETHODCALLTYPE Release(void) override { return 0; }
 
-    HRESULT STDMETHODCALLTYPE OnDeviceStateChanged(LPCWSTR pwstrDeviceId,
-                                                   DWORD dwNewState) override;
+    HRESULT STDMETHODCALLTYPE OnDeviceStateChanged(LPCWSTR pwstrDeviceId, DWORD dwNewState) override;
 
     HRESULT STDMETHODCALLTYPE OnDeviceAdded(LPCWSTR pwstrDeviceId) override;
 
     HRESULT STDMETHODCALLTYPE OnDeviceRemoved(LPCWSTR pwstrDeviceId) override;
 
-    HRESULT STDMETHODCALLTYPE OnDefaultDeviceChanged(EDataFlow flow, ERole role,
-                                                     LPCWSTR pwstrDefaultDeviceId) override;
+    HRESULT STDMETHODCALLTYPE OnDefaultDeviceChanged(EDataFlow flow, ERole role, LPCWSTR pwstrDefaultDeviceId) override;
 
-    HRESULT STDMETHODCALLTYPE OnPropertyValueChanged(LPCWSTR pwstrDeviceId,
-                                                     const PROPERTYKEY key) override;
+    HRESULT STDMETHODCALLTYPE OnPropertyValueChanged(LPCWSTR pwstrDeviceId, const PROPERTYKEY key) override;
 };
 
 struct ActiveDeviceWASAPI {
@@ -170,8 +165,10 @@ struct AudioIOWASAPI : public AudioIO {
 
     AudioDevicePeriod stream_period {};
     uint32_t stream_buffer_size {};
-    uint32_t maximum_buffer_size {};
+    uint32_t maximum_input_buffer_size {};
+    uint32_t maximum_output_buffer_size {};
     double stream_sample_rate {};
+    AudioFormat input_stream_format {};
     AudioFormat output_stream_format {};
     Engine* current_engine;
     std::atomic_bool running;
@@ -190,13 +187,9 @@ struct AudioIOWASAPI : public AudioIO {
                scan_audio_endpoints(EDataFlow::eRender, output_devices);
     }
 
-    uint32_t get_input_device_index(AudioDeviceID id) const override {
-        return find_device_index(input_devices, id);
-    }
+    uint32_t get_input_device_index(AudioDeviceID id) const override { return find_device_index(input_devices, id); }
 
-    uint32_t get_output_device_index(AudioDeviceID id) const override {
-        return find_device_index(output_devices, id);
-    }
+    uint32_t get_output_device_index(AudioDeviceID id) const override { return find_device_index(output_devices, id); }
 
     const AudioDeviceProperties& get_input_device_properties(uint32_t idx) const override {
         std::shared_lock lock(notification_mutex);
@@ -213,21 +206,18 @@ struct AudioIOWASAPI : public AudioIO {
     void close_device() override;
 
     bool start(Engine* engine, bool exclusive_mode, uint32_t buffer_size, AudioFormat input_format,
-               AudioFormat output_format, AudioDeviceSampleRate sample_rate,
-               AudioThreadPriority priority) override;
+               AudioFormat output_format, AudioDeviceSampleRate sample_rate, AudioThreadPriority priority) override;
 
     bool scan_audio_endpoints(EDataFlow type, std::vector<AudioDeviceWASAPI>& endpoints);
 
-    uint32_t find_device_index(const std::vector<AudioDeviceWASAPI>& devices,
-                               AudioDeviceID id) const;
+    uint32_t find_device_index(const std::vector<AudioDeviceWASAPI>& devices, AudioDeviceID id) const;
 
     static void audio_thread_runner(AudioIOWASAPI* instance, AudioThreadPriority priority);
 };
 
 // ------------------------------------------------------------------------------------------------
 
-HRESULT STDMETHODCALLTYPE EndpointNotificationWASAPI::QueryInterface(REFIID riid,
-                                                                     void** ppvObject) {
+HRESULT STDMETHODCALLTYPE EndpointNotificationWASAPI::QueryInterface(REFIID riid, void** ppvObject) {
     if (ppvObject == nullptr)
         return E_POINTER;
     if (riid == __uuidof(IMMNotificationClient))
@@ -237,12 +227,10 @@ HRESULT STDMETHODCALLTYPE EndpointNotificationWASAPI::QueryInterface(REFIID riid
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE EndpointNotificationWASAPI::OnDeviceStateChanged(LPCWSTR pwstrDeviceId,
-                                                                           DWORD dwNewState) {
+HRESULT STDMETHODCALLTYPE EndpointNotificationWASAPI::OnDeviceStateChanged(LPCWSTR pwstrDeviceId, DWORD dwNewState) {
     AudioDeviceID id = get_whitebox_device_id(pwstrDeviceId);
     if (id == io->current_output_device_id || id == io->current_input_device_id) {
-        if (has_bit(dwNewState, DEVICE_STATE_DISABLED, DEVICE_STATE_NOTPRESENT,
-                    DEVICE_STATE_UNPLUGGED)) {
+        if (has_bit(dwNewState, DEVICE_STATE_DISABLED, DEVICE_STATE_NOTPRESENT, DEVICE_STATE_UNPLUGGED)) {
             if (io->device_removed_cb) {
                 io->device_removed_cb(nullptr);
             }
@@ -262,13 +250,13 @@ HRESULT STDMETHODCALLTYPE EndpointNotificationWASAPI::OnDeviceRemoved(LPCWSTR pw
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE EndpointNotificationWASAPI::OnDefaultDeviceChanged(
-    EDataFlow flow, ERole role, LPCWSTR pwstrDefaultDeviceId) {
+HRESULT STDMETHODCALLTYPE EndpointNotificationWASAPI::OnDefaultDeviceChanged(EDataFlow flow, ERole role,
+                                                                             LPCWSTR pwstrDefaultDeviceId) {
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE
-EndpointNotificationWASAPI::OnPropertyValueChanged(LPCWSTR pwstrDeviceId, const PROPERTYKEY key) {
+HRESULT STDMETHODCALLTYPE EndpointNotificationWASAPI::OnPropertyValueChanged(LPCWSTR pwstrDeviceId,
+                                                                             const PROPERTYKEY key) {
     return S_OK;
 }
 
@@ -278,8 +266,7 @@ bool ActiveDeviceWASAPI::open(IMMDevice* new_device) {
     ComPtr<IMMDevice> active_device(new_device);
     ComPtr<IAudioClient3> new_client;
 
-    HRESULT result =
-        active_device->Activate(__uuidof(IAudioClient3), CLSCTX_ALL, nullptr, (void**)&new_client);
+    HRESULT result = active_device->Activate(__uuidof(IAudioClient3), CLSCTX_ALL, nullptr, (void**)&new_client);
     if (FAILED(result))
         return false;
 
@@ -293,16 +280,14 @@ bool ActiveDeviceWASAPI::open(IMMDevice* new_device) {
     WAVEFORMATEXTENSIBLE* mix_format;
     new_client->GetMixFormat((WAVEFORMATEX**)&mix_format);
 
-    new_client->GetSharedModeEnginePeriod(
-        (WAVEFORMATEX*)mix_format, &default_low_latency_buffer_size, &low_latency_buffer_alignment,
-        &min_low_latency_buffer_size, &max_low_latency_buffer_size);
+    new_client->GetSharedModeEnginePeriod((WAVEFORMATEX*)mix_format, &default_low_latency_buffer_size,
+                                          &low_latency_buffer_alignment, &min_low_latency_buffer_size,
+                                          &max_low_latency_buffer_size);
 
     new_client->GetDevicePeriod(&default_device_period, &min_device_period);
 
-    min_low_latency_period =
-        buffer_size_to_period(min_low_latency_buffer_size, mix_format->Format.nSamplesPerSec);
-    max_low_latency_period =
-        buffer_size_to_period(max_low_latency_buffer_size, mix_format->Format.nSamplesPerSec);
+    min_low_latency_period = buffer_size_to_period(min_low_latency_buffer_size, mix_format->Format.nSamplesPerSec);
+    max_low_latency_period = buffer_size_to_period(max_low_latency_buffer_size, mix_format->Format.nSamplesPerSec);
 
     absolute_min_period = std::min(min_low_latency_period, min_device_period);
     device = active_device.Detach();
@@ -320,20 +305,18 @@ void ActiveDeviceWASAPI::close() {
     client = nullptr;
 }
 
-bool ActiveDeviceWASAPI::init_stream(bool exclusive_mode, AudioDevicePeriod period,
-                                     AudioFormat sample_format, AudioDeviceSampleRate sample_rate) {
+bool ActiveDeviceWASAPI::init_stream(bool exclusive_mode, AudioDevicePeriod period, AudioFormat sample_format,
+                                     AudioDeviceSampleRate sample_rate) {
     assert(device && client);
 
     DWORD stream_flags = AUDCLNT_STREAMFLAGS_EVENTCALLBACK;
     auto sample_rate_value = compatible_sample_rates[(uint32_t)sample_rate];
-    AUDCLNT_SHAREMODE share_mode =
-        exclusive_mode ? AUDCLNT_SHAREMODE_EXCLUSIVE : AUDCLNT_SHAREMODE_SHARED;
+    AUDCLNT_SHAREMODE share_mode = exclusive_mode ? AUDCLNT_SHAREMODE_EXCLUSIVE : AUDCLNT_SHAREMODE_SHARED;
 
     if (exclusive_mode) {
-        WAVEFORMATEXTENSIBLE waveformat =
-            to_waveformatex(sample_format, sample_rate_value.first, 2);
-        HRESULT result = client->Initialize(share_mode, stream_flags, period, period,
-                                            (const WAVEFORMATEX*)&shared_format, nullptr);
+        WAVEFORMATEXTENSIBLE waveformat = to_waveformatex(sample_format, sample_rate_value.first, 2);
+        HRESULT result =
+            client->Initialize(share_mode, stream_flags, period, period, (const WAVEFORMATEX*)&shared_format, nullptr);
         if (FAILED(result)) {
             return false;
         }
@@ -342,14 +325,14 @@ bool ActiveDeviceWASAPI::init_stream(bool exclusive_mode, AudioDevicePeriod peri
         if (in_range(buffer_size, min_low_latency_buffer_size, max_low_latency_buffer_size) &&
             is_multiple_of(buffer_size, low_latency_buffer_alignment)) {
             // Use low-latency shared mode
-            HRESULT result = client->InitializeSharedAudioStream(
-                stream_flags, buffer_size, (const WAVEFORMATEX*)&shared_format, nullptr);
+            HRESULT result = client->InitializeSharedAudioStream(stream_flags, buffer_size,
+                                                                 (const WAVEFORMATEX*)&shared_format, nullptr);
             if (FAILED(result)) {
                 return false;
             }
         } else {
-            HRESULT result = client->Initialize(share_mode, stream_flags, period, 0,
-                                                (const WAVEFORMATEX*)&shared_format, nullptr);
+            HRESULT result =
+                client->Initialize(share_mode, stream_flags, period, 0, (const WAVEFORMATEX*)&shared_format, nullptr);
             if (FAILED(result)) {
                 return false;
             }
@@ -378,8 +361,8 @@ AudioIOWASAPI::~AudioIOWASAPI() {
 }
 
 bool AudioIOWASAPI::init() {
-    HRESULT result = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
-                                      IID_PPV_ARGS(&device_enumerator));
+    HRESULT result =
+        CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL, IID_PPV_ARGS(&device_enumerator));
     if (FAILED(result))
         return false;
     endpoint_notification.io = this;
@@ -425,8 +408,7 @@ bool AudioIOWASAPI::open_device(AudioDeviceID output_device_id, AudioDeviceID in
     min_period = std::max(output.absolute_min_period, input.absolute_min_period);
 
     // Maximum buffer alignment for low latency stream is 32
-    buffer_alignment = std::min(
-        32u, std::max(output.low_latency_buffer_alignment, input.low_latency_buffer_alignment));
+    buffer_alignment = std::min(32u, std::max(output.low_latency_buffer_alignment, input.low_latency_buffer_alignment));
 
     // Check all possible formats
     for (auto smp_format : compatible_formats) {
@@ -434,12 +416,11 @@ bool AudioIOWASAPI::open_device(AudioDeviceID output_device_id, AudioDeviceID in
             for (auto channels : compatible_channel_count) {
                 uint32_t sample_rate_bit_mask = 1U << (uint32_t)sample_rate.second;
                 uint32_t format_bit_mask = 1U << (uint32_t)smp_format;
-                WAVEFORMATEXTENSIBLE format =
-                    to_waveformatex(smp_format, sample_rate.first, channels);
-                bool output_format_supported = SUCCEEDED(output.client->IsFormatSupported(
-                    AUDCLNT_SHAREMODE_EXCLUSIVE, (WAVEFORMATEX*)&format, nullptr));
-                bool input_format_supported = SUCCEEDED(input.client->IsFormatSupported(
-                    AUDCLNT_SHAREMODE_EXCLUSIVE, (WAVEFORMATEX*)&format, nullptr));
+                WAVEFORMATEXTENSIBLE format = to_waveformatex(smp_format, sample_rate.first, channels);
+                bool output_format_supported = SUCCEEDED(
+                    output.client->IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE, (WAVEFORMATEX*)&format, nullptr));
+                bool input_format_supported = SUCCEEDED(
+                    input.client->IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE, (WAVEFORMATEX*)&format, nullptr));
 
                 if (output_format_supported) {
                     exclusive_output_format_bit_flags |= format_bit_mask;
@@ -489,9 +470,8 @@ void AudioIOWASAPI::close_device() {
     buffer_alignment = 0;
 }
 
-bool AudioIOWASAPI::start(Engine* engine, bool exclusive_mode, uint32_t buffer_size,
-                          AudioFormat input_format, AudioFormat output_format,
-                          AudioDeviceSampleRate sample_rate, AudioThreadPriority priority) {
+bool AudioIOWASAPI::start(Engine* engine, bool exclusive_mode, uint32_t buffer_size, AudioFormat input_format,
+                          AudioFormat output_format, AudioDeviceSampleRate sample_rate, AudioThreadPriority priority) {
     if (running)
         return false;
 
@@ -499,23 +479,28 @@ bool AudioIOWASAPI::start(Engine* engine, bool exclusive_mode, uint32_t buffer_s
     AudioDevicePeriod period = buffer_size_to_period(buffer_size, sample_rate_value);
     if (!output.init_stream(exclusive_mode, period, output_format, sample_rate))
         return false;
+    if (!input.init_stream(exclusive_mode, period, input_format, sample_rate)) {
+        output.close();
+        return false;
+    }
 
-    output.client->GetBufferSize(&maximum_buffer_size);
+    input.client->GetBufferSize(&maximum_input_buffer_size);
+    input.client->GetService(IID_PPV_ARGS(&capture_client));
+    output.client->GetBufferSize(&maximum_output_buffer_size);
     output.client->GetService(IID_PPV_ARGS(&render_client));
     stream_sample_rate = (double)get_sample_rate_value(sample_rate);
     stream_buffer_size = buffer_size;
     stream_period = period;
+    input_stream_format = input_format;
     output_stream_format = output_format;
     current_engine = engine;
     running = true;
-
     audio_thread = std::thread(audio_thread_runner, this, priority);
 
     return true;
 }
 
-bool AudioIOWASAPI::scan_audio_endpoints(EDataFlow type,
-                                         std::vector<AudioDeviceWASAPI>& endpoints) {
+bool AudioIOWASAPI::scan_audio_endpoints(EDataFlow type, std::vector<AudioDeviceWASAPI>& endpoints) {
     ComPtr<IMMDeviceCollection> device_collection;
     device_enumerator->EnumAudioEndpoints(type, DEVICE_STATE_ACTIVE, &device_collection);
 
@@ -558,8 +543,7 @@ bool AudioIOWASAPI::scan_audio_endpoints(EDataFlow type,
         std::wstring_view device_str_id(device_id);
         AudioDeviceID id = std::hash<std::wstring_view> {}(device_str_id);
         AudioDeviceWASAPI& endpoint = endpoints.emplace_back();
-        wcstombs_s(nullptr, endpoint.properties.name, var_name.pwszVal,
-                   sizeof(endpoint.properties.name));
+        wcstombs_s(nullptr, endpoint.properties.name, var_name.pwszVal, sizeof(endpoint.properties.name));
         endpoint.properties.id = id;
         endpoint.properties.type = device_type;
         endpoint.properties.io_type = AudioIOType::WASAPI;
@@ -587,8 +571,7 @@ bool AudioIOWASAPI::scan_audio_endpoints(EDataFlow type,
     return true;
 }
 
-uint32_t AudioIOWASAPI::find_device_index(const std::vector<AudioDeviceWASAPI>& devices,
-                                          AudioDeviceID id) const {
+uint32_t AudioIOWASAPI::find_device_index(const std::vector<AudioDeviceWASAPI>& devices, AudioDeviceID id) const {
     uint32_t idx = 0;
     bool found = false;
     for (const auto& device : devices) {
@@ -604,7 +587,9 @@ uint32_t AudioIOWASAPI::find_device_index(const std::vector<AudioDeviceWASAPI>& 
 }
 
 void AudioIOWASAPI::audio_thread_runner(AudioIOWASAPI* instance, AudioThreadPriority priority) {
+    IAudioCaptureClient* capture = instance->capture_client;
     IAudioRenderClient* render = instance->render_client;
+    IAudioClient* input_client = instance->input.client;
     IAudioClient* output_client = instance->output.client;
     Engine* engine = instance->current_engine;
 
@@ -636,23 +621,68 @@ void AudioIOWASAPI::audio_thread_runner(AudioIOWASAPI* instance, AudioThreadPrio
         AvSetMmThreadPriority(task, avrt_priority);
     }
 
+    uint32_t buffer_size = instance->stream_buffer_size;
+    uint32_t maximum_input_buffer_size = instance->maximum_input_buffer_size;
+    uint32_t maximum_output_buffer_size = instance->maximum_output_buffer_size;
+    AudioBuffer<float> input_buffer(buffer_size, instance->input.channel_count);
+    AudioBuffer<float> output_buffer(buffer_size, instance->output.channel_count);
+    uint32_t input_channels = input_buffer.n_channels;
+    uint32_t output_channels = output_buffer.n_channels;
+
+    // Buffer for audio capture queue
+    uint32_t frame_size = get_audio_format_size(instance->input_stream_format) * input_buffer.n_channels;
+    uint32_t input_buffer_capacity = maximum_input_buffer_size + buffer_size;
+    uint32_t input_buffer_byte_size = input_buffer_capacity * frame_size;
+    BYTE* input_queue_buffer = (BYTE*)std::malloc(input_buffer_byte_size);
+    uint32_t input_buffer_read_pos = 0;
+    uint32_t input_buffer_write_pos = 0;
+    uint32_t input_buffer_size = 0;
+    assert(input_queue_buffer != nullptr && "Cannot allocate buffer for audio buffer queue");
+
+    input_client->Start();
     output_client->Start();
 
-    // Pre-roll buffer
-    BYTE* dummy;
-    uint32_t maximum_buffer_size = instance->maximum_buffer_size;
-    render->GetBuffer(maximum_buffer_size, &dummy);
-    render->ReleaseBuffer(maximum_buffer_size, AUDCLNT_BUFFERFLAGS_SILENT);
-
-    double sample_rate = instance->stream_sample_rate;
-    uint32_t buffer_size = instance->stream_buffer_size;
-    HANDLE output_stream_event = instance->output.stream_event;
-    AudioBuffer<float> output_buffer(buffer_size, instance->output.channel_count);
-    uint32_t output_channels = output_buffer.n_channels;
     bool device_removed = false;
+    double sample_rate = instance->stream_sample_rate;
+    HANDLE input_stream_event = instance->input.stream_event;
+    HANDLE output_stream_event = instance->output.stream_event;
+
+    // Pre-fill buffer
+    BYTE* prefill;
+    HRESULT hr = 0;
+    render->GetBuffer(maximum_output_buffer_size, &prefill);
+    render->ReleaseBuffer(maximum_output_buffer_size, AUDCLNT_BUFFERFLAGS_SILENT);
+
+    assert(instance->input_stream_format == AudioFormat::F32);
 
     while (instance->running.load(std::memory_order_relaxed)) {
-        engine->process(output_buffer, sample_rate);
+        if (input_buffer_size > 0) {
+            uint32_t read_count = buffer_size;
+            uint32_t begin_read = input_buffer_read_pos;
+            uint32_t end_read = (input_buffer_read_pos + read_count) % input_buffer_capacity;
+#if LOG_BUFFERING
+            Log::debug("Read: {} {} {}", read_count, input_buffer_read_pos, end_read);
+#endif
+            if (begin_read <= end_read) {
+                void* src = input_queue_buffer + (input_buffer_read_pos * frame_size);
+                convert_to_deinterleaved_f32(input_buffer.channel_buffers, (float*)src, 0, read_count, input_channels);
+                input_buffer_read_pos = end_read;
+                input_buffer_size -= read_count;
+            } else {
+                convert_to_deinterleaved_f32(input_buffer.channel_buffers,
+                                             (float*)(input_queue_buffer + (input_buffer_read_pos * frame_size)), 0,
+                                             input_buffer_capacity - input_buffer_read_pos, input_channels);
+                convert_to_deinterleaved_f32(input_buffer.channel_buffers, (float*)input_queue_buffer,
+                                             input_buffer_capacity - input_buffer_read_pos, end_read, input_channels);
+                input_buffer_read_pos = end_read;
+                input_buffer_size -= read_count;
+            }
+#if LOG_BUFFERING
+            Log::debug("Input buffer size: {}", input_buffer_size);
+#endif
+        }
+
+        engine->process(input_buffer, output_buffer, sample_rate);
 
 #if LOG_BUFFERING
         Log::debug("Splitting buffer");
@@ -661,10 +691,47 @@ void AudioIOWASAPI::audio_thread_runner(AudioIOWASAPI* instance, AudioThreadPrio
         // WASAPI may use the default device buffer size instead of user-defined buffer size. If
         // that's the case, we have to roll the buffer manually so that it fits into the default
         // device buffer size.
-        uint32_t offset = 0;
-        HRESULT hr = 0; 
-        while (offset < output_buffer.n_samples) {
-            WaitForSingleObject(output_stream_event, INFINITE);
+        uint32_t output_offset = 0;
+        hr = 0;
+        while (output_offset < output_buffer.n_samples) {
+            DWORD wait_result = WaitForSingleObject(input_stream_event, INFINITE);
+            if (wait_result == WAIT_TIMEOUT)
+                break;
+
+            // Fetch next input buffer
+            BYTE* buffer;
+            DWORD flags;
+            uint32_t frames_available;
+            while (SUCCEEDED(capture->GetBuffer(&buffer, &frames_available, &flags, nullptr, nullptr)) &&
+                   frames_available > 0) {
+                uint32_t available_size = input_buffer_capacity - input_buffer_size;
+                if (frames_available > available_size) {
+                    capture->ReleaseBuffer(0);
+                    break;
+                }
+                uint32_t begin_write = input_buffer_write_pos;
+                uint32_t end_write = (input_buffer_write_pos + frames_available) % input_buffer_capacity;
+#if LOG_BUFFERING
+                Log::info("Write: {} {} {}", frames_available, input_buffer_write_pos, end_write);
+#endif
+                if (begin_write <= end_write) {
+                    void* dst = input_queue_buffer + (input_buffer_write_pos * frame_size);
+                    if (has_bit(flags, AUDCLNT_BUFFERFLAGS_SILENT)) [[unlikely]]
+                        std::memset(dst, 0, frames_available * frame_size);
+                    else
+                        std::memcpy(dst, buffer, frames_available * frame_size);
+                    input_buffer_write_pos = end_write;
+                    input_buffer_size += frames_available;
+                } else {
+                    std::memcpy(input_queue_buffer + (input_buffer_write_pos * frame_size), buffer,
+                                (input_buffer_capacity - begin_write) * frame_size);
+                    std::memcpy(input_queue_buffer, buffer + (input_buffer_capacity - begin_write) * frame_size,
+                                end_write * frame_size);
+                    input_buffer_write_pos = end_write;
+                    input_buffer_size += frames_available;
+                }
+                hr = capture->ReleaseBuffer(frames_available);
+            }
 
             uint32_t padding;
             hr = output_client->GetCurrentPadding(&padding);
@@ -672,14 +739,15 @@ void AudioIOWASAPI::audio_thread_runner(AudioIOWASAPI* instance, AudioThreadPrio
                 break;
             }
 
-            uint32_t frames_available = maximum_buffer_size - padding;
-            if (frames_available > (output_buffer.n_samples - offset))
-                frames_available = output_buffer.n_samples - offset;
+            frames_available = maximum_output_buffer_size - padding;
+            if (frames_available > (output_buffer.n_samples - output_offset))
+                frames_available = output_buffer.n_samples - output_offset;
 
-#if LOG_BUFFERING
-            Log::info("{} {}", frames_available, offset);
-#endif
-            void* buffer;
+            if (frames_available == 0) {
+                WaitForSingleObject(output_stream_event, INFINITE);
+                continue;
+            }
+
             hr = render->GetBuffer(frames_available, (BYTE**)&buffer);
             if (!SUCCEEDED(hr)) [[unlikely]] {
                 break;
@@ -688,26 +756,24 @@ void AudioIOWASAPI::audio_thread_runner(AudioIOWASAPI* instance, AudioThreadPrio
             // Perform format conversion
             switch (instance->output_stream_format) {
                 case AudioFormat::I16:
-                    convert_f32_to_interleaved_i16((int16_t*)buffer, output_buffer.channel_buffers,
-                                                   offset, frames_available, output_channels);
+                    convert_f32_to_interleaved_i16((int16_t*)buffer, output_buffer.channel_buffers, output_offset,
+                                                   frames_available, output_channels);
                     break;
                 case AudioFormat::I24:
-                    convert_f32_to_interleaved_i24((std::byte*)buffer,
-                                                   output_buffer.channel_buffers, offset,
+                    convert_f32_to_interleaved_i24((std::byte*)buffer, output_buffer.channel_buffers, output_offset,
                                                    frames_available, output_channels);
                     break;
                 case AudioFormat::I24_X8:
-                    convert_f32_to_interleaved_i24_x8((int32_t*)buffer,
-                                                      output_buffer.channel_buffers, offset,
+                    convert_f32_to_interleaved_i24_x8((int32_t*)buffer, output_buffer.channel_buffers, output_offset,
                                                       frames_available, output_channels);
                     break;
                 case AudioFormat::I32:
-                    convert_f32_to_interleaved_i32((int32_t*)buffer, output_buffer.channel_buffers,
-                                                   offset, frames_available, output_channels);
+                    convert_f32_to_interleaved_i32((int32_t*)buffer, output_buffer.channel_buffers, output_offset,
+                                                   frames_available, output_channels);
                     break;
                 case AudioFormat::F32:
-                    convert_to_interleaved_f32((float*)buffer, output_buffer.channel_buffers,
-                                               offset, frames_available, output_channels);
+                    convert_to_interleaved_f32((float*)buffer, output_buffer.channel_buffers, output_offset,
+                                               frames_available, output_channels);
                     break;
                 default:
                     assert(false);
@@ -718,7 +784,7 @@ void AudioIOWASAPI::audio_thread_runner(AudioIOWASAPI* instance, AudioThreadPrio
                 break;
             }
 
-            offset += frames_available;
+            output_offset += frames_available;
         }
 
         if (!SUCCEEDED(hr)) [[unlikely]] {
@@ -726,6 +792,8 @@ void AudioIOWASAPI::audio_thread_runner(AudioIOWASAPI* instance, AudioThreadPrio
         }
     }
 
+    std::free(input_queue_buffer);
+    input_client->Stop();
     output_client->Stop();
 }
 

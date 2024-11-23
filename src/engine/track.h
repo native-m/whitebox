@@ -102,7 +102,7 @@ struct TestSynth {
                 double osc = voice.phase >= 1.0 ? 1.0f : -1.0f;
                 sample += (float)osc * voice.amp * voice.volume * 0.5f;
                 voice.phase += voice.frequency / sample_rate;
-                voice.amp = 1.0f; // std::max(voice.amp - env_speed, 0.0f);
+                voice.amp = std::max(voice.amp - env_speed, 0.0f);
                 if (voice.phase >= 2.0)
                     voice.phase -= 2.0;
             }

@@ -400,7 +400,7 @@ double Engine::get_song_length() const {
     return max_length;
 }
 
-void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
+void Engine::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>& output_buffer, double sample_rate) {
     double buffer_duration = (double)output_buffer.n_samples / sample_rate;
     bool currently_playing = playing.load(std::memory_order_relaxed);
 
@@ -443,6 +443,8 @@ void Engine::process(AudioBuffer<float>& output_buffer, double sample_rate) {
         track->process(mixing_buffer, sample_rate, currently_playing);
         output_buffer.mix(mixing_buffer);
     }
+
+    output_buffer.mix(input_buffer);
 
     for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
         float* channel = output_buffer.get_write_pointer(i);
