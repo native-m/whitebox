@@ -85,6 +85,7 @@ struct AudioIOPulseAudio2 : public AudioIO {
     std::thread audio_thread_;
     Engine* engine_ {};
     std::atomic<bool> running_ = false;
+    AudioBuffer<float> input_buffer_;
     AudioBuffer<float> output_buffer_;
 
     Vector<AudioDevicePulseAudio2> output_devices;
@@ -421,10 +422,10 @@ struct AudioIOPulseAudio2 : public AudioIO {
     }
 
     static void write_stream_callback(pa_stream* stream, size_t nbytes, void* userdata) {
-        AudioIOPulseAudio2* current = (AudioIOPulseAudio2*)userdata;
+        AudioIOPulseAudio2* instance = (AudioIOPulseAudio2*)userdata;
         void* write_buffer;
         
-        if (!current->running_.load(std::memory_order_relaxed)) {
+        if (!instance->running_.load(std::memory_order_relaxed)) {
             const pa_buffer_attr* actual_buffer_attr = pa_stream_get_buffer_attr(stream);
             pa_stream_begin_write(stream, &write_buffer, &nbytes);
             Log::debug("Buffer size: {}", nbytes);
@@ -433,46 +434,46 @@ struct AudioIOPulseAudio2 : public AudioIO {
             return;
         }
 
-        size_t buffer_size = current->output_buffer_.n_samples * current->output_frame_size_;
-        double sample_rate = (double)current->output_sample_spec_.rate;
-        current->engine_->process(current->output_buffer_, sample_rate);
+        size_t buffer_size = instance->output_buffer_.n_samples * instance->output_frame_size_;
+        double sample_rate = (double)instance->output_sample_spec_.rate;
+        instance->engine_->process(instance->input_buffer_, instance->output_buffer_, sample_rate);
 
         size_t offset = 0;
-        size_t buffer_length = current->output_buffer_.n_samples;
+        size_t buffer_length = instance->output_buffer_.n_samples;
         do {
             pa_stream_begin_write(stream, &write_buffer, &buffer_size);
-            size_t write_buffer_length = buffer_size / current->output_frame_size_;
+            size_t write_buffer_length = buffer_size / instance->output_frame_size_;
 
-            switch (current->output_sample_format_) {
+            switch (instance->output_sample_format_) {
                 case AudioFormat::I16:
                     convert_f32_to_interleaved_i16((int16_t*)write_buffer,
-                                                   current->output_buffer_.channel_buffers, offset,
-                                                   current->output_buffer_.n_samples,
-                                                   current->output_buffer_.n_channels);
+                                                   instance->output_buffer_.channel_buffers, offset,
+                                                   instance->output_buffer_.n_samples,
+                                                   instance->output_buffer_.n_channels);
                     break;
                 case AudioFormat::I24:
                     convert_f32_to_interleaved_i24((std::byte*)write_buffer,
-                                                   current->output_buffer_.channel_buffers, offset,
-                                                   current->output_buffer_.n_samples,
-                                                   current->output_buffer_.n_channels);
+                                                   instance->output_buffer_.channel_buffers, offset,
+                                                   instance->output_buffer_.n_samples,
+                                                   instance->output_buffer_.n_channels);
                     break;
                 case AudioFormat::I24_X8:
                     convert_f32_to_interleaved_i24_x8((int32_t*)write_buffer,
-                                                      current->output_buffer_.channel_buffers, offset,
-                                                      current->output_buffer_.n_samples,
-                                                      current->output_buffer_.n_channels);
+                                                      instance->output_buffer_.channel_buffers, offset,
+                                                      instance->output_buffer_.n_samples,
+                                                      instance->output_buffer_.n_channels);
                     break;
                 case AudioFormat::I32:
                     convert_f32_to_interleaved_i32((int32_t*)write_buffer,
-                                                   current->output_buffer_.channel_buffers, offset,
-                                                   current->output_buffer_.n_samples,
-                                                   current->output_buffer_.n_channels);
+                                                   instance->output_buffer_.channel_buffers, offset,
+                                                   instance->output_buffer_.n_samples,
+                                                   instance->output_buffer_.n_channels);
                     break;
                 case AudioFormat::F32:
                     convert_to_interleaved_f32((float*)write_buffer,
-                                               current->output_buffer_.channel_buffers, offset,
-                                               current->output_buffer_.n_samples,
-                                               current->output_buffer_.n_channels);
+                                               instance->output_buffer_.channel_buffers, offset,
+                                               instance->output_buffer_.n_samples,
+                                               instance->output_buffer_.n_channels);
                     break;
                 default:
                     assert(false);

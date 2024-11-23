@@ -652,7 +652,6 @@ void AudioIOWASAPI::audio_thread_runner(AudioIOWASAPI* instance, AudioThreadPrio
     HRESULT hr = 0;
     render->GetBuffer(maximum_output_buffer_size, &prefill);
     render->ReleaseBuffer(maximum_output_buffer_size, AUDCLNT_BUFFERFLAGS_SILENT);
-
     assert(instance->input_stream_format == AudioFormat::F32);
 
     while (instance->running.load(std::memory_order_relaxed)) {
