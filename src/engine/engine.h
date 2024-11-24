@@ -23,6 +23,10 @@ struct ProjectInfo {
 struct Engine {
     using OnBpmChangeFn = std::function<void(double, double)>;
 
+    uint32_t num_input_channels = 0;
+    uint32_t num_output_channels = 0;
+    uint32_t audio_buffer_size = 0;
+
     ProjectInfo project_info;
     std::vector<Track*> tracks;
     mutable Spinlock editor_lock;
@@ -32,6 +36,7 @@ struct Engine {
     double playhead {};
     double playhead_start {};
     double sample_position {};
+    bool recording = false;
     std::atomic<double> beat_duration;
     std::atomic<double> playhead_ui;
     std::atomic_bool playing;
@@ -46,10 +51,12 @@ struct Engine {
 
     void set_bpm(double bpm);
     void set_playhead_position(double beat_position);
-    void set_buffer_size(uint32_t channels, uint32_t size);
+    void set_audio_channel_config(uint32_t input_channels, uint32_t output_channels, uint32_t buffer_size);
     void clear_all();
     void play();
     void stop();
+    void record();
+    void stop_record();
 
     void edit_lock() { editor_lock.lock(); }
     void edit_unlock() { editor_lock.unlock(); }

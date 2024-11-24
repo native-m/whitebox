@@ -251,7 +251,7 @@ void start_audio_engine() {
     // Realign buffer size
     g_audio_buffer_size -= g_audio_buffer_size % g_audio_io->buffer_alignment;
 
-    g_engine.set_buffer_size(2, g_audio_buffer_size);
+    g_engine.set_audio_channel_config(2, 2, g_audio_buffer_size);
     g_audio_io->start(&g_engine, g_audio_exclusive_mode, g_audio_buffer_size, g_audio_input_format,
                       g_audio_output_format, g_audio_sample_rate, AudioThreadPriority::High);
 }

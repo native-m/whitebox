@@ -29,9 +29,12 @@ void Engine::set_playhead_position(double beat_position) {
     editor_lock.unlock();
 }
 
-void Engine::set_buffer_size(uint32_t channels, uint32_t size) {
-    mixing_buffer.resize(size);
-    mixing_buffer.resize_channel(channels);
+void Engine::set_audio_channel_config(uint32_t input_channels, uint32_t output_channels, uint32_t buffer_size) {
+    num_input_channels = input_channels;
+    num_output_channels = output_channels;
+    audio_buffer_size = buffer_size;
+    mixing_buffer.resize(buffer_size);
+    mixing_buffer.resize_channel(output_channels);
 }
 
 void Engine::clear_all() {
@@ -45,6 +48,8 @@ void Engine::play() {
     Log::debug("-------------- Playing --------------");
     editor_lock.lock();
     for (auto track : tracks) {
+        if (recording)
+            track->prepare_record(playhead_start);
         track->reset_playback_state(playhead_start, false);
     }
     playhead_updated.store(false, std::memory_order_release);
@@ -61,8 +66,29 @@ void Engine::stop() {
     for (auto track : tracks) {
         track->stop();
     }
+    recording = false;
     editor_lock.unlock();
     Log::debug("-------------- Stop --------------");
+}
+
+void Engine::record() {
+    if (recording && playing)
+        return;
+    recording = true;
+    play();
+    Log::debug("Record");
+}
+
+void Engine::stop_record() {
+    if (!recording)
+        return;
+    editor_lock.lock();
+    for (auto track : tracks) {
+        track->stop_record();
+    }
+    recording = false;
+    editor_lock.unlock();
+    Log::debug("Record stop");
 }
 
 Track* Engine::add_track(const std::string& name) {
@@ -440,11 +466,11 @@ void Engine::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>&
     for (uint32_t i = 0; i < tracks.size(); i++) {
         auto track = tracks[i];
         mixing_buffer.clear();
-        track->process(mixing_buffer, sample_rate, currently_playing);
+        track->process(input_buffer, mixing_buffer, sample_rate, currently_playing);
         output_buffer.mix(mixing_buffer);
     }
 
-    output_buffer.mix(input_buffer);
+    //output_buffer.mix(input_buffer);
 
     for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
         float* channel = output_buffer.get_write_pointer(i);

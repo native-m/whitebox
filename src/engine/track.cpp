@@ -345,12 +345,27 @@ void Track::reset_playback_state(double time_pos, bool refresh_voices) {
     event_state.refresh_voice = refresh_voices;
 }
 
+void Track::prepare_record(double time_pos) {
+    if (!arm_record || input_mode == TrackInputMode::None)
+        return;
+    record_min_time = time_pos;
+    record_max_time = time_pos;
+    recording = true;
+}
+
+void Track::stop_record() {
+    record_min_time = 0.0;
+    record_max_time = 0.0;
+    recording = false;
+}
+
 void Track::stop() {
     current_audio_event = {
         .type = EventType::None,
     };
     audio_event_buffer.resize(0);
     midi_event_list.clear();
+    stop_record();
     // midi_voice_state.voice_mask = 0;
 }
 
@@ -371,6 +386,8 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
             event_state.midi_note_idx = 0;
             event_state.refresh_voice = false;
         }
+        if (recording)
+            record_max_time += inv_ppq;
         return;
     }
 
@@ -515,6 +532,9 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
             event_state.next_clip_idx = new_next_clip;
         }
     }
+
+    if (recording)
+        record_max_time += inv_ppq;
 }
 
 void Track::process_midi_event(Clip* clip, uint32_t buffer_offset, double time_pos, double beat_duration, double ppq,
@@ -622,7 +642,8 @@ void Track::stop_midi_notes(uint32_t buffer_offset, double time_pos) {
     midi_voice_state.voice_mask &= ~inactive_voice_bits;
 }
 
-void Track::process(AudioBuffer<float>& output_buffer, double sample_rate, bool playing) {
+void Track::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>& output_buffer, double sample_rate,
+                    bool playing) {
     param_changes.transfer_changes_from(ui_param_changes);
 
     for (uint32_t i = 0; i < param_changes.changes_count; i++) {
@@ -700,6 +721,8 @@ void Track::process(AudioBuffer<float>& output_buffer, double sample_rate, bool 
     }
 
     param_changes.clear_changes();
+
+    
 
     if (deleted_clips.size() > 0) {
         for (auto deleted_clip : deleted_clips) {

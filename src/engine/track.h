@@ -27,6 +27,13 @@ enum TrackParameter {
     TrackParameter_Max,
 };
 
+enum class TrackInputMode {
+    None,
+    Midi,
+    ExternalStereo,
+    ExternalMono,
+};
+
 struct MidiVoice {
     double max_time;
     float velocity;
@@ -85,8 +92,7 @@ struct TestSynth {
         }
     }
 
-    inline void render(AudioBuffer<float>& output_buffer, double sample_rate,
-                       uint32_t buffer_offset, uint32_t length) {
+    inline void render(AudioBuffer<float>& output_buffer, double sample_rate, uint32_t buffer_offset, uint32_t length) {
         if (!voice_mask || length == 0)
             return;
 
@@ -142,6 +148,13 @@ struct Track {
     ImColor color {0.3f, 0.3f, 0.3f, 1.0f};
     float height = 60.0f;
     bool shown = true;
+    TrackInputMode input_mode {};
+    uint32_t input_index = 0;
+
+    bool arm_record = false;
+    bool recording = false;
+    double record_min_time = 0.0;
+    double record_max_time = 0.0;
 
     Pool<Clip> clip_allocator;
     Vector<Clip*> clips;
@@ -204,9 +217,8 @@ struct Track {
      * @param active Activate clip.
      * @return A pointer to the new clip.
      */
-    Clip* add_audio_clip(const std::string& name, double min_time, double max_time,
-                         double start_offset, const AudioClip& clip_info, double beat_duration,
-                         bool active = true);
+    Clip* add_audio_clip(const std::string& name, double min_time, double max_time, double start_offset,
+                         const AudioClip& clip_info, double beat_duration, bool active = true);
 
     /**
      * @brief Add midi clip into the track.
@@ -220,9 +232,8 @@ struct Track {
      * @param active Activate clip.
      * @return A pointer to the new clip.
      */
-    Clip* add_midi_clip(const std::string& name, double min_time, double max_time,
-                        double start_offset, const MidiClip& clip_info, double beat_duration,
-                        bool active = true);
+    Clip* add_midi_clip(const std::string& name, double min_time, double max_time, double start_offset,
+                        const MidiClip& clip_info, double beat_duration, bool active = true);
 
     /**
      * @brief Create a new clip from existing clip.
@@ -233,8 +244,7 @@ struct Track {
      * @param beat_duration Duration of the beat in seconds.
      * @return A pointer to the new clip.
      */
-    Clip* duplicate_clip(Clip* clip_to_duplicate, double min_time, double max_time,
-                         double beat_duration);
+    Clip* duplicate_clip(Clip* clip_to_duplicate, double min_time, double max_time, double beat_duration);
 
     /**
      * @brief Move the clip relative to its position.
@@ -254,8 +264,7 @@ struct Track {
      * @param beat_duration Beat duration in seconds.
      * @param right_side Which side to resize (false: left side, true: right side).
      */
-    void resize_clip(Clip* clip, double relative_pos, double min_length, double beat_duration,
-                     bool right_side);
+    void resize_clip(Clip* clip, double relative_pos, double min_length, double beat_duration, bool right_side);
 
     /**
      * @brief Delete clip by ID. Deleting clip directly is not possible due to the reordering.
@@ -295,11 +304,25 @@ struct Track {
     std::optional<uint32_t> find_next_clip(double time_pos, uint32_t hint = WB_INVALID_CLIP_ID);
 
     /**
-     * @brief Prepare track for playback.
+     * @brief Reset track playback state. When track state changes, this must be called to update the playback state and
+     * make sure everything keep sync.
      *
      * @param time_pos Starting point of the playback.
+     * @param refresh_voices Refresh active voices.
      */
-    void reset_playback_state(double time_pos, bool stop_voices);
+    void reset_playback_state(double time_pos, bool refresh_voices);
+
+    /**
+     * @brief Prepare track for recording.
+     * 
+     * @param time_pos Starting point of the recording.
+     */
+    void prepare_record(double time_pos);
+
+    /**
+     * @brief Stop recording.
+     */
+    void stop_record();
 
     /**
      * @brief Stop playback.
@@ -315,11 +338,11 @@ struct Track {
      * @param ppq Pulses per quarter note (PPQN).
      * @param inv_ppq Inverse of PPQN.
      */
-    void process_event(uint32_t buffer_offset, double time_pos, double beat_duration,
-                       double sample_rate, double ppq, double inv_ppq);
+    void process_event(uint32_t buffer_offset, double time_pos, double beat_duration, double sample_rate, double ppq,
+                       double inv_ppq);
 
-    void process_midi_event(Clip* clip, uint32_t buffer_offset, double time_pos,
-                            double beat_duration, double ppq, double inv_ppq);
+    void process_midi_event(Clip* clip, uint32_t buffer_offset, double time_pos, double beat_duration, double ppq,
+                            double inv_ppq);
 
     void stop_midi_notes(uint32_t buffer_offset, double time_pos);
 
@@ -330,12 +353,13 @@ struct Track {
      * @param sample_rate Sample rate.
      * @param playing Should play the track.
      */
-    void process(AudioBuffer<float>& output_buffer, double sample_rate, bool playing);
+    void process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>& output_buffer, double sample_rate,
+                 bool playing);
 
-    void render_sample(AudioBuffer<float>& output_buffer, uint32_t buffer_offset,
-                       uint32_t num_samples, double sample_rate);
-    void stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uint32_t buffer_offset,
-                       uint32_t num_samples, size_t sample_offset);
+    void render_sample(AudioBuffer<float>& output_buffer, uint32_t buffer_offset, uint32_t num_samples,
+                       double sample_rate);
+    void stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uint32_t buffer_offset, uint32_t num_samples,
+                       size_t sample_offset);
     void process_test_synth(AudioBuffer<float>& output_buffer, double sample_rate, bool playing);
 
     void flush_deleted_clips(double time_pos);
