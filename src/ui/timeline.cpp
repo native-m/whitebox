@@ -6,6 +6,7 @@
 #include "core/color.h"
 #include "core/core_math.h"
 #include "core/debug.h"
+#include "engine/audio_io.h"
 #include "engine/clip_edit.h"
 #include "engine/engine.h"
 #include "engine/track.h"
@@ -82,7 +83,7 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
     switch (clip->type) {
         case ClipType::Audio: {
             SampleAsset* asset = clip->audio.asset;
-            if (asset) {
+            if (asset) [[likely]] {
                 SamplePeaks* sample_peaks = asset->peaks.get();
                 const double scale_x = sample_scale * (double)asset->sample_instance.sample_rate;
                 const double inv_scale_x = 1.0 / scale_x;
@@ -148,7 +149,7 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
                 max_note_size = (content_height - 2.0f) / (float)(note_range - 1u);
             }
 
-            if (asset) {
+            if (asset) [[likely]] {
                 uint32_t channel_count = asset->data.channel_count;
                 double min_start_x = min_x - start_offset * clip_scale;
                 for (uint32_t i = 0; i < channel_count; i++) {
@@ -371,6 +372,7 @@ void GuiTimeline::render_track_controls() {
     const float clamped_separator_pos = std::max(separator_pos, min_track_control_size);
     const ImVec2 screen_pos = ImGui::GetCursorScreenPos();
     const auto& style = ImGui::GetStyle();
+    uint32_t max_audio_input_channels = g_audio_io->max_input_channel_count;
 
     ImGui::PushClipRect(screen_pos, ImVec2(screen_pos.x + clamped_separator_pos, screen_pos.y + area_size.y + vscroll),
                         true);
@@ -429,14 +431,27 @@ void GuiTimeline::render_track_controls() {
                         ImGui::SameLine(0.0f, 2.0f);
                         if (ImGui::SmallButton("S"))
                             g_engine.solo_track(i);
+
+                        ImGui::SameLine(0.0f, 2.0f);
+                        ImGui::BeginDisabled(g_engine.recording);
+                        if (controls::small_toggle_button("R", &track->arm_record, muted_color))
+                            track->arm_record = !track->arm_record;
+                        ImGui::EndDisabled();
                     }
                 } else [[likely]] {
                     // Compact
                     if (controls::toggle_button("M", &mute, muted_color))
                         track->set_mute(!mute);
+
                     ImGui::SameLine(0.0f, 2.0f);
                     if (ImGui::Button("S"))
                         g_engine.solo_track(i);
+
+                    ImGui::SameLine(0.0f, 2.0f);
+                    ImGui::BeginDisabled(g_engine.recording);
+                    if (controls::toggle_button("R", &track->arm_record, muted_color))
+                        track->arm_record = !track->arm_record;
+                    ImGui::EndDisabled();
 
                     ImGui::SameLine(0.0f, 2.0f);
                     ImVec2 pos = ImGui::GetCursorPos();
@@ -456,15 +471,80 @@ void GuiTimeline::render_track_controls() {
                     }
                 }
 
+                if (free_region.y >= item_height * 3.5f) {
+                    constexpr ImGuiSelectableFlags selected_flags = ImGuiSelectableFlags_Highlight;
+                    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 3.0f));
+
+                    const char* input_name = "None";
+                    switch (track->input_mode) {
+                        case TrackInputMode::ExternalStereo: {
+                            uint32_t index_mul = track->input_index * 2;
+                            ImFormatStringToTempBuffer(&input_name, nullptr, "%d+%d", index_mul + 1, index_mul + 2);
+                            break;
+                        }
+                        case TrackInputMode::ExternalMono: {
+                            ImFormatStringToTempBuffer(&input_name, nullptr, "%d", track->input_index + 1);
+                            break;
+                        }
+                        default:
+                            break;
+                    }
+
+                    ImGui::BeginDisabled(g_engine.recording);
+                    if (ImGui::BeginCombo("Input", input_name)) [[unlikely]] {
+                        bool none = track->input_mode == TrackInputMode::None;
+                        bool ext_stereo = track->input_mode == TrackInputMode::ExternalStereo;
+                        bool ext_mono = track->input_mode == TrackInputMode::ExternalMono;
+
+                        if (ImGui::Selectable("None", none, none ? ImGuiSelectableFlags_Highlight : 0)) {
+                            track->input_mode = TrackInputMode::None;
+                            track->input_index = 0;
+                        }
+
+                        ImGui::Selectable("Ext. stereo", true, ImGuiSelectableFlags_Disabled);
+                        for (uint32_t i = 0; i < max_audio_input_channels; i += 2) {
+                            const char* name;
+                            bool selected = ext_stereo && track->input_index == i;
+                            ImFormatStringToTempBuffer(&name, nullptr, "%d+%d", i + 1, i + 2);
+                            if (ImGui::Selectable(name, false, selected ? ImGuiSelectableFlags_Highlight : 0)) {
+                                track->input_mode = TrackInputMode::ExternalStereo;
+                                track->input_index = i;
+                            }
+                        }
+
+                        ImGui::Selectable("Ext. mono", true, ImGuiSelectableFlags_Disabled);
+                        for (uint32_t i = 0; i < max_audio_input_channels; i++) {
+                            const char* name;
+                            bool selected = ext_mono && track->input_index == i;
+                            ImFormatStringToTempBuffer(&name, nullptr, "%d", i + 1);
+                            if (ImGui::Selectable(name, false, selected ? ImGuiSelectableFlags_Highlight : 0)) {
+                                track->input_mode = TrackInputMode::ExternalMono;
+                                track->input_index = i;
+                            }
+                        }
+
+                        ImGui::EndCombo();
+                    }
+                    ImGui::EndDisabled();
+
+                    ImGui::PopStyleVar();
+                }
+
                 if (controls::small_toggle_button("M", &mute, muted_color))
                     track->set_mute(!mute);
                 ImGui::SameLine(0.0f, 2.0f);
                 if (ImGui::SmallButton("S"))
                     g_engine.solo_track(i);
+                ImGui::SameLine(0.0f, 2.0f);
+
+                ImGui::BeginDisabled(g_engine.recording);
+                if (controls::small_toggle_button("R", &track->arm_record, muted_color))
+                    track->arm_record = !track->arm_record;
+                ImGui::EndDisabled();
             }
 
             if (ImGui::IsWindowHovered() && !(ImGui::IsAnyItemActive() || ImGui::IsAnyItemHovered()) &&
-                ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+                ImGui::IsMouseClicked(ImGuiMouseButton_Right)) [[unlikely]] {
                 ImGui::OpenPopup("track_context_menu");
                 context_menu_track = track;
                 tmp_color = track->color;
@@ -761,8 +841,10 @@ void GuiTimeline::render_track_lanes() {
         ((double)(mouse_pos.x - timeline_view_pos.x) * view_scale + min_hscroll * song_length) * inv_ppq;
     const double mouse_at_gridline = std::round(mouse_at_time_pos * (double)grid_scale) / (double)grid_scale;
 
+    static constexpr uint32_t highlight_color = 0x9F555555;
     const ImU32 gridline_color = (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.85f);
     const ImColor text_color = ImGui::GetStyleColorVec4(ImGuiCol_Text);
+    const ImU32 text_color_transparent = color_adjust_alpha(text_color, 0.5f);
     const double timeline_scroll_offset_x = (double)timeline_view_pos.x - scroll_pos_x;
     const float timeline_scroll_offset_x_f32 = (float)timeline_scroll_offset_x;
     const float font_size = ImGui::GetFontSize();
@@ -808,6 +890,9 @@ void GuiTimeline::render_track_lanes() {
     }
 
     redraw = redraw || (mouse_move && edit_action != TimelineEditAction::None) || dragging_file;
+
+    if (g_engine.recording)
+        redraw = true;
 
     if (redraw) {
         static constexpr float guidestrip_alpha = 0.12f;
@@ -1018,7 +1103,6 @@ void GuiTimeline::render_track_lanes() {
         // Handle file drag & drop
         if (hovering_track_rect && dragging_file) {
             // Highlight drop target
-            static constexpr uint32_t highlight_color = 0x9F555555;
             double highlight_pos = mouse_at_gridline; // Snap to grid
             double length =
                 drop_payload_data->type == BrowserItem::Sample
@@ -1041,6 +1125,17 @@ void GuiTimeline::render_track_lanes() {
                 Log::info("Dropped at: {}", mouse_at_gridline);
                 force_redraw = true;
             }
+        }
+
+        if (track->recording) {
+            const double min_pos_x = math::round(timeline_scroll_offset_x + track->record_min_time * clip_scale);
+            const double max_pos_x = math::round(timeline_scroll_offset_x + track->record_max_time * clip_scale);
+            const float min_clamped_pos_x = (float)math::max(min_pos_x, (double)timeline_view_pos.x);
+            const float max_clamped_pos_x = (float)math::min(max_pos_x, (double)timeline_end_x);
+            layer2_draw_list->AddRectFilled(ImVec2(min_clamped_pos_x, track_pos_y),
+                                            ImVec2(max_clamped_pos_x, next_pos_y), highlight_color);
+            layer2_draw_list->AddText(ImVec2(min_clamped_pos_x + 4.0f, track_pos_y + 2.0f), text_color_transparent,
+                                      "Recording...");
         }
 
         track_pos_y = next_pos_y + track_separator_height;
@@ -1117,6 +1212,7 @@ void GuiTimeline::render_track_lanes() {
     }
 
     if (redraw) {
+
         if (selecting_range || range_selected) {
             float track_pos_y = timeline_view_pos.y;
             float selection_start_y = 0.0f;

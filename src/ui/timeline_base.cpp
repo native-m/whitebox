@@ -151,8 +151,8 @@ bool TimelineBase::render_time_ruler(double* time_value) {
                            ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonMiddle);
     bool hovered = ImGui::IsItemHovered();
     bool left_clicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
-    bool holding_left = ImGui::IsItemActive() && ImGui::IsMouseDown(ImGuiMouseButton_Left);
     bool middle_clicked = ImGui::IsItemClicked(ImGuiMouseButton_Middle);
+    bool holding_left = ImGui::IsItemActive() && ImGui::IsMouseDown(ImGuiMouseButton_Left);
 
     if (timeline_width == 0.0f) {
         return false;
@@ -191,7 +191,6 @@ bool TimelineBase::render_time_ruler(double* time_value) {
     if (zooming_on_ruler) {
         int x, y;
         get_relative_mouse_state(&x, &y);
-        ImGui::SetMouseCursor(ImGuiMouseCursor_Arrow);
         if (y != 0) {
             zoom(mouse_pos.x, cursor_pos.x, view_scale, (float)y * 0.1f);
             view_scale = calc_view_scale();

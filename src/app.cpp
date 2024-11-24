@@ -23,8 +23,8 @@
 #include "ui/settings.h"
 #include "ui/timeline.h"
 #include <SDL.h>
-#include <SDL_syswm.h>
 #include <SDL_mouse.h>
+#include <SDL_syswm.h>
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
 
@@ -294,6 +294,8 @@ void app_render_control_bar() {
     ImGui::SameLine(0.0f, 12.0f);
     if (ImGui::Button(!is_playing ? ICON_MS_PLAY_ARROW "##wb_play" : ICON_MS_PAUSE "##wb_play")) {
         if (is_playing) {
+            if (g_engine.recording)
+                g_timeline.redraw_screen();
             g_engine.stop();
         } else {
             g_engine.play();
@@ -301,11 +303,22 @@ void app_render_control_bar() {
     }
     ImGui::SameLine(0.0f, 4.0f);
     if (ImGui::Button(ICON_MS_STOP "##wb_stop")) {
+        if (g_engine.recording)
+            g_timeline.redraw_screen();
         g_engine.stop();
     }
     ImGui::SameLine(0.0f, 4.0f);
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.951f, 0.322f, 0.322f, 1.000f));
-    ImGui::Button(ICON_MS_FIBER_MANUAL_RECORD "##wb_record");
+    if (controls::toggle_button(ICON_MS_FIBER_MANUAL_RECORD "##wb_record", &g_engine.recording,
+                                ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive))) {
+        if (!g_engine.recording) {
+            g_engine.record();
+        }
+        else {
+            g_timeline.redraw_screen();
+            g_engine.stop_record();
+        }
+    }
     ImGui::PopStyleColor();
     ImGui::PopStyleVar();
 
