@@ -31,8 +31,7 @@ inline AudioFormat to_audio_format(pa_sample_format format) {
     return AudioFormat::Unknown;
 }
 
-inline pa_sample_spec to_sample_spec(AudioFormat format, AudioDeviceSampleRate sample_rate,
-                                     uint16_t channels) {
+inline pa_sample_spec to_sample_spec(AudioFormat format, AudioDeviceSampleRate sample_rate, uint16_t channels) {
     pa_sample_spec ret {
         .rate = get_sample_rate_value(sample_rate),
         .channels = (uint8_t)channels,
@@ -133,8 +132,7 @@ struct AudioIOPulseAudio2 : public AudioIO {
             AudioIOPulseAudio2* current = (AudioIOPulseAudio2*)userdata;
             AudioDevicePulseAudio2& device = current->output_devices.emplace_back();
             std::string_view name(i->name);
-            std::strncpy(device.properties.name, i->description,
-                         sizeof(AudioDeviceProperties::name));
+            std::strncpy(device.properties.name, i->description, sizeof(AudioDeviceProperties::name));
             device.properties.id = std::hash<std::string_view> {}(name);
             device.properties.io_type = AudioIOType::PulseAudio;
             device.properties.type = AudioDeviceType::Output;
@@ -152,8 +150,7 @@ struct AudioIOPulseAudio2 : public AudioIO {
             AudioIOPulseAudio2* current = (AudioIOPulseAudio2*)userdata;
             AudioDevicePulseAudio2& device = current->input_devices.emplace_back();
             std::string_view name(i->name);
-            std::strncpy(device.properties.name, i->description,
-                         sizeof(AudioDeviceProperties::name));
+            std::strncpy(device.properties.name, i->description, sizeof(AudioDeviceProperties::name));
             device.properties.id = std::hash<std::string_view> {}(name);
             device.properties.io_type = AudioIOType::PulseAudio;
             device.properties.type = AudioDeviceType::Input;
@@ -164,8 +161,7 @@ struct AudioIOPulseAudio2 : public AudioIO {
             device.configured_latency = i->configured_latency;
         };
 
-        auto default_sink_info_cb = [](pa_context* c, const pa_sink_info* i, int eol,
-                                       void* userdata) {
+        auto default_sink_info_cb = [](pa_context* c, const pa_sink_info* i, int eol, void* userdata) {
             if (eol > 0) {
                 return;
             }
@@ -176,8 +172,7 @@ struct AudioIOPulseAudio2 : public AudioIO {
             current->default_output_device = current->output_devices[i->index - 1].properties;
         };
 
-        auto default_source_info_cb = [](pa_context* c, const pa_source_info* i, int eol,
-                                         void* userdata) {
+        auto default_source_info_cb = [](pa_context* c, const pa_source_info* i, int eol, void* userdata) {
             if (eol > 0) {
                 return;
             }
@@ -222,13 +217,9 @@ struct AudioIOPulseAudio2 : public AudioIO {
         return true;
     }
 
-    uint32_t get_input_device_index(AudioDeviceID id) const override {
-        return find_device_index(input_devices, id);
-    }
+    uint32_t get_input_device_index(AudioDeviceID id) const override { return find_device_index(input_devices, id); }
 
-    uint32_t get_output_device_index(AudioDeviceID id) const override {
-        return find_device_index(output_devices, id);
-    }
+    uint32_t get_output_device_index(AudioDeviceID id) const override { return find_device_index(output_devices, id); }
 
     const AudioDeviceProperties& get_input_device_properties(uint32_t idx) const override {
         return input_devices[idx].properties;
@@ -305,8 +296,7 @@ struct AudioIOPulseAudio2 : public AudioIO {
     }
 
     bool start(Engine* engine, bool exclusive_mode, uint32_t buffer_size, AudioFormat input_format,
-               AudioFormat output_format, AudioDeviceSampleRate sample_rate,
-               AudioThreadPriority priority) override {
+               AudioFormat output_format, AudioDeviceSampleRate sample_rate, AudioThreadPriority priority) override {
         pa_sample_spec output_spec = to_sample_spec(output_format, sample_rate, 2);
         if (!pa_sample_spec_valid(&output_spec)) {
             return false;
@@ -318,15 +308,13 @@ struct AudioIOPulseAudio2 : public AudioIO {
             return false;
         }
 
-        pa_stream* output_stream =
-            pa_stream_new(context_, "wb_pa_output_stream", &output_spec, &stereo_map);
+        pa_stream* output_stream = pa_stream_new(context_, "wb_pa_output_stream", &output_spec, &stereo_map);
         if (!output_stream) {
             return false;
         }
 
-        int stream_flags = PA_STREAM_INTERPOLATE_TIMING | PA_STREAM_AUTO_TIMING_UPDATE |
-                           PA_STREAM_ADJUST_LATENCY | PA_STREAM_START_UNMUTED |
-                           PA_STREAM_NO_REMIX_CHANNELS | PA_STREAM_NO_REMAP_CHANNELS;
+        int stream_flags = PA_STREAM_INTERPOLATE_TIMING | PA_STREAM_AUTO_TIMING_UPDATE | PA_STREAM_ADJUST_LATENCY |
+                           PA_STREAM_START_UNMUTED | PA_STREAM_NO_REMIX_CHANNELS | PA_STREAM_NO_REMAP_CHANNELS;
 
         uint32_t frame_size = output_spec.channels * get_audio_format_size(output_format);
         uint32_t requested_buffer_size = buffer_size * frame_size;
@@ -400,8 +388,7 @@ struct AudioIOPulseAudio2 : public AudioIO {
         return true;
     }
 
-    uint32_t find_device_index(const Vector<AudioDevicePulseAudio2>& devices,
-                               AudioDeviceID id) const {
+    uint32_t find_device_index(const Vector<AudioDevicePulseAudio2>& devices, AudioDeviceID id) const {
         uint32_t idx = 0;
         bool found = false;
         for (const auto& device : devices) {
@@ -424,7 +411,7 @@ struct AudioIOPulseAudio2 : public AudioIO {
     static void write_stream_callback(pa_stream* stream, size_t nbytes, void* userdata) {
         AudioIOPulseAudio2* instance = (AudioIOPulseAudio2*)userdata;
         void* write_buffer;
-        
+
         if (!instance->running_.load(std::memory_order_relaxed)) {
             const pa_buffer_attr* actual_buffer_attr = pa_stream_get_buffer_attr(stream);
             pa_stream_begin_write(stream, &write_buffer, &nbytes);
@@ -446,34 +433,28 @@ struct AudioIOPulseAudio2 : public AudioIO {
 
             switch (instance->output_sample_format_) {
                 case AudioFormat::I16:
-                    convert_f32_to_interleaved_i16((int16_t*)write_buffer,
-                                                   instance->output_buffer_.channel_buffers, offset,
-                                                   instance->output_buffer_.n_samples,
+                    convert_f32_to_interleaved_i16((int16_t*)write_buffer, instance->output_buffer_.channel_buffers,
+                                                   offset, instance->output_buffer_.n_samples,
                                                    instance->output_buffer_.n_channels);
                     break;
                 case AudioFormat::I24:
-                    convert_f32_to_interleaved_i24((std::byte*)write_buffer,
-                                                   instance->output_buffer_.channel_buffers, offset,
-                                                   instance->output_buffer_.n_samples,
+                    convert_f32_to_interleaved_i24((std::byte*)write_buffer, instance->output_buffer_.channel_buffers,
+                                                   offset, instance->output_buffer_.n_samples,
                                                    instance->output_buffer_.n_channels);
                     break;
                 case AudioFormat::I24_X8:
-                    convert_f32_to_interleaved_i24_x8((int32_t*)write_buffer,
-                                                      instance->output_buffer_.channel_buffers, offset,
-                                                      instance->output_buffer_.n_samples,
+                    convert_f32_to_interleaved_i24_x8((int32_t*)write_buffer, instance->output_buffer_.channel_buffers,
+                                                      offset, instance->output_buffer_.n_samples,
                                                       instance->output_buffer_.n_channels);
                     break;
                 case AudioFormat::I32:
-                    convert_f32_to_interleaved_i32((int32_t*)write_buffer,
-                                                   instance->output_buffer_.channel_buffers, offset,
-                                                   instance->output_buffer_.n_samples,
+                    convert_f32_to_interleaved_i32((int32_t*)write_buffer, instance->output_buffer_.channel_buffers,
+                                                   offset, instance->output_buffer_.n_samples,
                                                    instance->output_buffer_.n_channels);
                     break;
                 case AudioFormat::F32:
-                    convert_to_interleaved_f32((float*)write_buffer,
-                                               instance->output_buffer_.channel_buffers, offset,
-                                               instance->output_buffer_.n_samples,
-                                               instance->output_buffer_.n_channels);
+                    convert_to_interleaved_f32((float*)write_buffer, instance->output_buffer_.channel_buffers, offset,
+                                               instance->output_buffer_.n_samples, instance->output_buffer_.n_channels);
                     break;
                 default:
                     assert(false);
@@ -484,8 +465,7 @@ struct AudioIOPulseAudio2 : public AudioIO {
         } while (offset < buffer_length);
     }
 
-    static void audio_thread_runner(AudioIOPulseAudio2* instance,
-                                    AudioThreadPriority thread_priority) {
+    static void audio_thread_runner(AudioIOPulseAudio2* instance, AudioThreadPriority thread_priority) {
         pa_mainloop_run(instance->main_loop_, nullptr);
     }
 };

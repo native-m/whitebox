@@ -21,7 +21,7 @@ enum class AudioIOType {
     WASAPI,
     ASIO,       // Unimplemented
     CoreAudio,  // Unimplemented
-    PulseAudio, // Unimplemented
+    PulseAudio,
 };
 
 enum class AudioDeviceType {
@@ -62,6 +62,8 @@ struct AudioDeviceFormat {
 };
 
 struct AudioIO {
+    static constexpr int max_channel_map = 64;
+
     AudioDeviceRemovedCb device_removed_cb {};
     AudioDeviceProperties default_input_device;
     AudioDeviceProperties default_output_device;
@@ -69,6 +71,8 @@ struct AudioIO {
     AudioDeviceID current_output_device_id {0};
     uint32_t input_device_count = 0;
     uint32_t output_device_count = 0;
+    int32_t max_input_channel_count = 0;
+    int32_t max_output_channel_count = 0;
     uint32_t exclusive_sample_rate_bit_flags = 0;
     uint32_t exclusive_input_format_bit_flags = 0;
     uint32_t exclusive_output_format_bit_flags = 0;
@@ -84,17 +88,29 @@ struct AudioIO {
     uint32_t get_output_device_count() const { return output_device_count; }
     bool is_open() const { return open; }
 
+    /*
+        Check if sample rate is supported. This function only valid if the audio device has been opened
+    */
     bool is_sample_rate_supported(AudioDeviceSampleRate sample_rate) const {
         return has_bit_enum(exclusive_sample_rate_bit_flags, sample_rate);
     }
 
+    /*
+        Check if input format is supported. This function only valid if the audio device has been opened
+    */
     bool is_input_format_supported(AudioFormat format) const {
         return has_bit_enum(exclusive_input_format_bit_flags, format);
     }
 
+    /*
+        Check if output format is supported. This function only valid if the audio device has been opened
+    */
     bool is_output_format_supported(AudioFormat format) const {
         return has_bit_enum(exclusive_output_format_bit_flags, format);
     }
+
+    int32_t get_max_input_channels() const { return max_input_channel_count; }
+    int32_t get_max_output_channels() const { return max_output_channel_count; }
 
     void set_on_device_removed_cb(AudioDeviceRemovedCb cb) { device_removed_cb = cb; }
 
@@ -126,7 +142,6 @@ struct AudioIO {
 
     /*
         Starts the audio engine.
-        Audio thread will be launched here.
     */
     virtual bool start(Engine* engine, bool exclusive_mode, uint32_t buffer_size,
                        AudioFormat input_format, AudioFormat output_format,
@@ -179,7 +194,7 @@ static const AudioFormat compatible_formats[] = {
 };
 
 static const uint16_t compatible_channel_count[] = {
-    2,
+    1, 2,
 };
 
 void init_audio_io(AudioIOType type);

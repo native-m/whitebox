@@ -7,6 +7,7 @@
 #include "core/debug.h"
 #include "engine/engine.h"
 #include <memory>
+#include <ranges>
 #include <shared_mutex>
 #include <string_view>
 #include <thread>
@@ -64,12 +65,13 @@ inline static FormatBitSizes get_bit_sizes(AudioFormat audio_format) {
     return {};
 }
 
-inline static WAVEFORMATEXTENSIBLE to_waveformatex(AudioFormat sample_format, uint32_t sample_rate, uint16_t channels) {
+inline static WAVEFORMATEXTENSIBLE to_waveformatex(AudioFormat sample_format, uint32_t sample_rate, uint16_t channels,
+                                                   uint32_t channel_mask) {
     // NOTE: Some drivers does not work with WAVEFORMATEXTENSIBLE!
     auto [format, bits, valid_bits] = get_bit_sizes(sample_format);
     WAVEFORMATEXTENSIBLE waveformat {};
 
-    if (bits <= 16) {
+    if (bits <= 24) {
         waveformat.Format.wFormatTag = WAVE_FORMAT_PCM;
     } else {
         waveformat.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
@@ -83,7 +85,7 @@ inline static WAVEFORMATEXTENSIBLE to_waveformatex(AudioFormat sample_format, ui
     waveformat.Format.wBitsPerSample = bits;
     waveformat.Samples.wValidBitsPerSample = valid_bits;
     waveformat.SubFormat = format;
-    waveformat.dwChannelMask = (1u << channels) - 1;
+    waveformat.dwChannelMask = channel_mask;
 
     return waveformat;
 }
@@ -167,6 +169,8 @@ struct AudioIOWASAPI : public AudioIO {
     uint32_t stream_buffer_size {};
     uint32_t maximum_input_buffer_size {};
     uint32_t maximum_output_buffer_size {};
+    uint32_t input_channel_mask = 0;
+    uint32_t output_channel_mask = 0;
     double stream_sample_rate {};
     AudioFormat input_stream_format {};
     AudioFormat output_stream_format {};
@@ -314,9 +318,9 @@ bool ActiveDeviceWASAPI::init_stream(bool exclusive_mode, AudioDevicePeriod peri
     AUDCLNT_SHAREMODE share_mode = exclusive_mode ? AUDCLNT_SHAREMODE_EXCLUSIVE : AUDCLNT_SHAREMODE_SHARED;
 
     if (exclusive_mode) {
-        WAVEFORMATEXTENSIBLE waveformat = to_waveformatex(sample_format, sample_rate_value.first, 2);
+        WAVEFORMATEXTENSIBLE waveformat = to_waveformatex(sample_format, sample_rate_value.first, 2, (1u << 2) - 1u);
         HRESULT result =
-            client->Initialize(share_mode, stream_flags, period, period, (const WAVEFORMATEX*)&shared_format, nullptr);
+            client->Initialize(share_mode, stream_flags, period, period, (const WAVEFORMATEX*)&waveformat, nullptr);
         if (FAILED(result)) {
             return false;
         }
@@ -349,7 +353,6 @@ bool ActiveDeviceWASAPI::init_stream(bool exclusive_mode, AudioDevicePeriod peri
 
 void ActiveDeviceWASAPI::stop_stream() {
     CloseHandle(stream_event);
-    use_polling = false;
 }
 
 //
@@ -411,12 +414,15 @@ bool AudioIOWASAPI::open_device(AudioDeviceID output_device_id, AudioDeviceID in
     buffer_alignment = std::min(32u, std::max(output.low_latency_buffer_alignment, input.low_latency_buffer_alignment));
 
     // Check all possible formats
+    constexpr int32_t max_channel_count = 32;
     for (auto smp_format : compatible_formats) {
         for (auto sample_rate : compatible_sample_rates) {
-            for (auto channels : compatible_channel_count) {
+            for (auto channels : std::ranges::iota_view(1, max_channel_count + 1)) {
                 uint32_t sample_rate_bit_mask = 1U << (uint32_t)sample_rate.second;
                 uint32_t format_bit_mask = 1U << (uint32_t)smp_format;
-                WAVEFORMATEXTENSIBLE format = to_waveformatex(smp_format, sample_rate.first, channels);
+                uint64_t channel_mask = (1ull << (uint64_t)channels) - 1ull;
+                WAVEFORMATEXTENSIBLE format =
+                    to_waveformatex(smp_format, sample_rate.first, channels, (uint32_t)channel_mask);
                 bool output_format_supported = SUCCEEDED(
                     output.client->IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE, (WAVEFORMATEX*)&format, nullptr));
                 bool input_format_supported = SUCCEEDED(
@@ -426,12 +432,20 @@ bool AudioIOWASAPI::open_device(AudioDeviceID output_device_id, AudioDeviceID in
                     exclusive_output_format_bit_flags |= format_bit_mask;
                     exclusive_output_sample_rate_bit_flags |= sample_rate_bit_mask;
                     exclusive_sample_rate_bit_flags |= sample_rate_bit_mask;
+                    if (channels > max_input_channel_count) {
+                        max_input_channel_count = channels;
+                        input_channel_mask = (uint32_t)channel_mask;
+                    }
                 }
 
                 if (input_format_supported) {
                     exclusive_input_format_bit_flags |= format_bit_mask;
                     exclusive_input_sample_rate_bit_flags |= sample_rate_bit_mask;
                     exclusive_sample_rate_bit_flags |= sample_rate_bit_mask;
+                    if (channels > max_output_channel_count) {
+                        max_output_channel_count = channels;
+                        output_channel_mask = (uint32_t)channel_mask;
+                    }
                 }
 
                 if (sample_rate.first == output.shared_format.Format.nSamplesPerSec) {
@@ -460,8 +474,10 @@ void AudioIOWASAPI::close_device() {
     if (running) {
         running = false;
         audio_thread.join();
+        capture_client->Release();
         render_client->Release();
         output.stop_stream();
+        input.stop_stream();
     }
     output.close();
     input.close();
@@ -532,10 +548,17 @@ bool AudioIOWASAPI::scan_audio_endpoints(EDataFlow type, std::vector<AudioDevice
         device_collection->Item(i, &device);
 
         ComPtr<IPropertyStore> property_store;
+        device->OpenPropertyStore(STGM_READ, &property_store);
+
         PROPVARIANT var_name;
         PropVariantInit(&var_name);
-        device->OpenPropertyStore(STGM_READ, &property_store);
         property_store->GetValue(PKEY_Device_FriendlyName, &var_name);
+
+        PROPVARIANT var_format;
+        PropVariantInit(&var_format);
+        property_store->GetValue(PKEY_AudioEngine_DeviceFormat, &var_format);
+        WAVEFORMATEXTENSIBLE* waveformatex = (WAVEFORMATEXTENSIBLE*)var_format.blob.pBlobData;
+        PropVariantClear(&var_format);
 
         wchar_t* device_id;
         device->GetId(&device_id);
@@ -626,8 +649,6 @@ void AudioIOWASAPI::audio_thread_runner(AudioIOWASAPI* instance, AudioThreadPrio
     uint32_t maximum_output_buffer_size = instance->maximum_output_buffer_size;
     AudioBuffer<float> input_buffer(buffer_size, instance->input.channel_count);
     AudioBuffer<float> output_buffer(buffer_size, instance->output.channel_count);
-    uint32_t input_channels = input_buffer.n_channels;
-    uint32_t output_channels = output_buffer.n_channels;
 
     // Buffer for audio capture queue
     uint32_t frame_size = get_audio_format_size(instance->input_stream_format) * input_buffer.n_channels;
@@ -664,15 +685,15 @@ void AudioIOWASAPI::audio_thread_runner(AudioIOWASAPI* instance, AudioThreadPrio
 #endif
             if (begin_read <= end_read) {
                 void* src = input_queue_buffer + (input_buffer_read_pos * frame_size);
-                convert_to_deinterleaved_f32(input_buffer.channel_buffers, (float*)src, 0, read_count, input_channels);
+                input_buffer.deinterleave_samples_from(src, 0, read_count, instance->input_stream_format);
                 input_buffer_read_pos = end_read;
                 input_buffer_size -= read_count;
             } else {
-                convert_to_deinterleaved_f32(input_buffer.channel_buffers,
-                                             (float*)(input_queue_buffer + (input_buffer_read_pos * frame_size)), 0,
-                                             input_buffer_capacity - input_buffer_read_pos, input_channels);
-                convert_to_deinterleaved_f32(input_buffer.channel_buffers, (float*)input_queue_buffer,
-                                             input_buffer_capacity - input_buffer_read_pos, end_read, input_channels);
+                uint32_t read_offset = input_buffer_capacity - input_buffer_read_pos;
+                input_buffer.deinterleave_samples_from(input_queue_buffer + (input_buffer_read_pos * frame_size), 0,
+                                                       read_offset, instance->input_stream_format);
+                input_buffer.deinterleave_samples_from(input_queue_buffer, read_offset, end_read,
+                                                       instance->input_stream_format);
                 input_buffer_read_pos = end_read;
                 input_buffer_size -= read_count;
             }
@@ -722,10 +743,16 @@ void AudioIOWASAPI::audio_thread_runner(AudioIOWASAPI* instance, AudioThreadPrio
                     input_buffer_write_pos = end_write;
                     input_buffer_size += frames_available;
                 } else {
-                    std::memcpy(input_queue_buffer + (input_buffer_write_pos * frame_size), buffer,
-                                (input_buffer_capacity - begin_write) * frame_size);
-                    std::memcpy(input_queue_buffer, buffer + (input_buffer_capacity - begin_write) * frame_size,
-                                end_write * frame_size);
+                    if (has_bit(flags, AUDCLNT_BUFFERFLAGS_SILENT)) [[unlikely]] {
+                        std::memset(input_queue_buffer + (input_buffer_write_pos * frame_size), 0,
+                                    (input_buffer_capacity - begin_write) * frame_size);
+                        std::memset(input_queue_buffer, 0, end_write * frame_size);
+                    } else {
+                        std::memcpy(input_queue_buffer + (input_buffer_write_pos * frame_size), buffer,
+                                    (input_buffer_capacity - begin_write) * frame_size);
+                        std::memcpy(input_queue_buffer, buffer + (input_buffer_capacity - begin_write) * frame_size,
+                                    end_write * frame_size);
+                    }
                     input_buffer_write_pos = end_write;
                     input_buffer_size += frames_available;
                 }
@@ -752,31 +779,8 @@ void AudioIOWASAPI::audio_thread_runner(AudioIOWASAPI* instance, AudioThreadPrio
                 break;
             }
 
-            // Perform format conversion
-            switch (instance->output_stream_format) {
-                case AudioFormat::I16:
-                    convert_f32_to_interleaved_i16((int16_t*)buffer, output_buffer.channel_buffers, output_offset,
-                                                   frames_available, output_channels);
-                    break;
-                case AudioFormat::I24:
-                    convert_f32_to_interleaved_i24((std::byte*)buffer, output_buffer.channel_buffers, output_offset,
-                                                   frames_available, output_channels);
-                    break;
-                case AudioFormat::I24_X8:
-                    convert_f32_to_interleaved_i24_x8((int32_t*)buffer, output_buffer.channel_buffers, output_offset,
-                                                      frames_available, output_channels);
-                    break;
-                case AudioFormat::I32:
-                    convert_f32_to_interleaved_i32((int32_t*)buffer, output_buffer.channel_buffers, output_offset,
-                                                   frames_available, output_channels);
-                    break;
-                case AudioFormat::F32:
-                    convert_to_interleaved_f32((float*)buffer, output_buffer.channel_buffers, output_offset,
-                                               frames_available, output_channels);
-                    break;
-                default:
-                    assert(false);
-            }
+            output_buffer.interleave_samples_to(buffer, output_offset, frames_available,
+                                                instance->output_stream_format);
 
             hr = render->ReleaseBuffer(frames_available, 0);
             if (!SUCCEEDED(hr)) [[unlikely]] {
