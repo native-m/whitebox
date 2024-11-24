@@ -42,6 +42,7 @@ add_subdirectory(assets)
 set(WB_SOURCES
     "src/core/algorithm.h"
     "src/core/audio_buffer.h"
+    "src/core/audio_format_conv.cpp"
     "src/core/audio_format_conv.h"
     "src/core/audio_format.h"
     "src/core/bit_manipulation.h"

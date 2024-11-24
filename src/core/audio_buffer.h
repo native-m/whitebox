@@ -1,5 +1,7 @@
 #pragma once
 
+#include "audio_format.h"
+#include "audio_format_conv.h"
 #include "memory.h"
 #include "types.h"
 
@@ -23,9 +25,7 @@ struct AudioBuffer {
     inline AudioBuffer() : channel_buffers(internal_channel_buffers) {}
 
     inline AudioBuffer(uint32_t sample_count, uint32_t channel_count) :
-        n_samples(sample_count),
-        n_channels(channel_count),
-        channel_buffers(internal_channel_buffers) {
+        n_samples(sample_count), n_channels(channel_count), channel_buffers(internal_channel_buffers) {
         resize_channel_array_(n_channels);
         for (uint32_t i = 0; i < n_channels; i++) {
             channel_buffers[i] = (T*)allocate_aligned(sample_count * sizeof(T), alignment);
@@ -98,8 +98,7 @@ struct AudioBuffer {
                 size_t count = std::min(n_samples, samples);
                 std::memcpy(channel_buffers[i], old_buffer, count * sizeof(T));
                 if (samples > n_samples)
-                    std::memset(channel_buffers[i] + n_samples, 0,
-                                (samples - n_samples) * sizeof(T));
+                    std::memset(channel_buffers[i] + n_samples, 0, (samples - n_samples) * sizeof(T));
                 free_aligned(old_buffer);
             }
         }
@@ -126,6 +125,38 @@ struct AudioBuffer {
                 free_aligned(channel_buffers[i]);
                 channel_buffers[i] = nullptr;
             }
+        }
+    }
+
+    inline void deinterleave_samples_from(const void* src, uint32_t dst_offset, uint32_t count, AudioFormat format) {
+        switch (format) {
+            case AudioFormat::F32:
+                convert_to_deinterleaved_f32(channel_buffers, (float*)src, dst_offset, count, n_channels);
+                break;
+            default:
+                assert(false);
+        }
+    }
+
+    inline void interleave_samples_to(const void* dst, uint32_t offset, uint32_t count, AudioFormat format) {
+        switch (format) {
+            case AudioFormat::I16:
+                convert_f32_to_interleaved_i16((int16_t*)dst, channel_buffers, offset, count, n_channels);
+                break;
+            case AudioFormat::I24:
+                convert_f32_to_interleaved_i24((std::byte*)dst, channel_buffers, offset, count, n_channels);
+                break;
+            case AudioFormat::I24_X8:
+                convert_f32_to_interleaved_i24_x8((int32_t*)dst, channel_buffers, offset, count, n_channels);
+                break;
+            case AudioFormat::I32:
+                convert_f32_to_interleaved_i32((int32_t*)dst, channel_buffers, offset, count, n_channels);
+                break;
+            case AudioFormat::F32:
+                convert_to_interleaved_f32((float*)dst, channel_buffers, offset, count, n_channels);
+                break;
+            default:
+                assert(false);
         }
     }
 
