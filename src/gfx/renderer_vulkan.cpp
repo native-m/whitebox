@@ -1618,7 +1618,6 @@ void RendererVK::resize_viewport(ImGuiViewport* viewport, ImVec2 vec) {
 }
 
 void RendererVK::present() {
-    using namespace std::chrono_literals;
     for (auto swapchain : swapchains) {
         swapchain_present.push_back(swapchain->swapchain);
         sc_image_index_present.push_back(swapchain->image_index);

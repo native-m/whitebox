@@ -28,13 +28,11 @@ SampleAsset* SampleTable::load_from_file(const std::filesystem::path& path) {
     if (!new_sample)
         return {};
 
-    auto sample_peaks {
-        g_renderer->create_sample_peaks(new_sample.value(), SamplePeaksPrecision::High)};
+    auto sample_peaks {g_renderer->create_sample_peaks(new_sample.value(), SamplePeaksPrecision::High)};
     if (!sample_peaks)
         return {};
 
-    auto asset =
-        samples.try_emplace(hash, this, hash, 1u, std::move(*new_sample), std::move(sample_peaks));
+    auto asset = samples.try_emplace(hash, this, hash, 1u, std::move(*new_sample), std::move(sample_peaks));
 
     return &asset.first->second;
 }

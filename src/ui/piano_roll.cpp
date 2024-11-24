@@ -37,8 +37,7 @@ void GuiPianoRoll::render() {
     }
     ImGui::PopStyleVar();
 
-    if (ImGui::BeginChild("PianoRollControl", ImVec2(100.0f, 0.0f), ImGuiChildFlags_Border,
-                          ImGuiWindowFlags_MenuBar)) {
+    if (ImGui::BeginChild("PianoRollControl", ImVec2(100.0f, 0.0f), ImGuiChildFlags_Border, ImGuiWindowFlags_MenuBar)) {
         if (ImGui::Button("Open")) {
             open_midi_file();
         }
@@ -65,10 +64,9 @@ void GuiPianoRoll::render() {
 
         child_content_size = ImGui::GetContentRegionAvail();
         main_cursor_pos = cursor_pos;
-        draw_list->AddLine(
-            ImVec2(content_origin.x, content_origin.y - 1.0f),
-            ImVec2(content_origin.x + ImGui::GetContentRegionAvail().x, content_origin.y - 1.0f),
-            ImGui::GetColorU32(ImGuiCol_Separator));
+        draw_list->AddLine(ImVec2(content_origin.x, content_origin.y - 1.0f),
+                           ImVec2(content_origin.x + ImGui::GetContentRegionAvail().x, content_origin.y - 1.0f),
+                           ImGui::GetColorU32(ImGuiCol_Separator));
 
         content_height = child_content_size.y * (1.0f - space_divider);
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2());
@@ -86,13 +84,11 @@ void GuiPianoRoll::render() {
             redraw = true;
 
         float separator_x = cursor_pos.x + min_track_control_size + 0.5f;
-        draw_list->AddLine(ImVec2(separator_x, cursor_pos.y),
-                           ImVec2(separator_x, cursor_pos.y + content_height),
+        draw_list->AddLine(ImVec2(separator_x, cursor_pos.y), ImVec2(separator_x, cursor_pos.y + content_height),
                            ImGui::GetColorU32(ImGuiCol_Separator), 2.0f);
 
         cursor_pos = ImGui::GetCursorScreenPos();
-        ImGui::InvisibleButton("PianoRollKeys",
-                               ImVec2(min_track_control_size, note_count * note_height_padded));
+        ImGui::InvisibleButton("PianoRollKeys", ImVec2(min_track_control_size, note_count * note_height_padded));
         ImGui::SameLine(0.0f, 2.0f);
 
         // Draw piano keys
@@ -100,19 +96,16 @@ void GuiPianoRoll::render() {
         float oct_pos_y = main_cursor_pos.y - std::fmod(vscroll, keys_height);
         ImVec2 oct_pos = ImVec2(cursor_pos.x, oct_pos_y);
         uint32_t oct_count = (uint32_t)math::round(view_height / keys_height) + 1;
-        int key_oct_offset =
-            (uint32_t)(max_oct_count - std::floor(vscroll / keys_height)) - oct_count - 1;
+        int key_oct_offset = (uint32_t)(max_oct_count - std::floor(vscroll / keys_height)) - oct_count - 1;
         for (int i = oct_count; i >= 0; i--) {
-            draw_piano_keys(draw_list, oct_pos, ImVec2(min_track_control_size, note_height),
-                            i + key_oct_offset);
+            draw_piano_keys(draw_list, oct_pos, ImVec2(min_track_control_size, note_height), i + key_oct_offset);
         }
 
         render_editor();
         ImGui::EndChild();
 
         if (controls::resizable_horizontal_separator("##PIANO_ROLL_SEPARATOR", &content_height,
-                                                     0.25f * child_content_size.y, 0.0f,
-                                                     child_content_size.y)) {
+                                                     0.25f * child_content_size.y, 0.0f, child_content_size.y)) {
             space_divider = 1.0 - (content_height / child_content_size.y);
         }
         ImGui::PopStyleVar();
@@ -140,8 +133,7 @@ void GuiPianoRoll::render_editor() {
     ImVec2 view_max(cursor_pos.x + timeline_width, offset_y + region_size.y);
     ImGui::PushClipRect(view_min, view_max, true);
 
-    ImGui::InvisibleButton("PianoRollContent",
-                           ImVec2(region_size.x, note_count * note_height_padded));
+    ImGui::InvisibleButton("PianoRollContent", ImVec2(region_size.x, note_count * note_height_padded));
 
     ImVec2 mouse_pos = ImGui::GetMousePos();
     float mouse_wheel = ImGui::GetIO().MouseWheel;
@@ -186,21 +178,18 @@ void GuiPianoRoll::render_editor() {
     float four_bars = (float)(16.0 * ppq / view_scale);
     uint32_t guidestrip_count = (uint32_t)(timeline_width / four_bars) + 2;
     float guidestrip_pos_x = cursor_pos.x - std::fmod((float)scroll_pos_x, four_bars * 2.0f);
-    ImU32 guidestrip_color =
-        (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.13f);
+    ImU32 guidestrip_color = (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.13f);
     for (uint32_t i = 0; i <= guidestrip_count; i++) {
         float start_pos_x = guidestrip_pos_x;
         guidestrip_pos_x += four_bars;
         if (i % 2) {
-            draw_list->AddRectFilled(ImVec2(start_pos_x, offset_y),
-                                     ImVec2(guidestrip_pos_x, offset_y + region_size.y),
+            draw_list->AddRectFilled(ImVec2(start_pos_x, offset_y), ImVec2(guidestrip_pos_x, offset_y + region_size.y),
                                      guidestrip_color);
         }
     }
 
     ImU32 grid_color = (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.55f);
-    ImU32 beat_grid_color =
-        (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.15f);
+    ImU32 beat_grid_color = (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.15f);
     ImU32 bar_grid_color = (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.3f);
 
     // Draw vertical gridlines
@@ -226,8 +215,7 @@ void GuiPianoRoll::render_editor() {
             line_color = beat_grid_color;
         }
         draw_list->AddLine(ImVec2(gridline_pos_x_pixel, offset_y),
-                           ImVec2(gridline_pos_x_pixel, offset_y + region_size.y), line_color,
-                           1.0f);
+                           ImVec2(gridline_pos_x_pixel, offset_y + region_size.y), line_color, 1.0f);
     }
 
     // Draw horizontal gridlines
@@ -245,8 +233,7 @@ void GuiPianoRoll::render_editor() {
         }
 
         if (note_semitone % 2 == 0) {
-            draw_list->AddRectFilled(key_pos + ImVec2(0.0f, 1.0f),
-                                     key_pos + ImVec2(timeline_width, note_height_padded),
+            draw_list->AddRectFilled(key_pos + ImVec2(0.0f, 1.0f), key_pos + ImVec2(timeline_width, note_height_padded),
                                      guidestrip_color);
         }
 
@@ -291,9 +278,8 @@ void GuiPianoRoll::render_editor() {
         char note_name[5] {};
         const char* scale = note_scale[note.note_number % 12];
         fmt::format_to_n(note_name, sizeof(note_name), "{}{}", scale, note.note_number / 12);
-        draw_list->AddText(font, font->FontSize,
-                           ImVec2(std::max(cursor_pos.x, min_pos_x) + 3.0f, a.y + 2.0f), text_color,
-                           note_name, nullptr, 0.0f, &label_rect);
+        draw_list->AddText(font, font->FontSize, ImVec2(std::max(cursor_pos.x, min_pos_x) + 3.0f, a.y + 2.0f),
+                           text_color, note_name, nullptr, 0.0f, &label_rect);
     }
 
     if (note_id) {
@@ -332,13 +318,11 @@ void GuiPianoRoll::render_event_editor() {
         float min_pos_y = cursor_pos.y + (1.0f - note.velocity) * editor_event_region.y;
         ImVec2 min_pos = ImVec2(min_pos_x, min_pos_y);
         draw_list->AddLine(min_pos, ImVec2(min_pos_x, end_y), channel_color);
-        draw_list->AddRectFilled(min_pos - ImVec2(2.0f, 2.0f), min_pos + ImVec2(3.0f, 3.0f),
-                                 channel_color);
+        draw_list->AddRectFilled(min_pos - ImVec2(2.0f, 2.0f), min_pos + ImVec2(3.0f, 3.0f), channel_color);
     }
 }
 
-void GuiPianoRoll::draw_piano_keys(ImDrawList* draw_list, ImVec2& pos, const ImVec2& note_size,
-                                   uint32_t oct) {
+void GuiPianoRoll::draw_piano_keys(ImDrawList* draw_list, ImVec2& pos, const ImVec2& note_size, uint32_t oct) {
     ImU32 dark_note = ImGui::GetColorU32(ImGuiCol_FrameBg);
     ImU32 white_note = ImGui::GetColorU32(ImGuiCol_Text);
     ImU32 separator = ImGui::GetColorU32(ImGuiCol_Separator);

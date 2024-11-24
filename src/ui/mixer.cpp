@@ -106,7 +106,6 @@ void GuiMixer::render() {
         if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
             ImGui::OpenPopup("MIXER_VOLUME_CONTEXT_MENU");
 
-
         ImGui::SameLine();
         controls::level_meter("##mixer_vu_meter", ImVec2(18.0f, group_avail.y - 6.0f), 2, track->level_meter,
                               track->level_meter_color);

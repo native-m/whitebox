@@ -14,8 +14,7 @@ enum class FormResult {
 
 static FormResult rename_form(std::string* out_name, const std::string* tmp_name) {
     FormResult ret = FormResult::None;
-    bool is_enter_pressed =
-        ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter);
+    bool is_enter_pressed = ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter);
     if (ImGui::InputTextWithHint("##new_clip_name", "New name", out_name))
         ret = FormResult::ValueChanged;
     if (ImGui::IsItemDeactivated() && is_enter_pressed)
@@ -34,8 +33,7 @@ static FormResult color_picker_form(ImColor* color, const ImColor& previous_colo
         ImGuiColorEditFlags_NoSidePreview | ImGuiColorEditFlags_NoSmallPreview;
 
     FormResult ret = FormResult::None;
-    if (ImGui::ColorPicker3("##clip_color_picker", std::bit_cast<float*>(color),
-                            no_preview_color_picker)) {
+    if (ImGui::ColorPicker3("##clip_color_picker", std::bit_cast<float*>(color), no_preview_color_picker)) {
         ret = FormResult::ValueChanged;
     }
 
@@ -45,8 +43,7 @@ static FormResult color_picker_form(ImColor* color, const ImColor& previous_colo
     ImGui::Text("Current");
     ImGui::ColorButton("##current", *color, ImGuiColorEditFlags_NoPicker, ImVec2(60, 40));
     ImGui::Text("Previous");
-    if (ImGui::ColorButton("##previous", previous_color, ImGuiColorEditFlags_NoPicker,
-                           ImVec2(60, 40))) {
+    if (ImGui::ColorButton("##previous", previous_color, ImGuiColorEditFlags_NoPicker, ImVec2(60, 40))) {
         *color = previous_color;
         ret = FormResult::ValueChanged;
     }

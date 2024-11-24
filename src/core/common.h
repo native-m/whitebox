@@ -4,6 +4,7 @@
 
 #include "platform_def.h"
 #include <cstdlib>
+#include <cstddef>
 #include <cstdint>
 #include <cassert>
 

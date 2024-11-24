@@ -13,8 +13,7 @@ std::optional<std::filesystem::path> pick_folder_dialog() {
     return {};
 }
 
-std::optional<std::filesystem::path>
-open_file_dialog(std::initializer_list<nfdu8filteritem_t> filter) {
+std::optional<std::filesystem::path> open_file_dialog(std::initializer_list<nfdu8filteritem_t> filter) {
     NFD::UniquePathU8 path;
     nfdresult_t result = NFD::OpenDialog(path, filter.begin(), (nfdfiltersize_t)filter.size());
     switch (result) {
@@ -26,8 +25,7 @@ open_file_dialog(std::initializer_list<nfdu8filteritem_t> filter) {
     return {};
 }
 
-std::optional<std::filesystem::path>
-save_file_dialog(std::initializer_list<nfdu8filteritem_t> filter) {
+std::optional<std::filesystem::path> save_file_dialog(std::initializer_list<nfdu8filteritem_t> filter) {
     NFD::UniquePathU8 path;
     nfdresult_t result = NFD::SaveDialog(path, filter.begin(), (nfdfiltersize_t)filter.size());
     switch (result) {

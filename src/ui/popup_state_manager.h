@@ -21,9 +21,7 @@ struct PopupState {
 
     inline bool is_popup_open() const { return popup_open; }
 
-    inline int GetInt(ImGuiID key, int default_val = 0) const {
-        return window_->StateStorage.GetInt(key, default_val);
-    }
+    inline int GetInt(ImGuiID key, int default_val = 0) const { return window_->StateStorage.GetInt(key, default_val); }
     inline void SetInt(ImGuiID key, int val) { return window_->StateStorage.SetInt(key, val); }
 
     inline bool GetBool(ImGuiID key, bool default_val = false) const {
@@ -34,18 +32,12 @@ struct PopupState {
     inline float GetFloat(ImGuiID key, float default_val = 0.0f) const {
         return window_->StateStorage.GetFloat(key, default_val);
     };
-    inline void SetFloat(ImGuiID key, float val) {
-        return window_->StateStorage.SetFloat(key, val);
-    }
+    inline void SetFloat(ImGuiID key, float val) { return window_->StateStorage.SetFloat(key, val); }
 
     inline void* GetVoidPtr(ImGuiID key) const { return window_->StateStorage.GetVoidPtr(key); };
-    inline void SetVoidPtr(ImGuiID key, void* val) {
-        return window_->StateStorage.SetVoidPtr(key, val);
-    }
+    inline void SetVoidPtr(ImGuiID key, void* val) { return window_->StateStorage.SetVoidPtr(key, val); }
 
-    int* GetIntRef(ImGuiID key, int default_val = 0) {
-        return window_->StateStorage.GetIntRef(key, default_val);
-    }
+    int* GetIntRef(ImGuiID key, int default_val = 0) { return window_->StateStorage.GetIntRef(key, default_val); }
     bool* GetBoolRef(ImGuiID key, bool default_val = false) {
         return window_->StateStorage.GetBoolRef(key, default_val);
     }

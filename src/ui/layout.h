@@ -14,13 +14,9 @@ struct Layout {
     float scroll_y;
     LayoutPosition current_layout_pos {};
 
-    inline Layout() :
-        main_pos(ImGui::GetCursorScreenPos()),
-        current_pos(main_pos),
-        scroll_y(ImGui::GetScrollY()) {}
+    inline Layout() : main_pos(ImGui::GetCursorScreenPos()), current_pos(main_pos), scroll_y(ImGui::GetScrollY()) {}
 
-    inline ImVec2 next(LayoutPosition position = LayoutPosition::Relative,
-                       ImVec2 offset = ImVec2()) {
+    inline ImVec2 next(LayoutPosition position = LayoutPosition::Relative, ImVec2 offset = ImVec2()) {
         ImVec2 pos;
 
         switch (position) {
