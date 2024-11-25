@@ -72,10 +72,10 @@ struct Engine {
     TrackEditResult add_midi_clip(Track* track, const std::string& name, double min_time, double max_time,
                                   double start_offset, const MidiClip& clip_info, bool active = true);
     TrackEditResult emplace_clip(Track* track, const Clip& new_clip);
-    TrackEditResult duplicate_clip(Track* track, Clip* clip_to_duplicate, double min_time,
-                                   double max_time);
+    TrackEditResult duplicate_clip(Track* track, Clip* clip_to_duplicate, double min_time, double max_time);
     TrackEditResult move_clip(Track* track, Clip* clip, double relative_pos);
-    TrackEditResult resize_clip(Track* track, Clip* clip, double relative_pos, double min_length, bool right_side);
+    TrackEditResult resize_clip(Track* track, Clip* clip, double relative_pos, double min_length, bool right_side,
+                                bool shift);
     TrackEditResult delete_clip(Track* track, Clip* clip);
     TrackEditResult add_to_cliplist(Track* track, Clip* clip);
     TrackEditResult delete_region(Track* track, double min, double max);

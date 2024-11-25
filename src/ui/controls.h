@@ -68,9 +68,8 @@ static bool collapse_button(const char* str_id, bool* shown) {
     auto draw_list = ImGui::GetWindowDrawList();
     if (hovered || held) {
         ImU32 bg_col = ImGui::GetColorU32(!held ? ImGuiCol_ButtonHovered : ImGuiCol_ButtonActive);
-        draw_list->AddCircleFilled(
-            ImVec2(cur_pos.x + (font_size + padding) * 0.5f, cur_pos.y + (font_size + padding) * 0.5f),
-            font_size * 0.5f + 1.0f, bg_col);
+        float offset = (font_size + padding) * 0.5f;
+        draw_list->AddCircleFilled(ImVec2(cur_pos.x + offset, cur_pos.y + offset), font_size * 0.5f + 1.0f, bg_col);
     }
 
     ImGui::RenderArrow(draw_list, ImVec2(cur_pos.x + padding * 0.5f, cur_pos.y + padding * 0.5f),
@@ -192,19 +191,18 @@ static bool slider2(const SliderProperties& props, const char* str_id, const ImV
     const ImU32 frame_col = ImGui::GetColorU32(ImGui::GetStyleColorVec4(ImGuiCol_Border));
     const ImVec2 frame_rect_min(center_x - frame_width * 0.5f, cursor_pos.y + grab_size.y * 0.5f);
     const ImVec2 frame_rect_max(frame_rect_min.x + frame_width, frame_rect_min.y + scroll_height);
-    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    ImDrawList* dl = ImGui::GetWindowDrawList();
 
     // Draw frame
-    draw_list->AddRectFilled(frame_rect_min, frame_rect_max, frame_col);
+    dl->AddRectFilled(frame_rect_min, frame_rect_max, frame_col);
 
     // Draw default value tick line
     if (props.with_default_value_tick) {
         float default_grab_pos = inv_normalized_default_value * scroll_height + half_grab_size_y;
         default_grab_pos = math::round(default_grab_pos + cursor_pos.y);
-        draw_list->AddLine(ImVec2(cursor_pos.x, default_grab_pos), ImVec2(center_x - frame_width, default_grab_pos),
-                           frame_col);
-        draw_list->AddLine(ImVec2(center_x + frame_width, default_grab_pos), ImVec2(bb.Max.x, default_grab_pos),
-                           frame_col);
+        dl->AddLine(ImVec2(cursor_pos.x, default_grab_pos), ImVec2(center_x - frame_width, default_grab_pos),
+                    frame_col);
+        dl->AddLine(ImVec2(center_x + frame_width, default_grab_pos), ImVec2(bb.Max.x, default_grab_pos), frame_col);
     }
 
     // Draw grab
@@ -214,14 +212,14 @@ static bool slider2(const SliderProperties& props, const char* str_id, const ImV
         const ImVec2 grab_rect_max(grab_rect_min.x + grab_size.x, grab_rect_min.y + grab_size.y);
         const ImVec2 grab_tick_min(grab_rect_min.x + grab_tick_padding_x, grab_rect_min.y + grab_size.y * 0.5f);
         const ImVec2 grab_tick_max(grab_rect_min.x + grab_size.x - grab_tick_padding_x, grab_tick_min.y);
-        draw_list->AddRectFilled(grab_rect_min, grab_rect_max, grab_col, props.grab_roundness);
-        draw_list->AddLine(grab_tick_min, grab_tick_max, 0xFFFFFFFF, 1.0f);
+        dl->AddRectFilled(grab_rect_min, grab_rect_max, grab_col, props.grab_roundness);
+        dl->AddLine(grab_tick_min, grab_tick_max, 0xFFFFFFFF, 1.0f);
     } else {
         const float radius1 = grab_size.x * 0.5f;
         const float radius2 = grab_size.x * 0.25f;
         const float pos_y = math::round(grab_pos) + radius1;
-        draw_list->AddCircleFilled(ImVec2(center_x, cursor_pos.y + pos_y), radius1, grab_col);
-        draw_list->AddCircleFilled(ImVec2(center_x, cursor_pos.y + pos_y), radius2, 0xFFFFFFFF);
+        dl->AddCircleFilled(ImVec2(center_x, cursor_pos.y + pos_y), radius1, grab_col);
+        dl->AddCircleFilled(ImVec2(center_x, cursor_pos.y + pos_y), radius2, 0xFFFFFFFF);
     }
 
     if (held) {

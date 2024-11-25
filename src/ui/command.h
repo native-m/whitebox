@@ -54,6 +54,7 @@ struct ClipResizeCmd {
     uint32_t track_id;
     uint32_t clip_id;
     bool left_side;
+    bool shift;
     double relative_pos;
     double min_length;
     double last_beat_duration;

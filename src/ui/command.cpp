@@ -122,7 +122,7 @@ void ClipShiftCmd::undo() {
 void ClipResizeCmd::execute() {
     Track* track = g_engine.tracks[track_id];
     Clip* clip = track->clips[clip_id];
-    auto result = g_engine.resize_clip(track, clip, relative_pos, min_length, left_side);
+    auto result = g_engine.resize_clip(track, clip, relative_pos, min_length, left_side, shift);
     history.backup(std::move(result));
 }
 

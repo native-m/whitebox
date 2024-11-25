@@ -63,7 +63,7 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
                                     ImDrawFlags_RoundCornersTopLeft | ImDrawFlags_RoundCornersTopRight);
     layer1_draw_list->AddRectFilled(clip_content_min, clip_content_max, bg_color, 2.5f,
                                     ImDrawFlags_RoundCornersBottomLeft | ImDrawFlags_RoundCornersBottomRight);
-    layer1_draw_list->AddRect(clip_title_min_bb, clip_content_max, color_adjust_alpha(clip->color, 0.5f), 2.5f);
+    layer1_draw_list->AddRect(clip_title_min_bb, clip_content_max, color_adjust_alpha(clip->color, 0.6f), 2.5f);
 
     if (!is_active) {
         text_color_adjusted = color_adjust_alpha(text_color_adjusted, 0.75f);
@@ -844,7 +844,7 @@ void GuiTimeline::render_track_lanes() {
     static constexpr uint32_t highlight_color = 0x9F555555;
     const ImU32 gridline_color = (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.85f);
     const ImColor text_color = ImGui::GetStyleColorVec4(ImGuiCol_Text);
-    const ImU32 text_color_transparent = color_adjust_alpha(text_color, 0.5f);
+    const ImU32 text_color_transparent = color_adjust_alpha(text_color, 0.7f);
     const double timeline_scroll_offset_x = (double)timeline_view_pos.x - scroll_pos_x;
     const float timeline_scroll_offset_x_f32 = (float)timeline_scroll_offset_x;
     const float font_size = ImGui::GetFontSize();
@@ -1053,13 +1053,21 @@ void GuiTimeline::render_track_lanes() {
 
                 // Assign edit action
                 if (left_handle.Contains(mouse_pos)) {
-                    if (left_mouse_clicked)
-                        edit_action = TimelineEditAction::ClipResizeLeft;
+                    if (left_mouse_clicked) {
+                        if (!ImGui::IsKeyDown(ImGuiKey_ModAlt))
+                            edit_action = TimelineEditAction::ClipResizeLeft;
+                        else
+                            edit_action = TimelineEditAction::ClipShiftLeft;
+                    }
                     ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
                     current_hover_state = ClipHover::LeftHandle;
                 } else if (right_handle.Contains(mouse_pos)) {
-                    if (left_mouse_clicked)
-                        edit_action = TimelineEditAction::ClipResizeRight;
+                    if (left_mouse_clicked) {
+                        if (!ImGui::IsKeyDown(ImGuiKey_ModAlt))
+                            edit_action = TimelineEditAction::ClipResizeRight;
+                        else
+                            edit_action = TimelineEditAction::ClipShiftRight;
+                    }
                     ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
                     current_hover_state = ClipHover::RightHandle;
                 } else if (clip_rect.Contains(mouse_pos)) {
@@ -1173,6 +1181,25 @@ void GuiTimeline::render_track_lanes() {
                 hovered_track_y = edited_track_pos_y;
                 break;
             }
+            case TimelineEditAction::ClipShiftLeft: {
+                const double min_length = 1.0 / grid_scale;
+                auto [new_min_time, new_max_time, rel_offset] =
+                    calc_resize_clip(edited_clip, relative_pos, min_length, beat_duration, true, true);
+                content_offset = rel_offset;
+                min_time = new_min_time;
+                hovered_track_y = edited_track_pos_y;
+                break;
+            }
+            case TimelineEditAction::ClipShiftRight: {
+                const double min_length = 1.0 / grid_scale;
+                auto [new_min_time, new_max_time, rel_offset] =
+                    calc_resize_clip(edited_clip, relative_pos, min_length, beat_duration, false, true);
+                content_offset = rel_offset;
+                max_time = new_max_time;
+                hovered_track_y = edited_track_pos_y;
+                Log::debug("{} {} {}", new_min_time, new_max_time, rel_offset);
+                break;
+            }
             case TimelineEditAction::ClipShift: {
                 content_offset = shift_clip_content(edited_clip, relative_pos, beat_duration);
                 break;
@@ -1212,7 +1239,6 @@ void GuiTimeline::render_track_lanes() {
     }
 
     if (redraw) {
-
         if (selecting_range || range_selected) {
             float track_pos_y = timeline_view_pos.y;
             float selection_start_y = 0.0f;
@@ -1343,6 +1369,40 @@ void GuiTimeline::render_track_lanes() {
                         .last_beat_duration = beat_duration,
                     };
                     g_cmd_manager.execute("Resize clip", std::move(cmd));
+                    finish_edit_action();
+                    force_redraw = true;
+                }
+                ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+                break;
+            case TimelineEditAction::ClipShiftLeft:
+                if (!left_mouse_down) {
+                    ClipResizeCmd cmd = {
+                        .track_id = edited_track_id.value(),
+                        .clip_id = edited_clip->id,
+                        .left_side = true,
+                        .shift = true,
+                        .relative_pos = relative_pos,
+                        .min_length = 1.0 / grid_scale,
+                        .last_beat_duration = beat_duration,
+                    };
+                    g_cmd_manager.execute("Resize and shift clip", std::move(cmd));
+                    finish_edit_action();
+                    force_redraw = true;
+                }
+                ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+                break;
+            case TimelineEditAction::ClipShiftRight:
+                if (!left_mouse_down) {
+                    ClipResizeCmd cmd = {
+                        .track_id = edited_track_id.value(),
+                        .clip_id = edited_clip->id,
+                        .left_side = false,
+                        .shift = true,
+                        .relative_pos = relative_pos,
+                        .min_length = 1.0 / grid_scale,
+                        .last_beat_duration = beat_duration,
+                    };
+                    g_cmd_manager.execute("Resize and shift clip", std::move(cmd));
                     finish_edit_action();
                     force_redraw = true;
                 }

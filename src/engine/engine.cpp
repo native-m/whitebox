@@ -224,21 +224,24 @@ TrackEditResult Engine::move_clip(Track* track, Clip* clip, double relative_pos)
     return trim_result;
 }
 
-TrackEditResult Engine::resize_clip(Track* track, Clip* clip, double relative_pos, double min_length, bool is_min) {
+TrackEditResult Engine::resize_clip(Track* track, Clip* clip, double relative_pos, double min_length, bool right_side,
+                                    bool shift) {
     if (relative_pos == 0.0)
         return {};
     std::unique_lock lock(editor_lock);
-    auto [min_time, max_time, start_offset] = calc_resize_clip(clip, relative_pos, min_length, beat_duration, is_min);
+    auto [min_time, max_time, start_offset] =
+        calc_resize_clip(clip, relative_pos, min_length, beat_duration, right_side, shift);
     auto query_result = track->query_clip_by_range(min_time, max_time);
     TrackEditResult trim_result = query_result ? reserve_track_region(track, query_result->first, query_result->last,
                                                                       min_time, max_time, true, clip)
                                                : TrackEditResult {};
     trim_result.deleted_clips.push_back(*clip);
-    if (is_min) {
+    if (right_side) {
         clip->min_time = min_time;
         clip->start_offset = start_offset;
     } else {
         clip->max_time = max_time;
+        clip->start_offset = start_offset;
     }
     track->update_clip_ordering();
     track->reset_playback_state(playhead, true);
@@ -470,7 +473,7 @@ void Engine::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>&
         output_buffer.mix(mixing_buffer);
     }
 
-    //output_buffer.mix(input_buffer);
+    // output_buffer.mix(input_buffer);
 
     for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
         float* channel = output_buffer.get_write_pointer(i);

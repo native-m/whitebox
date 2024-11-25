@@ -14,6 +14,8 @@ enum class TimelineEditAction {
     ClipMove,
     ClipResizeLeft,
     ClipResizeRight,
+    ClipShiftLeft,
+    ClipShiftRight,
     ClipShift,
     ClipDuplicate,
     ShowClipContextMenu,
