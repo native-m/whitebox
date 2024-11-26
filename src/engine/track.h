@@ -123,9 +123,10 @@ struct TestSynth {
 struct TrackEventState {
     std::optional<uint32_t> current_clip_idx;
     std::optional<uint32_t> next_clip_idx;
-    bool refresh_voice;
     double last_start_clip_position;
     uint32_t midi_note_idx;
+    bool refresh_voice;
+    bool partially_ended;
 };
 
 struct TrackParameterState {
@@ -314,7 +315,7 @@ struct Track {
 
     /**
      * @brief Prepare track for recording.
-     * 
+     *
      * @param time_pos Starting point of the recording.
      */
     void prepare_record(double time_pos);
@@ -340,6 +341,13 @@ struct Track {
      */
     void process_event(uint32_t buffer_offset, double time_pos, double beat_duration, double sample_rate, double ppq,
                        double inv_ppq);
+
+    void process_event2(double start_time, double end_time, double sample_position, double beat_duration,
+                        double sample_rate, double ppq, double inv_ppq, uint32_t buffer_size);
+
+    void process_midi_event2(Clip* clip, double start_time, double end_time, double sample_position,
+                             double beat_duration, double sample_rate, double ppq, double inv_ppq,
+                             uint32_t buffer_size);
 
     void process_midi_event(Clip* clip, uint32_t buffer_offset, double time_pos, double beat_duration, double ppq,
                             double inv_ppq);
