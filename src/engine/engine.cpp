@@ -439,9 +439,9 @@ void Engine::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>&
         auto track = tracks[i];
         track->audio_event_buffer.resize(0);
         track->midi_event_list.clear();
-        if (track->midi_voice_state.voice_mask != 0 && !currently_playing) {
+        /*if (track->midi_voice_state.voice_mask != 0 && !currently_playing) {
             track->stop_midi_notes(0, playhead_ui.load(std::memory_order_relaxed));
-        }
+        }*/
     }
 
     if (currently_playing) {

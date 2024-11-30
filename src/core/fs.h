@@ -4,6 +4,7 @@
 #include "types.h"
 #include <filesystem>
 #include <optional>
+#include <bit>
 
 namespace wb {
 struct File;
@@ -95,8 +96,9 @@ struct File {
 };
 
 consteval uint32_t fourcc(const char ch[5]) {
-    // TODO: Big endian support
-    return ch[0] | (ch[1] << 8) | (ch[2] << 16) | (ch[3] << 24);
+    if constexpr (std::endian::native == std::endian::little)
+        return ch[0] | (ch[1] << 8) | (ch[2] << 16) | (ch[3] << 24);
+    return (ch[0] << 24) | (ch[1] << 16) | (ch[2] << 8) | ch[3];
 }
 
 std::filesystem::path to_system_preferred_path(const std::filesystem::path& path);

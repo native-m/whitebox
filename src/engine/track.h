@@ -34,7 +34,7 @@ enum class TrackInputMode {
     ExternalMono,
 };
 
-struct MidiVoice {
+struct MidiVoice : public InplaceList<MidiVoice> {
     double max_time;
     float velocity;
     uint16_t channel;
@@ -44,7 +44,79 @@ struct MidiVoice {
 struct MidiVoiceState {
     static constexpr uint32_t max_voices = sizeof(uint64_t) * 8;
     std::array<MidiVoice, max_voices> voices;
+    InplaceList<MidiVoice> allocated_voices;
+    InplaceList<MidiVoice> free_voices;
     uint64_t voice_mask;
+    uint32_t used_voices;
+    uint32_t current_max_voices;
+    double least_maximum_time = std::numeric_limits<double>::max();
+
+    inline bool add_voice2(MidiVoice&& voice) {
+        if (used_voices == max_voices)
+            return false;
+
+        // Find free voice. Allocate new one if there is any
+        double max_time = voice.max_time;
+        auto free_voice = static_cast<MidiVoice*>(free_voices.pop_next_item());
+        if (free_voice != nullptr) {
+            *free_voice = std::move(voice);
+            allocated_voices.push_item(free_voice);
+        } else {
+            voices[current_max_voices] = std::move(voice);
+            allocated_voices.push_item(&voices[current_max_voices]);
+            if (current_max_voices != max_voices)
+                current_max_voices++;
+        }
+        least_maximum_time = math::max(least_maximum_time, max_time);
+        used_voices++;
+
+        return true;
+    }
+
+    inline MidiVoice* release_voice(double time_range) {
+        auto active_voice = allocated_voices.next();
+        if (active_voice == nullptr)
+            return nullptr;
+
+        auto shortest_voice = active_voice;
+        while (active_voice != nullptr) {
+            if (active_voice->max_time < shortest_voice->max_time && active_voice->max_time <= time_range)
+                shortest_voice = active_voice;
+            active_voice = active_voice->next();
+        }
+
+        if (shortest_voice->max_time > time_range)
+            return nullptr;
+        shortest_voice->remove_from_list();
+        free_voices.push_item(shortest_voice);
+        used_voices--;
+        
+        return shortest_voice;
+    }
+
+    inline void free_all() {
+        if (auto all_voices = allocated_voices.next()) {
+            all_voices->pluck_from_list();
+            free_voices.replace_next_item(all_voices);
+        }
+    }
+
+    /*inline MidiVoice* free_voice(double time_range) {
+        auto voice = allocated_voices.next();
+        if (voice == nullptr)
+            return nullptr;
+        auto lowest_max_time = voice;
+        while (voice != nullptr) {
+            if (voice->max_time < lowest_max_time->max_time && voice->max_time < time_range)
+                lowest_max_time = voice;
+            voice = voice->next();
+        }
+        if (time_range < lowest_max_time->max_time)
+            return nullptr;
+        lowest_max_time->remove_from_list();
+        free_voices.push_item(lowest_max_time);
+        return lowest_max_time;
+    }*/
 
     inline void add_voice(MidiVoice&& voice) {
         int free_voice = std::countr_one(~voice_mask) - 1; // find free voice

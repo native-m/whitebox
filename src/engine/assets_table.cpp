@@ -95,20 +95,20 @@ MidiAsset* MidiTable::create_midi() {
         return nullptr;
     }
     MidiAsset* asset = new (ptr) MidiAsset(this);
-    allocated_assets.push_tracked_resource(asset);
+    allocated_assets.push_item(asset);
     return asset;
 }
 
 void MidiTable::destroy(MidiAsset* asset) {
     assert(asset != nullptr);
-    asset->remove_tracked_resource();
+    asset->remove_from_list();
     asset->~MidiAsset();
     midi_assets.free(asset);
 }
 
 void MidiTable::shutdown() {
     uint32_t midi_id = 0;
-    while (auto asset = allocated_assets.pop_tracked_resource()) {
+    while (auto asset = allocated_assets.pop_next_item()) {
         auto midi_asset = static_cast<MidiAsset*>(asset);
         Log::debug("Midi asset leak {:x}: {}", (uint64_t)midi_asset, midi_asset->ref_count);
         midi_asset->~MidiAsset();

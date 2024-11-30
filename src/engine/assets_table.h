@@ -1,9 +1,9 @@
 #pragma once
 
 #include "core/common.h"
+#include "core/list.h"
 #include "core/memory.h"
 #include "core/midi.h"
-#include "core/tracked_resource.h"
 #include "core/vector.h"
 #include "sample.h"
 #include <array>
@@ -29,7 +29,7 @@ struct SampleAsset {
     void release();
 };
 
-struct MidiAsset : public TrackedResource<MidiAsset> {
+struct MidiAsset : public InplaceList<MidiAsset> {
     MidiTable* midi_table;
     MidiData data {};
     uint32_t ref_count = 1;
@@ -50,7 +50,7 @@ struct SampleTable {
 
 struct MidiTable {
     Pool<MidiAsset> midi_assets;
-    TrackedResource<MidiAsset> allocated_assets;
+    InplaceList<MidiAsset> allocated_assets;
     MidiAsset* load_from_file(const std::filesystem::path& path);
     MidiAsset* create_midi();
     void destroy(MidiAsset* asset);
