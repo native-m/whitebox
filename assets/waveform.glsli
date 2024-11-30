@@ -26,8 +26,8 @@ vec2 lookup_value(uint pos) {
 
 float lookup_value2(uint pos) {
     if (pos < draw_cmd.sample_count) {
-        vec2 l = unpackSnorm2x16(waveform.minmax[(pos + draw_cmd.sample_count * draw_cmd.channel) / 2]);
-        return (pos % 2) == 0 ? l.x : l.y;
+        vec2 v = unpackSnorm2x16(waveform.minmax[(pos + draw_cmd.sample_count * draw_cmd.channel) / 2]);
+        return (pos % 2) == 0 ? v.x : v.y;
     }
     return 0.0;
 }
