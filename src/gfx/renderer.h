@@ -27,6 +27,7 @@ struct ClipContentDrawCmd {
     uint32_t color;
     float scale_x;
     int32_t mip_index;
+    uint32_t channel;
     uint32_t start_idx;
     uint32_t draw_count;
 };

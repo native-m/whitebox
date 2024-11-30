@@ -111,6 +111,7 @@ struct ClipContentDrawCmdVK {
     float vp_width;
     float vp_height;
     int is_min;
+    uint32_t channel;
     uint32_t start_idx;
     uint32_t sample_count;
 };
@@ -1223,6 +1224,7 @@ void RendererVK::fill_path(const Path& path, uint32_t color) {
 
 void RendererVK::draw_waveforms(const ImVector<ClipContentDrawCmd>& clips) {
     VkBuffer current_buffer {};
+    uint32_t current_channel = 0;
 
     float fb_width_f32 = (float)fb_width;
     float fb_height_f32 = (float)fb_height;
@@ -1235,6 +1237,7 @@ void RendererVK::draw_waveforms(const ImVector<ClipContentDrawCmd>& clips) {
 
         SamplePeaksVK* peaks = static_cast<SamplePeaksVK*>(clip.peaks);
         const SamplePeaksMipVK& mip = peaks->mipmap[clip.mip_index];
+        uint32_t channel = clip.channel;
         VkBuffer buffer = mip.buffer;
 
         if (current_buffer != buffer) {
@@ -1280,6 +1283,7 @@ void RendererVK::draw_waveforms(const ImVector<ClipContentDrawCmd>& clips) {
             .vp_width = vp_width,
             .vp_height = vp_height,
             .is_min = 0,
+            .channel = channel,
             .start_idx = clip.start_idx,
             .sample_count = mip.sample_count,
         };

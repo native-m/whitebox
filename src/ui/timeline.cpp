@@ -110,16 +110,45 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
                            math::round(start_offset / mip_div), mip_scale);*/
 
                 if (draw_count) {
-                    clip_content_cmds.push_back({
-                        .peaks = sample_peaks,
-                        .min_bb = ImVec2(math::round((float)min_pos_x), clip_content_min.y - offset_y),
-                        .max_bb = ImVec2(math::round((float)max_pos_x), clip_content_max.y - offset_y),
-                        .color = content_color,
-                        .scale_x = (float)mip_scale,
-                        .mip_index = index,
-                        .start_idx = (uint32_t)math::round(start_idx),
-                        .draw_count = (uint32_t)draw_count + 2,
-                    });
+                    if (sample_peaks->channels == 2) {
+                        const float height = (clip_content_max.y - clip_content_min.y) * 0.5f;
+                        const float pos_y = clip_content_min.y - offset_y;
+                        const float min_bb_x = (float)math::round(min_pos_x);
+                        const float max_bb_x = (float)math::round(max_pos_x);
+                        clip_content_cmds.push_back({
+                            .peaks = sample_peaks,
+                            .min_bb = ImVec2(min_bb_x, pos_y),
+                            .max_bb = ImVec2(max_bb_x, pos_y + height),
+                            .color = content_color,
+                            .scale_x = (float)mip_scale,
+                            .mip_index = index,
+                            .channel = 0,
+                            .start_idx = (uint32_t)math::round(start_idx),
+                            .draw_count = (uint32_t)draw_count + 2,
+                        });
+                        clip_content_cmds.push_back({
+                            .peaks = sample_peaks,
+                            .min_bb = ImVec2(min_bb_x, pos_y + height),
+                            .max_bb = ImVec2(max_bb_x, pos_y + height * 2.0f),
+                            .color = content_color,
+                            .scale_x = (float)mip_scale,
+                            .mip_index = index,
+                            .channel = 1,
+                            .start_idx = (uint32_t)math::round(start_idx),
+                            .draw_count = (uint32_t)draw_count + 2,
+                        });
+                    } else {
+                        clip_content_cmds.push_back({
+                            .peaks = sample_peaks,
+                            .min_bb = ImVec2(math::round((float)min_pos_x), clip_content_min.y - offset_y),
+                            .max_bb = ImVec2(math::round((float)max_pos_x), clip_content_max.y - offset_y),
+                            .color = content_color,
+                            .scale_x = (float)mip_scale,
+                            .mip_index = index,
+                            .start_idx = (uint32_t)math::round(start_idx),
+                            .draw_count = (uint32_t)draw_count + 2,
+                        });
+                    }
                 }
             }
             break;
