@@ -86,7 +86,8 @@ struct GuiBrowser {
 
     bool open_context_menu = false;
     std::filesystem::path context_menu_path;
-    BrowserItem::Type context_menu_path_type;
+    BrowserItem* context_menu_item = nullptr;
+    uint32_t selected_root_dir;
 
     bool is_dragging_item = false;
     BrowserItem* last_dragged_item = nullptr;
@@ -95,6 +96,7 @@ struct GuiBrowser {
 
     GuiBrowser();
     void add_directory(const std::filesystem::path& path);
+    void remove_directory(std::vector<DirectoryRefItem>::iterator dir);
     void sort_directory();
     void glob_path(const std::filesystem::path& path, BrowserItem& item);
     void render_item(const std::filesystem::path& root_path, BrowserItem& item);

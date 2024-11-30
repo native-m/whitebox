@@ -35,6 +35,11 @@ void GuiBrowser::add_directory(const std::filesystem::path& path) {
     }
 }
 
+void GuiBrowser::remove_directory(std::vector<GuiBrowser::DirectoryRefItem>::iterator dir) {
+    directory_set.erase(dir->first);
+    directories.erase(dir);
+}
+
 void GuiBrowser::sort_directory() {
     std::stable_sort(directories.begin(), directories.end(), [](const DirectoryRefItem& a, const DirectoryRefItem& b) {
         return a.second.name < b.second.name;
@@ -80,7 +85,7 @@ void GuiBrowser::render_item(const std::filesystem::path& root_path, BrowserItem
 
         if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
             context_menu_path = item.get_file_path(root_path);
-            context_menu_path_type = item.type;
+            context_menu_item = &item;
             open_context_menu = true;
         }
 
@@ -117,7 +122,7 @@ void GuiBrowser::render_item(const std::filesystem::path& root_path, BrowserItem
 
         if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
             context_menu_path = item.get_file_path(root_path);
-            context_menu_path_type = item.type;
+            context_menu_item = &item;
             open_context_menu = true;
         }
 
@@ -189,8 +194,12 @@ void GuiBrowser::render() {
         ImGui::TableHeadersRow();
 
         ImGui::PushStyleVar(ImGuiStyleVar_IndentSpacing, 8.0f);
-        for (auto& [path, item] : directories)
-            render_item(*path, item);
+        for (uint32_t i = 0; i < directories.size(); i++) {
+            auto& dir = directories[i];
+            render_item(*dir.first, dir.second);
+            if (context_menu_item == &dir.second && context_menu_item->root_dir)
+                selected_root_dir = i;
+        }
         ImGui::PopStyleVar();
 
         ImGui::EndTable();
@@ -218,22 +227,33 @@ void GuiBrowser::render() {
     }
 
     if (ImGui::BeginPopup("browser_context_menu")) {
-        ImGui::MenuItem("Copy Path");
-        if (ImGui::MenuItem("Open Parent Folder")) {
+        ImGui::MenuItem("Copy path");
+
+        if (ImGui::MenuItem("Open parent folder")) {
             explore_folder(context_menu_path.parent_path());
         }
 
-        if (context_menu_path_type == BrowserItem::Directory) {
-            if (ImGui::MenuItem("Open Directory")) {
+        if (context_menu_item->type == BrowserItem::Directory) {
+            if (ImGui::MenuItem("Open directory")) {
                 explore_folder(context_menu_path);
             }
         } else {
-            if (ImGui::MenuItem("Locate File")) {
+            if (ImGui::MenuItem("Locate file")) {
                 locate_file(context_menu_path);
             }
         }
 
+        if (context_menu_item->root_dir) {
+            ImGui::Separator();
+            if (ImGui::MenuItem("Remove from browser")) {
+                // TODO: Add confirmation dialog before removing
+                remove_directory(directories.begin() + selected_root_dir);
+            }
+        }
+
         ImGui::EndPopup();
+    } else {
+        context_menu_item = nullptr;
     }
 
     controls::end_window();
