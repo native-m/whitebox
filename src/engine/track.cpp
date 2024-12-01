@@ -540,7 +540,8 @@ void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_d
 }
 
 void Track::process_event2(double start_time, double end_time, double sample_position, double beat_duration,
-                           double sample_rate, double ppq, double inv_ppq, uint32_t buffer_size) {
+                           double buffer_duration, double sample_rate, double ppq, double inv_ppq,
+                           uint32_t buffer_size) {
     bool refresh_voices = event_state.refresh_voice;
 
     if (clips.size() == 0 || !event_state.next_clip_idx.has_value()) {
@@ -556,6 +557,8 @@ void Track::process_event2(double start_time, double end_time, double sample_pos
             event_state.midi_note_idx = 0;
             event_state.refresh_voice = false;
         }
+        if (recording)
+            record_max_time += buffer_duration;
         return;
     }
 
@@ -631,6 +634,8 @@ void Track::process_event2(double start_time, double end_time, double sample_pos
         next_clip++;
     }
 
+    if (recording)
+        record_max_time += buffer_duration;
     event_state.next_clip_idx = next_clip;
 }
 
@@ -1048,7 +1053,7 @@ void Track::process_test_synth(AudioBuffer<float>& output_buffer, double sample_
                     default:
                         break;
                 }
-                //Log::debug("{}", test_synth.voice_mask);
+                // Log::debug("{}", test_synth.voice_mask);
             }
         } else {
             test_synth.render(output_buffer, sample_rate, start_sample, output_buffer.n_samples - start_sample);

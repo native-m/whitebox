@@ -90,7 +90,7 @@ struct MidiVoiceState {
         shortest_voice->remove_from_list();
         free_voices.push_item(shortest_voice);
         used_voices--;
-        
+
         return shortest_voice;
     }
 
@@ -415,7 +415,7 @@ struct Track {
                        double inv_ppq);
 
     void process_event2(double start_time, double end_time, double sample_position, double beat_duration,
-                        double sample_rate, double ppq, double inv_ppq, uint32_t buffer_size);
+                        double buffer_duration, double sample_rate, double ppq, double inv_ppq, uint32_t buffer_size);
 
     void process_midi_event2(Clip* clip, double start_time, double end_time, double sample_position,
                              double beat_duration, double sample_rate, double ppq, double inv_ppq,

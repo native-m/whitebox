@@ -453,7 +453,7 @@ void Engine::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>&
 
         for (auto track : tracks)
             track->process_event2(current_playhead_pos, next_playhead_pos, sample_position, current_beat_duration,
-                                  sample_rate, ppq, inv_ppq, output_buffer.n_samples);
+                                  buffer_duration_in_beats, sample_rate, ppq, inv_ppq, output_buffer.n_samples);
 
         sample_position += beat_to_samples(buffer_duration_in_beats, sample_rate, current_beat_duration);
         current_playhead_pos = next_playhead_pos;
