@@ -53,17 +53,19 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
     const ImVec2 clip_title_max_bb(max_pos_clamped_x, clip_title_max_y);
     const ImVec2 clip_content_min(min_pos_clamped_x, clip_title_max_y);
     const ImVec2 clip_content_max(max_pos_clamped_x, track_pos_y + track_height);
-    const ImColor color = is_active ? clip->color : color_adjust_alpha(clip->color, 0.75f);
-    const ImU32 bg_color = color_premul_alpha(color_adjust_alpha(color, color.Value.w * 0.72f));
+    /*const ImColor color = is_active ? clip->color : color_adjust_alpha(clip->color, 0.75f);
+    const ImU32 bg_color = color_premul_alpha(color_adjust_alpha(color, color.Value.w * 0.72f));*/
+    const ImColor color = is_active ? color_adjust_contrast(clip->color, 1.2f) : color_adjust_alpha(clip->color, 0.75f);
+    const ImU32 bg_color = color_premul_alpha(color_adjust_alpha(color, color.Value.w * 0.75f));
     const ImU32 content_color =
-        is_active ? color_brighten(color, 1.45f) : color_premul_alpha(color_brighten(color, 1.45f));
+        is_active ? color_brighten(color, 1.2f) : color_premul_alpha(color_brighten(color, 1.0f));
 
     // Draw clip background and its header
-    layer1_draw_list->AddRectFilled(clip_title_min_bb, clip_title_max_bb, bg_color - 0x00070707U, 2.5f,
-                                    ImDrawFlags_RoundCornersTopLeft | ImDrawFlags_RoundCornersTopRight);
-    layer1_draw_list->AddRectFilled(clip_content_min, clip_content_max, bg_color, 2.5f,
-                                    ImDrawFlags_RoundCornersBottomLeft | ImDrawFlags_RoundCornersBottomRight);
-    layer1_draw_list->AddRect(clip_title_min_bb, clip_content_max, color_adjust_alpha(clip->color, 0.6f), 2.5f);
+    /*layer1_draw_list->AddRectFilled(clip_title_min_bb, clip_title_max_bb, bg_color, 2.5f,
+                                    ImDrawFlags_RoundCornersTopLeft | ImDrawFlags_RoundCornersTopRight);*/
+    layer1_draw_list->AddRectFilled(clip_title_min_bb, clip_content_max, color_adjust_alpha(bg_color, 0.75f), 2.5f,
+                                    ImDrawFlags_RoundCornersAll);
+    layer1_draw_list->AddRect(clip_title_min_bb, clip_content_max, color_adjust_alpha(color, 0.62f), 2.5f);
 
     if (!is_active) {
         text_color_adjusted = color_adjust_alpha(text_color_adjusted, 0.75f);
