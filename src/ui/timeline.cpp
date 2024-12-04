@@ -63,7 +63,7 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
     // Draw clip background and its header
     /*layer1_draw_list->AddRectFilled(clip_title_min_bb, clip_title_max_bb, bg_color, 2.5f,
                                     ImDrawFlags_RoundCornersTopLeft | ImDrawFlags_RoundCornersTopRight);*/
-    layer1_draw_list->AddRectFilled(clip_title_min_bb, clip_content_max, color_adjust_alpha(bg_color, 0.75f), 2.5f,
+    layer1_draw_list->AddRectFilled(clip_title_min_bb, clip_content_max, color_adjust_alpha(bg_color, 0.70f), 2.5f,
                                     ImDrawFlags_RoundCornersAll);
     layer1_draw_list->AddRect(clip_title_min_bb, clip_content_max, color_adjust_alpha(color, 0.62f), 2.5f);
 
@@ -89,16 +89,16 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
                 SamplePeaks* sample_peaks = asset->peaks.get();
                 const double scale_x = sample_scale * (double)asset->sample_instance.sample_rate;
                 const double inv_scale_x = 1.0 / scale_x;
-                const double mip_index = (std::log(scale_x * 0.5) * log_base4) * 0.5; // Scale -> Index
+                double mip_index = std::log(scale_x * 0.5) * log_base4; // Scale -> Index
                 const int32_t index = math::clamp((int32_t)mip_index, 0, sample_peaks->mipmap_count - 1);
-                const double mult = std::pow(4.0, (double)index - 1.0);
-                const double mip_scale =
-                    std::pow(4.0, 2.0 * (mip_index - (double)index)) * 8.0 * mult; // Index -> Mip Scale
-                const double mip_div = math::round(scale_x / mip_scale);
-                // double mip_index = std::log(scale_x * 0.5) * log_base4; // Scale -> Index
-                // double mip_scale = std::pow(4.0, (mip_index - (double)index)) * 2.0; // Index -> Mip Scale
+                double mip_scale = std::pow(4.0, (mip_index - (double)index)) * 2.0; // Index -> Mip Scale
+                // const double mip_index = (std::log(scale_x * 0.5) * log_base4) * 0.5; // Scale -> Index
+                // const int32_t index = math::clamp((int32_t)mip_index, 0, sample_peaks->mipmap_count - 1);
+                // const double mult = std::pow(4.0, (double)index - 1.0);
+                // const double mip_scale =
+                //     std::pow(4.0, 2.0 * (mip_index - (double)index)) * 8.0 * mult; // Index -> Mip Scale
+                // const double mip_div = math::round(scale_x / mip_scale);
 
-                const double waveform_start = start_offset * inv_scale_x;
                 const double waveform_len = ((double)asset->sample_instance.count - start_offset) * inv_scale_x;
                 const double rel_min_x = min_x - (double)min_draw_x;
                 const double rel_max_x = max_x - (double)min_draw_x;
@@ -106,17 +106,18 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
                 const double max_pos_x =
                     math::min(math::min(rel_max_x, rel_min_x + waveform_len), (double)(timeline_width + 2.0));
                 const double draw_count = math::max(max_pos_x - min_pos_x, 0.0);
-                const double start_idx = math::max(-rel_min_x, 0.0) + waveform_start;
 
                 /*Log::debug("{} {} {} {} {}", sample_peaks->sample_count / (size_t)mip_div, mip_div, index,
                            math::round(start_offset / mip_div), mip_scale);*/
 
                 if (draw_count) {
+                    double waveform_start = start_offset * inv_scale_x;
+                    const double start_idx = std::round(math::max(-rel_min_x, 0.0) + waveform_start);
+                    const float min_bb_x = (float)math::round(min_pos_x);
+                    const float max_bb_x = (float)math::round(max_pos_x);
                     if (sample_peaks->channels == 2) {
-                        const float height = (clip_content_max.y - clip_content_min.y) * 0.5f;
+                        const float height = std::floor((clip_content_max.y - clip_content_min.y) * 0.5f);
                         const float pos_y = clip_content_min.y - offset_y;
-                        const float min_bb_x = (float)math::round(min_pos_x);
-                        const float max_bb_x = (float)math::round(max_pos_x);
                         clip_content_cmds.push_back({
                             .peaks = sample_peaks,
                             .min_bb = ImVec2(min_bb_x, pos_y),
@@ -125,7 +126,7 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
                             .scale_x = (float)mip_scale,
                             .mip_index = index,
                             .channel = 0,
-                            .start_idx = (uint32_t)math::round(start_idx),
+                            .start_idx = (uint32_t)start_idx,
                             .draw_count = (uint32_t)draw_count + 2,
                         });
                         clip_content_cmds.push_back({
@@ -136,18 +137,18 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
                             .scale_x = (float)mip_scale,
                             .mip_index = index,
                             .channel = 1,
-                            .start_idx = (uint32_t)math::round(start_idx),
+                            .start_idx = (uint32_t)start_idx,
                             .draw_count = (uint32_t)draw_count + 2,
                         });
                     } else {
                         clip_content_cmds.push_back({
                             .peaks = sample_peaks,
-                            .min_bb = ImVec2(math::round((float)min_pos_x), clip_content_min.y - offset_y),
-                            .max_bb = ImVec2(math::round((float)max_pos_x), clip_content_max.y - offset_y),
+                            .min_bb = ImVec2(min_pos_x, clip_content_min.y - offset_y),
+                            .max_bb = ImVec2(max_pos_x, clip_content_max.y - offset_y),
                             .color = content_color,
                             .scale_x = (float)mip_scale,
                             .mip_index = index,
-                            .start_idx = (uint32_t)math::round(start_idx),
+                            .start_idx = (uint32_t)start_idx,
                             .draw_count = (uint32_t)draw_count + 2,
                         });
                     }
@@ -798,6 +799,7 @@ void GuiTimeline::render_track_lanes() {
     // Map mouse position to time position
     const double mouse_at_time_pos =
         ((double)(mouse_pos.x - timeline_view_pos.x) * view_scale + min_hscroll * song_length) * inv_ppq;
+    // const double mouse_at_gridline = mouse_at_time_pos;
     const double mouse_at_gridline = std::round(mouse_at_time_pos * (double)grid_scale) / (double)grid_scale;
 
     static constexpr uint32_t highlight_color = 0x9F555555;
@@ -1075,9 +1077,9 @@ void GuiTimeline::render_track_lanes() {
                 drop_payload_data->type == BrowserItem::Sample
                     ? samples_to_beat(drop_payload_data->content_length, drop_payload_data->sample_rate, beat_duration)
                     : 1.0;
+
             double min_pos = highlight_pos * clip_scale;
             double max_pos = (highlight_pos + length) * clip_scale;
-
             layer3_draw_list->AddRectFilled(ImVec2(timeline_scroll_offset_x_f32 + (float)min_pos, track_pos_y),
                                             ImVec2(timeline_scroll_offset_x_f32 + (float)max_pos, track_pos_y + height),
                                             highlight_color);
@@ -1289,7 +1291,7 @@ void GuiTimeline::render_track_lanes() {
         switch (edit_action) {
             case TimelineEditAction::ClipMove:
                 if (!left_mouse_down) {
-                    ClipMoveCmd cmd = {
+                    ClipMoveCmd cmd {
                         .src_track_id = edited_track_id.value(),
                         .dst_track_id = hovered_track_id.value(),
                         .clip_id = edited_clip->id,
@@ -1303,7 +1305,7 @@ void GuiTimeline::render_track_lanes() {
                 break;
             case TimelineEditAction::ClipResizeLeft:
                 if (!left_mouse_down) {
-                    ClipResizeCmd cmd = {
+                    ClipResizeCmd cmd {
                         .track_id = edited_track_id.value(),
                         .clip_id = edited_clip->id,
                         .left_side = true,
@@ -1319,7 +1321,7 @@ void GuiTimeline::render_track_lanes() {
                 break;
             case TimelineEditAction::ClipResizeRight:
                 if (!left_mouse_down) {
-                    ClipResizeCmd cmd = {
+                    ClipResizeCmd cmd {
                         .track_id = edited_track_id.value(),
                         .clip_id = edited_clip->id,
                         .left_side = false,
@@ -1335,7 +1337,7 @@ void GuiTimeline::render_track_lanes() {
                 break;
             case TimelineEditAction::ClipShiftLeft:
                 if (!left_mouse_down) {
-                    ClipResizeCmd cmd = {
+                    ClipResizeCmd cmd {
                         .track_id = edited_track_id.value(),
                         .clip_id = edited_clip->id,
                         .left_side = true,
@@ -1352,7 +1354,7 @@ void GuiTimeline::render_track_lanes() {
                 break;
             case TimelineEditAction::ClipShiftRight:
                 if (!left_mouse_down) {
-                    ClipResizeCmd cmd = {
+                    ClipResizeCmd cmd {
                         .track_id = edited_track_id.value(),
                         .clip_id = edited_clip->id,
                         .left_side = false,
@@ -1369,7 +1371,7 @@ void GuiTimeline::render_track_lanes() {
                 break;
             case TimelineEditAction::ClipShift:
                 if (!left_mouse_down) {
-                    ClipShiftCmd cmd = {
+                    ClipShiftCmd cmd {
                         .track_id = edited_track_id.value(),
                         .clip_id = edited_clip->id,
                         .relative_pos = relative_pos,
@@ -1383,12 +1385,13 @@ void GuiTimeline::render_track_lanes() {
                 break;
             case TimelineEditAction::ClipDuplicate:
                 if (!left_mouse_down) {
-                    g_cmd_manager.execute("Duplicate Clip", ClipDuplicateCmd {
-                                                                .src_track_id = edited_track_id.value(),
-                                                                .dst_track_id = hovered_track_id.value(),
-                                                                .clip_id = edited_clip->id,
-                                                                .relative_pos = relative_pos,
-                                                            });
+                    ClipDuplicateCmd cmd {
+                        .src_track_id = edited_track_id.value(),
+                        .dst_track_id = hovered_track_id.value(),
+                        .clip_id = edited_clip->id,
+                        .relative_pos = relative_pos,
+                    };
+                    g_cmd_manager.execute("Duplicate Clip", std::move(cmd));
                     finish_edit_action();
                     force_redraw = true;
                 }
