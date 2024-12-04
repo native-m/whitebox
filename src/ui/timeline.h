@@ -95,7 +95,6 @@ struct GuiTimeline : public TimelineBase {
     void render();
     void render_separator();
     void render_track_controls();
-    void track_context_menu(Track& track, int track_id);
     void clip_context_menu();
     void render_track_lanes();
     void finish_edit_action();

@@ -2,11 +2,11 @@
 #include "browser.h"
 #include "command.h"
 #include "command_manager.h"
+#include "context_menu.h"
 #include "controls.h"
 #include "core/color.h"
 #include "core/core_math.h"
 #include "core/debug.h"
-#include "engine/audio_io.h"
 #include "engine/clip_edit.h"
 #include "engine/engine.h"
 #include "engine/track.h"
@@ -562,7 +562,11 @@ void GuiTimeline::render_track_controls() {
                 tmp_name = track->name;
             }
 
-            track_context_menu(*track, i);
+            if (ImGui::BeginPopup("track_context_menu")) {
+                track_context_menu(track, i, &tmp_name, &tmp_color);
+                ImGui::EndPopup();
+            }
+
             ImGui::PopStyleVar();
         }
 
@@ -586,62 +590,6 @@ void GuiTimeline::render_track_controls() {
     }
 
     ImGui::PopClipRect();
-}
-
-void GuiTimeline::track_context_menu(Track& track, int track_id) {
-    if (ImGui::BeginPopup("track_context_menu")) {
-        if (track.name.size() > 0) {
-            ImGui::MenuItem(track.name.c_str(), nullptr, false, false);
-        } else {
-            ImGui::MenuItem("(unnamed)", nullptr, false, false);
-        }
-        ImGui::Separator();
-
-        if (ImGui::BeginMenu("Rename")) {
-            FormResult result = rename_form(&context_menu_track->name, &tmp_name);
-            if (result == FormResult::Close) {
-                ImGui::CloseCurrentPopup();
-                redraw = true;
-            }
-            ImGui::EndMenu();
-        }
-
-        if (ImGui::BeginMenu("Change color")) {
-            FormResult result = color_picker_form(&context_menu_track->color, tmp_color);
-            switch (result) {
-                case FormResult::ValueChanged:
-                    force_redraw = true;
-                    break;
-                case FormResult::Close:
-                    ImGui::CloseCurrentPopup();
-                    force_redraw = true;
-                    break;
-                default:
-                    break;
-            }
-            ImGui::EndMenu();
-        }
-
-        if (ImGui::MenuItem("Apply track color to every clip")) {
-            for (auto clip : track.clips)
-                clip->color = track.color;
-            redraw = true;
-        }
-
-        if (ImGui::MenuItem("Delete")) {
-            g_engine.delete_track((uint32_t)track_id);
-            redraw = true;
-        }
-
-        ImGui::Separator();
-
-        if (ImGui::MenuItem("Reset height")) {
-            ImGui::CloseCurrentPopup();
-            redraw = true;
-            track.height = 56.0f;
-        }
-        ImGui::EndPopup();
-    }
 }
 
 void GuiTimeline::clip_context_menu() {
