@@ -3,7 +3,7 @@
 #include "core/audio_format.h"
 #include "core/bit_manipulation.h"
 #include "core/common.h"
-#include <cmath>
+#include "core/core_math.h"
 #include <functional>
 #include <string>
 
@@ -150,7 +150,7 @@ struct AudioIO {
 
 inline static uint32_t period_to_buffer_size(AudioDevicePeriod period, uint32_t sample_rate) {
     constexpr double unit_100_ns = 10000000.0;
-    return (uint32_t)std::round(sample_rate * period / unit_100_ns);
+    return (uint32_t)math::round(sample_rate * period / unit_100_ns);
 }
 
 inline static double period_to_ms(AudioDevicePeriod period) {
@@ -160,7 +160,7 @@ inline static double period_to_ms(AudioDevicePeriod period) {
 
 inline static AudioDevicePeriod buffer_size_to_period(uint32_t buffer_size, uint32_t sample_rate) {
     constexpr double unit_100_ns = 10000000.0;
-    return (AudioDevicePeriod)std::round(unit_100_ns * (buffer_size / (double)sample_rate));
+    return (AudioDevicePeriod)math::round(unit_100_ns * (buffer_size / (double)sample_rate));
 }
 
 inline static uint32_t get_sample_rate_value(AudioDeviceSampleRate sr_enum) {
