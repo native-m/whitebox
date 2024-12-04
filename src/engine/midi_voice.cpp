@@ -46,7 +46,7 @@ MidiVoice* MidiVoiceState::release_voice(double time_range) {
     return shortest_voice;
 }
 
-void MidiVoiceState::free_all() {
+void MidiVoiceState::release_all() {
     if (auto all_voices = allocated_voices.next()) {
         all_voices->pluck_from_list();
         free_voices.replace_next_item(all_voices);

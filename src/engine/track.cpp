@@ -341,7 +341,7 @@ void Track::reset_playback_state(double time_pos, bool refresh_voices) {
         event_state.next_clip_idx = next_clip;
         event_state.midi_note_idx = 0;
         midi_voice_state.voice_mask = 0;
-        midi_voice_state.free_all();
+        midi_voice_state.release_all();
     }
     event_state.refresh_voice = refresh_voices;
     event_state.partially_ended = false;
@@ -830,12 +830,7 @@ void Track::process_midi_event(Clip* clip, uint32_t buffer_offset, double time_p
 }
 
 void Track::stop_midi_notes(uint32_t buffer_offset, double time_pos) {
-    uint64_t active_voice_bits = midi_voice_state.voice_mask;
-    uint64_t inactive_voice_bits = 0;
-    while (active_voice_bits) {
-        int active_voice = next_set_bits(active_voice_bits);
-        inactive_voice_bits |= 1ull << active_voice;
-        const MidiVoice& voice = midi_voice_state.voices[active_voice];
+    while (auto voice = midi_voice_state.release_voice(std::numeric_limits<double>::max())) {
         midi_event_list.add_event({
             .type = MidiEventType::NoteOff,
             .buffer_offset = buffer_offset,
@@ -843,12 +838,11 @@ void Track::stop_midi_notes(uint32_t buffer_offset, double time_pos) {
             .note_off =
                 {
                     .channel = 0,
-                    .note_number = voice.note_number,
-                    .velocity = voice.velocity * 0.5f,
+                    .note_number = voice->note_number,
+                    .velocity = voice->velocity * 0.5f,
                 },
         });
     }
-    midi_voice_state.voice_mask &= ~inactive_voice_bits;
 }
 
 void Track::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>& output_buffer, double sample_rate,
