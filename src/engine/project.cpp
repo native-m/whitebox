@@ -95,10 +95,12 @@ ProjectFileResult read_project_file(const std::filesystem::path& path, Engine& e
                 }
             }
             if (!found) {
+                // TODO: Skip this sample if not found
                 Log::info("Cannot find sample: {}", filename.string());
             }
         }
 
+        Log::debug("({}) Loading sample: {}", i, sample_path.string());
         SampleAsset* asset = sample_table.load_from_file(sample_path);
         sample_assets[i] = asset;
         asset->ref_count = 0; // Must be zero for the first usage
@@ -219,6 +221,8 @@ ProjectFileResult write_midi_data(const MidiData& data) {
 
 ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& engine, SampleTable& sample_table,
                                      MidiTable& midi_table, GuiTimeline& timeline) {
+    sample_table.destroy_unused();
+
     File file;
     if (!file.open(path, File::Write | File::Truncate)) {
         return ProjectFileResult::ErrCannotAccessFile;
