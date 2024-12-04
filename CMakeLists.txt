@@ -130,6 +130,8 @@ set(WB_SOURCES
     "src/ui/command.h"
     "src/ui/command_manager.cpp"
     "src/ui/command_manager.h"
+    "src/ui/context_menu.cpp"
+    "src/ui/context_menu.h"
     "src/ui/controls.cpp"
     "src/ui/controls.h"
     "src/ui/dialogs.cpp"

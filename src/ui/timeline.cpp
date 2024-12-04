@@ -403,7 +403,6 @@ void GuiTimeline::render_track_controls() {
     const float clamped_separator_pos = std::max(separator_pos, min_track_control_size);
     const ImVec2 screen_pos = ImGui::GetCursorScreenPos();
     const auto& style = ImGui::GetStyle();
-    uint32_t max_audio_input_channels = g_audio_io->max_input_channel_count;
 
     ImGui::PushClipRect(screen_pos, ImVec2(screen_pos.x + clamped_separator_pos, screen_pos.y + area_size.y + vscroll),
                         true);
@@ -467,6 +466,8 @@ void GuiTimeline::render_track_controls() {
                         ImGui::BeginDisabled(g_engine.recording);
                         if (controls::small_toggle_button("R", &track->arm_record, muted_color))
                             track->arm_record = !track->arm_record;
+                        if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+                            ImGui::OpenPopup("track_input_context_menu");
                         ImGui::EndDisabled();
                     }
                 } else [[likely]] {
@@ -482,6 +483,8 @@ void GuiTimeline::render_track_controls() {
                     ImGui::BeginDisabled(g_engine.recording);
                     if (controls::toggle_button("R", &track->arm_record, muted_color))
                         track->arm_record = !track->arm_record;
+                    if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+                        ImGui::OpenPopup("track_input_context_menu");
                     ImGui::EndDisabled();
 
                     ImGui::SameLine(0.0f, 2.0f);
@@ -523,37 +526,7 @@ void GuiTimeline::render_track_controls() {
 
                     ImGui::BeginDisabled(g_engine.recording);
                     if (ImGui::BeginCombo("Input", input_name)) [[unlikely]] {
-                        bool none = track->input_mode == TrackInputMode::None;
-                        bool ext_stereo = track->input_mode == TrackInputMode::ExternalStereo;
-                        bool ext_mono = track->input_mode == TrackInputMode::ExternalMono;
-
-                        if (ImGui::Selectable("None", none, none ? ImGuiSelectableFlags_Highlight : 0)) {
-                            track->input_mode = TrackInputMode::None;
-                            track->input_index = 0;
-                        }
-
-                        ImGui::Selectable("Ext. stereo", true, ImGuiSelectableFlags_Disabled);
-                        for (uint32_t i = 0; i < max_audio_input_channels; i += 2) {
-                            const char* name;
-                            bool selected = ext_stereo && track->input_index == i;
-                            ImFormatStringToTempBuffer(&name, nullptr, "%d+%d", i + 1, i + 2);
-                            if (ImGui::Selectable(name, false, selected ? ImGuiSelectableFlags_Highlight : 0)) {
-                                track->input_mode = TrackInputMode::ExternalStereo;
-                                track->input_index = i;
-                            }
-                        }
-
-                        ImGui::Selectable("Ext. mono", true, ImGuiSelectableFlags_Disabled);
-                        for (uint32_t i = 0; i < max_audio_input_channels; i++) {
-                            const char* name;
-                            bool selected = ext_mono && track->input_index == i;
-                            ImFormatStringToTempBuffer(&name, nullptr, "%d", i + 1);
-                            if (ImGui::Selectable(name, false, selected ? ImGuiSelectableFlags_Highlight : 0)) {
-                                track->input_mode = TrackInputMode::ExternalMono;
-                                track->input_index = i;
-                            }
-                        }
-
+                        track_input_context_menu(track);
                         ImGui::EndCombo();
                     }
                     ImGui::EndDisabled();
@@ -571,7 +544,14 @@ void GuiTimeline::render_track_controls() {
                 ImGui::BeginDisabled(g_engine.recording);
                 if (controls::small_toggle_button("R", &track->arm_record, muted_color))
                     track->arm_record = !track->arm_record;
+                if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+                    ImGui::OpenPopup("track_input_context_menu");
                 ImGui::EndDisabled();
+            }
+
+            if (ImGui::BeginPopup("track_input_context_menu")) {
+                track_input_context_menu(track);
+                ImGui::EndPopup();
             }
 
             if (ImGui::IsWindowHovered() && !(ImGui::IsAnyItemActive() || ImGui::IsAnyItemHovered()) &&
