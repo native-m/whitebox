@@ -16,7 +16,6 @@
 #endif
 
 namespace wb {
-
 Track::Track() {
     ui_parameter_state.volume = 1.0f;
     ui_parameter_state.pan = 0.0f;
@@ -589,7 +588,8 @@ void Track::process_event2(double start_time, double end_time, double sample_pos
             } else {
                 event_state.midi_note_idx = clip->midi.asset->find_first_note(clip->start_offset, 0);
             }
-        } else if (start_time > min_time && !event_state.partially_ended) [[unlikely]] { // Partially started
+            clip->start_offset_changed = false;
+        } else if (start_time > min_time && !event_state.partially_ended) { // Partially started
             double relative_start_time = start_time - min_time;
             if (is_audio) {
                 double sample_pos = beat_to_samples(relative_start_time, sample_rate, beat_duration);
@@ -605,6 +605,30 @@ void Track::process_event2(double start_time, double end_time, double sample_pos
                 double actual_start_offset = relative_start_time + clip->start_offset;
                 event_state.midi_note_idx = clip->midi.asset->find_first_note(actual_start_offset, 0);
             }
+            clip->start_offset_changed = false;
+        } else if (clip->start_offset_changed && event_state.partially_ended) {
+            double relative_start_time = start_time - min_time;
+            if (is_audio) {
+                double sample_pos = beat_to_samples(relative_start_time, sample_rate, beat_duration);
+                size_t sample_offset = (size_t)(sample_pos + clip->start_offset);
+                audio_event_buffer.push_back({
+                    .type = EventType::StopSample,
+                    .buffer_offset = 0,
+                    .time = start_time,
+                });
+                audio_event_buffer.push_back({
+                    .type = EventType::PlaySample,
+                    .buffer_offset = 0,
+                    .time = start_time,
+                    .sample_offset = sample_offset,
+                    .sample = &clip->audio.asset->sample_instance,
+                });
+            } else {
+                stop_midi_notes(0, start_time);
+                double actual_start_offset = relative_start_time + clip->start_offset;
+                event_state.midi_note_idx = clip->midi.asset->find_first_note(actual_start_offset, 0);
+            }
+            clip->start_offset_changed = false;
         }
 
         if (max_time <= end_time) {
@@ -1074,5 +1098,4 @@ void Track::flush_deleted_clips(double time_pos) {
     // deleted_clip_ids.clear();
     clips = std::move(new_clip_list);
 }
-
 } // namespace wb
