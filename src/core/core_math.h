@@ -16,28 +16,28 @@ static constexpr T small_value = [] {
         return 0.000000000000001f;
 }();
 
-inline auto abs(NumericalType auto x) {
+inline static auto abs(NumericalType auto x) {
     return x < 0 ? -x : x;
 }
 
 template <typename T>
-inline constexpr T min(T a, T b) {
+inline static constexpr T min(T a, T b) {
     return a < b ? a : b;
 }
 
 template <typename T>
-inline constexpr T max(T a, T b) {
+inline static constexpr T max(T a, T b) {
     return b < a ? a : b;
 }
 
 template <typename T>
-inline T clamp(T x, T min_val, T max_val) {
+inline static constexpr T clamp(T x, T min_val, T max_val) {
     T max_part = x < max_val ? x : max_val;
     return max_part > min_val ? max_part : min_val;
 }
 
 template <std::floating_point T>
-inline T trunc(T x) {
+inline static constexpr T trunc(T x) {
     if constexpr (std::is_same_v<T, double>) {
         return (T)(int64_t)x;
     } else {
@@ -46,17 +46,17 @@ inline T trunc(T x) {
 }
 
 template <std::floating_point T>
-inline T uround(T x) {
+inline static constexpr T uround(T x) {
     return math::trunc(x + T(0.5));
 }
 
 template <std::floating_point T>
-inline T round(T x) {
+inline static constexpr T round(T x) {
     return math::trunc(x + (x < T(0) ? -0.5 : 0.5));
 }
 
 template <std::floating_point T>
-inline T fract(T x) {
+inline static T fract(T x) {
     return x - std::floor(x);
 }
 
@@ -102,12 +102,12 @@ inline T unnormalize_value(T value, T min_val, T max_val) {
 }
 
 template <std::floating_point T>
-inline bool near_equal(T a, T b, T eps = small_value<T>) {
+inline static constexpr bool near_equal(T a, T b, T eps = small_value<T>) {
     return abs(a - b) < eps;
 }
 
 template <std::floating_point T>
-inline bool near_equal_to_zero(T value, T eps = small_value<T>) {
+inline static constexpr bool near_equal_to_zero(T value, T eps = small_value<T>) {
     return abs(value) < eps;
 }
 

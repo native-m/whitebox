@@ -85,6 +85,8 @@ set(WB_SOURCES
     "src/engine/envelope_storage.h"
     "src/engine/event.h"
     "src/engine/event_list.h"
+    "src/engine/midi_voice.cpp"
+    "src/engine/midi_voice.h"
     "src/engine/param_changes.h"
     "src/engine/project.cpp"
     "src/engine/project.h"
