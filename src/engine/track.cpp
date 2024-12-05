@@ -370,177 +370,9 @@ void Track::stop() {
     // midi_voice_state.voice_mask = 0;
 }
 
-void Track::process_event(uint32_t buffer_offset, double time_pos, double beat_duration, double sample_rate, double ppq,
-                          double inv_ppq) {
-    bool refresh_voices = event_state.refresh_voice;
-
-    if (clips.size() == 0) {
-        if (refresh_voices) {
-            event_state.current_clip_idx.reset();
-            event_state.clip_idx.reset();
-            audio_event_buffer.push_back({
-                .type = EventType::StopSample,
-                .buffer_offset = buffer_offset,
-                .time = time_pos,
-            });
-            stop_midi_notes(buffer_offset, time_pos);
-            event_state.midi_note_idx = 0;
-            event_state.refresh_voice = false;
-        }
-        if (recording)
-            record_max_time += inv_ppq;
-        return;
-    }
-
-    if (refresh_voices) [[unlikely]] {
-        std::optional<uint32_t> clip_at_playhead = find_next_clip(time_pos);
-        if (clip_at_playhead) {
-            if (event_state.current_clip_idx) {
-                uint32_t idx = *event_state.current_clip_idx;
-                if (idx >= clips.size()) {
-                    event_state.current_clip_idx = (uint32_t)clips.size() - 1;
-                } else {
-                    Clip* clip = clips[idx];
-                    double min_time = math::uround(clip->min_time * ppq) * inv_ppq;
-                    double max_time = math::uround(clip->max_time * ppq) * inv_ppq;
-                    if (idx != *clip_at_playhead || time_pos < min_time || time_pos >= max_time) {
-                        audio_event_buffer.push_back({
-                            .type = EventType::StopSample,
-                            .buffer_offset = buffer_offset,
-                            .time = time_pos,
-                        });
-                        stop_midi_notes(buffer_offset, time_pos);
-                        event_state.current_clip_idx.reset();
-                        event_state.clip_idx = *clip_at_playhead;
-                        event_state.midi_note_idx = 0;
-                    }
-                }
-            } else {
-                event_state.clip_idx = *clip_at_playhead;
-                event_state.midi_note_idx = 0;
-            }
-        } else {
-            event_state.current_clip_idx.reset();
-            event_state.clip_idx.reset();
-            audio_event_buffer.push_back({
-                .type = EventType::StopSample,
-                .buffer_offset = buffer_offset,
-                .time = time_pos,
-            });
-            stop_midi_notes(buffer_offset, time_pos);
-            event_state.midi_note_idx = 0;
-        }
-        event_state.refresh_voice = false;
-    }
-
-    Clip* current_clip = event_state.current_clip_idx ? clips[*event_state.current_clip_idx] : nullptr;
-    Clip* next_clip = event_state.clip_idx && event_state.clip_idx < clips.size()
-                          ? clips[*event_state.clip_idx]
-                          : nullptr;
-
-    if (current_clip) {
-        double max_time = math::uround(current_clip->max_time * ppq) * inv_ppq;
-        double min_time = math::uround(current_clip->min_time * ppq) * inv_ppq;
-        if (time_pos < min_time || time_pos >= max_time || current_clip->deleted || !current_clip->is_active()) {
-            switch (current_clip->type) {
-                case ClipType::Audio:
-                    audio_event_buffer.push_back({
-                        .type = EventType::StopSample,
-                        .buffer_offset = buffer_offset,
-                        .time = time_pos,
-                    });
-                    break;
-                case ClipType::Midi:
-                    stop_midi_notes(buffer_offset, time_pos);
-                    event_state.midi_note_idx = 0;
-                    break;
-                default:
-                    break;
-            }
-            /*if (time_pos < min_time || current_clip->is_deleted()) {
-                event_state.next_clip_idx = find_next_clip(time_pos);
-            }*/
-            event_state.current_clip_idx.reset();
-        } else if (current_clip->start_offset_changed) {
-            double relative_start_time = time_pos - min_time;
-            if (current_clip->is_audio()) {
-                double sample_pos = beat_to_samples(relative_start_time, sample_rate, beat_duration);
-                uint64_t sample_offset = (uint64_t)(sample_pos + current_clip->start_offset);
-                audio_event_buffer.push_back({
-                    .type = EventType::StopSample,
-                    .buffer_offset = buffer_offset,
-                    .time = time_pos,
-                });
-                audio_event_buffer.push_back({
-                    .type = EventType::PlaySample,
-                    .buffer_offset = buffer_offset,
-                    .time = time_pos,
-                    .sample_offset = sample_offset,
-                    .sample = &current_clip->audio.asset->sample_instance,
-                });
-            } else {
-                stop_midi_notes(buffer_offset, time_pos);
-                double clip_pos = time_pos - current_clip->min_time;
-                if (clip_pos >= 0.0) {
-                    event_state.midi_note_idx =
-                        current_clip->midi.asset->find_first_note(clip_pos + current_clip->start_offset, 0);
-                }
-                process_midi_event(current_clip, buffer_offset, time_pos, beat_duration, ppq, inv_ppq);
-            }
-            current_clip->start_offset_changed = false;
-        } else {
-            if (current_clip->is_midi()) {
-                process_midi_event(current_clip, buffer_offset, time_pos, beat_duration, ppq, inv_ppq);
-            }
-        }
-    }
-
-    if (next_clip && (!next_clip->deleted || next_clip->is_active())) {
-        double min_time = math::uround(next_clip->min_time * ppq) * inv_ppq;
-        double max_time = math::uround(next_clip->max_time * ppq) * inv_ppq;
-
-        if (time_pos >= min_time && time_pos < max_time && next_clip->is_active()) {
-            double relative_start_time = time_pos - min_time;
-
-            switch (next_clip->type) {
-                case ClipType::Audio: {
-                    double sample_pos = beat_to_samples(relative_start_time, sample_rate, beat_duration);
-                    uint64_t sample_offset = (uint64_t)(sample_pos + next_clip->start_offset);
-                    audio_event_buffer.push_back({
-                        .type = EventType::PlaySample,
-                        .buffer_offset = buffer_offset,
-                        .time = time_pos,
-                        .sample_offset = sample_offset,
-                        .sample = &next_clip->audio.asset->sample_instance,
-                    });
-                    break;
-                }
-                case ClipType::Midi: {
-                    double clip_pos = time_pos - next_clip->min_time;
-                    if (clip_pos >= 0.0) {
-                        event_state.midi_note_idx =
-                            next_clip->midi.asset->find_first_note(clip_pos + next_clip->start_offset, 0);
-                    }
-                    process_midi_event(next_clip, buffer_offset, time_pos, beat_duration, ppq, inv_ppq);
-                    break;
-                }
-                default:
-                    break;
-            }
-
-            uint32_t new_next_clip = next_clip->id + 1;
-            event_state.current_clip_idx = event_state.clip_idx;
-            event_state.clip_idx = new_next_clip;
-        }
-    }
-
-    if (recording)
-        record_max_time += inv_ppq;
-}
-
-void Track::process_event2(double start_time, double end_time, double sample_position, double beat_duration,
-                           double buffer_duration, double sample_rate, double ppq, double inv_ppq,
-                           uint32_t buffer_size) {
+void Track::process_event(double start_time, double end_time, double sample_position, double beat_duration,
+                          double buffer_duration, double sample_rate, double ppq, double inv_ppq,
+                          uint32_t buffer_size) {
     if (clips.size() == 0) {
         if (event_state.refresh_voice) {
             audio_event_buffer.push_back({
@@ -568,16 +400,19 @@ void Track::process_event2(double start_time, double end_time, double sample_pos
                 if (idx < clips.size()) {
                     Clip* clip = clips[idx];
                     if (idx != *clip_at_playhead || start_time < clip->min_time || start_time > clip->max_time) {
-                        audio_event_buffer.push_back({
-                            .type = EventType::StopSample,
-                            .buffer_offset = 0,
-                            .time = start_time,
-                        });
-                        stop_midi_notes(0, start_time);
+                        if (clip->is_audio()) {
+                            audio_event_buffer.push_back({
+                                .type = EventType::StopSample,
+                                .buffer_offset = 0,
+                                .time = start_time,
+                            });
+                        } else {
+                            stop_midi_notes(0, start_time);
+                        }
                         event_state.clip_idx = *clip_at_playhead;
                         event_state.midi_note_idx = 0;
                     }
-                }     
+                }
             } else {
                 event_state.clip_idx = *clip_at_playhead;
                 event_state.midi_note_idx = 0;
@@ -680,14 +515,14 @@ void Track::process_event2(double start_time, double end_time, double sample_pos
                     .time = max_time,
                 });
             } else {
-                process_midi_event2(clip, start_time, max_time, sample_position, beat_duration, sample_rate, ppq,
-                                    inv_ppq, buffer_size);
+                process_midi_event(clip, start_time, max_time, sample_position, beat_duration, sample_rate, ppq,
+                                   inv_ppq, buffer_size);
             }
             event_state.partially_ended = false;
         } else {
             if (!is_audio) {
-                process_midi_event2(clip, start_time, end_time, sample_position, beat_duration, sample_rate, ppq,
-                                    inv_ppq, buffer_size);
+                process_midi_event(clip, start_time, end_time, sample_position, beat_duration, sample_rate, ppq,
+                                   inv_ppq, buffer_size);
             }
             event_state.partially_ended = true;
             break;
@@ -701,9 +536,9 @@ void Track::process_event2(double start_time, double end_time, double sample_pos
     event_state.clip_idx = next_clip;
 }
 
-void Track::process_midi_event2(Clip* clip, double start_time, double end_time, double sample_position,
-                                double beat_duration, double sample_rate, double ppq, double inv_ppq,
-                                uint32_t buffer_size) {
+void Track::process_midi_event(Clip* clip, double start_time, double end_time, double sample_position,
+                               double beat_duration, double sample_rate, double ppq, double inv_ppq,
+                               uint32_t buffer_size) {
     MidiAsset* asset = clip->midi.asset;
     const MidiNoteBuffer& buffer = asset->data.channels[0];
     uint32_t midi_note_idx = event_state.midi_note_idx;
@@ -806,89 +641,6 @@ void Track::process_midi_event2(Clip* clip, double start_time, double end_time, 
     }
 
     event_state.midi_note_idx = midi_note_idx;
-}
-
-void Track::process_midi_event(Clip* clip, uint32_t buffer_offset, double time_pos, double beat_duration, double ppq,
-                               double inv_ppq) {
-    MidiAsset* asset = clip->midi.asset;
-    const MidiNoteBuffer& buffer = asset->data.channels[0];
-    double time_offset = clip->min_time - clip->start_offset;
-
-    // Check for active voice and release it if reaches the end of time
-    uint64_t active_voice_bits = midi_voice_state.voice_mask;
-    uint64_t inactive_voice_bits = 0;
-    while (active_voice_bits) {
-        int active_voice = next_set_bits(active_voice_bits);
-        const MidiVoice& voice = midi_voice_state.voices[active_voice];
-        double max_time = voice.max_time;
-        if (time_pos >= max_time) {
-            inactive_voice_bits |= 1ull << active_voice;
-            midi_event_list.add_event({
-                .type = MidiEventType::NoteOff,
-                .buffer_offset = buffer_offset,
-                .time = max_time,
-                .note_off =
-                    {
-                        .channel = 0,
-                        .note_number = voice.note_number,
-                        .velocity = voice.velocity * 0.5f,
-                    },
-            });
-#if WB_DBG_LOG_NOTE_ON_EVENT
-            char note_str[8] {};
-            fmt::format_to_n(note_str, std::size(note_str), "{}{}", get_midi_note_scale(voice.note_number),
-                             get_midi_note_octave(voice.note_number));
-            Log::debug("Note off: {} length: {} at: {}", note_str, max_time, time_pos);
-#endif
-        }
-    }
-    midi_voice_state.voice_mask &= ~inactive_voice_bits;
-
-    // Check for incoming midi notes
-    while (event_state.midi_note_idx < buffer.size()) {
-        const MidiNote& note = buffer[event_state.midi_note_idx];
-
-        double min_time = math::uround((time_offset + note.min_time) * ppq) * inv_ppq;
-        if (min_time > time_pos) {
-            break;
-        }
-
-        double max_time = math::uround((time_offset + note.max_time) * ppq) * inv_ppq;
-        if (max_time < time_pos) {
-            event_state.midi_note_idx++;
-            continue;
-        }
-
-        midi_voice_state.add_voice({
-            .max_time = max_time,
-            .velocity = note.velocity * 0.5f,
-            .channel = 0,
-            .note_number = note.note_number,
-        });
-
-        midi_event_list.add_event({
-            .type = MidiEventType::NoteOn,
-            .buffer_offset = buffer_offset,
-            .time = min_time,
-            .note_on =
-                {
-                    .channel = 0,
-                    .note_number = note.note_number,
-                    .velocity = note.velocity * 0.5f,
-                },
-        });
-
-#if WB_DBG_LOG_NOTE_ON_EVENT
-        char note_str[8] {};
-        fmt::format_to_n(note_str, std::size(note_str), "{}{}", get_midi_note_scale(note.note_number),
-                         get_midi_note_octave(note.note_number));
-        Log::debug("Note on: {} {} {} -> {} at {}", note.id, note_str, min_time, max_time, time_pos);
-#endif
-
-        event_state.midi_note_idx++;
-    }
-
-    // Log::debug("{:b}", midi_voice_state.voice_mask);
 }
 
 void Track::stop_midi_notes(uint32_t buffer_offset, double time_pos) {

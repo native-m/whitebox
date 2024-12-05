@@ -451,27 +451,12 @@ void Engine::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>&
         double next_playhead_pos = playhead + buffer_duration_in_beats;
 
         for (auto track : tracks)
-            track->process_event2(playhead, next_playhead_pos, sample_position, current_beat_duration,
-                                  buffer_duration_in_beats, sample_rate, ppq, inv_ppq, output_buffer.n_samples);
+            track->process_event(playhead, next_playhead_pos, sample_position, current_beat_duration,
+                                 buffer_duration_in_beats, sample_rate, ppq, inv_ppq, output_buffer.n_samples);
 
         sample_position += beat_to_samples(buffer_duration_in_beats, sample_rate, current_beat_duration);
         playhead = next_playhead_pos;
         playhead_ui.store(playhead, std::memory_order_release);
-
-        // Record a sequence of events from track clips.
-        /*while (playhead < playhead_ui.load(std::memory_order_relaxed) + (buffer_duration / current_beat_duration)) {
-            double position = std::round(playhead * ppq) * inv_ppq;
-            uint32_t buffer_offset = (uint32_t)((uint64_t)sample_position % output_buffer.n_samples);
-            for (auto track : tracks) {
-                track->process_event(buffer_offset, position, current_beat_duration, sample_rate, ppq, inv_ppq);
-            }
-            playhead += inv_ppq;
-            sample_position += beat_to_samples(inv_ppq, sample_rate, current_beat_duration);
-            current_beat_duration = beat_duration.load(std::memory_order_relaxed);
-        }
-
-        playhead_ui.store(playhead_ui.load(std::memory_order_relaxed) + (buffer_duration / current_beat_duration),
-                          std::memory_order_release);*/
     }
 
     output_buffer.clear();
