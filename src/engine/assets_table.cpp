@@ -1,9 +1,9 @@
 #include "assets_table.h"
 #include "core/algorithm.h"
-#include "core/midi.h"
-#include "gfx/renderer.h"
-#include "extern/xxhash.h"
 #include "core/debug.h"
+#include "core/midi.h"
+#include "extern/xxhash.h"
+#include "gfx/renderer.h"
 
 namespace wb {
 static constexpr XXH64_hash_t sample_hash_seed = 69420;
@@ -16,9 +16,9 @@ void SampleAsset::release() {
 }
 
 SampleAsset* SampleTable::load_from_file(const std::filesystem::path& path) {
-    std::u8string str_path = path.u8string(); 
+    std::u8string str_path = path.u8string();
     uint64_t hash = XXH64(str_path.data(), str_path.size(), sample_hash_seed);
-    
+
     auto item = samples.find(hash);
     if (item != samples.end()) {
         item->second.add_ref();
@@ -44,10 +44,19 @@ void SampleTable::destroy_sample(uint64_t hash) {
     samples.erase(item);
 }
 
+void SampleTable::destroy_unused() {
+    Vector<uint64_t> unused_samples;
+    for (auto& [hash, sample] : samples)
+        if (sample.ref_count == 0)
+            unused_samples.push_back(hash);
+    for (auto hash : unused_samples)
+        samples.erase(hash);
+}
+
 void SampleTable::shutdown() {
     // NOTE(native-m): Sample may leak if created with ref_count == 0
     for (auto& [hash, sample] : samples) {
-        Log::debug("Sample asset leak: {}", sample.ref_count);
+        Log::debug("Sample asset leak: {}", sample.sample_instance.path.string(), sample.ref_count);
     }
     samples.clear();
 }
