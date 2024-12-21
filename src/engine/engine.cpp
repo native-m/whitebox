@@ -91,6 +91,49 @@ void Engine::stop_record() {
     Log::debug("Record stop");
 }
 
+void Engine::arm_track_recording(uint32_t slot, bool armed) {
+    Track* track = tracks[slot];
+    set_track_input(slot, track->input.mode, track->input.index, armed);
+}
+
+void Engine::set_track_input(uint32_t slot, TrackInputMode mode, uint32_t index, bool armed) {
+    assert(slot < tracks.size());
+    Track* track = tracks[slot];
+    TrackInput new_input {mode, index};
+    track->arm_record = armed;
+
+    if (armed && (track->input.mode != mode || track->input.index != index)) {
+        auto input = track_input_mapping.try_emplace(track->input.as_packed_u32());
+        input.first->second.erase(slot);
+        if (input.first->second.size() == 0)
+            track_input_mapping.erase(track->input.as_packed_u32());
+        if (mode != TrackInputMode::None) {
+            input = track_input_mapping.try_emplace(new_input.as_packed_u32());
+            input.first->second.emplace(slot);
+        }
+    } else {
+        auto input = track_input_mapping.try_emplace(new_input.as_packed_u32());
+        if (armed && mode != TrackInputMode::None)
+            input.first->second.emplace(slot);
+        else {
+            input.first->second.erase(slot);
+            if (input.first->second.size() == 0)
+                track_input_mapping.erase(new_input.as_packed_u32());
+        }
+    }
+
+    Log::debug("--- Input mapping ---");
+
+    for (auto& [input, tracks] : track_input_mapping) {
+        Log::debug("{}:", TrackInput::from_packed_u32(input).index);
+        for (auto track : tracks)
+            Log::debug("{}", track);
+    }
+
+    track->input.mode = mode;
+    track->input.index = index;
+}
+
 Track* Engine::add_track(const std::string& name) {
     Track* new_track = new Track();
     new_track->name = name;
@@ -136,12 +179,10 @@ void Engine::solo_track(uint32_t slot) {
     }
 
     for (uint32_t i = 0; i < tracks.size(); i++) {
-        if (i == slot) {
+        if (i == slot)
             continue;
-        }
-        if (tracks[i]->ui_parameter_state.solo) {
+        if (tracks[i]->ui_parameter_state.solo)
             tracks[i]->ui_parameter_state.solo = false;
-        }
         tracks[i]->set_mute(mute);
     }
 }

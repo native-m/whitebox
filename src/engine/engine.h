@@ -1,11 +1,13 @@
 #pragma once
 
+#include "audio_record.h"
 #include "clip.h"
 #include "clip_edit.h"
 #include "core/audio_buffer.h"
 #include "core/common.h"
 #include "core/thread.h"
 #include "etypes.h"
+#include "track_input.h"
 #include <functional>
 #include <vector>
 
@@ -42,6 +44,7 @@ struct Engine {
     std::atomic_bool playing;
     std::atomic_bool playhead_updated;
     std::atomic_bool has_deleted_clips;
+    AudioInputMapping track_input_mapping;
 
     AudioBuffer<float> mixing_buffer;
     std::vector<OnBpmChangeFn> on_bpm_change_listener;
@@ -57,6 +60,8 @@ struct Engine {
     void stop();
     void record();
     void stop_record();
+    void arm_track_recording(uint32_t slot, bool armed);
+    void set_track_input(uint32_t slot, TrackInputMode mode, uint32_t index, bool armed);
 
     void edit_lock() { editor_lock.lock(); }
     void edit_unlock() { editor_lock.unlock(); }
