@@ -1,8 +1,8 @@
 #include "context_menu.h"
-#include "forms.h"
 #include "engine/audio_io.h"
 #include "engine/engine.h"
 #include "engine/track.h"
+#include "forms.h"
 
 namespace wb {
 bool track_context_menu(Track* track, int track_id, const std::string* tmp_name, const ImColor* tmp_color) {
@@ -57,40 +57,34 @@ bool track_context_menu(Track* track, int track_id, const std::string* tmp_name,
         ret = true;
     }
 
-    return ret; 
+    return ret;
 }
 
-void track_input_context_menu(Track* track) {
+void track_input_context_menu(Track* track, uint32_t track_slot) {
     uint32_t max_audio_input_channels = g_audio_io->max_input_channel_count;
-    bool none = track->input_mode == TrackInputMode::None;
-    bool ext_stereo = track->input_mode == TrackInputMode::ExternalStereo;
-    bool ext_mono = track->input_mode == TrackInputMode::ExternalMono;
+    bool none = track->input.mode == TrackInputMode::None;
+    bool ext_stereo = track->input.mode == TrackInputMode::ExternalStereo;
+    bool ext_mono = track->input.mode == TrackInputMode::ExternalMono;
 
-    if (ImGui::Selectable("None", none, none ? ImGuiSelectableFlags_Highlight : 0)) {
-        track->input_mode = TrackInputMode::None;
-        track->input_index = 0;
-    }
+    if (ImGui::Selectable("None", none, none ? ImGuiSelectableFlags_Highlight : 0))
+        g_engine.set_track_input(track_slot, TrackInputMode::None, 0, track->arm_record);
 
     ImGui::Selectable("Ext. stereo", true, ImGuiSelectableFlags_Disabled);
     for (uint32_t i = 0; i < max_audio_input_channels; i += 2) {
         const char* name;
-        bool selected = ext_stereo && track->input_index == i;
+        bool selected = ext_stereo && track->input.index == i;
         ImFormatStringToTempBuffer(&name, nullptr, "%d+%d", i + 1, i + 2);
-        if (ImGui::Selectable(name, false, selected ? ImGuiSelectableFlags_Highlight : 0)) {
-            track->input_mode = TrackInputMode::ExternalStereo;
-            track->input_index = i;
-        }
+        if (ImGui::Selectable(name, false, selected ? ImGuiSelectableFlags_Highlight : 0))
+            g_engine.set_track_input(track_slot, TrackInputMode::ExternalStereo, i, track->arm_record);
     }
 
     ImGui::Selectable("Ext. mono", true, ImGuiSelectableFlags_Disabled);
     for (uint32_t i = 0; i < max_audio_input_channels; i++) {
         const char* name;
-        bool selected = ext_mono && track->input_index == i;
+        bool selected = ext_mono && track->input.index == i;
         ImFormatStringToTempBuffer(&name, nullptr, "%d", i + 1);
-        if (ImGui::Selectable(name, false, selected ? ImGuiSelectableFlags_Highlight : 0)) {
-            track->input_mode = TrackInputMode::ExternalMono;
-            track->input_index = i;
-        }
+        if (ImGui::Selectable(name, false, selected ? ImGuiSelectableFlags_Highlight : 0))
+            g_engine.set_track_input(track_slot, TrackInputMode::ExternalMono, i, track->arm_record);
     }
 }
 } // namespace wb

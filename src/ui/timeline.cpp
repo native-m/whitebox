@@ -455,8 +455,8 @@ void GuiTimeline::render_track_controls() {
 
             if (free_region.y < item_height * 1.5f) [[likely]] {
                 if (free_region.y < (item_height - style.ItemSpacing.y)) {
+                    // Very compact
                     if (free_region.y >= item_height * 0.5f) {
-                        // Mute & solo only
                         if (controls::small_toggle_button("M", &mute, muted_color))
                             track->set_mute(!mute);
                         ImGui::SameLine(0.0f, 2.0f);
@@ -466,7 +466,7 @@ void GuiTimeline::render_track_controls() {
                         ImGui::SameLine(0.0f, 2.0f);
                         ImGui::BeginDisabled(g_engine.recording);
                         if (controls::small_toggle_button("R", &track->arm_record, muted_color))
-                            track->arm_record = !track->arm_record;
+                            g_engine.arm_track_recording(i, !track->arm_record);
                         if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
                             ImGui::OpenPopup("track_input_context_menu");
                         ImGui::EndDisabled();
@@ -483,7 +483,7 @@ void GuiTimeline::render_track_controls() {
                     ImGui::SameLine(0.0f, 2.0f);
                     ImGui::BeginDisabled(g_engine.recording);
                     if (controls::toggle_button("R", &track->arm_record, muted_color))
-                        track->arm_record = !track->arm_record;
+                        g_engine.arm_track_recording(i, !track->arm_record);
                     if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
                         ImGui::OpenPopup("track_input_context_menu");
                     ImGui::EndDisabled();
@@ -511,14 +511,14 @@ void GuiTimeline::render_track_controls() {
                     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 3.0f));
 
                     const char* input_name = "None";
-                    switch (track->input_mode) {
+                    switch (track->input.mode) {
                         case TrackInputMode::ExternalStereo: {
-                            uint32_t index_mul = track->input_index * 2;
+                            uint32_t index_mul = track->input.index * 2;
                             ImFormatStringToTempBuffer(&input_name, nullptr, "%d+%d", index_mul + 1, index_mul + 2);
                             break;
                         }
                         case TrackInputMode::ExternalMono: {
-                            ImFormatStringToTempBuffer(&input_name, nullptr, "%d", track->input_index + 1);
+                            ImFormatStringToTempBuffer(&input_name, nullptr, "%d", track->input.index + 1);
                             break;
                         }
                         default:
@@ -527,7 +527,7 @@ void GuiTimeline::render_track_controls() {
 
                     ImGui::BeginDisabled(g_engine.recording);
                     if (ImGui::BeginCombo("Input", input_name)) [[unlikely]] {
-                        track_input_context_menu(track);
+                        track_input_context_menu(track, i);
                         ImGui::EndCombo();
                     }
                     ImGui::EndDisabled();
@@ -544,14 +544,14 @@ void GuiTimeline::render_track_controls() {
 
                 ImGui::BeginDisabled(g_engine.recording);
                 if (controls::small_toggle_button("R", &track->arm_record, muted_color))
-                    track->arm_record = !track->arm_record;
+                    g_engine.arm_track_recording(i, !track->arm_record);
                 if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
                     ImGui::OpenPopup("track_input_context_menu");
                 ImGui::EndDisabled();
             }
 
             if (ImGui::BeginPopup("track_input_context_menu")) {
-                track_input_context_menu(track);
+                track_input_context_menu(track, i);
                 ImGui::EndPopup();
             }
 
