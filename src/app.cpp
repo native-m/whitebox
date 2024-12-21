@@ -327,7 +327,7 @@ void app_render_control_bar() {
     ImGui::SameLine(0.0f, 4.0f);
     set_current_font(FontType::MonoMedium);
     controls::song_position();
-    set_current_font(FontType::Nornal);
+    set_current_font(FontType::Normal);
     ImGui::SameLine(0.0f, 4.0f);
     float tempo = (float)g_engine.get_bpm();
     if (ImGui::DragFloat("##TEMPO_DRAG", &tempo, 1.0f, 0.0f, 0.0f, "%.2f BPM", ImGuiSliderFlags_Vertical)) {

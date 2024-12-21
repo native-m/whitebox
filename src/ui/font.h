@@ -2,7 +2,7 @@
 
 namespace wb {
 enum class FontType {
-    Nornal,
+    Normal,
     MonoMedium,
     Icon,
 };

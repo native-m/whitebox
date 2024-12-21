@@ -13,10 +13,11 @@ void init_font_assets() {
     ImFontConfig config;
     ImGuiIO& io = ImGui::GetIO();
     io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
-    config.FontBuilderFlags = ImGuiFreeTypeBuilderFlags_NoAutoHint;
     config.SizePixels = 13.0f;
-    g_fonts[(uint32_t)FontType::Nornal] = io.Fonts->AddFontFromFileTTF("assets/Inter-Regular.ttf", 0.0f, &config);
+    g_fonts[(uint32_t)FontType::Normal] = io.Fonts->AddFontFromFileTTF("assets/Rubik-Regular.ttf", 0.0f, &config);
+    config.RasterizerDensity = 1.0f;
     config.SizePixels = 24.0f;
+    config.GlyphExtraSpacing.x = 0.0f;
     config.GlyphOffset.y -= 1.0f;
     g_fonts[(uint32_t)FontType::MonoMedium] =
         io.Fonts->AddFontFromFileTTF("assets/RobotoMono-Regular.ttf", 0.0f, &config);
