@@ -96,74 +96,6 @@ void Track::set_mute(bool mute) {
     });
 }
 
-Clip* Track::add_audio_clip(const std::string& name, double min_time, double max_time, double start_offset,
-                            const AudioClip& clip_info, double beat_duration, bool active) {
-    Clip* clip = (Clip*)clip_allocator.allocate();
-    if (!clip)
-        return nullptr;
-    new (clip) Clip(name, color, min_time, max_time);
-    clip->init_as_audio_clip(clip_info);
-    clip->start_offset = start_offset;
-    clip->active.store(active, std::memory_order_release);
-    clips.push_back(clip);
-    update(clip, beat_duration);
-    // add_to_cliplist(clip, beat_duration);
-    return clip;
-}
-
-Clip* Track::add_midi_clip(const std::string& name, double min_time, double max_time, double start_offset,
-                           const MidiClip& clip_info, double beat_duration, bool active) {
-    Clip* clip = (Clip*)clip_allocator.allocate();
-    if (!clip)
-        return nullptr;
-    new (clip) Clip(name, color, min_time, max_time);
-    clip->init_as_midi_clip(clip_info);
-    clip->start_offset = start_offset;
-    clip->active.store(active, std::memory_order_release);
-    clips.push_back(clip);
-    update(clip, beat_duration);
-    return clip;
-}
-
-Clip* Track::duplicate_clip(Clip* clip_to_duplicate, double min_time, double max_time, double beat_duration) {
-    Clip* clip = (Clip*)clip_allocator.allocate();
-    if (!clip)
-        return nullptr;
-    new (clip) Clip(*clip_to_duplicate);
-    clip->min_time = min_time;
-    clip->max_time = max_time;
-    clips.push_back(clip);
-    update(clip, beat_duration);
-    return clip;
-}
-
-void Track::move_clip(Clip* clip, double relative_pos, double beat_duration) {
-    if (relative_pos == 0.0)
-        return;
-    auto [min_time, max_time] = calc_move_clip(clip, relative_pos);
-    clip->min_time = min_time;
-    clip->max_time = max_time;
-    clip->start_offset_changed = true;
-    update(clip, beat_duration);
-}
-
-void Track::resize_clip(Clip* clip, double relative_pos, double min_length, double beat_duration, bool is_min) {
-    if (relative_pos == 0.0)
-        return;
-    auto [min_time, max_time, start_offset] = calc_resize_clip(clip, relative_pos, min_length, beat_duration, is_min);
-    if (is_min) {
-        clip->min_time = min_time;
-        clip->start_offset = start_offset;
-    } else {
-        clip->max_time = max_time;
-    }
-    update(clip, beat_duration);
-}
-
-void Track::delete_clip(uint32_t id) {
-    clips[id]->mark_deleted();
-}
-
 void Track::delete_clip(Clip* clip) {
     clip->mark_deleted();
     has_deleted_clips = true;
@@ -232,73 +164,6 @@ void Track::update_clip_ordering() {
     }
 }
 
-void Track::update(Clip* updated_clip, double beat_duration) {
-    std::sort(clips.begin(), clips.end(), [](const Clip* a, const Clip* b) { return a->min_time < b->min_time; });
-
-    // Trim overlapping clips or delete if completely overlapped
-    if (updated_clip && beat_duration != 0.0) {
-        // std::vector<Clip*> deleted_clips;
-        for (uint32_t i = 0; i < (uint32_t)clips.size(); i++) {
-            Clip* clip = clips[i];
-
-            if (clip == updated_clip)
-                continue;
-
-            if (clip->min_time <= updated_clip->min_time) {
-                if (updated_clip->min_time < clip->max_time) {
-                    clip->max_time = updated_clip->min_time;
-                }
-            } else {
-                if (updated_clip->max_time > clip->min_time) {
-                    double old_min = clip->min_time;
-                    clip->min_time = updated_clip->max_time;
-
-                    if (clip->min_time < clip->max_time) {
-                        double start_offset = clip->start_offset;
-                        SampleAsset* asset = nullptr;
-                        if (clip->is_audio()) {
-                            asset = clip->audio.asset;
-                            start_offset = samples_to_beat(start_offset, (double)asset->sample_instance.sample_rate,
-                                                           beat_duration);
-                        }
-
-                        if (old_min < clip->min_time)
-                            start_offset -= old_min - clip->min_time;
-                        else
-                            start_offset += clip->min_time - old_min;
-
-                        start_offset = std::max(start_offset, 0.0);
-
-                        if (clip->is_audio()) {
-                            start_offset = beat_to_samples(start_offset, (double)asset->sample_instance.sample_rate,
-                                                           beat_duration);
-                        }
-
-                        clip->start_offset = start_offset;
-                    }
-                }
-            }
-
-            // The clip is completely overlapped, delete this!
-            /*if (clip->min_time >= clip->max_time)
-                deleted_clip_ids.insert(clip->id);*/
-        }
-    }
-
-    // Reconstruct IDs
-    for (uint32_t i = 0; i < (uint32_t)clips.size(); i++) {
-        clips[i]->id = i;
-    }
-
-#if WB_DBG_LOG_CLIP_ORDERING
-    Log::debug("--- Clip Ordering ---");
-    for (auto clip : clips) {
-        Log::debug("{:x}: {} ({}, {}, {} -> {})", (uint64_t)clip, clip->name, clip->id, clip->start_offset,
-                   clip->min_time, clip->max_time);
-    }
-#endif
-}
-
 std::optional<uint32_t> Track::find_next_clip(double time_pos, uint32_t hint) {
     if (clips.size() == 0) {
         return {};
@@ -347,7 +212,7 @@ void Track::reset_playback_state(double time_pos, bool refresh_voices) {
 }
 
 void Track::prepare_record(double time_pos) {
-    if (!arm_record || input_mode == TrackInputMode::None)
+    if (!arm_record || input.mode == TrackInputMode::None)
         return;
     record_min_time = time_pos;
     record_max_time = time_pos;
