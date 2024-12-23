@@ -62,12 +62,12 @@ bool track_context_menu(Track* track, int track_id, const std::string* tmp_name,
 
 void track_input_context_menu(Track* track, uint32_t track_slot) {
     uint32_t max_audio_input_channels = g_audio_io->max_input_channel_count;
-    bool none = track->input.mode == TrackInputMode::None;
-    bool ext_stereo = track->input.mode == TrackInputMode::ExternalStereo;
-    bool ext_mono = track->input.mode == TrackInputMode::ExternalMono;
+    bool none = track->input.type == TrackInputType::None;
+    bool ext_stereo = track->input.type == TrackInputType::ExternalStereo;
+    bool ext_mono = track->input.type == TrackInputType::ExternalMono;
 
     if (ImGui::Selectable("None", none, none ? ImGuiSelectableFlags_Highlight : 0))
-        g_engine.set_track_input(track_slot, TrackInputMode::None, 0, track->arm_record);
+        g_engine.set_track_input(track_slot, TrackInputType::None, 0, track->arm_record);
 
     ImGui::Selectable("Ext. stereo", true, ImGuiSelectableFlags_Disabled);
     for (uint32_t i = 0; i < max_audio_input_channels; i += 2) {
@@ -75,7 +75,7 @@ void track_input_context_menu(Track* track, uint32_t track_slot) {
         bool selected = ext_stereo && track->input.index == i;
         ImFormatStringToTempBuffer(&name, nullptr, "%d+%d", i + 1, i + 2);
         if (ImGui::Selectable(name, false, selected ? ImGuiSelectableFlags_Highlight : 0))
-            g_engine.set_track_input(track_slot, TrackInputMode::ExternalStereo, i, track->arm_record);
+            g_engine.set_track_input(track_slot, TrackInputType::ExternalStereo, i, track->arm_record);
     }
 
     ImGui::Selectable("Ext. mono", true, ImGuiSelectableFlags_Disabled);
@@ -84,7 +84,7 @@ void track_input_context_menu(Track* track, uint32_t track_slot) {
         bool selected = ext_mono && track->input.index == i;
         ImFormatStringToTempBuffer(&name, nullptr, "%d", i + 1);
         if (ImGui::Selectable(name, false, selected ? ImGuiSelectableFlags_Highlight : 0))
-            g_engine.set_track_input(track_slot, TrackInputMode::ExternalMono, i, track->arm_record);
+            g_engine.set_track_input(track_slot, TrackInputType::ExternalMono, i, track->arm_record);
     }
 }
 } // namespace wb

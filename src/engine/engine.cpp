@@ -93,27 +93,27 @@ void Engine::stop_record() {
 
 void Engine::arm_track_recording(uint32_t slot, bool armed) {
     Track* track = tracks[slot];
-    set_track_input(slot, track->input.mode, track->input.index, armed);
+    set_track_input(slot, track->input.type, track->input.index, armed);
 }
 
-void Engine::set_track_input(uint32_t slot, TrackInputMode mode, uint32_t index, bool armed) {
+void Engine::set_track_input(uint32_t slot, TrackInputType type, uint32_t index, bool armed) {
     assert(slot < tracks.size());
     Track* track = tracks[slot];
-    TrackInput new_input {mode, index};
+    TrackInput new_input {type, index};
     track->arm_record = armed;
 
-    if (armed && (track->input.mode != mode || track->input.index != index)) {
+    if (armed && (track->input.type != type || track->input.index != index)) {
         auto input = track_input_mapping.try_emplace(track->input.as_packed_u32());
         input.first->second.erase(slot);
         if (input.first->second.size() == 0)
             track_input_mapping.erase(track->input.as_packed_u32());
-        if (mode != TrackInputMode::None) {
+        if (type != TrackInputType::None) {
             input = track_input_mapping.try_emplace(new_input.as_packed_u32());
             input.first->second.emplace(slot);
         }
     } else {
         auto input = track_input_mapping.try_emplace(new_input.as_packed_u32());
-        if (armed && mode != TrackInputMode::None)
+        if (armed && type != TrackInputType::None)
             input.first->second.emplace(slot);
         else {
             input.first->second.erase(slot);
@@ -130,7 +130,7 @@ void Engine::set_track_input(uint32_t slot, TrackInputMode mode, uint32_t index,
             Log::debug("{}", track);
     }
 
-    track->input.mode = mode;
+    track->input.type = type;
     track->input.index = index;
 }
 

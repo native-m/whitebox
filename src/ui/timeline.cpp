@@ -511,13 +511,13 @@ void GuiTimeline::render_track_controls() {
                     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 3.0f));
 
                     const char* input_name = "None";
-                    switch (track->input.mode) {
-                        case TrackInputMode::ExternalStereo: {
+                    switch (track->input.type) {
+                        case TrackInputType::ExternalStereo: {
                             uint32_t index_mul = track->input.index * 2;
                             ImFormatStringToTempBuffer(&input_name, nullptr, "%d+%d", index_mul + 1, index_mul + 2);
                             break;
                         }
-                        case TrackInputMode::ExternalMono: {
+                        case TrackInputType::ExternalMono: {
                             ImFormatStringToTempBuffer(&input_name, nullptr, "%d", track->input.index + 1);
                             break;
                         }

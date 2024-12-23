@@ -61,7 +61,7 @@ struct Engine {
     void record();
     void stop_record();
     void arm_track_recording(uint32_t slot, bool armed);
-    void set_track_input(uint32_t slot, TrackInputMode mode, uint32_t index, bool armed);
+    void set_track_input(uint32_t slot, TrackInputType mode, uint32_t index, bool armed);
 
     void edit_lock() { editor_lock.lock(); }
     void edit_unlock() { editor_lock.unlock(); }

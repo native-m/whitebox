@@ -212,7 +212,7 @@ void Track::reset_playback_state(double time_pos, bool refresh_voices) {
 }
 
 void Track::prepare_record(double time_pos) {
-    if (!arm_record || input.mode == TrackInputMode::None)
+    if (!arm_record || input.type == TrackInputType::None)
         return;
     record_min_time = time_pos;
     record_max_time = time_pos;
