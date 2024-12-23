@@ -24,7 +24,9 @@ void render_history_window() {
         uint32_t end = g_cmd_manager.pos + g_cmd_manager.size;
         for (uint32_t i = start; i < end; i++) {
             HistoryItem& item = g_cmd_manager.items[i % g_cmd_manager.size];
+            ImGui::PushID(i);
             ImGui::Selectable(item.name.c_str());
+            ImGui::PopID();
         }
         ImGui::EndListBox();
     }
@@ -50,7 +52,9 @@ void render_asset_window() {
             auto midi_asset = static_cast<MidiAsset*>(asset);
             char tmp[256] {};
             fmt::format_to(tmp, "MIDI {:x} Refcount: {}", (uint64_t)midi_asset, midi_asset->ref_count);
+            ImGui::PushID(midi_id);
             ImGui::Selectable(tmp);
+            ImGui::PopID();
             asset = asset->next_;
             midi_id++;
         }
