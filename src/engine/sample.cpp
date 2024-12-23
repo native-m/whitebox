@@ -41,6 +41,11 @@ static sf_count_t deinterleave_samples(std::vector<std::byte*>& dst, const T* sr
     return num_frames_written + num_read;
 }
 
+Sample::Sample(const std::string& name, const std::filesystem::path& path, AudioFormat format, uint32_t channels,
+               uint32_t sample_rate) :
+    name(name), path(path), format(format), channels(channels), sample_rate(sample_rate) {
+}
+
 Sample::Sample(Sample&& other) noexcept :
     name(std::move(other.name)),
     path(std::move(other.path)),
@@ -331,15 +336,12 @@ std::optional<Sample> Sample::load_file(const std::filesystem::path& path) noexc
     sf_close(file);
 
     std::optional<Sample> ret;
-    ret.emplace();
-    ret->name = path.filename().string();
-    ret->path = path;
-    ret->format = format;
-    ret->channels = info.channels;
-    ret->sample_rate = info.samplerate;
+    ret.emplace(path.filename().string(), path, format, (uint32_t)info.channels,
+                (uint32_t)info.samplerate);
     ret->count = info.frames;
-    ret->byte_length = data_size * info.channels;
+    ret->byte_length = info.frames * info.channels;
     ret->sample_data = std::move(data);
+
     return ret;
 }
 
@@ -397,15 +399,11 @@ std::optional<Sample> Sample::load_mp3_file(const std::filesystem::path& path) n
     std::free(decode_buffer);
 
     std::optional<Sample> ret;
-    ret.emplace();
-    ret->name = path.filename().string();
-    ret->path = path;
-    ret->format = AudioFormat::F32;
-    ret->channels = mp3_file.channels;
-    ret->sample_rate = mp3_file.sampleRate;
+    ret.emplace(path.filename().string(), path, AudioFormat::F32, mp3_file.channels, mp3_file.sampleRate);
     ret->count = total_frame_count;
     ret->byte_length = total_frame_count * mp3_file.channels;
     ret->sample_data = std::move(channel_samples);
+
     return ret;
 }
 
@@ -418,9 +416,9 @@ std::optional<Sample> Sample::load_ogg_vorbis_file(const std::filesystem::path& 
         return {};
 
     OggVorbis_File vf;
-    if (ov_fopen(path.generic_string().c_str(), &vf) != 0) {
+    if (ov_fopen(path.generic_string().c_str(), &vf) != 0)
         return {};
-    }
+    defer(ov_clear(&vf));
 
     vorbis_info* info = ov_info(&vf, -1);
     int channels = math::min(info->channels, 32); // Maximum number of channel is 32
@@ -433,7 +431,6 @@ std::optional<Sample> Sample::load_ogg_vorbis_file(const std::filesystem::path& 
             for (auto sample_data : channel_samples) {
                 std::free(sample_data);
             }
-            ov_clear(&vf);
             return {};
         }
         channel_samples.push_back(mem);
@@ -458,17 +455,10 @@ std::optional<Sample> Sample::load_ogg_vorbis_file(const std::filesystem::path& 
     }
 
     std::optional<Sample> ret;
-    ret.emplace();
-    ret->name = path.filename().string();
-    ret->path = path;
-    ret->format = AudioFormat::F32;
-    ret->channels = channels;
-    ret->sample_rate = info->rate;
+    ret.emplace(path.filename().string(), path, AudioFormat::F32, channels, info->rate);
     ret->count = total_frame_count;
     ret->byte_length = total_frame_count * channels;
     ret->sample_data = std::move(channel_samples);
-
-    ov_clear(&vf);
 
     return ret;
 }

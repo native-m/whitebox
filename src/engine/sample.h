@@ -19,13 +19,13 @@ struct Sample {
     std::string name;
     std::filesystem::path path;
     AudioFormat format {};
-    uint8_t channels {};
+    uint32_t channels {};
     uint32_t sample_rate {};
     size_t count {};
     size_t byte_length {};
     std::vector<std::byte*> sample_data;
 
-    Sample() {}
+    Sample(const std::string& name, const std::filesystem::path& path, AudioFormat format, uint32_t channels, uint32_t sample_rate);
     Sample(Sample&& other) noexcept;
     ~Sample();
 
