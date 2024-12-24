@@ -41,8 +41,8 @@ static sf_count_t deinterleave_samples(Vector<std::byte*>& dst, const T* src, sf
     return num_frames_written + num_read;
 }
 
-Sample::Sample(AudioFormat format, uint32_t channels, uint32_t sample_rate) :
-    format(format), channels(channels), sample_rate(sample_rate) {
+Sample::Sample(AudioFormat format, uint32_t sample_rate) :
+    format(format), sample_rate(sample_rate) {
 }
 
 Sample::Sample(Sample&& other) noexcept :
@@ -52,7 +52,6 @@ Sample::Sample(Sample&& other) noexcept :
     channels(std::exchange(other.channels, 0)),
     sample_rate(std::exchange(other.sample_rate, 0)),
     count(std::exchange(other.count, 0)),
-    byte_length(std::exchange(other.byte_length, 0)),
     sample_data(std::move(other.sample_data)) {
 }
 
@@ -336,11 +335,11 @@ std::optional<Sample> Sample::load_file(const std::filesystem::path& path) noexc
     sf_close(file);
 
     std::optional<Sample> ret;
-    ret.emplace(format, (uint32_t)info.channels, (uint32_t)info.samplerate);
+    ret.emplace(format, (uint32_t)info.samplerate);
     ret->name = path.filename().string();
     ret->path = path;
+    ret->channels = info.channels;
     ret->count = info.frames;
-    ret->byte_length = info.frames * info.channels;
     ret->sample_data = std::move(data);
 
     return ret;
@@ -400,11 +399,11 @@ std::optional<Sample> Sample::load_mp3_file(const std::filesystem::path& path) n
     std::free(decode_buffer);
 
     std::optional<Sample> ret;
-    ret.emplace(AudioFormat::F32, (uint32_t)mp3_file.channels, (uint32_t)mp3_file.sampleRate);
+    ret.emplace(AudioFormat::F32, (uint32_t)mp3_file.sampleRate);
     ret->name = path.filename().string();
     ret->path = path;
+    ret->channels = mp3_file.channels;
     ret->count = total_frame_count;
-    ret->byte_length = total_frame_count * mp3_file.channels;
     ret->sample_data = std::move(channel_samples);
 
     return ret;
@@ -459,11 +458,11 @@ std::optional<Sample> Sample::load_ogg_vorbis_file(const std::filesystem::path& 
     }
 
     std::optional<Sample> ret;
-    ret.emplace(AudioFormat::F32, channels, info->rate);
+    ret.emplace(AudioFormat::F32, info->rate);
     ret->name = path.filename().string();
     ret->path = path;
+    ret->channels = channels;
     ret->count = total_frame_count;
-    ret->byte_length = total_frame_count * channels;
     ret->sample_data = std::move(channel_samples);
 
     return ret;

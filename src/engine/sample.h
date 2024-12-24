@@ -22,10 +22,9 @@ struct Sample {
     uint32_t channels {};
     uint32_t sample_rate {};
     size_t count {};
-    size_t byte_length {};
     Vector<std::byte*> sample_data;
 
-    Sample(AudioFormat format, uint32_t channels, uint32_t sample_rate);
+    Sample(AudioFormat format, uint32_t sample_rate);
     Sample(Sample&& other) noexcept;
     ~Sample();
 
@@ -59,4 +58,5 @@ struct Sample {
 
     static std::optional<SampleInfo> get_file_info(const std::filesystem::path& path) noexcept;
 };
+
 } // namespace wb
