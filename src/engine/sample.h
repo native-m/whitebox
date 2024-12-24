@@ -1,11 +1,11 @@
 #pragma once
 
 #include "core/audio_format.h"
+#include "core/vector.h"
 #include "engine/sample_peaks.h"
 #include <filesystem>
 #include <optional>
 #include <string>
-#include <vector>
 
 namespace wb {
 
@@ -23,9 +23,9 @@ struct Sample {
     uint32_t sample_rate {};
     size_t count {};
     size_t byte_length {};
-    std::vector<std::byte*> sample_data;
+    Vector<std::byte*> sample_data;
 
-    Sample(const std::string& name, const std::filesystem::path& path, AudioFormat format, uint32_t channels, uint32_t sample_rate);
+    Sample(AudioFormat format, uint32_t channels, uint32_t sample_rate);
     Sample(Sample&& other) noexcept;
     ~Sample();
 

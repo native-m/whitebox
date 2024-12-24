@@ -31,7 +31,7 @@ AudioFormat from_sf_format(int sf_format) {
 }
 
 template <typename T>
-static sf_count_t deinterleave_samples(std::vector<std::byte*>& dst, const T* src, sf_count_t num_read,
+static sf_count_t deinterleave_samples(Vector<std::byte*>& dst, const T* src, sf_count_t num_read,
                                        sf_count_t dst_frames, sf_count_t num_frames_written, int channels) {
     for (int i = 0; i < channels; i++) {
         T* channel_data = (T*)dst[i];
@@ -41,9 +41,8 @@ static sf_count_t deinterleave_samples(std::vector<std::byte*>& dst, const T* sr
     return num_frames_written + num_read;
 }
 
-Sample::Sample(const std::string& name, const std::filesystem::path& path, AudioFormat format, uint32_t channels,
-               uint32_t sample_rate) :
-    name(name), path(path), format(format), channels(channels), sample_rate(sample_rate) {
+Sample::Sample(AudioFormat format, uint32_t channels, uint32_t sample_rate) :
+    format(format), channels(channels), sample_rate(sample_rate) {
 }
 
 Sample::Sample(Sample&& other) noexcept :
@@ -262,11 +261,11 @@ std::optional<Sample> Sample::load_file(const std::filesystem::path& path) noexc
     if (!std::filesystem::is_regular_file(path))
         return {};
 
+    // Try open with SF
     SF_INFO info;
     SNDFILE* file = sf_open(path.generic_string().c_str(), SFM_READ, &info);
-    if (!file) {
+    if (!file)
         return load_compressed_file(path);
-    }
 
     AudioFormat format = from_sf_format(info.format & SF_FORMAT_SUBMASK);
     if (format == AudioFormat::Unknown)
@@ -274,7 +273,8 @@ std::optional<Sample> Sample::load_file(const std::filesystem::path& path) noexc
 
     uint32_t sample_size = get_audio_format_size(format);
     size_t data_size = info.frames * sample_size;
-    std::vector<std::byte*> data;
+    Vector<std::byte*> data;
+    data.reserve(info.channels);
 
     for (int i = 0; i < info.channels; i++) {
         std::byte* channel_data = (std::byte*)std::malloc(data_size);
@@ -336,8 +336,9 @@ std::optional<Sample> Sample::load_file(const std::filesystem::path& path) noexc
     sf_close(file);
 
     std::optional<Sample> ret;
-    ret.emplace(path.filename().string(), path, format, (uint32_t)info.channels,
-                (uint32_t)info.samplerate);
+    ret.emplace(format, (uint32_t)info.channels, (uint32_t)info.samplerate);
+    ret->name = path.filename().string();
+    ret->path = path;
     ret->count = info.frames;
     ret->byte_length = info.frames * info.channels;
     ret->sample_data = std::move(data);
@@ -370,13 +371,14 @@ std::optional<Sample> Sample::load_mp3_file(const std::filesystem::path& path) n
     }
 
     uint64_t total_frame_count = drmp3_get_pcm_frame_count(&mp3_file);
-    std::vector<std::byte*> channel_samples;
+    Vector<std::byte*> channel_samples;
+    channel_samples.reserve(mp3_file.channels);
+
     for (uint32_t i = 0; i < mp3_file.channels; i++) {
         std::byte* mem = (std::byte*)std::malloc(total_frame_count * sizeof(float));
         if (!mem) {
-            for (auto sample_data : channel_samples) {
+            for (auto sample_data : channel_samples)
                 std::free(sample_data);
-            }
             std::free(decode_buffer);
             drmp3_uninit(&mp3_file);
             return {};
@@ -388,9 +390,8 @@ std::optional<Sample> Sample::load_mp3_file(const std::filesystem::path& path) n
     sf_count_t num_frames_written = 0;
     while (true) {
         num_frames_read = drmp3_read_pcm_frames_f32(&mp3_file, buffer_len_per_channel, decode_buffer);
-        if (num_frames_read == 0) {
+        if (num_frames_read == 0)
             break;
-        }
         num_frames_written = deinterleave_samples(channel_samples, decode_buffer, num_frames_read, total_frame_count,
                                                   num_frames_written, mp3_file.channels);
     }
@@ -399,7 +400,9 @@ std::optional<Sample> Sample::load_mp3_file(const std::filesystem::path& path) n
     std::free(decode_buffer);
 
     std::optional<Sample> ret;
-    ret.emplace(path.filename().string(), path, AudioFormat::F32, mp3_file.channels, mp3_file.sampleRate);
+    ret.emplace(AudioFormat::F32, (uint32_t)mp3_file.channels, (uint32_t)mp3_file.sampleRate);
+    ret->name = path.filename().string();
+    ret->path = path;
     ret->count = total_frame_count;
     ret->byte_length = total_frame_count * mp3_file.channels;
     ret->sample_data = std::move(channel_samples);
@@ -424,13 +427,14 @@ std::optional<Sample> Sample::load_ogg_vorbis_file(const std::filesystem::path& 
     int channels = math::min(info->channels, 32); // Maximum number of channel is 32
     uint64_t buffer_len_per_channel = 1024;
     uint64_t total_frame_count = ov_pcm_total(&vf, -1);
-    std::vector<std::byte*> channel_samples;
+    Vector<std::byte*> channel_samples;
+    channel_samples.reserve(info->channels);
+
     for (uint32_t i = 0; i < info->channels; i++) {
         std::byte* mem = (std::byte*)std::malloc(total_frame_count * sizeof(float));
         if (!mem) {
-            for (auto sample_data : channel_samples) {
+            for (auto sample_data : channel_samples)
                 std::free(sample_data);
-            }
             return {};
         }
         channel_samples.push_back(mem);
@@ -455,7 +459,9 @@ std::optional<Sample> Sample::load_ogg_vorbis_file(const std::filesystem::path& 
     }
 
     std::optional<Sample> ret;
-    ret.emplace(path.filename().string(), path, AudioFormat::F32, channels, info->rate);
+    ret.emplace(AudioFormat::F32, channels, info->rate);
+    ret->name = path.filename().string();
+    ret->path = path;
     ret->count = total_frame_count;
     ret->byte_length = total_frame_count * channels;
     ret->sample_data = std::move(channel_samples);
