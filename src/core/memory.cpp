@@ -6,6 +6,7 @@
 
 #if defined(WB_PLATFORM_LINUX)
 #include <unistd.h>
+#include <sys/mman.h>
 #endif
 
 namespace wb {
@@ -15,7 +16,7 @@ void* allocate_virtual(size_t size) noexcept {
 #if defined(WB_PLATFORM_WINDOWS)
     ptr = ::VirtualAlloc(nullptr, size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 #elif defined(WB_PLATFORM_LINUX)
-    // TODO: use mmap
+    ptr = ::mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 #endif
     return ptr;
 }
@@ -24,6 +25,7 @@ void free_virtual(void* ptr, size_t size) noexcept {
 #if defined(WB_PLATFORM_WINDOWS)
     ::VirtualFree(ptr, size, MEM_RELEASE);
 #elif defined(WB_PLATFORM_LINUX)
+    ::munmap(ptr, size);
 #endif
 }
 
