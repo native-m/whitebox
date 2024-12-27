@@ -49,7 +49,7 @@ wb_add_shader_glsl(vertex ras.vs)
 wb_add_shader_glsl(vertex ras_fill.vs)
 wb_add_shader_glsl(fragment ras.fs)
 wb_add_shader_glsl(fragment ras_fill.fs)
-wb_add_asset_file("Inter-Regular.ttf")
+wb_add_asset_file("Rubik-Regular.ttf")
 wb_add_asset_file("RobotoMono-Regular.ttf")
 wb_add_asset_file("MaterialSymbolsRoundedInstanced.ttf")
 
