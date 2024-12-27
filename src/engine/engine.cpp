@@ -29,10 +29,12 @@ void Engine::set_playhead_position(double beat_position) {
     editor_lock.unlock();
 }
 
-void Engine::set_audio_channel_config(uint32_t input_channels, uint32_t output_channels, uint32_t buffer_size) {
+void Engine::set_audio_channel_config(uint32_t input_channels, uint32_t output_channels, uint32_t buffer_size,
+                                      uint32_t sample_rate) {
     num_input_channels = input_channels;
     num_output_channels = output_channels;
     audio_buffer_size = buffer_size;
+    audio_sample_rate = sample_rate;
     mixing_buffer.resize(buffer_size);
     mixing_buffer.resize_channel(output_channels);
 }

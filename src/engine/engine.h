@@ -28,6 +28,10 @@ struct Engine {
     uint32_t num_input_channels = 0;
     uint32_t num_output_channels = 0;
     uint32_t audio_buffer_size = 0;
+    uint32_t audio_sample_rate = 0;
+    uint32_t audio_record_buffer_size = 64 * 1024;
+    uint32_t audio_record_file_chunk_size = 2048;
+    uint32_t audio_record_chunk_size = 256 * 1024;
 
     ProjectInfo project_info;
     std::vector<Track*> tracks;
@@ -54,7 +58,8 @@ struct Engine {
 
     void set_bpm(double bpm);
     void set_playhead_position(double beat_position);
-    void set_audio_channel_config(uint32_t input_channels, uint32_t output_channels, uint32_t buffer_size);
+    void set_audio_channel_config(uint32_t input_channels, uint32_t output_channels, uint32_t buffer_size,
+                                  uint32_t sample_rate);
     void clear_all();
     void play();
     void stop();

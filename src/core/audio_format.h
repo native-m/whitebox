@@ -18,7 +18,7 @@ enum class AudioFormat : uint8_t {
     Max,
 };
 
-inline static uint32_t get_audio_format_size(AudioFormat format) {
+inline static constexpr uint32_t get_audio_format_size(AudioFormat format) {
     switch (format) {
         case AudioFormat::I8:
         case AudioFormat::U8:
@@ -43,7 +43,7 @@ inline static uint32_t get_audio_format_size(AudioFormat format) {
     return 0;
 }
 
-inline static bool is_signed_integer_format(AudioFormat format) {
+inline static constexpr bool is_signed_integer_format(AudioFormat format) {
     switch (format) {
         case AudioFormat::I8:
         case AudioFormat::I16:
@@ -56,7 +56,7 @@ inline static bool is_signed_integer_format(AudioFormat format) {
     return false;
 }
 
-inline static bool is_floating_point_format(AudioFormat format) {
+inline static constexpr bool is_floating_point_format(AudioFormat format) {
     switch (format) {
         case AudioFormat::F32:
         case AudioFormat::F64:
