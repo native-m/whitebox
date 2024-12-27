@@ -5,6 +5,7 @@
 #include "core/vector.h"
 #include <atomic>
 #include <memory>
+#include <semaphore>
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>
@@ -40,28 +41,83 @@ struct AudioRecordBuffer {
     }
 };
 
-struct AudioRecordFile
-{
-
-};
-
 struct AudioRecordQueue {
-    uint32_t buffer_capacity_ = 0;
-    std::atomic_uint32_t write_pos_;
-    std::atomic_uint32_t read_pos_;
-    std::atomic_uint32_t size_;
+    struct alignas(64) SharedData {
+        std::atomic_uint32_t pos;
+        std::atomic_uint32_t should_signal;
+    };
+
     Vector<AudioRecordBuffer> recording_buffers_;
+    Vector<uint32_t> input_channel;
+
+    uint32_t buffer_capacity_ = 0;
+    SharedData writer_;
+    SharedData reader_;
+    alignas(64) std::atomic_uint32_t size_;
+
+    uint32_t current_write_pos = 0;
+    uint32_t current_write_size = 0;
+    uint32_t next_write_pos = 0;
+    uint32_t next_write_size = 0;
+    uint32_t current_read_pos = 0;
+    uint32_t current_read_size = 0;
+    uint32_t next_read_pos = 0;
+    uint32_t next_read_size = 0;
 
     ~AudioRecordQueue() { recording_buffers_.clear(); }
 
     void start(AudioFormat format, uint32_t buffer_size, const AudioInputMapping& input_mapping);
     void stop();
 
-    template <std::floating_point T>
-    void write(uint32_t buffer_id, const AudioBuffer<T>& buffer)
-    {
+    void begin_write(uint32_t write_size);
+    void end_write();
 
+    bool begin_read(uint32_t read_size);
+    void end_read();
+
+    template <std::floating_point T>
+    void write(uint32_t buffer_id, uint32_t start_channel, uint32_t num_channels, const AudioBuffer<T>& buffer) {
+        AudioRecordBuffer& record_buffer = recording_buffers_[buffer_id];
+        if (current_write_pos <= next_write_pos) {
+            for (uint32_t i = 0; i < num_channels; i++) {
+                const T* src_channel_buffer = buffer.get_read_pointer(i + start_channel);
+                T* dst_channel_buffer = record_buffer.get_write_pointer<T>(i, buffer_capacity_) + current_write_pos;
+                std::memcpy(dst_channel_buffer, src_channel_buffer, next_write_size);
+            }
+        } else {
+            for (uint32_t i = 0; i < num_channels; i++) {
+                const T* src_channel_buffer = buffer.get_read_pointer(i + start_channel);
+                T* dst_channel_buffer = record_buffer.get_write_pointer<T>(i, buffer_capacity_) + current_write_pos;
+                uint32_t split_size = buffer_capacity_ - current_write_pos;
+                std::memcpy(dst_channel_buffer + current_write_pos, src_channel_buffer, split_size);
+                std::memcpy(dst_channel_buffer, src_channel_buffer + split_size, next_write_pos);
+            }
+        }
     }
+
+    template <std::floating_point T>
+    void read(uint32_t buffer_id, T* const* dst_buffer, uint32_t start_channel, uint32_t num_channels) {
+        AudioRecordBuffer& record_buffer = recording_buffers_[buffer_id];
+        if (current_read_pos <= next_read_pos) {
+            for (uint32_t i = 0; i < num_channels; i++) {
+                T* dst_channel_buffer = dst_buffer[i];
+                const T* src_channel_buffer =
+                    record_buffer.get_read_pointer<T>(i + start_channel, buffer_capacity_) + current_read_pos;
+                std::memcpy(dst_channel_buffer, src_channel_buffer, next_read_size);
+            }
+        } else {
+            for (uint32_t i = 0; i < num_channels; i++) {
+                T* dst_channel_buffer = dst_buffer[i];
+                const T* src_channel_buffer =
+                    record_buffer.get_read_pointer<T>(i + start_channel, buffer_capacity_) + current_read_pos;
+                uint32_t split_size = buffer_capacity_ - current_read_pos;
+                std::memcpy(dst_channel_buffer + current_read_pos, src_channel_buffer, split_size);
+                std::memcpy(dst_channel_buffer, src_channel_buffer + split_size, next_read_pos);
+            }
+        }
+    }
+
+    uint32_t size() const { return size_.load(); }
 
     /*void set_size(uint32_t new_channel_count, uint32_t new_buffer_capacity, AudioFormat format) {
         if (new_channel_count == channel_count_ && new_buffer_capacity == buffer_capacity_)
