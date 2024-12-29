@@ -15,6 +15,24 @@ void SampleAsset::release() {
         sample_table->destroy_sample(hash);
 }
 
+SampleAsset* SampleTable::create_from_existing_sample(Sample&& sample) {
+    std::u8string str_path = sample.path.u8string();
+    uint64_t hash = XXH64(str_path.data(), str_path.size(), sample_hash_seed);
+
+    auto item = samples.find(hash);
+    if (item != samples.end()) {
+        item->second.add_ref();
+        return &item->second;
+    }
+
+    auto sample_peaks {g_renderer->create_sample_peaks(sample, SamplePeaksPrecision::High)};
+    if (!sample_peaks)
+        return {};
+
+    auto asset = samples.try_emplace(hash, this, hash, 1u, std::move(sample), std::move(sample_peaks));
+    return &asset.first->second;
+}
+
 SampleAsset* SampleTable::load_from_file(const std::filesystem::path& path) {
     std::u8string str_path = path.u8string();
     uint64_t hash = XXH64(str_path.data(), str_path.size(), sample_hash_seed);
@@ -24,6 +42,7 @@ SampleAsset* SampleTable::load_from_file(const std::filesystem::path& path) {
         item->second.add_ref();
         return &item->second;
     }
+
     auto new_sample {Sample::load_file(path)};
     if (!new_sample)
         return {};
@@ -33,7 +52,6 @@ SampleAsset* SampleTable::load_from_file(const std::filesystem::path& path) {
         return {};
 
     auto asset = samples.try_emplace(hash, this, hash, 1u, std::move(*new_sample), std::move(sample_peaks));
-
     return &asset.first->second;
 }
 
@@ -55,9 +73,8 @@ void SampleTable::destroy_unused() {
 
 void SampleTable::shutdown() {
     // NOTE(native-m): Sample may leak if created with ref_count == 0
-    for (auto& [hash, sample] : samples) {
+    for (auto& [hash, sample] : samples)
         Log::debug("Sample asset leak: {}", sample.sample_instance.path.string(), sample.ref_count);
-    }
     samples.clear();
 }
 

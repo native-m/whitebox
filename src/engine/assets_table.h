@@ -43,6 +43,7 @@ struct MidiAsset : public InplaceList<MidiAsset> {
 
 struct SampleTable {
     std::unordered_map<uint64_t, SampleAsset> samples;
+    SampleAsset* create_from_existing_sample(Sample&& sample);
     SampleAsset* load_from_file(const std::filesystem::path& path);
     void destroy_sample(uint64_t hash);
     void destroy_unused();

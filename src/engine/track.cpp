@@ -20,7 +20,6 @@ Track::Track() {
     ui_parameter_state.volume = 1.0f;
     ui_parameter_state.pan = 0.0f;
     ui_parameter_state.mute = false;
-
     param_changes.set_max_params(TrackParameter_Max);
     ui_param_changes.push({
         .id = TrackParameter_Volume,
@@ -212,17 +211,17 @@ void Track::reset_playback_state(double time_pos, bool refresh_voices) {
 }
 
 void Track::prepare_record(double time_pos) {
-    if (!arm_record || input.type == TrackInputType::None)
+    if (!input_attr.armed || input.type == TrackInputType::None)
         return;
     record_min_time = time_pos;
     record_max_time = time_pos;
-    recording = true;
+    input_attr.recording = true;
 }
 
 void Track::stop_record() {
     record_min_time = 0.0;
     record_max_time = 0.0;
-    recording = false;
+    input_attr.recording = false;
 }
 
 void Track::stop() {
@@ -251,7 +250,7 @@ void Track::process_event(double start_time, double end_time, double sample_posi
             event_state.midi_note_idx = 0;
             event_state.refresh_voice = false;
         }
-        if (recording)
+        if (input_attr.recording)
             record_max_time += buffer_duration;
         return;
     }
@@ -296,7 +295,7 @@ void Track::process_event(double start_time, double end_time, double sample_posi
     }
 
     if (!event_state.clip_idx) {
-        if (recording)
+        if (input_attr.recording)
             record_max_time += buffer_duration;
         return;
     }
@@ -396,7 +395,7 @@ void Track::process_event(double start_time, double end_time, double sample_posi
         next_clip++;
     }
 
-    if (recording)
+    if (input_attr.recording)
         record_max_time += buffer_duration;
     event_state.clip_idx = next_clip;
 }

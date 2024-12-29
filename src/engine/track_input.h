@@ -1,8 +1,12 @@
 #pragma once
 
 #include "core/common.h"
+#include "core/list.h"
 
 namespace wb {
+
+struct Track;
+
 enum class TrackInputType {
     None,
     Midi,
@@ -24,6 +28,19 @@ struct TrackInput {
             .index = u32 & 0xFFFFFFu,
         };
     }
+};
+
+struct TrackInputAttr : public InplaceList<TrackInputAttr> {
+    Track* track;
+    bool armed = false;
+    bool recording = false;
+    uint32_t buffer_id = 0; // Only valid when recording
+    TrackInputAttr(Track* parent_track) : track(parent_track) {}
+};
+
+struct TrackInputGroup {
+    uint32_t input;
+    TrackInputAttr* input_attrs; // First item in track input attribute linked list
 };
 
 } // namespace wb

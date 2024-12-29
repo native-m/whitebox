@@ -253,6 +253,7 @@ void app_render_control_bar() {
     ImVec4 btn_color = GImGui->Style.Colors[ImGuiCol_Button];
     ImVec4 frame_bg = GImGui->Style.Colors[ImGuiCol_FrameBg];
     bool is_playing = g_engine.is_playing();
+    bool is_recording = g_engine.is_recording();
     bool new_project = false;
     bool open_project = false;
     bool save_project = false;
@@ -309,9 +310,9 @@ void app_render_control_bar() {
     }
     ImGui::SameLine(0.0f, 4.0f);
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.951f, 0.322f, 0.322f, 1.000f));
-    if (controls::toggle_button(ICON_MS_FIBER_MANUAL_RECORD "##wb_record", &g_engine.recording,
+    if (controls::toggle_button(ICON_MS_FIBER_MANUAL_RECORD "##wb_record", &is_recording,
                                 ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive))) {
-        if (!g_engine.recording) {
+        if (!is_recording) {
             g_engine.record();
         }
         else {
@@ -464,6 +465,7 @@ void app_render() {
     if (!ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Space)) {
         if (is_playing) {
             g_engine.stop();
+            g_timeline.redraw_screen();
         } else {
             g_engine.play();
         }

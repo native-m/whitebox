@@ -41,8 +41,7 @@ static sf_count_t deinterleave_samples(Vector<std::byte*>& dst, const T* src, sf
     return num_frames_written + num_read;
 }
 
-Sample::Sample(AudioFormat format, uint32_t sample_rate) :
-    format(format), sample_rate(sample_rate) {
+Sample::Sample(AudioFormat format, uint32_t sample_rate) : format(format), sample_rate(sample_rate) {
 }
 
 Sample::Sample(Sample&& other) noexcept :
@@ -219,6 +218,49 @@ static void summarize_for_mipmaps_impl(AudioFormat sample_format, size_t sample_
         }
         default:
             break;
+    }
+}
+
+void Sample::resize(size_t new_sample_count, uint32_t new_channels, bool discard) {
+    assert(new_sample_count != 0);
+    assert(new_channels != 0);
+    if (new_sample_count != count) {
+        uint32_t sample_size = get_audio_format_size(format);
+        size_t byte_size = new_sample_count * sample_size;
+        sample_data.resize(new_channels);
+        if (discard || count == 0) {
+            for (auto& channel_data : sample_data) {
+                if (channel_data)
+                    std::free(channel_data);
+                channel_data = (std::byte*)std::malloc(byte_size);
+                assert(channel_data && "Cannot allocate sample data");
+            }
+        } else {
+            size_t old_byte_size = math::min(count, new_sample_count) * sample_size;
+            for (uint32_t i = 0; i < new_channels; i++) {
+                void* new_channel_data = std::malloc(byte_size);
+                assert(new_channel_data && "Cannot allocate sample data");
+                if (sample_data[i]) {
+                    std::memcpy(new_channel_data, sample_data[i], old_byte_size);
+                    std::free(sample_data[i]);
+                }
+                sample_data[i] = (std::byte*)new_channel_data;
+            }
+        }
+        channels = new_channels;
+        count = new_sample_count;
+    } else if (new_channels < channels) {
+        for (uint32_t i = new_channels; i < channels; i++)
+            std::free(sample_data[i]);
+        sample_data.resize(new_channels);
+        channels = new_channels;
+    } else if (new_channels > channels) {
+        uint32_t sample_size = get_audio_format_size(format);
+        size_t byte_size = new_sample_count * sample_size;
+        sample_data.resize(new_channels);
+        for (uint32_t i = channels; i < new_channels; i++)
+            sample_data[i] = (std::byte*)std::malloc(byte_size);
+        channels = new_channels;
     }
 }
 

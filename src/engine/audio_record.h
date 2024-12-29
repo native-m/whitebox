@@ -1,9 +1,12 @@
 #pragma once
 
 #include "core/audio_buffer.h"
+#include "core/debug.h"
 #include "core/memory.h"
 #include "core/vector.h"
+#include "track_input.h"
 #include <atomic>
+#include <vector>
 #include <memory>
 #include <semaphore>
 #include <thread>
@@ -12,11 +15,8 @@
 
 namespace wb {
 
-using AudioInputMapping = std::unordered_map<uint32_t, std::unordered_set<uint32_t>>;
-
 struct AudioRecordBuffer {
     void* channel_buffer_ {};
-    uint32_t channel_count_ {};
 
     ~AudioRecordBuffer() {
         if (channel_buffer_)
@@ -32,12 +32,12 @@ struct AudioRecordBuffer {
 
     template <typename T>
     inline const T* get_read_pointer(uint32_t channel, uint32_t buffer_size) const {
-        return static_cast<const T*>(channel_buffer_) + buffer_size * channel;
+        return static_cast<const T*>(channel_buffer_) + (buffer_size * channel);
     }
 
     template <typename T>
     inline T* get_write_pointer(uint32_t channel, uint32_t buffer_size) {
-        return static_cast<T*>(channel_buffer_) + buffer_size * channel;
+        return static_cast<T*>(channel_buffer_) + (buffer_size * channel);
     }
 };
 
@@ -48,9 +48,8 @@ struct AudioRecordQueue {
     };
 
     Vector<AudioRecordBuffer> recording_buffers_;
-    Vector<uint32_t> input_channel;
-
     uint32_t buffer_capacity_ = 0;
+    uint32_t sample_size_ = 0;
     SharedData writer_;
     SharedData reader_;
     alignas(64) std::atomic_uint32_t size_;
@@ -66,7 +65,7 @@ struct AudioRecordQueue {
 
     ~AudioRecordQueue() { recording_buffers_.clear(); }
 
-    void start(AudioFormat format, uint32_t buffer_size, const AudioInputMapping& input_mapping);
+    void start(AudioFormat format, uint32_t buffer_size, std::vector<TrackInputGroup>& input_mapping);
     void stop();
 
     void begin_write(uint32_t write_size);
@@ -81,38 +80,41 @@ struct AudioRecordQueue {
         if (current_write_pos <= next_write_pos) {
             for (uint32_t i = 0; i < num_channels; i++) {
                 const T* src_channel_buffer = buffer.get_read_pointer(i + start_channel);
-                T* dst_channel_buffer = record_buffer.get_write_pointer<T>(i, buffer_capacity_) + current_write_pos;
-                std::memcpy(dst_channel_buffer, src_channel_buffer, next_write_size);
+                T* dst_channel_buffer = record_buffer.get_write_pointer<T>(i, buffer_capacity_);
+                std::memcpy(dst_channel_buffer + current_write_pos, src_channel_buffer, current_write_size * sample_size_);
             }
+            //Log::debug("Write: {}", current_write_pos);
         } else {
             for (uint32_t i = 0; i < num_channels; i++) {
                 const T* src_channel_buffer = buffer.get_read_pointer(i + start_channel);
-                T* dst_channel_buffer = record_buffer.get_write_pointer<T>(i, buffer_capacity_) + current_write_pos;
+                T* dst_channel_buffer = record_buffer.get_write_pointer<T>(i, buffer_capacity_);
                 uint32_t split_size = buffer_capacity_ - current_write_pos;
-                std::memcpy(dst_channel_buffer + current_write_pos, src_channel_buffer, split_size);
-                std::memcpy(dst_channel_buffer, src_channel_buffer + split_size, next_write_pos);
+                std::memcpy(dst_channel_buffer + current_write_pos, src_channel_buffer, split_size * sample_size_);
+                if (next_write_pos != 0)
+                    std::memcpy(dst_channel_buffer, src_channel_buffer + split_size, next_write_pos * sample_size_);
             }
         }
     }
 
     template <std::floating_point T>
-    void read(uint32_t buffer_id, T* const* dst_buffer, uint32_t start_channel, uint32_t num_channels) {
+    void read(uint32_t buffer_id, T* const* dst_buffer, size_t dst_offset, uint32_t start_channel, uint32_t num_channels) {
         AudioRecordBuffer& record_buffer = recording_buffers_[buffer_id];
         if (current_read_pos <= next_read_pos) {
             for (uint32_t i = 0; i < num_channels; i++) {
-                T* dst_channel_buffer = dst_buffer[i];
+                T* dst_channel_buffer = dst_buffer[i] + dst_offset;
                 const T* src_channel_buffer =
-                    record_buffer.get_read_pointer<T>(i + start_channel, buffer_capacity_) + current_read_pos;
-                std::memcpy(dst_channel_buffer, src_channel_buffer, next_read_size);
+                    record_buffer.get_read_pointer<T>(i + start_channel, buffer_capacity_);
+                std::memcpy(dst_channel_buffer, src_channel_buffer + current_read_pos, current_read_size * sample_size_);
             }
         } else {
             for (uint32_t i = 0; i < num_channels; i++) {
-                T* dst_channel_buffer = dst_buffer[i];
+                T* dst_channel_buffer = dst_buffer[i] + dst_offset;
                 const T* src_channel_buffer =
-                    record_buffer.get_read_pointer<T>(i + start_channel, buffer_capacity_) + current_read_pos;
+                    record_buffer.get_read_pointer<T>(i + start_channel, buffer_capacity_);
                 uint32_t split_size = buffer_capacity_ - current_read_pos;
-                std::memcpy(dst_channel_buffer + current_read_pos, src_channel_buffer, split_size);
-                std::memcpy(dst_channel_buffer, src_channel_buffer + split_size, next_read_pos);
+                std::memcpy(dst_channel_buffer, src_channel_buffer + current_read_pos, split_size * sample_size_);
+                if (next_read_pos != 0)
+                    std::memcpy(dst_channel_buffer + split_size, src_channel_buffer, next_read_pos * sample_size_);
             }
         }
     }

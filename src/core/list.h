@@ -19,6 +19,14 @@ struct InplaceList {
         next_ = item;
     }
 
+    void push_item_front(InplaceList<T>* item) noexcept {
+        item->next_ = this;
+        item->prev_ = prev_;
+        if (prev_)
+            prev_->next_ = item;
+        prev_ = item;
+    }
+
     InplaceList<T>* pop_next_item() noexcept {
         auto ret = next_;
 
@@ -35,7 +43,8 @@ struct InplaceList {
     }
 
     void remove_from_list() noexcept {
-        prev_->next_ = next_;
+        if (prev_)
+            prev_->next_ = next_;
         if (next_)
             next_->prev_ = prev_;
         prev_ = nullptr;
@@ -51,5 +60,6 @@ struct InplaceList {
     T* prev() { return static_cast<T*>(prev_); }
     const T* next() const { return static_cast<const T*>(next_); }
     const T* prev() const { return static_cast<const T*>(prev_); }
+    bool is_connected_to_list() const { return prev_ || next_; }
 };
 } // namespace wb

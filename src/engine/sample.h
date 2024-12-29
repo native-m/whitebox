@@ -42,6 +42,13 @@ struct Sample {
         return (T*)sample_data[channel];
     }
 
+    template <typename T>
+    inline T* const* get_sample_data() noexcept {
+        return (T* const*)sample_data.data();
+    }
+
+    void resize(size_t count, uint32_t channels, bool discard = false);
+
     // Summarize sample for visualization mipmap
     bool summarize_for_mipmaps(SamplePeaksPrecision precision, uint32_t channel, uint32_t mip_level,
                                size_t output_offset, size_t* output_count, void* output_data) const;

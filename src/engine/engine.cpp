@@ -61,14 +61,14 @@ void Engine::play() {
 }
 
 void Engine::stop() {
+    if (recording)
+        stop_record();
     editor_lock.lock();
     playing = false;
     playhead = playhead_start;
     playhead_ui = playhead_start;
-    for (auto track : tracks) {
+    for (auto track : tracks)
         track->stop();
-    }
-    recording = false;
     editor_lock.unlock();
     Log::debug("-------------- Stop --------------");
 }
@@ -76,20 +76,47 @@ void Engine::stop() {
 void Engine::record() {
     if (recording && playing)
         return;
+    active_track_inputs.reserve(track_input_groups.size());
+    for (auto& [input_u32, tracks] : track_input_groups)
+        active_track_inputs.push_back(input_u32);
+    if (track_input_groups.size() != 0) {
+        recording_queue.start(AudioFormat::F32, audio_record_buffer_size / 4, track_input_groups);
+        recording_thread = std::thread(recorder_thread_runner_, this);
+    }
     recording = true;
     play();
-    Log::debug("Record");
+    Log::debug("-------------- Record --------------");
 }
 
 void Engine::stop_record() {
     if (!recording)
         return;
-    editor_lock.lock();
+    active_track_inputs.clear();
+    recording = false;
+    if (track_input_groups.size() != 0)
+        recording_thread.join();
     for (auto track : tracks) {
+        if (track->input_attr.recording) {
+            std::string name;
+            auto current_datetime = std::chrono::system_clock::now();
+            // Set sample name
+            std::format_to(std::back_inserter(name), "{} - {}", current_datetime, track->name);
+            std::replace(name.begin(), name.end(), ':', '_'); // Path does not support colon
+            track->recorded_samples->name = std::move(name);
+            track->recorded_samples->path = track->recorded_samples->name;
+            // Adjust the sample count to the actual number of samples written
+            track->recorded_samples->resize(track->num_samples_written, track->recorded_samples->channels);
+            track->num_samples_written = 0; // Reset back to zero
+            // Transform the recorded sample into asset and create the audio clip
+            SampleAsset* asset = g_sample_table.create_from_existing_sample(std::move(*track->recorded_samples));
+            add_audio_clip(track, track->recorded_samples->name, track->record_min_time, track->record_max_time, 0.0,
+                           AudioClip {.asset = asset});
+            track->recorded_samples.reset();
+        }
         track->stop_record();
     }
-    recording = false;
-    editor_lock.unlock();
+    if (track_input_groups.size() != 0)
+        recording_queue.stop();
     Log::debug("Record stop");
 }
 
@@ -101,35 +128,59 @@ void Engine::arm_track_recording(uint32_t slot, bool armed) {
 void Engine::set_track_input(uint32_t slot, TrackInputType type, uint32_t index, bool armed) {
     assert(slot < tracks.size());
     Track* track = tracks[slot];
-    TrackInput new_input {type, index};
-    track->arm_record = armed;
+    uint32_t new_input = TrackInput {type, index}.as_packed_u32();
+    uint32_t old_input = track->input.as_packed_u32();
+    auto new_pred = [new_input](const TrackInputGroup& x) { return x.input == new_input; };
+    auto old_pred = [old_input](const TrackInputGroup& x) { return x.input == old_input; };
+    track->input_attr.armed = armed;
 
     if (armed && (track->input.type != type || track->input.index != index)) {
-        auto input = track_input_mapping.try_emplace(track->input.as_packed_u32());
-        input.first->second.erase(slot);
-        if (input.first->second.size() == 0)
-            track_input_mapping.erase(track->input.as_packed_u32());
+        // Remove previous input assignment
+        auto input_map = std::find_if(track_input_groups.begin(), track_input_groups.end(), old_pred);
+        if (input_map != track_input_groups.end() && input_map->input_attrs == &track->input_attr) {
+            input_map->input_attrs = track->input_attr.next();
+            if (input_map->input_attrs == nullptr)
+                track_input_groups.erase(input_map);
+        }
+        track->input_attr.remove_from_list();
+        // Assign new input
         if (type != TrackInputType::None) {
-            input = track_input_mapping.try_emplace(new_input.as_packed_u32());
-            input.first->second.emplace(slot);
+            input_map = std::find_if(track_input_groups.begin(), track_input_groups.end(), new_pred);
+            if (input_map == track_input_groups.end()) {
+                track_input_groups.emplace_back(new_input, &track->input_attr);
+            } else {
+                input_map->input_attrs->push_item_front(&track->input_attr);
+                input_map->input_attrs = &track->input_attr;
+            }
         }
     } else {
-        auto input = track_input_mapping.try_emplace(new_input.as_packed_u32());
-        if (armed && type != TrackInputType::None)
-            input.first->second.emplace(slot);
-        else {
-            input.first->second.erase(slot);
-            if (input.first->second.size() == 0)
-                track_input_mapping.erase(new_input.as_packed_u32());
+        auto input_map = std::find_if(track_input_groups.begin(), track_input_groups.end(), new_pred);
+        if (armed && type != TrackInputType::None) {
+            // Assign new input
+            if (input_map == track_input_groups.end()) {
+                track_input_groups.emplace_back(new_input, &track->input_attr);
+            } else {
+                input_map->input_attrs->push_item_front(&track->input_attr);
+                input_map->input_attrs = &track->input_attr;
+            }
+        } else {
+            // Remove input assignment if not armed
+            if (input_map != track_input_groups.end() && input_map->input_attrs == &track->input_attr) {
+                input_map->input_attrs = track->input_attr.next();
+                if (input_map->input_attrs == nullptr)
+                    track_input_groups.erase(input_map);
+            }
+            track->input_attr.remove_from_list();
         }
     }
 
     Log::debug("--- Input mapping ---");
 
-    for (auto& [input, tracks] : track_input_mapping) {
+    for (auto& [input, track_attrs] : track_input_groups) {
         Log::debug("{}:", TrackInput::from_packed_u32(input).index);
-        for (auto track : tracks)
-            Log::debug("{}", track);
+        for (auto input_attr = track_attrs; input_attr != nullptr; input_attr = input_attr->next()) {
+            Log::debug("{} {:x}", input_attr->track->name, (uint64_t)input_attr);
+        }
     }
 
     track->input.type = type;
@@ -147,6 +198,8 @@ void Engine::delete_track(uint32_t slot) {
     editor_lock.lock();
     delete_lock.lock();
     Track* track = tracks[slot];
+    if (track->input.type != TrackInputType::None)
+        set_track_input(slot, TrackInputType::None, 0, false);
     tracks.erase(tracks.begin() + slot);
     delete track;
     delete_lock.unlock();
@@ -511,7 +564,7 @@ void Engine::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>&
         output_buffer.mix(mixing_buffer);
     }
 
-    // output_buffer.mix(input_buffer);
+    //output_buffer.mix(input_buffer);
 
     for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
         float* channel = output_buffer.get_write_pointer(i);
@@ -524,6 +577,27 @@ void Engine::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>&
         }
     }
 
+    if (currently_playing && recording && track_input_groups.size() != 0) {
+        // Log::debug("Recording queue: {} {} {}", recording_queue.writer_.pos.load(std::memory_order_relaxed),
+        //            recording_queue.reader_.pos.load(std::memory_order_relaxed),
+        //            recording_queue.size_.load(std::memory_order_relaxed));
+        recording_queue.begin_write(audio_buffer_size);
+        for (uint32_t i = 0; i < track_input_groups.size(); i++) {
+            TrackInput input = TrackInput::from_packed_u32(track_input_groups[i].input);
+            switch (input.type) {
+                case TrackInputType::ExternalStereo:
+                    recording_queue.write(i, input.index * 2, 2, input_buffer);
+                    break;
+                case TrackInputType::ExternalMono:
+                    recording_queue.write(i, input.index, 1, input_buffer);
+                    break;
+                default:
+                    WB_UNREACHABLE();
+            }
+        }
+        recording_queue.end_write();
+    }
+
     editor_lock.unlock();
 
     if (has_deleted_clips.load(std::memory_order_relaxed)) {
@@ -534,6 +608,51 @@ void Engine::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>&
         }
         delete_lock.unlock();
         has_deleted_clips.store(false, std::memory_order_relaxed);
+    }
+}
+
+void Engine::write_recorded_samples_(uint32_t num_samples) {
+    for (uint32_t i = 0; i < track_input_groups.size(); i++) {
+        TrackInputGroup& group = track_input_groups[i];
+        TrackInput input = TrackInput::from_packed_u32(group.input);
+        uint32_t num_channels = input.type == TrackInputType::ExternalMono ? 1 : 2;
+        for (auto input_attr = group.input_attrs; input_attr != nullptr; input_attr = input_attr->next()) {
+            Track* track = input_attr->track;
+            size_t required_size = track->num_samples_written + num_samples;
+            if (!track->recorded_samples) {
+                // Create new sample instance if not exist
+                track->recorded_samples.emplace(AudioFormat::F32, audio_sample_rate);
+                track->recorded_samples->resize(audio_record_chunk_size / 4, num_channels);
+            } else if (required_size >= track->recorded_samples->count) {
+                // Resize the storage size if the required size exceeds current sample count
+                track->recorded_samples->resize(track->recorded_samples->count + audio_record_chunk_size / 4,
+                                                num_channels);
+                Log::debug("Resize sample");
+            }
+            auto sample_data = track->recorded_samples->get_sample_data<float>();
+            recording_queue.read(i, sample_data, track->num_samples_written, 0, num_channels);
+            //Log::debug("{}", track->num_samples_written);
+            track->num_samples_written = required_size;
+        }
+    }
+}
+
+void Engine::recorder_thread_runner_(Engine* engine) {
+    uint32_t num_samples_to_read = engine->audio_record_file_chunk_size / 4;
+    while (engine->recording.load(std::memory_order_relaxed)) {
+        if (!engine->recording_queue.begin_read(num_samples_to_read)) {
+            std::this_thread::yield(); // Not enough buffer to read, let the audio thread write more samples.
+            continue;
+        }
+        engine->write_recorded_samples_(num_samples_to_read);
+        engine->recording_queue.end_read();
+    }
+    uint32_t remaining_samples = engine->recording_queue.size();
+    if (remaining_samples > 0) {
+        if (engine->recording_queue.begin_read(remaining_samples)) {
+            engine->write_recorded_samples_(remaining_samples);
+            engine->recording_queue.end_read();
+        }
     }
 }
 

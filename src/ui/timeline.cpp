@@ -465,8 +465,8 @@ void GuiTimeline::render_track_controls() {
 
                         ImGui::SameLine(0.0f, 2.0f);
                         ImGui::BeginDisabled(g_engine.recording);
-                        if (controls::small_toggle_button("R", &track->arm_record, muted_color))
-                            g_engine.arm_track_recording(i, !track->arm_record);
+                        if (controls::small_toggle_button("R", &track->input_attr.armed, muted_color))
+                            g_engine.arm_track_recording(i, !track->input_attr.armed);
                         if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
                             ImGui::OpenPopup("track_input_context_menu");
                         ImGui::EndDisabled();
@@ -482,8 +482,8 @@ void GuiTimeline::render_track_controls() {
 
                     ImGui::SameLine(0.0f, 2.0f);
                     ImGui::BeginDisabled(g_engine.recording);
-                    if (controls::toggle_button("R", &track->arm_record, muted_color))
-                        g_engine.arm_track_recording(i, !track->arm_record);
+                    if (controls::toggle_button("R", &track->input_attr.armed, muted_color))
+                        g_engine.arm_track_recording(i, !track->input_attr.armed);
                     if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
                         ImGui::OpenPopup("track_input_context_menu");
                     ImGui::EndDisabled();
@@ -543,8 +543,8 @@ void GuiTimeline::render_track_controls() {
                 ImGui::SameLine(0.0f, 2.0f);
 
                 ImGui::BeginDisabled(g_engine.recording);
-                if (controls::small_toggle_button("R", &track->arm_record, muted_color))
-                    g_engine.arm_track_recording(i, !track->arm_record);
+                if (controls::small_toggle_button("R", &track->input_attr.armed, muted_color))
+                    g_engine.arm_track_recording(i, !track->input_attr.armed);
                 if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
                     ImGui::OpenPopup("track_input_context_menu");
                 ImGui::EndDisabled();
@@ -1096,7 +1096,7 @@ void GuiTimeline::render_track_lanes() {
             }
         }
 
-        if (track->recording) {
+        if (track->input_attr.recording) {
             const double min_pos_x = math::round(timeline_scroll_offset_x + track->record_min_time * clip_scale);
             const double max_pos_x = math::round(timeline_scroll_offset_x + track->record_max_time * clip_scale);
             const float min_clamped_pos_x = (float)math::max(min_pos_x, (double)timeline_view_pos.x);

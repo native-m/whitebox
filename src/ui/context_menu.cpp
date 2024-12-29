@@ -67,7 +67,7 @@ void track_input_context_menu(Track* track, uint32_t track_slot) {
     bool ext_mono = track->input.type == TrackInputType::ExternalMono;
 
     if (ImGui::Selectable("None", none, none ? ImGuiSelectableFlags_Highlight : 0))
-        g_engine.set_track_input(track_slot, TrackInputType::None, 0, track->arm_record);
+        g_engine.set_track_input(track_slot, TrackInputType::None, 0, track->input_attr.armed);
 
     ImGui::Selectable("Ext. stereo", true, ImGuiSelectableFlags_Disabled);
     for (uint32_t i = 0; i < max_audio_input_channels; i += 2) {
@@ -75,7 +75,7 @@ void track_input_context_menu(Track* track, uint32_t track_slot) {
         bool selected = ext_stereo && track->input.index == i;
         ImFormatStringToTempBuffer(&name, nullptr, "%d+%d", i + 1, i + 2);
         if (ImGui::Selectable(name, false, selected ? ImGuiSelectableFlags_Highlight : 0))
-            g_engine.set_track_input(track_slot, TrackInputType::ExternalStereo, i, track->arm_record);
+            g_engine.set_track_input(track_slot, TrackInputType::ExternalStereo, i, track->input_attr.armed);
     }
 
     ImGui::Selectable("Ext. mono", true, ImGuiSelectableFlags_Disabled);
@@ -84,7 +84,7 @@ void track_input_context_menu(Track* track, uint32_t track_slot) {
         bool selected = ext_mono && track->input.index == i;
         ImFormatStringToTempBuffer(&name, nullptr, "%d", i + 1);
         if (ImGui::Selectable(name, false, selected ? ImGuiSelectableFlags_Highlight : 0))
-            g_engine.set_track_input(track_slot, TrackInputType::ExternalMono, i, track->arm_record);
+            g_engine.set_track_input(track_slot, TrackInputType::ExternalMono, i, track->input_attr.armed);
     }
 }
 } // namespace wb

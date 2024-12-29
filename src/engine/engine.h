@@ -7,9 +7,7 @@
 #include "core/common.h"
 #include "core/thread.h"
 #include "etypes.h"
-#include "track_input.h"
 #include <functional>
-#include <vector>
 
 namespace wb {
 
@@ -30,7 +28,7 @@ struct Engine {
     uint32_t audio_buffer_size = 0;
     uint32_t audio_sample_rate = 0;
     uint32_t audio_record_buffer_size = 64 * 1024;
-    uint32_t audio_record_file_chunk_size = 2048;
+    uint32_t audio_record_file_chunk_size = 8 * 1024;
     uint32_t audio_record_chunk_size = 256 * 1024;
 
     ProjectInfo project_info;
@@ -42,17 +40,23 @@ struct Engine {
     double playhead {};
     double playhead_start {};
     double sample_position {};
-    bool recording = false;
     std::atomic<double> beat_duration;
     std::atomic<double> playhead_ui;
     std::atomic_bool playing;
     std::atomic_bool playhead_updated;
     std::atomic_bool has_deleted_clips;
-    AudioInputMapping track_input_mapping;
+    std::atomic_bool recording;
+    std::vector<TrackInputGroup> track_input_groups;
+    Vector<uint32_t> active_track_inputs;
+    Vector<uint32_t> active_record_tracks;
 
     AudioBuffer<float> mixing_buffer;
     std::vector<OnBpmChangeFn> on_bpm_change_listener;
-    double phase = 0.0;
+
+    uint32_t recording_session_id_counter = 0;
+    AudioRecordQueue recording_queue;
+    Vector<Sample> recorded_samples;
+    std::thread recording_thread;
 
     ~Engine();
 
@@ -109,10 +113,16 @@ struct Engine {
 
     inline bool is_playing() const { return playing.load(std::memory_order_relaxed); }
 
+    inline bool is_recording() const { return recording.load(std::memory_order_relaxed); }
+
     template <typename Fn>
     void add_on_bpm_change_listener(Fn&& fn) {
         on_bpm_change_listener.push_back(fn);
     }
+
+    void write_recorded_samples_(uint32_t num_samples);
+
+    static void recorder_thread_runner_(Engine* engine);
 };
 
 extern Engine g_engine;

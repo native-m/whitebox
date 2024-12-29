@@ -22,6 +22,8 @@
 
 namespace wb {
 
+struct Track;
+
 enum TrackParameter {
     TrackParameter_Volume,
     TrackParameter_Pan,
@@ -59,11 +61,14 @@ struct Track {
     float height = 60.0f;
     bool shown = true;
     TrackInput input {};
+    TrackInputAttr input_attr {this};
 
-    bool arm_record = false;
-    bool recording = false;
+    uint32_t recording_buffer_id = 0;
+    uint32_t recording_session_id = 0;
     double record_min_time = 0.0;
     double record_max_time = 0.0;
+    size_t num_samples_written = 0;
+    std::optional<Sample> recorded_samples;
 
     Pool<Clip> clip_allocator;
     Vector<Clip*> clips;
