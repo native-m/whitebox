@@ -159,7 +159,7 @@ void Engine::set_track_input(uint32_t slot, TrackInputType type, uint32_t index,
             // Assign new input
             if (input_map == track_input_groups.end()) {
                 track_input_groups.emplace_back(new_input, &track->input_attr);
-            } else {
+            } else if (track->input.type != type || track->input.index != index) {
                 input_map->input_attrs->push_item_front(&track->input_attr);
                 input_map->input_attrs = &track->input_attr;
             }
