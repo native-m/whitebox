@@ -25,7 +25,7 @@ void GuiSettings::render() {
         return;
 
     ImGui::SetNextWindowSize(ImVec2(300.0f, 200.0f), ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("Settings", &open)) {
+    if (!ImGui::Begin("Settings", &open, ImGuiWindowFlags_NoDocking)) {
         ImGui::End();
         return;
     }
