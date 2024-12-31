@@ -4,7 +4,7 @@
 #include "core/debug.h"
 #include "track.h"
 #include <numbers>
-#include <format>
+#include <fmt/chrono.h>
 
 namespace wb {
 
@@ -99,7 +99,7 @@ void Engine::stop_record() {
             std::string name;
             auto current_datetime = std::chrono::system_clock::now();
             // Set sample name
-            std::format_to(std::back_inserter(name), "{} - {}", current_datetime, track->name);
+            fmt::format_to(std::back_inserter(name), "{} - {}", current_datetime, track->name);
             std::replace(name.begin(), name.end(), ':', '_'); // Path does not support colon
             track->recorded_samples->name = std::move(name);
             track->recorded_samples->path = track->recorded_samples->name;
