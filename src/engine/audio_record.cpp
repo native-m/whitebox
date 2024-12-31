@@ -6,11 +6,11 @@ void AudioRecordQueue::start(AudioFormat format, uint32_t buffer_size, std::vect
     uint32_t idx = 0;
     buffer_capacity_ = buffer_size;
     sample_size_ = get_audio_format_size(format);
-    recording_buffers_.resize(input_groups.size());
+    buffers_.resize(input_groups.size());
     for (auto& [type, attr] : input_groups) {
         auto input = TrackInput::from_packed_u32(type);
         uint32_t channel_count = (input.type == TrackInputType::ExternalMono) ? 1 : 2;
-        recording_buffers_[idx].init(channel_count, buffer_size, format);
+        buffers_[idx].init(channel_count, buffer_size, format);
         idx++;
     }
     reader_mtx_.lock();
@@ -24,8 +24,6 @@ void AudioRecordQueue::stop() {
     running_ = false;
     reader_mtx_.unlock();
     reader_cv_.notify_one();
-    // size_.store(0, std::memory_order_release);
-    // size_.notify_one();
 }
 
 void AudioRecordQueue::begin_write(uint32_t write_size) {
@@ -70,7 +68,6 @@ bool AudioRecordQueue::begin_read(uint32_t read_size) {
         }
 
         writer_.should_signal.store(1, std::memory_order_release);
-        //size_.wait(size, std::memory_order_relaxed);
         std::unique_lock<std::mutex> lock(reader_mtx_);
         reader_cv_.wait(lock, [size, this] { return size != size_.load(std::memory_order_relaxed) || !running_; });
         if (!running_)
