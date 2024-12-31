@@ -3,8 +3,8 @@ include(cmake/CPM.cmake)
 CPMAddPackage(
     NAME                SDL
     GITHUB_REPOSITORY   libsdl-org/SDL
-    VERSION             2.28.3
-    GIT_TAG             release-2.28.3
+    VERSION             2.30.10
+    GIT_TAG             release-2.30.10
     OPTIONS             "SDL_SHARED OFF"
                         "SDL_TESTS OFF"
                         "SDL_TEST_LIBRARY OFF"
@@ -50,7 +50,7 @@ CPMAddPackage(
 
 CPMAddPackage(
     NAME                imgui
-    VERSION             1.91.5-docking
+    VERSION             1.91.6-docking
     GITHUB_REPOSITORY   ocornut/imgui
     DOWNLOAD_ONLY       YES
 )
