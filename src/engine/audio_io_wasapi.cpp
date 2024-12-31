@@ -677,13 +677,12 @@ void AudioIOWASAPI::audio_thread_runner(AudioIOWASAPI* instance, AudioThreadPrio
 
     while (instance->running.load(std::memory_order_relaxed)) {
         if (input_buffer_size > 0) {
-            uint32_t read_count = buffer_size;
+            uint32_t read_count = math::min(buffer_size, input_buffer_size);
             uint32_t begin_read = input_buffer_read_pos;
             uint32_t end_read = (input_buffer_read_pos + read_count) % input_buffer_capacity;
 #if LOG_BUFFERING
             Log::debug("Read: {} {} {}", read_count, input_buffer_read_pos, end_read);
 #endif
-            // TODO: Fix audio input glitch
             if (begin_read <= end_read) {
                 void* src = input_queue_buffer + (input_buffer_read_pos * frame_size);
                 input_buffer.deinterleave_samples_from(src, 0, read_count, instance->input_stream_format);
@@ -735,7 +734,6 @@ void AudioIOWASAPI::audio_thread_runner(AudioIOWASAPI* instance, AudioThreadPrio
 #if LOG_BUFFERING
                 Log::info("Write: {} {} {}", frames_available, input_buffer_write_pos, end_write);
 #endif
-                // TODO: Fix audio input glitch
                 if (begin_write <= end_write) {
                     void* dst = input_queue_buffer + (input_buffer_write_pos * frame_size);
                     if (has_bit(flags, AUDCLNT_BUFFERFLAGS_SILENT)) [[unlikely]]
