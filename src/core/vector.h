@@ -131,7 +131,7 @@ struct Vector {
 
     template <typename... Args>
     inline T& emplace_at(size_t idx, Args&&... args) {
-        if (intern_.size == intern_.capacity) {
+        if (intern_.size == intern_.capacity) [[unlikely]] {
             size_t new_capacity = grow_capacity_();
             T* new_data = (T*)std::malloc(new_capacity * sizeof(T));
             assert(new_data && "Failed to allocate new storage");
@@ -190,7 +190,7 @@ struct Vector {
 
     template <typename... Args>
     inline T& emplace_back(Args&&... args) {
-        if (intern_.size == intern_.capacity)
+        if (intern_.size == intern_.capacity) [[unlikely]]
             reserve_internal_(grow_capacity_());
         T* new_item = new (intern_.data + intern_.size) T(std::forward<Args>(args)...);
         intern_.size++;
@@ -212,7 +212,7 @@ struct Vector {
     inline void push_back(const T& item)
         requires std::copy_constructible<T>
     {
-        if (intern_.size == intern_.capacity)
+        if (intern_.size == intern_.capacity) [[unlikely]]
             reserve_internal_(grow_capacity_());
         new (intern_.data + intern_.size) T(item);
         intern_.size++;
@@ -221,7 +221,7 @@ struct Vector {
     inline void push_back(T&& item)
         requires std::move_constructible<T>
     {
-        if (intern_.size == intern_.capacity)
+        if (intern_.size == intern_.capacity) [[unlikely]]
             reserve_internal_(grow_capacity_());
         new (intern_.data + intern_.size) T(std::move(item));
         intern_.size++;
