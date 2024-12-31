@@ -57,6 +57,7 @@ set(WB_SOURCES
     "src/core/fs.h"
     "src/core/fs_win32.cpp"
     "src/core/fs_stdc.cpp"
+    "src/core/intrinsics.h"
     "src/core/list.h"
     "src/core/memory.cpp"
     "src/core/memory.h"
