@@ -6,12 +6,11 @@
 #include "core/vector.h"
 #include "track_input.h"
 #include <atomic>
-#include <vector>
+#include <condition_variable>
 #include <memory>
-#include <semaphore>
+#include <mutex>
 #include <thread>
-#include <unordered_map>
-#include <unordered_set>
+#include <vector>
 
 namespace wb {
 
@@ -53,6 +52,9 @@ struct AudioRecordQueue {
     SharedData writer_;
     SharedData reader_;
     alignas(64) std::atomic_uint32_t size_;
+    std::mutex reader_mtx_;
+    std::condition_variable reader_cv_;
+    bool running_ = false;
 
     uint32_t current_write_pos = 0;
     uint32_t current_write_size = 0;
@@ -81,9 +83,10 @@ struct AudioRecordQueue {
             for (uint32_t i = 0; i < num_channels; i++) {
                 const T* src_channel_buffer = buffer.get_read_pointer(i + start_channel);
                 T* dst_channel_buffer = record_buffer.get_write_pointer<T>(i, buffer_capacity_);
-                std::memcpy(dst_channel_buffer + current_write_pos, src_channel_buffer, current_write_size * sample_size_);
+                std::memcpy(dst_channel_buffer + current_write_pos, src_channel_buffer,
+                            current_write_size * sample_size_);
             }
-            //Log::debug("Write: {}", current_write_pos);
+            // Log::debug("Write: {}", current_write_pos);
         } else {
             for (uint32_t i = 0; i < num_channels; i++) {
                 const T* src_channel_buffer = buffer.get_read_pointer(i + start_channel);
@@ -97,20 +100,20 @@ struct AudioRecordQueue {
     }
 
     template <std::floating_point T>
-    void read(uint32_t buffer_id, T* const* dst_buffer, size_t dst_offset, uint32_t start_channel, uint32_t num_channels) {
+    void read(uint32_t buffer_id, T* const* dst_buffer, size_t dst_offset, uint32_t start_channel,
+              uint32_t num_channels) {
         AudioRecordBuffer& record_buffer = recording_buffers_[buffer_id];
         if (current_read_pos <= next_read_pos) {
             for (uint32_t i = 0; i < num_channels; i++) {
                 T* dst_channel_buffer = dst_buffer[i] + dst_offset;
-                const T* src_channel_buffer =
-                    record_buffer.get_read_pointer<T>(i + start_channel, buffer_capacity_);
-                std::memcpy(dst_channel_buffer, src_channel_buffer + current_read_pos, current_read_size * sample_size_);
+                const T* src_channel_buffer = record_buffer.get_read_pointer<T>(i + start_channel, buffer_capacity_);
+                std::memcpy(dst_channel_buffer, src_channel_buffer + current_read_pos,
+                            current_read_size * sample_size_);
             }
         } else {
             for (uint32_t i = 0; i < num_channels; i++) {
                 T* dst_channel_buffer = dst_buffer[i] + dst_offset;
-                const T* src_channel_buffer =
-                    record_buffer.get_read_pointer<T>(i + start_channel, buffer_capacity_);
+                const T* src_channel_buffer = record_buffer.get_read_pointer<T>(i + start_channel, buffer_capacity_);
                 uint32_t split_size = buffer_capacity_ - current_read_pos;
                 std::memcpy(dst_channel_buffer, src_channel_buffer + current_read_pos, split_size * sample_size_);
                 if (next_read_pos != 0)

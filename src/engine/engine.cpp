@@ -81,7 +81,7 @@ void Engine::record() {
         active_track_inputs.push_back(input_u32);
     if (track_input_groups.size() != 0) {
         recording_queue.start(AudioFormat::F32, audio_record_buffer_size / 4, track_input_groups);
-        recording_thread = std::thread(recorder_thread_runner_, this);
+        recorder_thread = std::thread(recorder_thread_runner_, this);
     }
     recording = true;
     play();
@@ -93,8 +93,10 @@ void Engine::stop_record() {
         return;
     active_track_inputs.clear();
     recording = false;
-    if (track_input_groups.size() != 0)
-        recording_thread.join();
+    if (track_input_groups.size() != 0) {
+        recording_queue.stop();
+        recorder_thread.join();
+    }
     for (auto track : tracks) {
         if (track->input_attr.recording) {
             std::string name;
@@ -115,8 +117,6 @@ void Engine::stop_record() {
         }
         track->stop_record();
     }
-    if (track_input_groups.size() != 0)
-        recording_queue.stop();
     Log::debug("Record stop");
 }
 
@@ -564,7 +564,7 @@ void Engine::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>&
         output_buffer.mix(mixing_buffer);
     }
 
-    //output_buffer.mix(input_buffer);
+    // output_buffer.mix(input_buffer);
 
     for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
         float* channel = output_buffer.get_write_pointer(i);
@@ -577,7 +577,7 @@ void Engine::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>&
         }
     }
 
-    if (currently_playing && recording && track_input_groups.size() != 0) {
+    if (currently_playing && track_input_groups.size() != 0 && recording) {
         // Log::debug("Recording queue: {} {} {}", recording_queue.writer_.pos.load(std::memory_order_relaxed),
         //            recording_queue.reader_.pos.load(std::memory_order_relaxed),
         //            recording_queue.size_.load(std::memory_order_relaxed));
@@ -631,7 +631,7 @@ void Engine::write_recorded_samples_(uint32_t num_samples) {
             }
             auto sample_data = track->recorded_samples->get_sample_data<float>();
             recording_queue.read(i, sample_data, track->num_samples_written, 0, num_channels);
-            //Log::debug("{}", track->num_samples_written);
+            // Log::debug("{}", track->num_samples_written);
             track->num_samples_written = required_size;
         }
     }
@@ -639,20 +639,15 @@ void Engine::write_recorded_samples_(uint32_t num_samples) {
 
 void Engine::recorder_thread_runner_(Engine* engine) {
     uint32_t num_samples_to_read = engine->audio_record_file_chunk_size / 4;
-    while (engine->recording.load(std::memory_order_relaxed)) {
-        if (!engine->recording_queue.begin_read(num_samples_to_read)) {
-            std::this_thread::yield(); // Not enough buffer to read, let the audio thread write more samples.
-            continue;
-        }
+    while (engine->recording_queue.begin_read(num_samples_to_read)) {
         engine->write_recorded_samples_(num_samples_to_read);
         engine->recording_queue.end_read();
     }
     uint32_t remaining_samples = engine->recording_queue.size();
     if (remaining_samples > 0) {
-        if (engine->recording_queue.begin_read(remaining_samples)) {
-            engine->write_recorded_samples_(remaining_samples);
-            engine->recording_queue.end_read();
-        }
+        engine->recording_queue.begin_read(remaining_samples);
+        engine->write_recorded_samples_(remaining_samples);
+        engine->recording_queue.end_read();
     }
 }
 

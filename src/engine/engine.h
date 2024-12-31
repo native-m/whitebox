@@ -56,7 +56,7 @@ struct Engine {
     uint32_t recording_session_id_counter = 0;
     AudioRecordQueue recording_queue;
     Vector<Sample> recorded_samples;
-    std::thread recording_thread;
+    std::thread recorder_thread;
 
     ~Engine();
 

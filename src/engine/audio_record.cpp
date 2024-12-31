@@ -13,25 +13,19 @@ void AudioRecordQueue::start(AudioFormat format, uint32_t buffer_size, std::vect
         recording_buffers_[idx].init(channel_count, buffer_size, format);
         idx++;
     }
+    reader_mtx_.lock();
+    running_ = true;
+    reader_mtx_.unlock();
+    reader_cv_.notify_one();
 }
 
 void AudioRecordQueue::stop() {
-    recording_buffers_.clear();
-    buffer_capacity_ = 0;
-    sample_size_ = 0; 
-    writer_.pos = 0;
-    writer_.should_signal = 0;
-    reader_.pos = 0;
-    reader_.should_signal = 0;
-    size_ = 0;
-    current_write_pos = 0;
-    current_write_size = 0;
-    next_write_pos = 0;
-    next_write_size = 0;
-    current_read_pos = 0;
-    current_read_size = 0;
-    next_read_pos = 0;
-    next_read_size = 0;
+    reader_mtx_.lock();
+    running_ = false;
+    reader_mtx_.unlock();
+    reader_cv_.notify_one();
+    // size_.store(0, std::memory_order_release);
+    // size_.notify_one();
 }
 
 void AudioRecordQueue::begin_write(uint32_t write_size) {
@@ -40,7 +34,7 @@ void AudioRecordQueue::begin_write(uint32_t write_size) {
         uint32_t read_pos = reader_.pos.load(std::memory_order_acquire);
         uint32_t size = size_.load(std::memory_order_acquire);
         uint32_t available_size = buffer_capacity_ - size;
-        
+
         if (available_size >= write_size) {
             current_write_pos = write_pos;
             current_write_size = write_size;
@@ -50,36 +44,39 @@ void AudioRecordQueue::begin_write(uint32_t write_size) {
         }
 
         reader_.should_signal.store(1, std::memory_order_release);
-        size_.wait(size, std::memory_order_acquire);
+        size_.wait(size, std::memory_order_relaxed);
     }
 }
 
 void AudioRecordQueue::end_write() {
     writer_.pos.store(next_write_pos, std::memory_order_release);
     size_.store(next_write_size, std::memory_order_release);
-    // if (writer_.should_signal.exchange(0, std::memory_order_release))
-    //     size_.notify_one(); // Notify reader thread
+    if (writer_.should_signal.exchange(0, std::memory_order_release))
+        reader_cv_.notify_all();
 }
 
 bool AudioRecordQueue::begin_read(uint32_t read_size) {
-    uint32_t read_pos = reader_.pos.load(std::memory_order_relaxed);
-    uint32_t write_pos = writer_.pos.load(std::memory_order_acquire);
-    uint32_t size = size_.load(std::memory_order_acquire);
+    for (;;) {
+        uint32_t read_pos = reader_.pos.load(std::memory_order_relaxed);
+        uint32_t write_pos = writer_.pos.load(std::memory_order_acquire);
+        uint32_t size = size_.load(std::memory_order_acquire);
 
-    if (size >= read_size) {
-        current_read_pos = read_pos;
-        current_read_size = read_size;
-        next_read_pos = (read_pos + read_size) % buffer_capacity_;
-        next_read_size = read_size;
-        return true;
-    }
+        if (size >= read_size) {
+            current_read_pos = read_pos;
+            current_read_size = read_size;
+            next_read_pos = (read_pos + read_size) % buffer_capacity_;
+            next_read_size = read_size;
+            break;
+        }
 
-    /*for (;;) {
         writer_.should_signal.store(1, std::memory_order_release);
-        size_.wait(size, std::memory_order_acquire);
-    }*/
-
-    return false;
+        //size_.wait(size, std::memory_order_relaxed);
+        std::unique_lock<std::mutex> lock(reader_mtx_);
+        reader_cv_.wait(lock, [size, this] { return size != size_.load(std::memory_order_relaxed) || !running_; });
+        if (!running_)
+            return false;
+    }
+    return true;
 }
 
 void AudioRecordQueue::end_read() {
@@ -88,5 +85,4 @@ void AudioRecordQueue::end_read() {
     if (reader_.should_signal.exchange(0, std::memory_order_release))
         size_.notify_one(); // Notify writer thread
 }
-
 } // namespace wb
