@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cmath>
+#include "core_math.h"
 #include <imgui.h>
 
 namespace wb {
@@ -31,8 +31,8 @@ inline static constexpr ImColor color_premul_alpha(const ImColor& color) {
 }
 
 inline static constexpr ImColor color_mix(const ImColor& a, const ImColor& b, float t) {
-    return ImColor(std::lerp(a.Value.x, b.Value.x, t), std::lerp(a.Value.y, b.Value.y, t),
-                   std::lerp(a.Value.z, b.Value.z, t), std::lerp(a.Value.w, b.Value.w, t));
+    return ImColor(math::lerp(a.Value.x, b.Value.x, t), math::lerp(a.Value.y, b.Value.y, t),
+                   math::lerp(a.Value.z, b.Value.z, t), math::lerp(a.Value.w, b.Value.w, t));
 }
 
 inline static constexpr float color_luminance(const ImColor& color) {

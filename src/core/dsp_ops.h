@@ -19,7 +19,7 @@ static T find_abs_maximum(const T* arr, uint32_t count) {
 template <std::floating_point T>
 static void gain(const T* input, T* output, uint32_t count, float gain) {
     for (uint32_t i = 0; i < count; i++)
-        input[i] = output[i] * gain;
+        output[i] = input[i] * gain;
 }
 
 template <std::floating_point T>

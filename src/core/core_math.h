@@ -61,7 +61,7 @@ inline static T fract(T x) {
 }
 
 template <std::floating_point T>
-inline T exponential_ease(T x, T y, T linear_thresh = T(0.01)) {
+inline static T exponential_ease(T x, T y, T linear_thresh = T(0.01)) {
     if (abs(y) < linear_thresh) {
         return x;
     }
@@ -69,12 +69,12 @@ inline T exponential_ease(T x, T y, T linear_thresh = T(0.01)) {
 }
 
 template <std::floating_point T>
-inline T exponential_ease2(T x, T y) {
+inline static constexpr T exponential_ease2(T x, T y) {
     return (x - y * x) / (y - T(2.0) * y * abs(x) + T(1.0));
 }
 
 template <std::floating_point T>
-inline T db_to_linear(T x, T threshold = -72.0f) {
+inline static T db_to_linear(T x, T threshold = -72.0f) {
     if (x <= threshold) {
         return 0.0f;
     }
@@ -82,22 +82,22 @@ inline T db_to_linear(T x, T threshold = -72.0f) {
 }
 
 template <std::floating_point T>
-inline T linear_to_db(T x) {
-    return T(20) * std::log10(std::abs(x));
+inline static T linear_to_db(T x) {
+    return T(20) * std::log10(abs(x));
 }
 
 template <std::floating_point T>
-inline T lerp(T x, T a, T b) {
+inline static constexpr T lerp(T x, T a, T b) {
     return (1.0 - x) * a + x * b;
 }
 
 template <std::floating_point T>
-inline T normalize_value(T value, T min_val, T max_val) {
+inline static constexpr T normalize_value(T value, T min_val, T max_val) {
     return (min_val - value) / (min_val - max_val);
 }
 
 template <std::floating_point T>
-inline T unnormalize_value(T value, T min_val, T max_val) {
+inline static constexpr T unnormalize_value(T value, T min_val, T max_val) {
     return value * (max_val - min_val) + min_val;
 }
 
@@ -156,31 +156,31 @@ struct NonLinearRange {
 };
 
 template <typename T>
-inline bool is_pow_2(T x) {
+inline static constexpr bool is_pow_2(T x) {
     return (x != 0) && ((x & (x - 1)) == 0);
 }
 
 template <typename T>
-inline bool in_range(T x, T min_val, T max_val) {
+inline static constexpr bool in_range(T x, T min_val, T max_val) {
     return (x >= min_val) && (x <= max_val);
 }
 
 template <typename T>
-inline bool is_multiple_of(T x, T mult) {
+inline static constexpr bool is_multiple_of(T x, T mult) {
     return (x % mult) == 0;
 }
 
-inline static double samples_to_beat(size_t samples, double sample_rate, double beat_duration) {
+inline static constexpr double samples_to_beat(size_t samples, double sample_rate, double beat_duration) {
     double sec = (double)samples / sample_rate;
     return sec / beat_duration;
 }
 
-inline static double samples_to_beat(double samples, double sample_rate, double beat_duration) {
+inline static constexpr double samples_to_beat(double samples, double sample_rate, double beat_duration) {
     double sec = samples / sample_rate;
     return sec / beat_duration;
 }
 
-inline static double beat_to_samples(double beat, double sample_rate, double beat_duration) {
+inline static constexpr double beat_to_samples(double beat, double sample_rate, double beat_duration) {
     double sec = beat * beat_duration;
     return (sec * sample_rate);
 }
