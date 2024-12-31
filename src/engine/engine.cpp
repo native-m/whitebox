@@ -4,6 +4,7 @@
 #include "core/debug.h"
 #include "track.h"
 #include <numbers>
+#include <format>
 
 namespace wb {
 
@@ -40,9 +41,9 @@ void Engine::set_audio_channel_config(uint32_t input_channels, uint32_t output_c
 }
 
 void Engine::clear_all() {
-    for (auto track : tracks) {
+    track_input_groups.clear();
+    for (auto track : tracks)
         delete track;
-    }
     tracks.clear();
 }
 
@@ -76,11 +77,8 @@ void Engine::stop() {
 void Engine::record() {
     if (recording && playing)
         return;
-    active_track_inputs.reserve(track_input_groups.size());
-    for (auto& [input_u32, tracks] : track_input_groups)
-        active_track_inputs.push_back(input_u32);
     if (track_input_groups.size() != 0) {
-        recording_queue.start(AudioFormat::F32, audio_record_buffer_size / 4, track_input_groups);
+        recorder_queue.start(AudioFormat::F32, audio_record_buffer_size / 4, track_input_groups);
         recorder_thread = std::thread(recorder_thread_runner_, this);
     }
     recording = true;
@@ -91,10 +89,9 @@ void Engine::record() {
 void Engine::stop_record() {
     if (!recording)
         return;
-    active_track_inputs.clear();
     recording = false;
     if (track_input_groups.size() != 0) {
-        recording_queue.stop();
+        recorder_queue.stop();
         recorder_thread.join();
     }
     for (auto track : tracks) {
@@ -581,21 +578,21 @@ void Engine::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>&
         // Log::debug("Recording queue: {} {} {}", recording_queue.writer_.pos.load(std::memory_order_relaxed),
         //            recording_queue.reader_.pos.load(std::memory_order_relaxed),
         //            recording_queue.size_.load(std::memory_order_relaxed));
-        recording_queue.begin_write(audio_buffer_size);
+        recorder_queue.begin_write(audio_buffer_size);
         for (uint32_t i = 0; i < track_input_groups.size(); i++) {
             TrackInput input = TrackInput::from_packed_u32(track_input_groups[i].input);
             switch (input.type) {
                 case TrackInputType::ExternalStereo:
-                    recording_queue.write(i, input.index * 2, 2, input_buffer);
+                    recorder_queue.write(i, input.index * 2, 2, input_buffer);
                     break;
                 case TrackInputType::ExternalMono:
-                    recording_queue.write(i, input.index, 1, input_buffer);
+                    recorder_queue.write(i, input.index, 1, input_buffer);
                     break;
                 default:
                     WB_UNREACHABLE();
             }
         }
-        recording_queue.end_write();
+        recorder_queue.end_write();
     }
 
     editor_lock.unlock();
@@ -630,7 +627,7 @@ void Engine::write_recorded_samples_(uint32_t num_samples) {
                 Log::debug("Resize sample");
             }
             auto sample_data = track->recorded_samples->get_sample_data<float>();
-            recording_queue.read(i, sample_data, track->num_samples_written, 0, num_channels);
+            recorder_queue.read(i, sample_data, track->num_samples_written, 0, num_channels);
             // Log::debug("{}", track->num_samples_written);
             track->num_samples_written = required_size;
         }
@@ -639,15 +636,15 @@ void Engine::write_recorded_samples_(uint32_t num_samples) {
 
 void Engine::recorder_thread_runner_(Engine* engine) {
     uint32_t num_samples_to_read = engine->audio_record_file_chunk_size / 4;
-    while (engine->recording_queue.begin_read(num_samples_to_read)) {
+    while (engine->recorder_queue.begin_read(num_samples_to_read)) {
         engine->write_recorded_samples_(num_samples_to_read);
-        engine->recording_queue.end_read();
+        engine->recorder_queue.end_read();
     }
-    uint32_t remaining_samples = engine->recording_queue.size();
+    uint32_t remaining_samples = engine->recorder_queue.size();
     if (remaining_samples > 0) {
-        engine->recording_queue.begin_read(remaining_samples);
+        engine->recorder_queue.begin_read(remaining_samples);
         engine->write_recorded_samples_(remaining_samples);
-        engine->recording_queue.end_read();
+        engine->recorder_queue.end_read();
     }
 }
 
