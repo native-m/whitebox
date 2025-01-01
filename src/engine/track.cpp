@@ -263,7 +263,7 @@ void Track::process_event(double start_time, double end_time, double sample_posi
                 uint32_t idx = *event_state.clip_idx;
                 if (idx < clips.size()) {
                     Clip* clip = clips[idx];
-                    if (idx != *clip_at_playhead || start_time < clip->min_time || start_time > clip->max_time) {
+                    if (idx != *clip_at_playhead || start_time >= clip->min_time || start_time < clip->max_time) {
                         if (clip->is_audio()) {
                             audio_event_buffer.push_back({
                                 .type = EventType::StopSample,

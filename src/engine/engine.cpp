@@ -108,7 +108,7 @@ void Engine::stop_record() {
             track->num_samples_written = 0; // Reset back to zero
             // Transform the recorded sample into asset and create the audio clip
             SampleAsset* asset = g_sample_table.create_from_existing_sample(std::move(*track->recorded_samples));
-            add_audio_clip(track, track->recorded_samples->name, track->record_min_time, track->record_max_time, 0.0,
+            add_audio_clip(track, asset->sample_instance.name, track->record_min_time, track->record_max_time, 0.0,
                            AudioClip {.asset = asset});
             track->recorded_samples.reset();
         }
