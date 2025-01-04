@@ -201,13 +201,14 @@ void Track::reset_playback_state(double time_pos, bool refresh_voices) {
     if (!refresh_voices) {
         std::optional<uint32_t> next_clip = find_next_clip(time_pos);
         event_state.current_clip_idx.reset();
+        event_state.current_clip = nullptr;
         event_state.clip_idx = next_clip;
         event_state.midi_note_idx = 0;
+        event_state.partially_ended = false;
         midi_voice_state.voice_mask = 0;
         midi_voice_state.release_all();
     }
     event_state.refresh_voice = refresh_voices;
-    event_state.partially_ended = false;
 }
 
 void Track::prepare_record(double time_pos) {
@@ -258,12 +259,14 @@ void Track::process_event(double start_time, double end_time, double sample_posi
     uint32_t num_clips = (uint32_t)clips.size();
     if (event_state.refresh_voice) [[unlikely]] {
         std::optional<uint32_t> clip_at_playhead = find_next_clip(start_time);
+        // TODO: Skip if refreshing the same clip
         if (clip_at_playhead) {
             if (event_state.clip_idx) {
                 uint32_t idx = *event_state.clip_idx;
                 if (idx < clips.size()) {
-                    Clip* clip = clips[idx];
-                    if (idx != *clip_at_playhead || start_time >= clip->min_time || start_time < clip->max_time) {
+                    Clip* clip = clips[*clip_at_playhead];
+                    Clip* current_clip = clips[idx];
+                    if (clip != current_clip && start_time >= clip->min_time && start_time <= clip->max_time) {
                         if (clip->is_audio()) {
                             audio_event_buffer.push_back({
                                 .type = EventType::StopSample,
@@ -275,6 +278,20 @@ void Track::process_event(double start_time, double end_time, double sample_posi
                         }
                         event_state.clip_idx = *clip_at_playhead;
                         event_state.midi_note_idx = 0;
+                        event_state.partially_ended = false;
+                    } else if (clip == current_clip && (start_time < clip->min_time || start_time > clip->max_time)) {
+                        if (clip->is_audio()) {
+                            audio_event_buffer.push_back({
+                                .type = EventType::StopSample,
+                                .buffer_offset = 0,
+                                .time = start_time,
+                            });
+                        } else {
+                            stop_midi_notes(0, start_time);
+                        }
+                        event_state.clip_idx = *clip_at_playhead;
+                        event_state.midi_note_idx = 0;
+                        event_state.partially_ended = false;
                     }
                 }
             } else {

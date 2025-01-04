@@ -34,6 +34,7 @@ enum TrackParameter {
 struct TrackEventState {
     std::optional<uint32_t> current_clip_idx;
     std::optional<uint32_t> clip_idx;
+    Clip* current_clip;
     double last_start_clip_position;
     uint32_t midi_note_idx;
     bool refresh_voice;
