@@ -473,6 +473,7 @@ void app_render() {
     }
 
     ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+    g_engine.update_audio_visualization(GImGui->IO.Framerate);
 
     ImVec2 frame_padding = GImGui->Style.FramePadding;
     ImVec2 window_padding = GImGui->Style.WindowPadding;
@@ -492,15 +493,6 @@ void app_render() {
     controls::render_test_controls();
     render_history_window();
     render_asset_window();
-
-    float framerate = GImGui->IO.Framerate;
-    // Update vu meters
-    for (auto track : g_engine.tracks) {
-        for (auto& vu_channel : track->level_meter) {
-            vu_channel.update(framerate);
-        }
-    }
-
     g_settings.render();
     g_browser.render();
     g_mixer.render();

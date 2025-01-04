@@ -23,7 +23,7 @@ void* allocate_virtual(size_t size) noexcept {
 
 void free_virtual(void* ptr, size_t size) noexcept {
 #if defined(WB_PLATFORM_WINDOWS)
-    ::VirtualFree(ptr, size, MEM_RELEASE);
+    ::VirtualFree(ptr, 0, MEM_RELEASE);
 #elif defined(WB_PLATFORM_LINUX)
     ::munmap(ptr, size);
 #endif

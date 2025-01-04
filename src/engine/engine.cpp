@@ -3,6 +3,7 @@
 #include "core/core_math.h"
 #include "core/debug.h"
 #include "track.h"
+#include "audio_io.h"
 #include <numbers>
 #include <fmt/chrono.h>
 
@@ -36,6 +37,7 @@ void Engine::set_audio_channel_config(uint32_t input_channels, uint32_t output_c
     num_output_channels = output_channels;
     audio_buffer_size = buffer_size;
     audio_sample_rate = sample_rate;
+    audio_buffer_duration_ms = period_to_ms(buffer_size_to_period(buffer_size, sample_rate));
     mixing_buffer.resize(buffer_size);
     mixing_buffer.resize_channel(output_channels);
 }
@@ -509,6 +511,17 @@ double Engine::get_song_length() const {
         }
     }
     return max_length;
+}
+
+void Engine::update_audio_visualization(float frame_rate) {
+    double frame_rate_sec = 1.0 / (double)frame_rate;
+    double buffer_duration_sec = audio_buffer_duration_ms / 1000.0;
+    double speed = (double)frame_rate * std::max(frame_rate_sec, buffer_duration_sec);
+    for (auto track : tracks) {
+        for (auto& vu_channel : track->level_meter) {
+            vu_channel.update(frame_rate, (float)(speed * 0.1));
+        }
+    }
 }
 
 void Engine::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>& output_buffer, double sample_rate) {

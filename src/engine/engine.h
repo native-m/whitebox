@@ -27,6 +27,7 @@ struct Engine {
     uint32_t num_output_channels = 0;
     uint32_t audio_buffer_size = 0;
     uint32_t audio_sample_rate = 0;
+    double audio_buffer_duration_ms = 0;
     uint32_t audio_record_buffer_size = 64 * 1024;
     uint32_t audio_record_file_chunk_size = 8 * 1024;
     uint32_t audio_record_chunk_size = 256 * 1024;
@@ -97,6 +98,8 @@ struct Engine {
                                          bool dont_sort, Clip* ignore_clip);
 
     double get_song_length() const;
+
+    void update_audio_visualization(float frame_rate);
 
     /*
         Process the whole thing.
