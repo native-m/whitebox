@@ -114,7 +114,6 @@ void Engine::stop_record() {
         }
         track->stop_record();
     }
-    Log::debug("Record stop");
 }
 
 void Engine::arm_track_recording(uint32_t slot, bool armed) {
@@ -168,15 +167,6 @@ void Engine::set_track_input(uint32_t slot, TrackInputType type, uint32_t index,
                     track_input_groups.erase(input_map);
             }
             track->input_attr.remove_from_list();
-        }
-    }
-
-    Log::debug("--- Input mapping ---");
-
-    for (auto& [input, track_attrs] : track_input_groups) {
-        Log::debug("{}:", TrackInput::from_packed_u32(input).index);
-        for (auto input_attr = track_attrs; input_attr != nullptr; input_attr = input_attr->next()) {
-            Log::debug("{} {:x}", input_attr->track->name, (uint64_t)input_attr);
         }
     }
 
@@ -437,7 +427,6 @@ TrackEditResult Engine::reserve_track_region(Track* track, uint32_t first_clip, 
         if (clip == ignore_clip) {
             return {};
         }
-
         deleted_clips.push_back(*clip);
         if (min > clip->min_time && max < clip->max_time) {
             // Split clip into two parts
@@ -575,9 +564,6 @@ void Engine::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>&
     }
 
     if (currently_playing && track_input_groups.size() != 0 && recording) {
-        // Log::debug("Recording queue: {} {} {}", recording_queue.writer_.pos.load(std::memory_order_relaxed),
-        //            recording_queue.reader_.pos.load(std::memory_order_relaxed),
-        //            recording_queue.size_.load(std::memory_order_relaxed));
         recorder_queue.begin_write(audio_buffer_size);
         for (uint32_t i = 0; i < track_input_groups.size(); i++) {
             TrackInput input = TrackInput::from_packed_u32(track_input_groups[i].input);
@@ -628,7 +614,6 @@ void Engine::write_recorded_samples_(uint32_t num_samples) {
             }
             auto sample_data = track->recorded_samples->get_sample_data<float>();
             recorder_queue.read(i, sample_data, track->num_samples_written, 0, num_channels);
-            // Log::debug("{}", track->num_samples_written);
             track->num_samples_written = required_size;
         }
     }

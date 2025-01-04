@@ -45,9 +45,11 @@ bool track_context_menu(Track* track, int track_id, const std::string* tmp_name,
         ret = true;
     }
 
+    ImGui::BeginDisabled(g_engine.is_recording());
     if (ImGui::MenuItem("Delete")) {
         g_engine.delete_track((uint32_t)track_id);
     }
+    ImGui::EndDisabled();
 
     ImGui::Separator();
 

@@ -27,7 +27,7 @@ struct Spinlock {
 
     inline void wait() noexcept {
         while (lock_.load(std::memory_order_relaxed))
-            ;
+            std::this_thread::yield();
     }
 };
 

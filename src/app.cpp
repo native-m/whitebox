@@ -199,6 +199,10 @@ void app_init() {
         Log::debug("{}", SDL_GetError());
         std::abort();
     }
+
+    SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
+    SDL_AddEventWatch(event_watcher, nullptr);
+
     register_events();
     SDL_Window* new_window =
         SDL_CreateWindow("whitebox", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, SDL_WINDOW_RESIZABLE);
@@ -209,8 +213,6 @@ void app_init() {
 
     main_window_id = SDL_GetWindowID(new_window);
     main_window = new_window;
-    SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
-    SDL_AddEventWatch(event_watcher, nullptr);
     SDL_GetWindowSize(new_window, &main_window_width, &main_window_height);
     setup_dark_mode(new_window);
     SDL_VERSION(&main_wm_info.version);
@@ -314,8 +316,7 @@ void app_render_control_bar() {
                                 ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive))) {
         if (!is_recording) {
             g_engine.record();
-        }
-        else {
+        } else {
             g_timeline.redraw_screen();
             g_engine.stop_record();
         }
@@ -507,9 +508,8 @@ void app_render() {
     g_piano_roll.render();
     g_env_window.render();
 
-    if (g_show_project_dialog) {
+    if (g_show_project_dialog)
         project_info_dialog();
-    }
 
     ImGui::Render();
     g_renderer->begin_draw(nullptr, {0.0f, 0.0f, 0.0f, 1.0f});
@@ -526,11 +526,10 @@ void app_render() {
 }
 
 void app_run_loop() {
-    SDL_Event event;
     while (is_running) {
-        while (SDL_PollEvent(&event)) {
+        SDL_Event event;
+        while (SDL_PollEvent(&event))
             handle_events(event);
-        }
         app_render();
     }
 }
@@ -570,6 +569,7 @@ void set_mouse_cursor_pos(float x, float y) {
 static bool last_resized = false;
 
 int SDLCALL event_watcher(void* userdata, SDL_Event* event) {
+    bool refresh = false;
     switch (event->type) {
         case SDL_WINDOWEVENT: {
             int32_t w, h;
@@ -580,7 +580,7 @@ int SDLCALL event_watcher(void* userdata, SDL_Event* event) {
                             !last_resized) {
                             main_window_x = event->window.data1;
                             main_window_y = event->window.data2;
-                            app_render();
+                            refresh = true;
                         }
                     } else {
                         bool moving = false;
@@ -594,11 +594,9 @@ int SDLCALL event_watcher(void* userdata, SDL_Event* event) {
                                 int32_t last_x = (int32_t)vp->Pos.x;
                                 int32_t last_y = (int32_t)vp->Pos.y;
                                 if (last_x != event->window.data1 && last_y != event->window.data2)
-                                    moving = true;
+                                    refresh = true;
                             }
                         }
-                        if (moving)
-                            app_render();
                     }
                     last_resized = false;
                     break;
@@ -610,7 +608,7 @@ int SDLCALL event_watcher(void* userdata, SDL_Event* event) {
                             main_window_height = event->window.data2;
                             g_renderer->resize_viewport(ImGui::GetMainViewport(),
                                                         ImVec2((float)main_window_width, (float)main_window_height));
-                            app_render();
+                            refresh = true;
                             last_resized = true;
                         }
                     } else {
@@ -630,11 +628,9 @@ int SDLCALL event_watcher(void* userdata, SDL_Event* event) {
                                 vp->PlatformRequestResize = true;
                                 last_resized = true;
                             }
-                            // Log::debug("{} {}", last_w)
                         }
-                        if (last_resized) {
-                            app_render();
-                        }
+                        if (last_resized)
+                            refresh = true;
                     }
                     break;
                 }
@@ -646,6 +642,8 @@ int SDLCALL event_watcher(void* userdata, SDL_Event* event) {
         default:
             break;
     }
+    if (refresh)
+        app_render();
     return 0;
 }
 

@@ -53,7 +53,6 @@ struct Engine {
     AudioBuffer<float> mixing_buffer;
     std::vector<OnBpmChangeFn> on_bpm_change_listener;
 
-    uint32_t recording_session_id_counter = 0;
     AudioRecordQueue recorder_queue;
     Vector<Sample> recorded_samples;
     std::thread recorder_thread;
