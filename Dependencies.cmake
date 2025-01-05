@@ -62,6 +62,16 @@ CPMAddPackage(
     DOWNLOAD_ONLY       YES
 )
 
+CPMAddPackage(
+    NAME                leveldb
+    VERSION             1.23
+    GIT_TAG             1.23
+    GITHUB_REPOSITORY   google/leveldb
+    OPTIONS             "LEVELDB_INSTALL OFF"
+                        "LEVELDB_BUILD_TESTS OFF"
+                        "LEVELDB_BUILD_BENCHMARKS OFF"
+)
+
 # Workaround for deprecated C++20 STL classes
 CPMAddPackage(
     NAME                fmt
