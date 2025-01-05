@@ -6,23 +6,13 @@
 #include "engine/audio_io.h"
 #include "engine/engine.h"
 #include "ui/browser.h"
+#include "platform/path_def.h"
 #include <filesystem>
 #include <fstream>
 
 namespace wb {
-#ifdef NDEBUG
-#if defined(WB_PLATFORM_WINDOWS)
-static const std::filesystem::path userpath {std::getenv("USERPROFILE")};
-#elif defined(WB_PLATFORM_LINUX)
-static const std::filesystem::path userpath {std::getenv("HOME")};
-#else
-static const std::filesystem::path userpath {std::getenv("HOME")};
-#endif
-#else
-static const std::filesystem::path userpath {std::filesystem::current_path()};
-#endif
-static const std::filesystem::path devpath {std::filesystem::current_path()};
-static const std::filesystem::path settings_file_path {devpath / ".whitebox" / "settings.json"};
+
+static const std::filesystem::path settings_file_path {path_def::wbpath / "settings.json"};
 static nlohmann::ordered_json settings;
 
 AudioIOType g_audio_io_type {};
@@ -37,8 +27,8 @@ bool g_audio_exclusive_mode = false;
 void load_settings_data() {
     Log::info("Loading user settings...");
 
-    if (!std::filesystem::is_directory(devpath / ".whitebox")) {
-        std::filesystem::create_directory(devpath / ".whitebox");
+    if (!std::filesystem::is_directory(path_def::wbpath)) {
+        std::filesystem::create_directory(path_def::wbpath);
     }
 
     if (!std::filesystem::exists(settings_file_path)) {
@@ -181,8 +171,8 @@ void load_default_settings() {
 void save_settings_data() {
     Log::info("Saving user settings...");
 
-    if (!std::filesystem::is_directory(devpath / ".whitebox")) {
-        std::filesystem::create_directory(devpath / ".whitebox");
+    if (!std::filesystem::is_directory(path_def::wbpath)) {
+        std::filesystem::create_directory(path_def::wbpath);
     }
 
     settings["version"] = "0.0.2";

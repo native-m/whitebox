@@ -123,6 +123,8 @@ set(WB_SOURCES
     "src/gfx/vk_stub.cpp"
     "src/gfx/vk_stub.h"
 
+    "src/platform/path_def.cpp"
+    "src/platform/path_def.h"
     "src/platform/platform.cpp"
     "src/platform/platform.h"
 

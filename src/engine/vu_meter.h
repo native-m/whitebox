@@ -28,7 +28,7 @@ struct VUMeter {
             ;
     }
 
-    void update(float frame_rate, float speed = 0.1f) {
+    void update(float frame_rate, float speed) {
         float new_level = level.exchange(0.0f, std::memory_order_release);
         if (new_level > current_level) {
             current_level = new_level;
