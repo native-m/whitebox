@@ -45,6 +45,7 @@ set(WB_SOURCES
     "src/core/audio_format_conv.cpp"
     "src/core/audio_format_conv.h"
     "src/core/audio_format.h"
+    "src/core/byte_buffer.h"
     "src/core/bit_manipulation.h"
     "src/core/color.h"
     "src/core/common.h"
@@ -187,6 +188,7 @@ set(WB_LINK_LIBRARIES
     imgui-cpp
     imgui-freetype
     imgui-vulkan
+    leveldb
     sndfile
     vorbisfile
     midi-parser
