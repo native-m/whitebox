@@ -1,5 +1,6 @@
 #include "catch_amalgamated.hpp"
 #include "core/fs.h"
+#include "core/byte_buffer.h"
 #include "core/stream.h"
 #include "core/vector.h"
 
@@ -71,3 +72,28 @@ TEST_CASE("Todo") {
     REQUIRE(true);
 }
 #endif
+
+TEST_CASE("Byte buffer write & read") {
+    wb::Vector<int> v;
+    for (int i = 0; i < 256; i++)
+        v.push_back(i);
+
+    wb::ByteBuffer buf;
+    REQUIRE(wb::io_write(buf, 10) == sizeof(int));
+    REQUIRE(wb::io_write(buf, 1.2f) == sizeof(float));
+    REQUIRE(wb::io_write(buf, v) > 4);
+    buf.seek(0, wb::IOSeekMode::Begin);
+
+    int a = 0;
+    float b = 0.0f;
+    wb::Vector<int> v2;
+    REQUIRE(wb::io_read(buf, &a) == sizeof(int));
+    REQUIRE(wb::io_read(buf, &b) == sizeof(float));
+    REQUIRE(wb::io_read(buf, &v2) > 4);
+
+    REQUIRE(a == 10);
+    REQUIRE(b == 1.2f);
+
+    for (int i = 0; i < 256; i++)
+        REQUIRE(v2[i] == i);
+}
