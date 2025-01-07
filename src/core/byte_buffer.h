@@ -1,38 +1,77 @@
 #pragma once
 
-#include "core/common.h"
-#include "core/vector.h"
+#include "common.h"
+#include "io_types.h"
 #include <cstddef>
-#include <string>
 
 namespace wb {
 struct ByteBuffer {
-    Vector<std::byte> buffer;
-    size_t write_pos = 0;
-    size_t read_pos = 0;
+    std::byte* buffer = nullptr;
+    size_t capacity_ = 0;
+    size_t position_ = 0;
+    size_t size_ = 0;
 
+    ByteBuffer() = default;
+    ByteBuffer(size_t byte_reserved) { reserve(byte_reserved); }
     ByteBuffer(const ByteBuffer&) = delete;
-
-    inline void reset() { write_pos = 0; }
-    inline void reserve(size_t n) { buffer.resize(n); }
-
-    inline uint32_t write(const void* src, size_t size) {
-        std::byte* ptr = buffer.data() + write_pos;
-        std::memcpy(ptr, src, size);
-        write_pos += size;
-        return (uint32_t)size;
+    ~ByteBuffer() {
+        if (buffer)
+            std::free(buffer);
     }
 
-    // TODO: Implement read functions
+    inline void reset() {
+        position_ = 0;
+        size_ = 0;
+    }
 
-    inline uint32_t write_i32(int32_t value) { return write(&value, sizeof(int32_t)); }
-    inline uint32_t write_u32(uint32_t value) { return write(&value, sizeof(uint32_t)); }
-    inline uint32_t write_f32(float value) { return write(&value, sizeof(float)); }
-    inline uint32_t write_i64(int32_t value) { return write(&value, sizeof(int64_t)); }
-    inline uint32_t write_u64(uint32_t value) { return write(&value, sizeof(uint64_t)); }
-    inline uint32_t write_f64(double value) { return write(&value, sizeof(double)); }
-    inline uint32_t write_string(const char* str, size_t size) { return write(str, size); }
-    inline size_t write_size() const { return write_pos; }
-    inline const std::byte* data() const { return buffer.data(); }
+    inline bool seek(int64_t offset, IOSeekMode mode) {
+        switch (mode) {
+            case IOSeekMode::Begin:
+                position_ = offset;
+                break;
+            case IOSeekMode::Relative:
+                position_ = (size_t)((int64_t)position_ + offset);
+                break;
+            case IOSeekMode::End:
+                position_ = (size_t)((int64_t)size_ + offset);
+                break;
+            default:
+                WB_UNREACHABLE();
+        }
+        return true;
+    }
+
+    inline void reserve(size_t n) {
+        if (n > capacity_) {
+            std::byte* new_buffer = (std::byte*)std::malloc(n);
+            assert(new_buffer && "Cannot reserve buffer");
+            if (buffer)
+                std::memcpy(new_buffer, buffer, position_);
+            buffer = new_buffer;
+            capacity_ = n;
+        }
+    }
+
+    inline uint32_t read(void* src, size_t read_size) {
+        size_t next_read_pos = position_ + read_size;
+        if (next_read_pos > size_)
+            return 0;
+        std::memcpy(src, buffer + position_, read_size);
+        position_ = next_read_pos;
+        return read_size;
+    }
+
+    inline uint32_t write(const void* src, size_t write_size) {
+        size_t next_write_pos = position_ + write_size;
+        if (next_write_pos > capacity_)
+            reserve(next_write_pos + (256 - (next_write_pos & 255)));
+        std::byte* ptr = buffer + position_;
+        std::memcpy(ptr, src, write_size);
+        position_ = next_write_pos;
+        size_ = next_write_pos > size_ ? next_write_pos : size_;
+        return (uint32_t)write_size;
+    }
+
+    inline size_t position() const { return position_; }
 };
 } // namespace wb
