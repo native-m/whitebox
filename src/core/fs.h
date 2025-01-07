@@ -2,39 +2,13 @@
 
 #include "common.h"
 #include "types.h"
+#include "io_types.h"
 #include <filesystem>
 #include <optional>
 #include <bit>
 
 namespace wb {
-struct File;
-
-template <typename T>
-concept FileSerializable = requires(T v, File* file) {
-    { v.write_to_file(file) } -> std::same_as<uint32_t>;
-};
-
-template <typename T>
-concept FileDeserializable = requires(T v, File* file) {
-    { v.read_from_file(file) } -> std::same_as<uint32_t>;
-};
-
 struct File {
-    enum {
-        // File open flags
-        Read = 1,
-        Write = 2,
-        Truncate = 4,
-
-        // Seek modes
-        SeekBegin = 0,
-        SeekRelative = 1,
-        SeekEnd = 2,
-
-        // Errors
-        ErrEndOfFile,
-    };
-
     void* handle_;
     bool open_ {};
 
@@ -42,7 +16,7 @@ struct File {
     ~File();
 
     bool open(const std::filesystem::path& path, uint32_t flags);
-    bool seek(int64_t offset, uint32_t mode);
+    bool seek(int64_t offset, IOSeekMode mode);
     uint64_t position() const;
     uint32_t read(void* dest, size_t size);
     uint32_t write(const void* src, size_t size);
@@ -107,5 +81,4 @@ void explore_folder(const std::filesystem::path& path);
 void locate_file(const std::filesystem::path& path);
 std::optional<std::filesystem::path> find_file_recursive(const std::filesystem::path& dir,
                                                          const std::filesystem::path& filename);
-
 } // namespace wb

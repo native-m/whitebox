@@ -1,5 +1,7 @@
 #include "catch_amalgamated.hpp"
 #include "core/fs.h"
+#include "core/stream.h"
+#include "core/vector.h"
 
 #ifdef WB_PLATFORM_WINDOWS
 class TestRunListener : public Catch::EventListenerBase {
@@ -14,7 +16,7 @@ CATCH_REGISTER_LISTENER(TestRunListener);
 
 TEST_CASE("Regular write") {
     wb::File file;
-    REQUIRE(file.open("test.txt", wb::File::Write));
+    REQUIRE(file.open("test.txt", wb::IOOpenMode::Write));
     REQUIRE(file.write_string("Whitebox file I/O test") > 0);
     file.close();
 }
@@ -22,7 +24,7 @@ TEST_CASE("Regular write") {
 TEST_CASE("Regular read") {
     char tmp[23] {};
     wb::File file;
-    REQUIRE(file.open("test.txt", wb::File::Read));
+    REQUIRE(file.open("test.txt", wb::IOOpenMode::Read));
     REQUIRE(file.read_string(tmp, 22) > 0);
     REQUIRE(std::strncmp(tmp, "Whitebox file I/O test", 22) == 0);
     file.close();
@@ -30,7 +32,7 @@ TEST_CASE("Regular read") {
 
 TEST_CASE("Truncate write") {
     wb::File file;
-    REQUIRE(file.open("test.txt", wb::File::Write | wb::File::Truncate));
+    REQUIRE(file.open("test.txt", wb::IOOpenMode::Write | wb::IOOpenMode::Truncate));
     REQUIRE(file.write_string("Whitebox file I/O test") > 0);
     file.close();
 
@@ -39,7 +41,7 @@ TEST_CASE("Truncate write") {
 
     char tmp[23] {};
     wb::File read_file;
-    REQUIRE(read_file.open("test.txt", wb::File::Read));
+    REQUIRE(read_file.open("test.txt", wb::IOOpenMode::Read));
     REQUIRE(read_file.read_string(tmp, 22) > 0);
     REQUIRE(std::strncmp(tmp, "Whitebox file I/O test", 22) == 0);
     read_file.close();
@@ -48,8 +50,8 @@ TEST_CASE("Truncate write") {
 TEST_CASE("Seek file from start") {
     char tmp[23] {};
     wb::File file;
-    REQUIRE(file.open("test.txt", wb::File::Read));
-    REQUIRE(file.seek(9, wb::File::SeekBegin));
+    REQUIRE(file.open("test.txt", wb::IOOpenMode::Read));
+    REQUIRE(file.seek(9, wb::IOSeekMode::Begin));
     REQUIRE(file.read_string(tmp, 13) > 0);
     REQUIRE(std::strncmp(tmp, "file I/O test", 13) == 0);
     file.close();
@@ -58,8 +60,8 @@ TEST_CASE("Seek file from start") {
 TEST_CASE("Seek file from end") {
     char tmp[23] {};
     wb::File file;
-    REQUIRE(file.open("test.txt", wb::File::Read));
-    REQUIRE(file.seek(-13, wb::File::SeekEnd));
+    REQUIRE(file.open("test.txt", wb::IOOpenMode::Read));
+    REQUIRE(file.seek(-13, wb::IOSeekMode::End));
     REQUIRE(file.read_string(tmp, 13) > 0);
     REQUIRE(std::strncmp(tmp, "file I/O test", 13) == 0);
     file.close();

@@ -2,11 +2,9 @@
 
 #include "assets_table.h"
 #include "core/common.h"
-#include "core/fs.h"
-#include "core/vector.h"
 #include "engine.h"
 #include "ui/timeline.h"
-#include <fstream>
+#include <filesystem>
 #include <unordered_map>
 
 namespace wb {

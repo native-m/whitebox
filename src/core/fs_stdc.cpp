@@ -13,7 +13,7 @@ bool File::open(const std::filesystem::path& path, uint32_t flags) {
     return false;
 }
 
-bool File::seek(int64_t offset, uint32_t mode) {
+bool File::seek(int64_t offset, IOSeekMode mode) {
     return false;
 }
 

@@ -18,17 +18,17 @@ bool File::open(const std::filesystem::path& path, uint32_t flags) {
     DWORD desired_access = 0;
     DWORD creation_diposition = 0;
 
-    if (has_bit(flags, File::Read)) {
+    if (has_bit(flags, IOOpenMode::Read)) {
         desired_access |= GENERIC_READ;
         creation_diposition = OPEN_EXISTING;
     }
 
-    if (has_bit(flags, File::Write)) {
+    if (has_bit(flags, IOOpenMode::Write)) {
         desired_access |= GENERIC_WRITE;
         creation_diposition = OPEN_ALWAYS;
     }
 
-    if (has_bit(flags, File::Truncate)) {
+    if (has_bit(flags, IOOpenMode::Truncate)) {
         creation_diposition = CREATE_ALWAYS;
     }
 
@@ -44,9 +44,9 @@ bool File::open(const std::filesystem::path& path, uint32_t flags) {
     return true;
 }
 
-bool File::seek(int64_t offset, uint32_t mode) {
+bool File::seek(int64_t offset, IOSeekMode mode) {
     LARGE_INTEGER ofs {.QuadPart = offset};
-    return SetFilePointerEx((HANDLE)handle_, ofs, nullptr, mode);
+    return SetFilePointerEx((HANDLE)handle_, ofs, nullptr, (DWORD)mode);
 }
 
 uint64_t File::position() const {

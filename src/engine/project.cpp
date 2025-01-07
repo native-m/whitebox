@@ -1,5 +1,6 @@
 #include "project.h"
 #include "core/fs.h"
+#include "core/vector.h"
 #include "engine/track.h"
 #include "ui/browser.h"
 #include "ui/timeline.h"
@@ -21,7 +22,7 @@ ProjectFileResult read_project_file(const std::filesystem::path& path, Engine& e
     uintmax_t size = std::filesystem::file_size(path);
     if (size < sizeof(PFHeader))
         return ProjectFileResult::ErrInvalidFormat;
-    if (!file.open(path, File::Read))
+    if (!file.open(path, IOOpenMode::Read))
         return ProjectFileResult::ErrCannotAccessFile;
 
     PFHeader header;
@@ -224,7 +225,7 @@ ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& 
     sample_table.destroy_unused();
 
     File file;
-    if (!file.open(path, File::Write | File::Truncate)) {
+    if (!file.open(path, IOOpenMode::Write | IOOpenMode::Truncate)) {
         return ProjectFileResult::ErrCannotAccessFile;
     }
 
