@@ -24,12 +24,13 @@ static Steinberg::Vst::HostApplication vst3_plugin_context;
 static PluginInfo decode_plugin_info(ByteBuffer& buffer) {
     PluginInfo info;
     info.descriptor_id.resize(sizeof(VST3::UID::TUID));
+    io_read(buffer, &info.version);
     io_read_bytes(buffer, (std::byte*)info.descriptor_id.data(), sizeof(VST3::UID::TUID));
     io_read(buffer, &info.name);
     io_read(buffer, &info.vendor);
     io_read(buffer, &info.version);
     io_read(buffer, &info.path);
-    io_read(buffer, &info.category);
+    io_read(buffer, &info.flags);
     io_read(buffer, &info.type);
     return info;
 }
@@ -37,6 +38,7 @@ static PluginInfo decode_plugin_info(ByteBuffer& buffer) {
 static void encode_plugin_info(ByteBuffer& buffer, const VST3::UID& descriptor_id, const std::string& name,
                                const std::string& vendor, const std::string& version, const std::string& path,
                                uint8_t category, PluginType type) {
+    io_write(buffer, plugin_info_version);
     io_write_bytes(buffer, (std::byte*)descriptor_id.data(), sizeof(VST3::UID::TUID));
     io_write(buffer, name);
     io_write(buffer, vendor);
@@ -113,11 +115,11 @@ void scan_vst3_plugins() {
             uint8_t category = 0;
             for (auto& subcategory : subcategories) {
                 if (subcategory == "Fx")
-                    category |= PluginCategory::Effect;
+                    category |= PluginFlags::Effect;
                 if (subcategory == "Instrument")
-                    category |= PluginCategory::Instrument;
+                    category |= PluginFlags::Instrument;
                 if (subcategory == "Analyzer")
-                    category |= PluginCategory::Analyzer;
+                    category |= PluginFlags::Analyzer;
             }
 
             value_buf.reset();
