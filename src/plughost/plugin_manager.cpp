@@ -24,7 +24,7 @@ static Steinberg::Vst::HostApplication vst3_plugin_context;
 static PluginInfo decode_plugin_info(ByteBuffer& buffer) {
     PluginInfo info;
     info.descriptor_id.resize(sizeof(VST3::UID::TUID));
-    io_read(buffer, &info.version);
+    io_read(buffer, &info.structure_version);
     io_read_bytes(buffer, (std::byte*)info.descriptor_id.data(), sizeof(VST3::UID::TUID));
     io_read(buffer, &info.name);
     io_read(buffer, &info.vendor);
@@ -37,14 +37,14 @@ static PluginInfo decode_plugin_info(ByteBuffer& buffer) {
 
 static void encode_plugin_info(ByteBuffer& buffer, const VST3::UID& descriptor_id, const std::string& name,
                                const std::string& vendor, const std::string& version, const std::string& path,
-                               uint8_t category, PluginType type) {
+                               uint32_t flags, PluginType type) {
     io_write(buffer, plugin_info_version);
     io_write_bytes(buffer, (std::byte*)descriptor_id.data(), sizeof(VST3::UID::TUID));
     io_write(buffer, name);
     io_write(buffer, vendor);
     io_write(buffer, version);
     io_write(buffer, path);
-    io_write(buffer, category);
+    io_write(buffer, flags);
     io_write(buffer, type);
 }
 
@@ -112,19 +112,19 @@ void scan_vst3_plugins() {
             Log::info("Subcategories: {}", fmt::join(subcategories, ", "));
 
             // Find plugin category
-            uint8_t category = 0;
+            uint32_t flags = 0;
             for (auto& subcategory : subcategories) {
                 if (subcategory == "Fx")
-                    category |= PluginFlags::Effect;
+                    flags |= PluginFlags::Effect;
                 if (subcategory == "Instrument")
-                    category |= PluginFlags::Instrument;
+                    flags |= PluginFlags::Instrument;
                 if (subcategory == "Analyzer")
-                    category |= PluginFlags::Analyzer;
+                    flags |= PluginFlags::Analyzer;
             }
 
             value_buf.reset();
-            encode_plugin_info(value_buf, id, class_info.name(), class_info.vendor(), class_info.version(), path,
-                               category, PluginType::VST3);
+            encode_plugin_info(value_buf, id, class_info.name(), class_info.vendor(), class_info.version(), path, flags,
+                               PluginType::VST3);
             std::memcpy(key, &hash, sizeof(XXH128_hash_t));
             batch.Put(key, ldb::Slice((char*)value_buf.data(), value_buf.position()));
             Log::info("Added VST3 module: {}", path);

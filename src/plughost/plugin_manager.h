@@ -30,7 +30,7 @@ struct PluginUID {
 
 struct PluginInfo {
     uint8_t plugin_uid[16]; // or plugin DB key
-    uint32_t version;
+    uint32_t structure_version;
     std::string descriptor_id; // ID used by 3rd-party plugin, unused in whitebox native plugin
     std::string name;
     std::string vendor;
