@@ -43,10 +43,12 @@ inline uint32_t io_read_bytes(R& r, std::byte* data, size_t size) {
 }
 
 template <IOReader R, typename T>
-    requires NumericalType<T> || DynamicArrayContainer<T>
+    requires NumericalType<T> || DynamicArrayContainer<T> || std::is_enum_v<T>
 inline uint32_t io_read(R& r, T* value) {
     if constexpr (NumericalType<T>) {
         return r.read(value, sizeof(T));
+    } else if constexpr (std::is_enum_v<T>) {
+        return r.read(value, sizeof(std::underlying_type_t<T>));
     } else if constexpr (ContinuousArrayContainer<T>) {
         uint32_t size;
         uint32_t num_size_read = r.read(&size, sizeof(uint32_t));
@@ -73,10 +75,12 @@ inline uint32_t io_write_bytes(W& w, std::byte* data, size_t size) {
 }
 
 template <IOWriter W, typename T>
-    requires NumericalType<T> || ContinuousArrayContainer<T>
+    requires NumericalType<T> || ContinuousArrayContainer<T> || std::is_enum_v<T>
 inline uint32_t io_write(W& w, const T& value) {
     if constexpr (NumericalType<T>) {
         return w.write(&value, sizeof(T));
+    } else if constexpr (std::is_enum_v<T>) {
+        return w.write(&value, sizeof(std::underlying_type_t<T>));
     } else if constexpr (ContinuousArrayContainer<T>) {
         uint32_t size = value.size();
         uint32_t num_size_written = w.write(&size, sizeof(uint32_t));
