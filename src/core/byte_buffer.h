@@ -27,7 +27,7 @@ struct ByteBuffer {
     ByteBuffer(const ByteBuffer&) = delete;
 
     ~ByteBuffer() {
-        if (buffer)
+        if (buffer && managed_)
             std::free(buffer);
     }
 

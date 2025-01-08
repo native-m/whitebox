@@ -8,6 +8,7 @@
 #include "gfx/renderer.h"
 #include "platform/platform.h"
 #include "plughost/vst3host.h"
+#include "plughost/plugin_manager.h"
 #include "ui/IconsMaterialSymbols.h"
 #include "ui/browser.h"
 #include "ui/command_manager.h"
@@ -224,6 +225,7 @@ void app_init() {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     load_settings_data();
+    init_plugin_manager();
     start_audio_engine();
 
     ImGuiIO& io = ImGui::GetIO();
@@ -360,6 +362,9 @@ void app_render_control_bar() {
             ImGui::Separator();
             ImGui::MenuItem("Project info...", nullptr, &g_show_project_dialog);
             ImGui::Separator();
+            if (ImGui::MenuItem("Scan plugins")) {
+                scan_plugins();
+            }
             if (ImGui::MenuItem("Open VST3 plugin (folder)")) {
 #ifdef WB_PLATFORM_WINDOWS
                 if (auto folder = pick_folder_dialog()) {
@@ -546,6 +551,7 @@ void app_shutdown() {
     g_sample_table.shutdown();
     g_midi_table.shutdown();
     shutdown_renderer();
+    shutdown_plugin_manager();
     NFD::Quit();
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();

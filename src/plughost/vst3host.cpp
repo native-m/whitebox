@@ -15,16 +15,19 @@ bool VST3Host::open_module(const std::string& path) {
         return false;
     }
 
+    int32_t index = -1;
     const VST3::Hosting::PluginFactory& factory = module_->getFactory();
     class_infos_ = factory.classInfos();
-    for (auto& class_info : class_infos_) {
-        Log::debug("{}", class_info.name());
-        if (class_info.category() == kVstAudioEffectClass) {
-            plug_provider_ =
-                Steinberg::owned(new Steinberg::Vst::PlugProvider(factory, class_info));
-            break;
-        }
+    for (int32_t idx = 0; auto& class_info : class_infos_) {
+        Log::debug("----------------------");
+        Log::debug("Name: {}", class_info.name());
+        Log::debug("ID: {}", class_info.ID().toString());
+        if (class_info.category() == kVstAudioEffectClass)
+            index = idx;
+        idx++;
     }
+
+    plug_provider_ = Steinberg::owned(new Steinberg::Vst::PlugProvider(factory, class_infos_[index]));
 
     if (!plug_provider_) {
         Log::debug("VST3 Error: No module classes found");
@@ -34,6 +37,7 @@ bool VST3Host::open_module(const std::string& path) {
     component_.reset(plug_provider_->getComponent());
     controller_.reset(plug_provider_->getController());
     controller_->setComponentHandler(&component_handler_);
+    //controller_->
     return true;
 }
 

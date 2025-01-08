@@ -91,7 +91,7 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
                 const double inv_scale_x = 1.0 / scale_x;
                 double mip_index = std::log(scale_x * 0.5) * log_base4; // Scale -> Index
                 const int32_t index = math::clamp((int32_t)mip_index, 0, sample_peaks->mipmap_count - 1);
-                double mip_scale = std::pow(4.0, (mip_index - (double)index)) * 2.0; // Index -> Mip Scale
+                double mip_scale = std::pow(4.0, mip_index - (double)index) * 2.0; // Index -> Mip Scale
                 // const double mip_index = (std::log(scale_x * 0.5) * log_base4) * 0.5; // Scale -> Index
                 // const int32_t index = math::clamp((int32_t)mip_index, 0, sample_peaks->mipmap_count - 1);
                 // const double mult = std::pow(4.0, (double)index - 1.0);
@@ -107,6 +107,7 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
                     math::min(math::min(rel_max_x, rel_min_x + waveform_len), (double)(timeline_width + 2.0));
                 const double draw_count = math::max(max_pos_x - min_pos_x, 0.0);
 
+                // Log::debug("{} {} {}", index, mip_scale, (double)sample_peaks->sample_count / mip_index);
                 /*Log::debug("{} {} {} {} {}", sample_peaks->sample_count / (size_t)mip_div, mip_div, index,
                            math::round(start_offset / mip_div), mip_scale);*/
 
@@ -404,6 +405,7 @@ void GuiTimeline::render_track_controls() {
     const float clamped_separator_pos = std::max(separator_pos, min_track_control_size);
     const ImVec2 screen_pos = ImGui::GetCursorScreenPos();
     const auto& style = ImGui::GetStyle();
+    const bool is_recording = g_engine.is_recording();
 
     ImGui::PushClipRect(screen_pos, ImVec2(screen_pos.x + clamped_separator_pos, screen_pos.y + area_size.y + vscroll),
                         true);
@@ -464,7 +466,7 @@ void GuiTimeline::render_track_controls() {
                             g_engine.solo_track(i);
 
                         ImGui::SameLine(0.0f, 2.0f);
-                        ImGui::BeginDisabled(g_engine.recording);
+                        ImGui::BeginDisabled(is_recording);
                         if (controls::small_toggle_button("R", &track->input_attr.armed, muted_color))
                             g_engine.arm_track_recording(i, !track->input_attr.armed);
                         if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
@@ -481,7 +483,7 @@ void GuiTimeline::render_track_controls() {
                         g_engine.solo_track(i);
 
                     ImGui::SameLine(0.0f, 2.0f);
-                    ImGui::BeginDisabled(g_engine.recording);
+                    ImGui::BeginDisabled(is_recording);
                     if (controls::toggle_button("R", &track->input_attr.armed, muted_color))
                         g_engine.arm_track_recording(i, !track->input_attr.armed);
                     if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
@@ -525,7 +527,7 @@ void GuiTimeline::render_track_controls() {
                             break;
                     }
 
-                    ImGui::BeginDisabled(g_engine.recording);
+                    ImGui::BeginDisabled(is_recording);
                     if (ImGui::BeginCombo("Input", input_name)) [[unlikely]] {
                         track_input_context_menu(track, i);
                         ImGui::EndCombo();
@@ -542,7 +544,7 @@ void GuiTimeline::render_track_controls() {
                     g_engine.solo_track(i);
                 ImGui::SameLine(0.0f, 2.0f);
 
-                ImGui::BeginDisabled(g_engine.recording);
+                ImGui::BeginDisabled(is_recording);
                 if (controls::small_toggle_button("R", &track->input_attr.armed, muted_color))
                     g_engine.arm_track_recording(i, !track->input_attr.armed);
                 if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
