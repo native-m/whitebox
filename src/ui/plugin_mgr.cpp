@@ -1,4 +1,5 @@
 #include "plugin_mgr.h"
+#include <algorithm>
 #include <imgui.h>
 
 namespace wb {
@@ -21,7 +22,16 @@ void GuiPluginManager::render() {
         return;
     }
 
-    ImGui::Button("Scan Plugins");
+    bool force_refresh = false;
+    if (ImGui::Button("Scan Plugins")) {
+        scan_plugins();
+        force_refresh = true;
+    }
+
+    ImGui::SameLine();
+
+    if (ImGui::Button("Refresh"))
+        force_refresh = true;
 
     static constexpr auto table_flags = ImGuiTableFlags_Reorderable | ImGuiTableFlags_Sortable | ImGuiTableFlags_RowBg |
                                         ImGuiTableFlags_BordersOuter | ImGuiTableFlags_Resizable |
@@ -38,10 +48,38 @@ void GuiPluginManager::render() {
         ImGui::TableHeadersRow();
 
         if (ImGuiTableSortSpecs* sort_specs = ImGui::TableGetSortSpecs()) {
-            if (sort_specs->SpecsDirty) {
-                // TODO: Update ordering
+            if (sort_specs->SpecsDirty || force_refresh) {
+                update_plugin_info_data(sort_specs);
                 sort_specs->SpecsDirty = false;
             }
+        }
+
+        for (uint32_t id = 0; const auto& plugin_info : plugin_infos) {
+            ImGui::PushID(id);
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted(plugin_info.name.c_str());
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted(plugin_info.vendor.c_str());
+
+            ImGui::TableNextColumn();
+            switch (plugin_info.type) {
+                case PluginType::Native:
+                    ImGui::TextUnformatted("Native");
+                    break;
+                case PluginType::VST3:
+                    ImGui::TextUnformatted("VST3");
+                    break;
+                default:
+                    WB_UNREACHABLE();
+            }
+
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted(plugin_info.version.c_str());
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted(plugin_info.path.c_str());
+            ImGui::PopID();
+            id++;
         }
 
         ImGui::EndTable();
@@ -51,5 +89,26 @@ void GuiPluginManager::render() {
 }
 
 void GuiPluginManager::update_plugin_info_data(ImGuiTableSortSpecs* sort_specs) {
+    Vector<PluginInfo> plugin_info_data = load_plugin_info();
+    auto sort_predicate = [sort_specs](const PluginInfo& a, const PluginInfo& b) {
+        const ImGuiTableColumnSortSpecs* sort_spec = &sort_specs->Specs[0];
+        ImGuiSortDirection sort_dir = sort_spec->SortDirection;
+        bool sort_cmp;
+        switch (sort_spec->ColumnUserID) {
+            case PluginManagerColumnID_Name:
+                return sort_dir == ImGuiSortDirection_Ascending ? a.name < b.name : a.name > b.name;
+            case PluginManagerColumnID_Vendor:
+                return sort_dir == ImGuiSortDirection_Ascending ? a.vendor < b.vendor : a.vendor > b.vendor;
+            case PluginManagerColumnID_Type:
+                return sort_dir == ImGuiSortDirection_Ascending ? a.type < b.type : a.type > b.type;
+            case PluginManagerColumnID_Path:
+                return sort_dir == ImGuiSortDirection_Ascending ? a.path < b.path : a.path > b.path;
+            default:
+                WB_UNREACHABLE();
+        }
+        return true;
+    };
+    std::sort(plugin_info_data.begin(), plugin_info_data.end(), sort_predicate);
+    plugin_infos = std::move(plugin_info_data);
 }
 } // namespace wb

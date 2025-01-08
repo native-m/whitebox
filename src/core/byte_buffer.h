@@ -20,6 +20,7 @@ struct ByteBuffer {
             reserve(size);
             std::memcpy(buffer, bytes, size);
         } else {
+            capacity_ = size;
             buffer = bytes;
         }
     }

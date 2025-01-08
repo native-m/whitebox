@@ -77,6 +77,7 @@ Vector<PluginInfo> load_plugin_info() {
         plugin_infos.push_back(std::move(info));
     }
 
+    delete iter;
     return plugin_infos;
 }
 
@@ -126,7 +127,8 @@ void scan_vst3_plugins() {
             encode_plugin_info(value_buf, id, class_info.name(), class_info.vendor(), class_info.version(), path, flags,
                                PluginType::VST3);
             std::memcpy(key, &hash, sizeof(XXH128_hash_t));
-            batch.Put(key, ldb::Slice((char*)value_buf.data(), value_buf.position()));
+            batch.Put(ldb::Slice(key, sizeof(VST3::UID::TUID)),
+                      ldb::Slice((char*)value_buf.data(), value_buf.position()));
             Log::info("Added VST3 module: {}", path);
         }
     }
