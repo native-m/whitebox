@@ -10,10 +10,22 @@ struct ByteBuffer {
     size_t capacity_ = 0;
     size_t position_ = 0;
     size_t size_ = 0;
+    bool managed_ = true;
 
     ByteBuffer() = default;
     ByteBuffer(size_t byte_reserved) { reserve(byte_reserved); }
+
+    ByteBuffer(std::byte* bytes, size_t size, bool managed = true) : size_(size), managed_(managed) {
+        if (managed) {
+            reserve(size);
+            std::memcpy(buffer, bytes, size);
+        } else {
+            buffer = bytes;
+        }
+    }
+
     ByteBuffer(const ByteBuffer&) = delete;
+
     ~ByteBuffer() {
         if (buffer)
             std::free(buffer);
@@ -45,8 +57,11 @@ struct ByteBuffer {
         if (n > capacity_) {
             std::byte* new_buffer = (std::byte*)std::malloc(n);
             assert(new_buffer && "Cannot reserve buffer");
-            if (buffer)
+            if (buffer) {
                 std::memcpy(new_buffer, buffer, position_);
+                if (managed_)
+                    std::free(buffer);
+            }
             buffer = new_buffer;
             capacity_ = n;
         }
@@ -73,5 +88,7 @@ struct ByteBuffer {
     }
 
     inline size_t position() const { return position_; }
+    inline std::byte* data() { return buffer; }
+    inline const std::byte* data() const { return buffer; }
 };
 } // namespace wb
