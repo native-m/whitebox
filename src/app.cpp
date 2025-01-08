@@ -21,6 +21,7 @@
 #include "ui/history.h"
 #include "ui/mixer.h"
 #include "ui/piano_roll.h"
+#include "ui/plugin_mgr.h"
 #include "ui/settings.h"
 #include "ui/timeline.h"
 #include <SDL.h>
@@ -409,8 +410,10 @@ void app_render_control_bar() {
             ImGui::MenuItem("Timeline", nullptr, &g_timeline.open);
             ImGui::MenuItem("Mixer", nullptr, &g_mixer.open);
             ImGui::MenuItem("Browser", nullptr, &g_browser.open);
-            ImGui::MenuItem("Settings", nullptr, &g_settings.open);
             ImGui::MenuItem("Test controls", nullptr, &controls::g_test_control_shown);
+            ImGui::Separator();
+            ImGui::MenuItem("Settings", nullptr, &g_settings.open);
+            ImGui::MenuItem("Plugin manager", nullptr, &g_plugin_manager.open);
             ImGui::EndMenu();
         }
 
@@ -499,6 +502,7 @@ void app_render() {
     render_history_window();
     render_asset_window();
     g_settings.render();
+    g_plugin_manager.render();
     g_browser.render();
     g_mixer.render();
     g_timeline.render();
