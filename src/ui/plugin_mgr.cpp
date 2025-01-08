@@ -93,16 +93,23 @@ void GuiPluginManager::update_plugin_info_data(ImGuiTableSortSpecs* sort_specs) 
     auto sort_predicate = [sort_specs](const PluginInfo& a, const PluginInfo& b) {
         const ImGuiTableColumnSortSpecs* sort_spec = &sort_specs->Specs[0];
         ImGuiSortDirection sort_dir = sort_spec->SortDirection;
-        bool sort_cmp;
+        auto ch_pred = [sort_dir](char32_t a, char32_t b) {
+            a = std::tolower(a);
+            b = std::tolower(b);
+            return sort_dir == ImGuiSortDirection_Ascending ? a < b : a > b;
+        };
         switch (sort_spec->ColumnUserID) {
             case PluginManagerColumnID_Name:
-                return sort_dir == ImGuiSortDirection_Ascending ? a.name < b.name : a.name > b.name;
+                return std::lexicographical_compare(a.name.begin(), a.name.end(), b.name.begin(), b.name.end(),
+                                                    ch_pred);
             case PluginManagerColumnID_Vendor:
-                return sort_dir == ImGuiSortDirection_Ascending ? a.vendor < b.vendor : a.vendor > b.vendor;
+                return std::lexicographical_compare(a.vendor.begin(), a.vendor.end(), b.vendor.begin(), b.vendor.end(),
+                                                    ch_pred);
             case PluginManagerColumnID_Type:
                 return sort_dir == ImGuiSortDirection_Ascending ? a.type < b.type : a.type > b.type;
             case PluginManagerColumnID_Path:
-                return sort_dir == ImGuiSortDirection_Ascending ? a.path < b.path : a.path > b.path;
+                return std::lexicographical_compare(a.path.begin(), a.path.end(), b.path.begin(), b.path.end(),
+                                                    ch_pred);
             default:
                 WB_UNREACHABLE();
         }
