@@ -62,6 +62,7 @@ struct ByteBuffer {
                 std::memcpy(new_buffer, buffer, position_);
                 if (managed_)
                     std::free(buffer);
+                managed_ = true;
             }
             buffer = new_buffer;
             capacity_ = n;

@@ -14,10 +14,28 @@ struct BitSet {
     uint32_t cap_ = 0;
 
     BitSet() {}
-    BitSet(uint32_t size) {}
+    BitSet(uint32_t size) { resize(size); }
+    BitSet(const BitSet&) = delete;
+    
+    BitSet(BitSet&& other) noexcept : data_(other.data_), size_(other.size_), cap_(other.cap_) {
+        other.data_ = {};
+        other.size_ = {};
+        other.cap_ = {};
+    }
+
     ~BitSet() {
         if (data_)
             std::free(data_);
+    }
+
+    BitSet& operator=(BitSet&& other) noexcept
+    {
+        data_ = other.data_;
+        size_ = other.size_;
+        cap_ = other.cap_;
+        other.data_ = nullptr;
+        other.size_ = other.cap_ = 0u;
+        return *this;
     }
 
     void resize(uint32_t n, bool fit = false) {
