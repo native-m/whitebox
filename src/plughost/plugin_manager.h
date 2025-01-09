@@ -9,7 +9,7 @@ using PluginHandle = uint32_t;
 
 static constexpr uint32_t plugin_info_version = 1;
 
-enum class PluginType : uint8_t {
+enum class PluginFormat : uint8_t {
     Native,
     VST3,
     // CLAP
@@ -37,7 +37,7 @@ struct PluginInfo {
     std::string version;
     std::string path;
     uint32_t flags;
-    PluginType type;
+    PluginFormat format;
 };
 
 void init_plugin_manager();

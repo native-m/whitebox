@@ -33,13 +33,13 @@ static PluginInfo decode_plugin_info(ByteBuffer& buffer) {
     io_read(buffer, &info.version);
     io_read(buffer, &info.path);
     io_read(buffer, &info.flags);
-    io_read(buffer, &info.type);
+    io_read(buffer, &info.format);
     return info;
 }
 
 static void encode_plugin_info(ByteBuffer& buffer, const VST3::UID& descriptor_id, const std::string& name,
                                const std::string& vendor, const std::string& version, const std::string& path,
-                               uint32_t flags, PluginType type) {
+                               uint32_t flags, PluginFormat format) {
     io_write(buffer, plugin_info_version);
     io_write_bytes(buffer, (std::byte*)descriptor_id.data(), sizeof(VST3::UID::TUID));
     io_write(buffer, name);
@@ -47,7 +47,7 @@ static void encode_plugin_info(ByteBuffer& buffer, const VST3::UID& descriptor_i
     io_write(buffer, version);
     io_write(buffer, path);
     io_write(buffer, flags);
-    io_write(buffer, type);
+    io_write(buffer, format);
 }
 
 void init_plugin_manager() {
@@ -129,7 +129,7 @@ void scan_vst3_plugins() {
 
             value_buf.reset();
             encode_plugin_info(value_buf, id, class_info.name(), class_info.vendor(), class_info.version(), path, flags,
-                               PluginType::VST3);
+                               PluginFormat::VST3);
             std::memcpy(key, &hash, sizeof(XXH128_hash_t));
             batch.Put(ldb::Slice(key, sizeof(VST3::UID::TUID)),
                       ldb::Slice((char*)value_buf.data(), value_buf.position()));

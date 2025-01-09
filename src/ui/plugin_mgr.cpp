@@ -8,7 +8,7 @@ GuiPluginManager g_plugin_manager;
 enum PluginManagerColumnID {
     PluginManagerColumnID_Name,
     PluginManagerColumnID_Vendor,
-    PluginManagerColumnID_Type,
+    PluginManagerColumnID_Format,
     PluginManagerColumnID_Version,
     PluginManagerColumnID_Path,
 };
@@ -41,7 +41,7 @@ void GuiPluginManager::render() {
         ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 0.0f,
                                 PluginManagerColumnID_Name);
         ImGui::TableSetupColumn("Vendor", ImGuiTableColumnFlags_WidthFixed, 0.0f, PluginManagerColumnID_Vendor);
-        ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed, 0.0f, PluginManagerColumnID_Type);
+        ImGui::TableSetupColumn("Format", ImGuiTableColumnFlags_WidthFixed, 0.0f, PluginManagerColumnID_Format);
         ImGui::TableSetupColumn("Version", ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed, 0.0f,
                                 PluginManagerColumnID_Version);
         ImGui::TableSetupColumn("Path", ImGuiTableColumnFlags_WidthStretch, 0.0f, PluginManagerColumnID_Path);
@@ -63,11 +63,11 @@ void GuiPluginManager::render() {
             ImGui::TextUnformatted(plugin_info.vendor.c_str());
 
             ImGui::TableNextColumn();
-            switch (plugin_info.type) {
-                case PluginType::Native:
+            switch (plugin_info.format) {
+                case PluginFormat::Native:
                     ImGui::TextUnformatted("Native");
                     break;
-                case PluginType::VST3:
+                case PluginFormat::VST3:
                     ImGui::TextUnformatted("VST3");
                     break;
                 default:
@@ -105,8 +105,8 @@ void GuiPluginManager::update_plugin_info_data(ImGuiTableSortSpecs* sort_specs) 
             case PluginManagerColumnID_Vendor:
                 return std::lexicographical_compare(a.vendor.begin(), a.vendor.end(), b.vendor.begin(), b.vendor.end(),
                                                     ch_pred);
-            case PluginManagerColumnID_Type:
-                return sort_dir == ImGuiSortDirection_Ascending ? a.type < b.type : a.type > b.type;
+            case PluginManagerColumnID_Format:
+                return sort_dir == ImGuiSortDirection_Ascending ? a.format < b.format : a.format > b.format;
             case PluginManagerColumnID_Path:
                 return std::lexicographical_compare(a.path.begin(), a.path.end(), b.path.begin(), b.path.end(),
                                                     ch_pred);
