@@ -5,6 +5,8 @@
 #include "extern/xxhash.h"
 #include "platform/path_def.h"
 #include <filesystem>
+#include <algorithm>
+#include <ranges>
 #include <fmt/ranges.h>
 #include <leveldb/db.h>
 #include <leveldb/write_batch.h>
@@ -65,18 +67,33 @@ void init_plugin_manager() {
     Steinberg::Vst::PluginContextFactory::instance().setPluginContext(&vst3_plugin_context);
 }
 
-Vector<PluginInfo> load_plugin_info() {
+Vector<PluginInfo> load_plugin_info(const std::string& name_search) {
     Vector<PluginInfo> plugin_infos;
     ldb::ReadOptions read_options;
     read_options.fill_cache = false;
-
+    
     ldb::Iterator* iter = plugin_db->NewIterator(read_options);
-    for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
-        ldb::Slice value = iter->value();
-        ByteBuffer buffer((std::byte*)value.data(), value.size(), false);
-        PluginInfo info = decode_plugin_info(buffer);
-        std::memcpy(info.plugin_uid, iter->key().data(), 16);
-        plugin_infos.push_back(std::move(info));
+    if (name_search.size() != 0) {
+        auto search_lowercase = name_search | std::views::transform([](char ch) { return std::tolower(ch); });
+        const std::boyer_moore_horspool_searcher searcher(search_lowercase.begin(), search_lowercase.end());
+        for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
+            ldb::Slice value = iter->value();
+            ByteBuffer buffer((std::byte*)value.data(), value.size(), false);
+            PluginInfo info = decode_plugin_info(buffer);
+            auto name_lowercase = info.name | std::views::transform([](char ch) { return std::tolower(ch); });
+            if (std::search(name_lowercase.begin(), name_lowercase.end(), searcher) != name_lowercase.end()) {
+                std::memcpy(info.plugin_uid, iter->key().data(), 16);
+                plugin_infos.push_back(std::move(info));
+            }
+        }
+    } else {
+        for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
+            ldb::Slice value = iter->value();
+            ByteBuffer buffer((std::byte*)value.data(), value.size(), false);
+            PluginInfo info = decode_plugin_info(buffer);
+            std::memcpy(info.plugin_uid, iter->key().data(), 16);
+            plugin_infos.push_back(std::move(info));
+        }
     }
 
     delete iter;
@@ -133,6 +150,7 @@ void scan_vst3_plugins() {
             std::memcpy(key, &hash, sizeof(XXH128_hash_t));
             batch.Put(ldb::Slice(key, sizeof(VST3::UID::TUID)),
                       ldb::Slice((char*)value_buf.data(), value_buf.position()));
+
             // Log information
             Log::info("Name: {}", class_info.name());
             Log::info("Vendor: {}", class_info.vendor());

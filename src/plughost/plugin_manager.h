@@ -41,7 +41,7 @@ struct PluginInfo {
 };
 
 void init_plugin_manager();
-Vector<PluginInfo> load_plugin_info();
+Vector<PluginInfo> load_plugin_info(const std::string& name_search);
 void scan_plugins();
 void register_builtin_plugins();
 void shutdown_plugin_manager();

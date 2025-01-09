@@ -70,6 +70,7 @@ CPMAddPackage(
     OPTIONS             "LEVELDB_INSTALL OFF"
                         "LEVELDB_BUILD_TESTS OFF"
                         "LEVELDB_BUILD_BENCHMARKS OFF"
+    EXCLUDE_FROM_ALL
 )
 
 # Workaround for deprecated C++20 STL classes

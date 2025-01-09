@@ -1,12 +1,13 @@
 #include "plugin_mgr.h"
+#include "core/core_math.h"
+#include "core/debug.h"
 #include <algorithm>
-#include <imgui.h>
+#include <imgui_stdlib.h>
 
 namespace wb {
 GuiPluginManager g_plugin_manager;
 
 enum PluginManagerColumnID {
-    // PluginManagerColumnID_Select,
     PluginManagerColumnID_Name,
     PluginManagerColumnID_Vendor,
     PluginManagerColumnID_Format,
@@ -36,7 +37,39 @@ void GuiPluginManager::render() {
     if (ImGui::Button("Refresh"))
         force_refresh = true;
 
-    static constexpr auto table_flags = ImGuiTableFlags_Reorderable | ImGuiTableFlags_Sortable | 
+    ImGui::SameLine();
+    ImGui::PushItemWidth(225.0f);
+    if (ImGui::InputTextWithHint("##search", "Search plugin name", &search_text)) {
+        search_timeout = 80.0f / 1000.0f;
+    }
+    ImGui::PopItemWidth();
+
+    ImGui::SameLine(0.0f, 2.0f);
+    if (ImGui::Button("X")) {
+        if (search_text.size() != 0) {
+            search_text.clear();
+            search_timeout = 80.0f / 1000.0f;
+        }
+    }
+
+    if (num_selected_plugins > 0) {
+        ImGui::SameLine();
+        if (ImGui::Button("Deselect All")) {
+            selected_plugins.clear();
+            num_selected_plugins = 0;
+        }
+    }
+
+    if (search_timeout > 0.0f) {
+        search_timeout = math::max(search_timeout - GImGui->IO.DeltaTime, 0.0f);
+        if (math::near_equal_to_zero(search_timeout)) {
+            Log::debug("Timeout");
+            search_timeout = 0.0f;
+            force_refresh = true;
+        }
+    }
+
+    static constexpr auto table_flags = ImGuiTableFlags_Reorderable | ImGuiTableFlags_Sortable |
                                         ImGuiTableFlags_BordersOuter | ImGuiTableFlags_Resizable |
                                         ImGuiTableFlags_ScrollY;
     if (ImGui::BeginTable("plugin_table", 5, table_flags)) {
@@ -63,11 +96,10 @@ void GuiPluginManager::render() {
         for (uint32_t id = 0; const auto& plugin_info : plugin_infos) {
             ImGui::PushID(id);
             ImGui::TableNextRow();
-            
+
             bool selected = selected_plugins[id];
             ImGui::TableNextColumn();
-            if (ImGui::Selectable(plugin_info.name.c_str(), selected,
-                                  ImGuiSelectableFlags_SpanAllColumns)) {
+            if (ImGui::Selectable(plugin_info.name.c_str(), selected, ImGuiSelectableFlags_SpanAllColumns)) {
                 if (selected) {
                     selected_plugins.unset(id);
                     num_selected_plugins--;
@@ -107,7 +139,7 @@ void GuiPluginManager::render() {
 }
 
 void GuiPluginManager::update_plugin_info_data(ImGuiTableSortSpecs* sort_specs) {
-    Vector<PluginInfo> plugin_info_data = load_plugin_info();
+    Vector<PluginInfo> plugin_info_data = load_plugin_info(search_text);
     auto sort_predicate = [sort_specs](const PluginInfo& a, const PluginInfo& b) {
         const ImGuiTableColumnSortSpecs* sort_spec = &sort_specs->Specs[0];
         ImGuiSortDirection sort_dir = sort_spec->SortDirection;
@@ -137,5 +169,6 @@ void GuiPluginManager::update_plugin_info_data(ImGuiTableSortSpecs* sort_specs) 
     selected_plugins.clear();
     selected_plugins.resize(plugin_info_data.size());
     plugin_infos = std::move(plugin_info_data);
+    num_selected_plugins = 0;
 }
 } // namespace wb

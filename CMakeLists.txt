@@ -45,8 +45,9 @@ set(WB_SOURCES
     "src/core/audio_format_conv.cpp"
     "src/core/audio_format_conv.h"
     "src/core/audio_format.h"
-    "src/core/byte_buffer.h"
+    "src/core/bitset.h"
     "src/core/bit_manipulation.h"
+    "src/core/byte_buffer.h"
     "src/core/color.h"
     "src/core/common.h"
     "src/core/core_math.h"
@@ -267,4 +268,3 @@ if (WB_ENABLE_PACKAGING)
 endif ()
 
 #set_property(TARGET whitebox-lib whitebox PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-
