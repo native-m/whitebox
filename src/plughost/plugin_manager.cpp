@@ -9,12 +9,14 @@
 #include <leveldb/db.h>
 #include <leveldb/write_batch.h>
 #include <pluginterfaces/vst/ivstaudioprocessor.h>
+#include <pluginterfaces/vst/ivsteditcontroller.h>
 #include <public.sdk/source/vst/hosting/hostclasses.h>
 #include <public.sdk/source/vst/hosting/module.h>
 #include <public.sdk/source/vst/hosting/plugprovider.h>
 
 namespace ldb = leveldb;
 namespace fs = std::filesystem;
+namespace vst = Steinberg::Vst;
 
 namespace wb {
 static ldb::DB* plugin_db;
@@ -105,21 +107,23 @@ void scan_vst3_plugins() {
             const VST3::UID& id = class_info.ID();
             const auto& subcategories = class_info.subCategories();
             XXH128_hash_t hash = XXH3_128bits(id.data(), sizeof(VST3::UID::TUID)); // Create the key
-
-            // Log information
-            Log::info("Name: {}", class_info.name());
-            Log::info("Vendor: {}", class_info.vendor());
-            Log::info("Version: {}", class_info.version());
-            Log::info("Subcategories: {}", fmt::join(subcategories, ", "));
-
-            // Find plugin category
+            Steinberg::IPtr<vst::IComponent> component(factory.createInstance<vst::IComponent>(id));
             uint32_t flags = 0;
-            for (auto& subcategory : subcategories) {
-                if (subcategory == "Fx")
+
+            assert(component.get() != nullptr);
+
+            bool has_audio_input = component->getBusCount(vst::MediaTypes::kAudio, vst::BusDirections::kInput) > 0;
+            bool has_audio_output = component->getBusCount(vst::MediaTypes::kAudio, vst::BusDirections::kOutput) > 0;
+            bool is_effect = has_audio_output && has_audio_input;
+            bool is_instrument =
+                has_audio_output && component->getBusCount(vst::MediaTypes::kEvent, vst::BusDirections::kInput) > 0;
+
+            for (auto& subcategory : class_info.subCategories()) {
+                if (is_effect && subcategory == "Fx")
                     flags |= PluginFlags::Effect;
-                if (subcategory == "Instrument")
+                if (is_instrument && subcategory == "Instrument")
                     flags |= PluginFlags::Instrument;
-                if (subcategory == "Analyzer")
+                if (has_audio_input && !has_audio_output && subcategory == "Analyzer")
                     flags |= PluginFlags::Analyzer;
             }
 
@@ -129,6 +133,11 @@ void scan_vst3_plugins() {
             std::memcpy(key, &hash, sizeof(XXH128_hash_t));
             batch.Put(ldb::Slice(key, sizeof(VST3::UID::TUID)),
                       ldb::Slice((char*)value_buf.data(), value_buf.position()));
+            // Log information
+            Log::info("Name: {}", class_info.name());
+            Log::info("Vendor: {}", class_info.vendor());
+            Log::info("Version: {}", class_info.version());
+            Log::info("Subcategories: {}", fmt::join(subcategories, ", "));
             Log::info("Added VST3 module: {}", path);
         }
     }
