@@ -6,6 +6,7 @@ namespace wb {
 GuiPluginManager g_plugin_manager;
 
 enum PluginManagerColumnID {
+    // PluginManagerColumnID_Select,
     PluginManagerColumnID_Name,
     PluginManagerColumnID_Vendor,
     PluginManagerColumnID_Format,
@@ -23,9 +24,11 @@ void GuiPluginManager::render() {
     }
 
     bool force_refresh = false;
+    bool rescan_plugins = false;
     if (ImGui::Button("Scan Plugins")) {
         scan_plugins();
         force_refresh = true;
+        rescan_plugins = true;
     }
 
     ImGui::SameLine();
@@ -33,10 +36,13 @@ void GuiPluginManager::render() {
     if (ImGui::Button("Refresh"))
         force_refresh = true;
 
-    static constexpr auto table_flags = ImGuiTableFlags_Reorderable | ImGuiTableFlags_Sortable | ImGuiTableFlags_RowBg |
+    static constexpr auto table_flags = ImGuiTableFlags_Reorderable | ImGuiTableFlags_Sortable | 
                                         ImGuiTableFlags_BordersOuter | ImGuiTableFlags_Resizable |
                                         ImGuiTableFlags_ScrollY;
     if (ImGui::BeginTable("plugin_table", 5, table_flags)) {
+        if (rescan_plugins)
+            ImGui::TableSetColumnWidthAutoAll(ImGui::GetCurrentTable());
+
         ImGui::TableSetupScrollFreeze(0, 1);
         ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 0.0f,
                                 PluginManagerColumnID_Name);
@@ -57,8 +63,20 @@ void GuiPluginManager::render() {
         for (uint32_t id = 0; const auto& plugin_info : plugin_infos) {
             ImGui::PushID(id);
             ImGui::TableNextRow();
+            
+            bool selected = selected_plugins[id];
             ImGui::TableNextColumn();
-            ImGui::TextUnformatted(plugin_info.name.c_str());
+            if (ImGui::Selectable(plugin_info.name.c_str(), selected,
+                                  ImGuiSelectableFlags_SpanAllColumns)) {
+                if (selected) {
+                    selected_plugins.unset(id);
+                    num_selected_plugins--;
+                } else {
+                    selected_plugins.set(id);
+                    num_selected_plugins++;
+                }
+            }
+
             ImGui::TableNextColumn();
             ImGui::TextUnformatted(plugin_info.vendor.c_str());
 
@@ -116,6 +134,8 @@ void GuiPluginManager::update_plugin_info_data(ImGuiTableSortSpecs* sort_specs) 
         return true;
     };
     std::sort(plugin_info_data.begin(), plugin_info_data.end(), sort_predicate);
+    selected_plugins.clear();
+    selected_plugins.resize(plugin_info_data.size());
     plugin_infos = std::move(plugin_info_data);
 }
 } // namespace wb
