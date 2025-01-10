@@ -1,4 +1,5 @@
 #include "plugin_mgr.h"
+#include "core/bit_manipulation.h"
 #include "core/core_math.h"
 #include "core/debug.h"
 #include "ui/dialogs.h"
@@ -11,11 +12,28 @@ GuiPluginManager g_plugin_manager;
 enum PluginManagerColumnID {
     PluginManagerColumnID_Name,
     PluginManagerColumnID_Vendor,
+    PluginManagerColumnID_Type,
     PluginManagerColumnID_Format,
     PluginManagerColumnID_Version,
     PluginManagerColumnID_Hidden,
     PluginManagerColumnID_Path,
 };
+
+static uint32_t get_plugin_flag_type(uint32_t flag) {
+    switch (flag) {
+        case (PluginFlags::Analyzer):
+            return 0;
+        case (PluginFlags::Effect):
+            return 1;
+        case (PluginFlags::Instrument):
+            return 2;
+        case (PluginFlags::Instrument | PluginFlags::Effect):
+            return 3;
+        default:
+            break;
+    }
+    return 4;
+}
 
 void GuiPluginManager::render() {
     if (!open)
@@ -81,7 +99,7 @@ void GuiPluginManager::render() {
     static constexpr auto table_flags = ImGuiTableFlags_Reorderable | ImGuiTableFlags_Sortable |
                                         ImGuiTableFlags_BordersOuter | ImGuiTableFlags_Resizable |
                                         ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY;
-    if (ImGui::BeginTable("plugin_table", 6, table_flags)) {
+    if (ImGui::BeginTable("plugin_table", 7, table_flags)) {
         if (rescan_plugins)
             ImGui::TableSetColumnWidthAutoAll(ImGui::GetCurrentTable());
 
@@ -89,6 +107,7 @@ void GuiPluginManager::render() {
         ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 0.0f,
                                 PluginManagerColumnID_Name);
         ImGui::TableSetupColumn("Vendor", ImGuiTableColumnFlags_WidthFixed, 0.0f, PluginManagerColumnID_Vendor);
+        ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed, 0.0f, PluginManagerColumnID_Type);
         ImGui::TableSetupColumn("Format", ImGuiTableColumnFlags_WidthFixed, 0.0f, PluginManagerColumnID_Format);
         ImGui::TableSetupColumn("Version", ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed, 0.0f,
                                 PluginManagerColumnID_Version);
@@ -108,7 +127,6 @@ void GuiPluginManager::render() {
             ImGui::PushID(id);
             ImGui::TableNextRow();
 
-            bool hidden = plugin_info.flags & PluginFlags::Hidden;
             bool selected = selected_plugins[id];
             ImGui::TableNextColumn();
             if (ImGui::Selectable(plugin_info.name.c_str(), selected, selectable_flags)) {
@@ -125,6 +143,25 @@ void GuiPluginManager::render() {
 
             ImGui::TableNextColumn();
             ImGui::TextUnformatted(plugin_info.vendor.c_str(), plugin_info.vendor.c_str() + plugin_info.vendor.size());
+
+            ImGui::TableNextColumn();
+            switch (plugin_info.flags & 7) {
+                case (PluginFlags::Analyzer):
+                    ImGui::TextUnformatted("Anayzer");
+                    break;
+                case (PluginFlags::Effect):
+                    ImGui::TextUnformatted("Effect");
+                    break;
+                case (PluginFlags::Instrument):
+                    ImGui::TextUnformatted("Instrument");
+                    break;
+                case (PluginFlags::Instrument | PluginFlags::Effect):
+                    ImGui::TextUnformatted("Instrument/Effect");
+                    break;
+                default:
+                    ImGui::TextUnformatted("Unknown");
+                    break;
+            }
 
             ImGui::TableNextColumn();
             switch (plugin_info.format) {
@@ -179,6 +216,11 @@ void GuiPluginManager::update_plugin_info_data(ImGuiTableSortSpecs* sort_specs) 
             case PluginManagerColumnID_Vendor:
                 return std::lexicographical_compare(a.vendor.begin(), a.vendor.end(), b.vendor.begin(), b.vendor.end(),
                                                     ch_pred);
+            case PluginManagerColumnID_Type: {
+                uint32_t a_type = get_plugin_flag_type(a.flags);
+                uint32_t b_type = get_plugin_flag_type(b.flags);
+                return sort_dir == ImGuiSortDirection_Ascending ? a_type < b_type : a_type > b_type;
+            }
             case PluginManagerColumnID_Format:
                 return sort_dir == ImGuiSortDirection_Ascending ? a.format < b.format : a.format > b.format;
             case PluginManagerColumnID_Path:
