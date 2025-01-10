@@ -10,6 +10,7 @@ namespace wb {
 struct GuiPluginManager {
     bool open = false;
     Vector<PluginInfo> plugin_infos;
+    std::unordered_set<uint32_t> selected_plugin_set;
     uint32_t num_selected_plugins = 0;
     BitSet selected_plugins;
     std::string search_text;
@@ -17,6 +18,7 @@ struct GuiPluginManager {
 
     void render();
     void update_plugin_info_data(ImGuiTableSortSpecs* sort_specs);
+    void delete_selected();
 };
 
 extern GuiPluginManager g_plugin_manager;

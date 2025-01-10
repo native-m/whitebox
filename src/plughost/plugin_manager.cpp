@@ -82,7 +82,7 @@ Vector<PluginInfo> load_plugin_info(const std::string& name_search) {
             PluginInfo info = decode_plugin_info(buffer);
             auto name_lowercase = info.name | std::views::transform([](char ch) { return std::tolower(ch); });
             if (std::search(name_lowercase.begin(), name_lowercase.end(), searcher) != name_lowercase.end()) {
-                std::memcpy(info.plugin_uid, iter->key().data(), 16);
+                std::memcpy(info.uid, iter->key().data(), 16);
                 plugin_infos.push_back(std::move(info));
             }
         }
@@ -91,7 +91,7 @@ Vector<PluginInfo> load_plugin_info(const std::string& name_search) {
             ldb::Slice value = iter->value();
             ByteBuffer buffer((std::byte*)value.data(), value.size(), false);
             PluginInfo info = decode_plugin_info(buffer);
-            std::memcpy(info.plugin_uid, iter->key().data(), 16);
+            std::memcpy(info.uid, iter->key().data(), 16);
             plugin_infos.push_back(std::move(info));
         }
     }
@@ -104,10 +104,24 @@ void update_plugin_info(const PluginInfo& info) {
     ByteBuffer buffer;
     VST3::UID id = VST3::UID::fromTUID(info.descriptor_id.data());
     encode_plugin_info(buffer, id, info.name, info.vendor, info.version, info.path, info.flags, info.format);
-    plugin_db->Put({}, ldb::Slice((char*)info.plugin_uid, 16), ldb::Slice((char*)buffer.data(), buffer.position()));
+    auto status =
+        plugin_db->Put({}, ldb::Slice((char*)info.uid, 16), ldb::Slice((char*)buffer.data(), buffer.position()));
+    if (!status.ok()) {
+        Log::error("Cannot write plugin data into the database");
+        Log::error("Reason: {}", status.ToString());
+    }
 }
 
-void scan_vst3_plugins() {
+void delete_plugin(uint8_t plugin_uid[16]) {
+    ldb::Slice key((char*)plugin_uid, sizeof(16));
+    auto status = plugin_db->Delete({}, key);
+    if (!status.ok()) {
+        Log::error("Cannot delete plugin data from the database");
+        Log::error("Reason: {}", status.ToString());
+    }
+}
+
+static void scan_vst3_plugins() {
     VST3::Hosting::Module::PathList path_list = VST3::Hosting::Module::getModulePaths();
     ldb::WriteBatch batch;
     std::string error;
@@ -170,7 +184,7 @@ void scan_vst3_plugins() {
     // Write this into database
     ldb::Status status = plugin_db->Write({}, &batch);
     if (!status.ok())
-        Log::error("Cannot store plugin data into database: {}", status.ToString());
+        Log::error("Cannot write plugin data into the database: {}", status.ToString());
 }
 
 void scan_plugins() {

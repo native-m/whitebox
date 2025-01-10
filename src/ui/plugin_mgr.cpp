@@ -59,12 +59,17 @@ void GuiPluginManager::render() {
             selected_plugins.clear();
             num_selected_plugins = 0;
         }
+
+        ImGui::SameLine();
+        if (ImGui::Button("Delete")) {
+            delete_selected();
+            force_refresh = true;
+        }
     }
 
     if (search_timeout > 0.0f) {
         search_timeout = math::max(search_timeout - GImGui->IO.DeltaTime, 0.0f);
         if (math::near_equal_to_zero(search_timeout)) {
-            Log::debug("Timeout");
             search_timeout = 0.0f;
             force_refresh = true;
         }
@@ -87,7 +92,7 @@ void GuiPluginManager::render() {
                                 PluginManagerColumnID_Version);
         ImGui::TableSetupColumn("Hidden", ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed, 0.0f,
                                 PluginManagerColumnID_Hidden);
-        ImGui::TableSetupColumn("Path", ImGuiTableColumnFlags_WidthStretch, 0.0f, PluginManagerColumnID_Path);
+        ImGui::TableSetupColumn("Location", ImGuiTableColumnFlags_WidthFixed, 0.0f, PluginManagerColumnID_Path);
         ImGui::TableHeadersRow();
 
         if (ImGuiTableSortSpecs* sort_specs = ImGui::TableGetSortSpecs()) {
@@ -106,9 +111,11 @@ void GuiPluginManager::render() {
             ImGui::TableNextColumn();
             if (ImGui::Selectable(plugin_info.name.c_str(), selected, selectable_flags)) {
                 if (selected) {
+                    selected_plugin_set.erase(id);
                     selected_plugins.unset(id);
                     num_selected_plugins--;
                 } else {
+                    selected_plugin_set.insert(id);
                     selected_plugins.set(id);
                     num_selected_plugins++;
                 }
@@ -140,7 +147,7 @@ void GuiPluginManager::render() {
                 update_plugin_info(plugin_info);
             }
             ImGui::PopStyleVar(2);
-            
+
             ImGui::TableNextColumn();
             ImGui::TextUnformatted(plugin_info.path.c_str(), plugin_info.path.c_str() + plugin_info.path.size());
             ImGui::PopID();
@@ -181,9 +188,17 @@ void GuiPluginManager::update_plugin_info_data(ImGuiTableSortSpecs* sort_specs) 
         return true;
     };
     std::sort(plugin_info_data.begin(), plugin_info_data.end(), sort_predicate);
+    selected_plugin_set.clear();
     selected_plugins.clear();
     selected_plugins.resize(plugin_info_data.size());
     plugin_infos = std::move(plugin_info_data);
     num_selected_plugins = 0;
+}
+
+void GuiPluginManager::delete_selected() {
+    for (auto id : selected_plugin_set) {
+        auto& plugin_info = plugin_infos[id];
+        delete_plugin(plugin_info.uid);
+    }
 }
 } // namespace wb

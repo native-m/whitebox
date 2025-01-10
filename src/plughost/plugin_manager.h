@@ -29,7 +29,7 @@ struct PluginUID {
 };
 
 struct PluginInfo {
-    uint8_t plugin_uid[16]; // or plugin DB key
+    uint8_t uid[16]; // or plugin DB key
     uint32_t structure_version;
     std::string descriptor_id; // ID used by 3rd-party plugin, unused in whitebox native plugin
     std::string name;
@@ -43,6 +43,7 @@ struct PluginInfo {
 void init_plugin_manager();
 Vector<PluginInfo> load_plugin_info(const std::string& name_search);
 void update_plugin_info(const PluginInfo& info);
+void delete_plugin(uint8_t plugin_uid[16]);
 void scan_plugins();
 void register_builtin_plugins();
 void shutdown_plugin_manager();
