@@ -1,6 +1,7 @@
 #include "plugin_mgr.h"
 #include "core/core_math.h"
 #include "core/debug.h"
+#include "ui/dialogs.h"
 #include <algorithm>
 #include <imgui_stdlib.h>
 
@@ -40,9 +41,8 @@ void GuiPluginManager::render() {
 
     ImGui::SameLine();
     ImGui::PushItemWidth(225.0f);
-    if (ImGui::InputTextWithHint("##search", "Search plugin name", &search_text)) {
+    if (ImGui::InputTextWithHint("##search", "Search plugin name", &search_text))
         search_timeout = 80.0f / 1000.0f;
-    }
     ImGui::PopItemWidth();
 
     ImGui::SameLine(0.0f, 2.0f);
@@ -59,12 +59,14 @@ void GuiPluginManager::render() {
             selected_plugins.clear();
             num_selected_plugins = 0;
         }
-
         ImGui::SameLine();
-        if (ImGui::Button("Delete")) {
-            delete_selected();
-            force_refresh = true;
-        }
+        if (ImGui::Button("Delete"))
+            ImGui::OpenPopup("Delete##delete_plugin_conf");
+    }
+
+    if (popup_confirm("Delete##delete_plugin_conf", "Are you sure you want to delete the selected plugins?")) {
+        delete_selected();
+        force_refresh = true;
     }
 
     if (search_timeout > 0.0f) {

@@ -739,7 +739,7 @@ void apply_theme(ImGuiStyle& style) {
     colors[ImGuiCol_NavHighlight] = ImVec4(0.15f, 0.15f, 0.15f, 1.00f);
     colors[ImGuiCol_NavWindowingHighlight] = ImVec4(1.00f, 1.00f, 1.00f, 0.70f);
     colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.80f, 0.80f, 0.80f, 0.20f);
-    colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.15f, 0.15f, 0.15f, 1.00f);
+    colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.149f, 0.149f, 0.149f, 0.455f);
 }
 
 } // namespace wb
