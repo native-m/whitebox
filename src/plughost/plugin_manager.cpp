@@ -4,9 +4,8 @@
 #include "core/stream.h"
 #include "extern/xxhash.h"
 #include "platform/path_def.h"
-#include <filesystem>
 #include <algorithm>
-#include <ranges>
+#include <filesystem>
 #include <fmt/ranges.h>
 #include <leveldb/db.h>
 #include <leveldb/write_batch.h>
@@ -15,6 +14,7 @@
 #include <public.sdk/source/vst/hosting/hostclasses.h>
 #include <public.sdk/source/vst/hosting/module.h>
 #include <public.sdk/source/vst/hosting/plugprovider.h>
+#include <ranges>
 
 namespace ldb = leveldb;
 namespace fs = std::filesystem;
@@ -71,7 +71,7 @@ Vector<PluginInfo> load_plugin_info(const std::string& name_search) {
     Vector<PluginInfo> plugin_infos;
     ldb::ReadOptions read_options;
     read_options.fill_cache = false;
-    
+
     ldb::Iterator* iter = plugin_db->NewIterator(read_options);
     if (name_search.size() != 0) {
         auto search_lowercase = name_search | std::views::transform([](char ch) { return std::tolower(ch); });
@@ -100,6 +100,13 @@ Vector<PluginInfo> load_plugin_info(const std::string& name_search) {
     return plugin_infos;
 }
 
+void update_plugin_info(const PluginInfo& info) {
+    ByteBuffer buffer;
+    VST3::UID id = VST3::UID::fromTUID(info.descriptor_id.data());
+    encode_plugin_info(buffer, id, info.name, info.vendor, info.version, info.path, info.flags, info.format);
+    plugin_db->Put({}, ldb::Slice((char*)info.plugin_uid, 16), ldb::Slice((char*)buffer.data(), buffer.position()));
+}
+
 void scan_vst3_plugins() {
     VST3::Hosting::Module::PathList path_list = VST3::Hosting::Module::getModulePaths();
     ldb::WriteBatch batch;
@@ -122,13 +129,13 @@ void scan_vst3_plugins() {
                 continue;
 
             const VST3::UID& id = class_info.ID();
+            Steinberg::IPtr<vst::IComponent> component(factory.createInstance<vst::IComponent>(id));
+            if (component == nullptr)
+                continue; // Skip this class
+
+            uint32_t flags = 0;
             const auto& subcategories = class_info.subCategories();
             XXH128_hash_t hash = XXH3_128bits(id.data(), sizeof(VST3::UID::TUID)); // Create the key
-            Steinberg::IPtr<vst::IComponent> component(factory.createInstance<vst::IComponent>(id));
-            uint32_t flags = 0;
-
-            assert(component.get() != nullptr);
-
             bool has_audio_input = component->getBusCount(vst::MediaTypes::kAudio, vst::BusDirections::kInput) > 0;
             bool has_audio_output = component->getBusCount(vst::MediaTypes::kAudio, vst::BusDirections::kOutput) > 0;
             bool is_effect = has_audio_output && has_audio_input;
@@ -148,7 +155,7 @@ void scan_vst3_plugins() {
             encode_plugin_info(value_buf, id, class_info.name(), class_info.vendor(), class_info.version(), path, flags,
                                PluginFormat::VST3);
             std::memcpy(key, &hash, sizeof(XXH128_hash_t));
-            batch.Put(ldb::Slice(key, sizeof(VST3::UID::TUID)),
+            batch.Put(ldb::Slice(key, sizeof(XXH128_hash_t)),
                       ldb::Slice((char*)value_buf.data(), value_buf.position()));
 
             // Log information

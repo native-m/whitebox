@@ -12,6 +12,7 @@ enum PluginManagerColumnID {
     PluginManagerColumnID_Vendor,
     PluginManagerColumnID_Format,
     PluginManagerColumnID_Version,
+    PluginManagerColumnID_Hidden,
     PluginManagerColumnID_Path,
 };
 
@@ -69,10 +70,11 @@ void GuiPluginManager::render() {
         }
     }
 
+    static constexpr auto selectable_flags = ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap;
     static constexpr auto table_flags = ImGuiTableFlags_Reorderable | ImGuiTableFlags_Sortable |
                                         ImGuiTableFlags_BordersOuter | ImGuiTableFlags_Resizable |
-                                        ImGuiTableFlags_ScrollY;
-    if (ImGui::BeginTable("plugin_table", 5, table_flags)) {
+                                        ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY;
+    if (ImGui::BeginTable("plugin_table", 6, table_flags)) {
         if (rescan_plugins)
             ImGui::TableSetColumnWidthAutoAll(ImGui::GetCurrentTable());
 
@@ -83,6 +85,8 @@ void GuiPluginManager::render() {
         ImGui::TableSetupColumn("Format", ImGuiTableColumnFlags_WidthFixed, 0.0f, PluginManagerColumnID_Format);
         ImGui::TableSetupColumn("Version", ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed, 0.0f,
                                 PluginManagerColumnID_Version);
+        ImGui::TableSetupColumn("Hidden", ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed, 0.0f,
+                                PluginManagerColumnID_Hidden);
         ImGui::TableSetupColumn("Path", ImGuiTableColumnFlags_WidthStretch, 0.0f, PluginManagerColumnID_Path);
         ImGui::TableHeadersRow();
 
@@ -93,13 +97,14 @@ void GuiPluginManager::render() {
             }
         }
 
-        for (uint32_t id = 0; const auto& plugin_info : plugin_infos) {
+        for (uint32_t id = 0; auto& plugin_info : plugin_infos) {
             ImGui::PushID(id);
             ImGui::TableNextRow();
 
+            bool hidden = plugin_info.flags & PluginFlags::Hidden;
             bool selected = selected_plugins[id];
             ImGui::TableNextColumn();
-            if (ImGui::Selectable(plugin_info.name.c_str(), selected, ImGuiSelectableFlags_SpanAllColumns)) {
+            if (ImGui::Selectable(plugin_info.name.c_str(), selected, selectable_flags)) {
                 if (selected) {
                     selected_plugins.unset(id);
                     num_selected_plugins--;
@@ -110,7 +115,7 @@ void GuiPluginManager::render() {
             }
 
             ImGui::TableNextColumn();
-            ImGui::TextUnformatted(plugin_info.vendor.c_str());
+            ImGui::TextUnformatted(plugin_info.vendor.c_str(), plugin_info.vendor.c_str() + plugin_info.vendor.size());
 
             ImGui::TableNextColumn();
             switch (plugin_info.format) {
@@ -125,9 +130,19 @@ void GuiPluginManager::render() {
             }
 
             ImGui::TableNextColumn();
-            ImGui::TextUnformatted(plugin_info.version.c_str());
+            ImGui::TextUnformatted(plugin_info.version.c_str(),
+                                   plugin_info.version.c_str() + plugin_info.version.size());
+
             ImGui::TableNextColumn();
-            ImGui::TextUnformatted(plugin_info.path.c_str());
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
+            if (ImGui::CheckboxFlags("##hidden", &plugin_info.flags, PluginFlags::Hidden)) {
+                update_plugin_info(plugin_info);
+            }
+            ImGui::PopStyleVar(2);
+            
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted(plugin_info.path.c_str(), plugin_info.path.c_str() + plugin_info.path.size());
             ImGui::PopID();
             id++;
         }

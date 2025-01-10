@@ -2,6 +2,7 @@
 
 #include "core/bitset.h"
 #include "plughost/plugin_manager.h"
+#include <unordered_set>
 
 struct ImGuiTableSortSpecs;
 
