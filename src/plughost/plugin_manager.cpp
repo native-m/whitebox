@@ -78,6 +78,9 @@ static void scan_vst3_plugins() {
             if (component == nullptr)
                 continue; // Skip this class
 
+            if (component->initialize(&vst3_plugin_context) != Steinberg::kResultOk)
+                continue;
+
             uint32_t flags = 0;
             const auto& subcategories = class_info.subCategories();
             XXH128_hash_t hash = XXH3_128bits(id.data(), sizeof(VST3::UID::TUID)); // Create the key
@@ -109,6 +112,8 @@ static void scan_vst3_plugins() {
             Log::info("Version: {}", class_info.version());
             Log::info("Subcategories: {}", fmt::join(subcategories, ", "));
             Log::info("Added VST3 module: {}", path);
+
+            component->terminate();
         }
     }
 

@@ -15,6 +15,12 @@ inline constexpr bool has_bit(T op, Args... bits) {
     return (op & mask) != 0;
 }
 
+template <typename T, typename... Args>
+inline constexpr bool contain_bit(T op, Args... bits) {
+    T mask = (bits | ...);
+    return (op & mask) == mask;
+}
+
 template <typename T>
 inline constexpr int next_set_bits(T& x) {
     T t = x & -x;
