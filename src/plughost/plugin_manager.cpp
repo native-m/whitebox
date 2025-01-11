@@ -20,18 +20,16 @@ namespace wb {
 static ldb::DB* plugin_db;
 static fs::path vst3_extension {".vst3"};
 
-static PluginInfo decode_plugin_info(ByteBuffer& buffer) {
-    PluginInfo info;
-    info.descriptor_id.resize(sizeof(VST3::UID::TUID));
-    io_read(buffer, &info.structure_version);
-    io_read_bytes(buffer, (std::byte*)info.descriptor_id.data(), sizeof(VST3::UID::TUID));
-    io_read(buffer, &info.name);
-    io_read(buffer, &info.vendor);
-    io_read(buffer, &info.version);
-    io_read(buffer, &info.path);
-    io_read(buffer, &info.flags);
-    io_read(buffer, &info.format);
-    return info;
+static void decode_plugin_info(ByteBuffer& buffer, PluginInfo* info) {
+    info->descriptor_id.resize(sizeof(VST3::UID::TUID));
+    io_read(buffer, &info->structure_version);
+    io_read_bytes(buffer, (std::byte*)info->descriptor_id.data(), sizeof(VST3::UID::TUID));
+    io_read(buffer, &info->name);
+    io_read(buffer, &info->vendor);
+    io_read(buffer, &info->version);
+    io_read(buffer, &info->path);
+    io_read(buffer, &info->flags);
+    io_read(buffer, &info->format);
 }
 
 static void encode_plugin_info(ByteBuffer& buffer, const VST3::UID& descriptor_id, const std::string& name,
@@ -102,6 +100,7 @@ static void scan_vst3_plugins() {
 
             // Log information
             Log::info("Found class!");
+            Log::info("ID: {}", class_info.ID().toString());
             Log::info("Name: {}", class_info.name());
             Log::info("Vendor: {}", class_info.vendor());
             Log::info("Version: {}", class_info.version());
@@ -137,37 +136,38 @@ void shutdown_plugin_manager() {
         delete plugin_db;
 }
 
-Vector<PluginInfo> pm_fetch_registered_plugins(const std::string& name_search) {
-    Vector<PluginInfo> plugin_infos;
+void pm_fetch_registered_plugins(const std::string& name_search, void* userdata, PluginFetchFn fn) {
     ldb::ReadOptions read_options;
     read_options.fill_cache = false;
 
     ldb::Iterator* iter = plugin_db->NewIterator(read_options);
+    PluginInfo info;
     if (name_search.size() != 0) {
         auto search_lowercase = name_search | std::views::transform([](char ch) { return std::tolower(ch); });
         const std::boyer_moore_horspool_searcher searcher(search_lowercase.begin(), search_lowercase.end());
         for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
+            ldb::Slice key = iter->key();
             ldb::Slice value = iter->value();
             ByteBuffer buffer((std::byte*)value.data(), value.size(), false);
-            PluginInfo info = decode_plugin_info(buffer);
+            decode_plugin_info(buffer, &info);
             auto name_lowercase = info.name | std::views::transform([](char ch) { return std::tolower(ch); });
             if (std::search(name_lowercase.begin(), name_lowercase.end(), searcher) != name_lowercase.end()) {
-                std::memcpy(info.uid, iter->key().data(), 16);
-                plugin_infos.push_back(std::move(info));
+                std::memcpy(info.uid, key.data(), 16);
+                fn(userdata, std::move(info));
             }
         }
     } else {
         for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
+            ldb::Slice key = iter->key();
             ldb::Slice value = iter->value();
             ByteBuffer buffer((std::byte*)value.data(), value.size(), false);
-            PluginInfo info = decode_plugin_info(buffer);
-            std::memcpy(info.uid, iter->key().data(), 16);
-            plugin_infos.push_back(std::move(info));
+            decode_plugin_info(buffer, &info);
+            std::memcpy(info.uid, key.data(), 16);
+            fn(userdata, std::move(info));
         }
     }
 
     delete iter;
-    return plugin_infos;
 }
 
 void pm_update_plugin_info(const PluginInfo& info) {
@@ -204,7 +204,8 @@ PluginInterface* pm_open_plugin(PluginUID uid) {
     plugin_db->Get(read_options, ldb::Slice((char*)uid, sizeof(PluginUID)), &bytes);
 
     ByteBuffer buffer((std::byte*)bytes.data(), bytes.size(), false);
-    PluginInfo plugin_info = decode_plugin_info(buffer);
+    PluginInfo plugin_info;
+    decode_plugin_info(buffer, &plugin_info);
     switch (plugin_info.format) {
         case PluginFormat::Native:
             break;

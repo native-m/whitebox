@@ -199,7 +199,12 @@ void GuiPluginManager::render() {
 }
 
 void GuiPluginManager::update_plugin_info_data(ImGuiTableSortSpecs* sort_specs) {
-    Vector<PluginInfo> plugin_info_data = pm_fetch_registered_plugins(search_text);
+    Vector<PluginInfo> plugin_info_data;
+    pm_fetch_registered_plugins(search_text, &plugin_info_data, [](void* userdata, PluginInfo&& info) {
+        Vector<PluginInfo>* plugins = (Vector<PluginInfo>*)userdata;
+        plugins->push_back(std::move(info));
+    });
+
     auto sort_predicate = [sort_specs](const PluginInfo& a, const PluginInfo& b) {
         const ImGuiTableColumnSortSpecs* sort_spec = &sort_specs->Specs[0];
         ImGuiSortDirection sort_dir = sort_spec->SortDirection;
@@ -230,6 +235,7 @@ void GuiPluginManager::update_plugin_info_data(ImGuiTableSortSpecs* sort_specs) 
         }
         return true;
     };
+
     std::sort(plugin_info_data.begin(), plugin_info_data.end(), sort_predicate);
     selected_plugin_set.clear();
     selected_plugins.clear();
