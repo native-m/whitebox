@@ -84,6 +84,11 @@ struct Pool {
         --num_allocated;
     }
 
+    void destroy(T* obj) {
+        obj->~T();
+        free(obj);
+    }
+
     bool _reserve_new_block() noexcept {
         // One extra storage is required for the pool header. It may waste space a bit if the object
         // is too large. 
