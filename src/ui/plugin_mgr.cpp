@@ -1,7 +1,6 @@
 #include "plugin_mgr.h"
 #include "core/bit_manipulation.h"
 #include "core/core_math.h"
-#include "core/debug.h"
 #include "ui/dialogs.h"
 #include <algorithm>
 #include <imgui_stdlib.h>
@@ -47,7 +46,7 @@ void GuiPluginManager::render() {
     bool force_refresh = false;
     bool rescan_plugins = false;
     if (ImGui::Button("Scan Plugins")) {
-        scan_plugins();
+        pm_scan_plugins();
         force_refresh = true;
         rescan_plugins = true;
     }
@@ -183,7 +182,7 @@ void GuiPluginManager::render() {
             ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
             ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
             if (ImGui::CheckboxFlags("##hidden", &plugin_info.flags, PluginFlags::Hidden)) {
-                update_plugin_info(plugin_info);
+                pm_update_plugin_info(plugin_info);
             }
             ImGui::PopStyleVar(2);
 
@@ -200,7 +199,7 @@ void GuiPluginManager::render() {
 }
 
 void GuiPluginManager::update_plugin_info_data(ImGuiTableSortSpecs* sort_specs) {
-    Vector<PluginInfo> plugin_info_data = load_plugin_info(search_text);
+    Vector<PluginInfo> plugin_info_data = pm_fetch_registered_plugins(search_text);
     auto sort_predicate = [sort_specs](const PluginInfo& a, const PluginInfo& b) {
         const ImGuiTableColumnSortSpecs* sort_spec = &sort_specs->Specs[0];
         ImGuiSortDirection sort_dir = sort_spec->SortDirection;
@@ -242,7 +241,7 @@ void GuiPluginManager::update_plugin_info_data(ImGuiTableSortSpecs* sort_specs) 
 void GuiPluginManager::delete_selected() {
     for (auto id : selected_plugin_set) {
         auto& plugin_info = plugin_infos[id];
-        delete_plugin(plugin_info.uid);
+        pm_delete_plugin(plugin_info.uid);
     }
 }
 } // namespace wb

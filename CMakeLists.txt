@@ -132,11 +132,12 @@ set(WB_SOURCES
     "src/platform/platform.cpp"
     "src/platform/platform.h"
 
+    "src/plughost/plugin_interface.cpp"
+    "src/plughost/plugin_interface.h"
     "src/plughost/plugin_manager.cpp"
     "src/plughost/plugin_manager.h"
     "src/plughost/vst3host.cpp"
     "src/plughost/vst3host.h"
-    "src/plughost/wb_plug.h"
 
     "src/ui/browser.cpp"
     "src/ui/browser.h"

@@ -550,6 +550,9 @@ void GuiTimeline::render_track_controls() {
                 if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
                     ImGui::OpenPopup("track_input_context_menu");
                 ImGui::EndDisabled();
+
+                ImGui::SameLine(0.0f, 2.0f);
+                ImGui::SmallButton("FX");
             }
 
             if (ImGui::BeginPopup("track_input_context_menu")) {

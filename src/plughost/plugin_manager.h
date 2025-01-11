@@ -2,18 +2,12 @@
 
 #include "core/common.h"
 #include "core/vector.h"
+#include "plugin_interface.h"
 #include <string>
 
 namespace wb {
 using PluginHandle = uint32_t;
-
 static constexpr uint32_t plugin_info_version = 1;
-
-enum class PluginFormat : uint8_t {
-    Native,
-    VST3,
-    // CLAP
-};
 
 struct PluginFlags {
     enum : uint32_t {
@@ -22,10 +16,6 @@ struct PluginFlags {
         Analyzer = 1 << 2,
         Hidden = 1 << 3,
     };
-};
-
-struct PluginUID {
-    uint8_t data[16];
 };
 
 struct PluginInfo {
@@ -41,10 +31,14 @@ struct PluginInfo {
 };
 
 void init_plugin_manager();
-Vector<PluginInfo> load_plugin_info(const std::string& name_search);
-void update_plugin_info(const PluginInfo& info);
-void delete_plugin(uint8_t plugin_uid[16]);
-void scan_plugins();
-void register_builtin_plugins();
 void shutdown_plugin_manager();
+
+Vector<PluginInfo> pm_fetch_registered_plugins(const std::string& name_search);
+void pm_update_plugin_info(const PluginInfo& info);
+void pm_delete_plugin(uint8_t plugin_uid[16]);
+void pm_scan_plugins();
+void register_builtin_plugins();
+
+PluginInterface* pm_open_plugin(PluginUID uid);
+void pm_close_plugin(PluginInterface* handle);
 } // namespace wb

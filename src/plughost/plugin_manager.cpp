@@ -4,16 +4,12 @@
 #include "core/stream.h"
 #include "extern/xxhash.h"
 #include "platform/path_def.h"
+#include "vst3host.h"
 #include <algorithm>
 #include <filesystem>
 #include <fmt/ranges.h>
 #include <leveldb/db.h>
 #include <leveldb/write_batch.h>
-#include <pluginterfaces/vst/ivstaudioprocessor.h>
-#include <pluginterfaces/vst/ivsteditcontroller.h>
-#include <public.sdk/source/vst/hosting/hostclasses.h>
-#include <public.sdk/source/vst/hosting/module.h>
-#include <public.sdk/source/vst/hosting/plugprovider.h>
 #include <ranges>
 
 namespace ldb = leveldb;
@@ -23,7 +19,6 @@ namespace vst = Steinberg::Vst;
 namespace wb {
 static ldb::DB* plugin_db;
 static fs::path vst3_extension {".vst3"};
-static Steinberg::Vst::HostApplication vst3_plugin_context;
 
 static PluginInfo decode_plugin_info(ByteBuffer& buffer) {
     PluginInfo info;
@@ -77,8 +72,7 @@ static void scan_vst3_plugins() {
             Steinberg::IPtr<vst::IComponent> component(factory.createInstance<vst::IComponent>(id));
             if (component == nullptr)
                 continue; // Skip this class
-
-            if (component->initialize(&vst3_plugin_context) != Steinberg::kResultOk)
+            if (component->initialize(get_vst3_host_application()) != Steinberg::kResultOk)
                 continue;
 
             uint32_t flags = 0;
@@ -107,16 +101,17 @@ static void scan_vst3_plugins() {
                       ldb::Slice((char*)value_buf.data(), value_buf.position()));
 
             // Log information
+            Log::info("Found class!");
             Log::info("Name: {}", class_info.name());
             Log::info("Vendor: {}", class_info.vendor());
             Log::info("Version: {}", class_info.version());
             Log::info("Subcategories: {}", fmt::join(subcategories, ", "));
-            Log::info("Added VST3 module: {}", path);
 
             component->terminate();
         }
     }
 
+    Log::info("Write plugin data into database");
     // Write this into database
     ldb::Status status = plugin_db->Write({}, &batch);
     if (!status.ok())
@@ -135,10 +130,14 @@ void init_plugin_manager() {
         return;
     }
     plugin_db = db;
-    Steinberg::Vst::PluginContextFactory::instance().setPluginContext(&vst3_plugin_context);
 }
 
-Vector<PluginInfo> load_plugin_info(const std::string& name_search) {
+void shutdown_plugin_manager() {
+    if (plugin_db)
+        delete plugin_db;
+}
+
+Vector<PluginInfo> pm_fetch_registered_plugins(const std::string& name_search) {
     Vector<PluginInfo> plugin_infos;
     ldb::ReadOptions read_options;
     read_options.fill_cache = false;
@@ -171,7 +170,7 @@ Vector<PluginInfo> load_plugin_info(const std::string& name_search) {
     return plugin_infos;
 }
 
-void update_plugin_info(const PluginInfo& info) {
+void pm_update_plugin_info(const PluginInfo& info) {
     ByteBuffer buffer;
     VST3::UID id = VST3::UID::fromTUID(info.descriptor_id.data());
     encode_plugin_info(buffer, id, info.name, info.vendor, info.version, info.path, info.flags, info.format);
@@ -183,7 +182,7 @@ void update_plugin_info(const PluginInfo& info) {
     }
 }
 
-void delete_plugin(uint8_t plugin_uid[16]) {
+void pm_delete_plugin(uint8_t plugin_uid[16]) {
     ldb::Slice key((char*)plugin_uid, 16);
     auto status = plugin_db->Delete({}, key);
     if (!status.ok()) {
@@ -192,13 +191,32 @@ void delete_plugin(uint8_t plugin_uid[16]) {
     }
 }
 
-void scan_plugins() {
+void pm_scan_plugins() {
     scan_vst3_plugins();
     // scan_XX_plugins...
+    Log::info("Plugin scan complete!");
 }
 
-void shutdown_plugin_manager() {
-    if (plugin_db)
-        delete plugin_db;
+PluginInterface* pm_open_plugin(PluginUID uid) {
+    ldb::ReadOptions read_options;
+    read_options.fill_cache = false;
+    std::string bytes;
+    plugin_db->Get(read_options, ldb::Slice((char*)uid, sizeof(PluginUID)), &bytes);
+
+    ByteBuffer buffer((std::byte*)bytes.data(), bytes.size(), false);
+    PluginInfo plugin_info = decode_plugin_info(buffer);
+    switch (plugin_info.format) {
+        case PluginFormat::Native:
+            break;
+        case PluginFormat::VST3:
+            return vst3_open_plugin(uid, plugin_info.descriptor_id, plugin_info.path);
+        default:
+            WB_UNREACHABLE();
+    }
+
+    return nullptr;
+}
+
+void pm_close_plugin(PluginInterface* plugin) {
 }
 } // namespace wb

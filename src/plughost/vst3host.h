@@ -1,5 +1,6 @@
 #pragma once
 
+#include "plugin_interface.h"
 #include <pluginterfaces/gui/iplugview.h>
 #include <pluginterfaces/vst/ivstaudioprocessor.h>
 #include <pluginterfaces/vst/ivsteditcontroller.h>
@@ -10,25 +11,28 @@
 
 namespace wb {
 
+struct VST3Module {
+    uint64_t hash;
+    VST3::Hosting::Module::Ptr module;
+    uint32_t ref_count = 1;
+    VST3Module(uint64_t hash, VST3::Hosting::Module::Ptr&& mod) : hash(hash), module(std::move(mod)) {}
+};
+
+class VST3HostApplication : public Steinberg::Vst::HostApplication {
+  public:
+    Steinberg::tresult PLUGIN_API getName(Steinberg::Vst::String128 name) override;
+};
+
 class VST3ComponentHandler : public Steinberg::Vst::IComponentHandler {
   public:
-    Steinberg::tresult PLUGIN_API beginEdit(Steinberg::Vst::ParamID id) override {
-        //SMTG_DBPRT1("beginEdit called (%d)\n", id);
-        return Steinberg::kNotImplemented;
-    }
+    Steinberg::tresult PLUGIN_API beginEdit(Steinberg::Vst::ParamID id) override;
+
     Steinberg::tresult PLUGIN_API performEdit(Steinberg::Vst::ParamID id,
-                                              Steinberg::Vst::ParamValue valueNormalized) override {
-        //SMTG_DBPRT2("performEdit called (%d, %f)\n", id, valueNormalized);
-        return Steinberg::kNotImplemented;
-    }
-    Steinberg::tresult PLUGIN_API endEdit(Steinberg::Vst::ParamID id) override {
-        //SMTG_DBPRT1("endEdit called (%d)\n", id);
-        return Steinberg::kNotImplemented;
-    }
-    Steinberg::tresult PLUGIN_API restartComponent(Steinberg::int32 flags) override {
-        //SMTG_DBPRT1("restartComponent called (%d)\n", flags);
-        return Steinberg::kNotImplemented;
-    }
+                                              Steinberg::Vst::ParamValue valueNormalized) override;
+
+    Steinberg::tresult PLUGIN_API endEdit(Steinberg::Vst::ParamID id) override;
+
+    Steinberg::tresult PLUGIN_API restartComponent(Steinberg::int32 flags) override;
 
   private:
     Steinberg::tresult PLUGIN_API queryInterface(const Steinberg::TUID /*_iid*/, void** /*obj*/) override {
@@ -38,6 +42,32 @@ class VST3ComponentHandler : public Steinberg::Vst::IComponentHandler {
     // class!
     Steinberg::uint32 PLUGIN_API addRef() override { return 1000; }
     Steinberg::uint32 PLUGIN_API release() override { return 1000; }
+};
+
+struct VST3PluginWrapper : public PluginInterface {
+    Steinberg::Vst::IComponent* component_ {};
+    Steinberg::Vst::IAudioProcessor* processor_ {};
+    Steinberg::Vst::IEditController* controller_ {};
+
+    VST3PluginWrapper(uint64_t module_hash, Steinberg::Vst::IComponent* component);
+    virtual ~VST3PluginWrapper();
+    PluginResult init() override;
+    PluginResult shutdown() override;
+
+    uint32_t get_plugin_param_count() const override;
+    uint32_t get_audio_bus_count() const override;
+    uint32_t get_event_bus_count() const override;
+
+    PluginResult get_plugin_param_info(uint32_t id, PluginParamInfo* result) const override;
+    PluginResult get_audio_bus_info(bool is_input, uint32_t index, PluginAudioBusInfo* bus) const override;
+    PluginResult get_event_bus_info(bool is_input, uint32_t index, PluginEventBusInfo* bus) const override;
+
+    uint32_t get_latency_samples() const override;
+    PluginResult init_processing(PluginProcessingMode mode, uint32_t max_samples_per_block,
+                                 double sample_rate) override;
+    PluginResult process(const AudioBuffer<float>& input, AudioBuffer<float>& output) override;
+
+    PluginResult render_ui() override { return PluginResult::Unimplemented; }
 };
 
 struct VST3Host {
@@ -55,4 +85,9 @@ struct VST3Host {
     bool open_module(const std::string& path);
     bool init_view();
 };
+
+PluginInterface* vst3_open_plugin(PluginUID uid, const std::string& descriptor_id, const std::string& module_path);
+void vst3_close_plugin(PluginInterface* plugin);
+VST3HostApplication* get_vst3_host_application();
+
 } // namespace wb

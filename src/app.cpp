@@ -42,37 +42,11 @@ static int32_t main_window_width;
 static int32_t main_window_height;
 static SDL_SysWMinfo main_wm_info;
 static bool is_running = true;
-static VST3Host vst3_host;
 static std::unordered_map<uint32_t, SDL_Window*> plugin_windows;
 uint32_t AppEvent::audio_device_removed_event;
 
 static void apply_theme(ImGuiStyle& style);
 static int SDLCALL event_watcher(void* userdata, SDL_Event* event);
-
-static void add_vst3_window(VST3Host& plug_instance, const char* name, uint32_t width, uint32_t height) {
-#ifdef WB_PLATFORM_WINDOWS
-    // Create plugin window
-    SDL_Window* window = SDL_CreateWindow(name, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, 0);
-    make_child_window(window, main_window);
-    SDL_SysWMinfo wm_info {};
-    SDL_VERSION(&wm_info.version);
-    SDL_GetWindowWMInfo(window, &wm_info);
-    setup_dark_mode(window);
-
-    uint32_t id = SDL_GetWindowID(window);
-    plugin_windows.emplace(id, window);
-    SDL_SetWindowData(window, "wb_vst3_instance", &plug_instance);
-
-    if (plug_instance.view->isPlatformTypeSupported(Steinberg::kPlatformTypeHWND) != Steinberg::kResultTrue) {
-        Log::debug("Platform is not supported");
-        return;
-    }
-    if (plug_instance.view->attached(wm_info.info.win.window, Steinberg::kPlatformTypeHWND) != Steinberg::kResultOk) {
-        Log::debug("Failed to attach UI");
-        return;
-    }
-#endif
-}
 
 static std::optional<SDL_Window*> get_plugin_window_from_id(uint32_t window_id) {
     if (plugin_windows.empty())
@@ -362,36 +336,6 @@ void app_render_control_bar() {
             save_project = ImGui::MenuItem("Save as...", "Shift+Ctrl+S");
             ImGui::Separator();
             ImGui::MenuItem("Project info...", nullptr, &g_show_project_dialog);
-            ImGui::Separator();
-            if (ImGui::MenuItem("Scan plugins")) {
-                scan_plugins();
-            }
-            if (ImGui::MenuItem("Open VST3 plugin (folder)")) {
-#ifdef WB_PLATFORM_WINDOWS
-                if (auto folder = pick_folder_dialog()) {
-                    if (vst3_host.open_module(folder.value().string())) {
-                        if (vst3_host.init_view()) {
-                            Steinberg::ViewRect rect;
-                            vst3_host.view->getSize(&rect);
-                            add_vst3_window(vst3_host, "whitebox plugin host", rect.getWidth(), rect.getHeight());
-                        }
-                    }
-                }
-#endif
-            }
-            if (ImGui::MenuItem("Open VST3 plugin (file)")) {
-#ifdef WB_PLATFORM_WINDOWS
-                if (auto folder = open_file_dialog({{"VST3 Plugin", "vst3"}})) {
-                    if (vst3_host.open_module(folder.value().string())) {
-                        if (vst3_host.init_view()) {
-                            Steinberg::ViewRect rect;
-                            vst3_host.view->getSize(&rect);
-                            add_vst3_window(vst3_host, "whitebox plugin host", rect.getWidth(), rect.getHeight());
-                        }
-                    }
-                }
-#endif
-            }
             ImGui::Separator();
             if (ImGui::MenuItem("Quit"))
                 is_running = false;
