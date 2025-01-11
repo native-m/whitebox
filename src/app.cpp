@@ -7,7 +7,6 @@
 #include "engine/project.h"
 #include "gfx/renderer.h"
 #include "platform/platform.h"
-#include "plughost/vst3host.h"
 #include "plughost/plugin_manager.h"
 #include "ui/IconsMaterialSymbols.h"
 #include "ui/browser.h"
@@ -21,6 +20,7 @@
 #include "ui/history.h"
 #include "ui/mixer.h"
 #include "ui/piano_roll.h"
+#include "ui/plugins.h"
 #include "ui/plugin_mgr.h"
 #include "ui/settings.h"
 #include "ui/timeline.h"
@@ -73,7 +73,7 @@ static void handle_plugin_events(SDL_Event& event) {
 }
 
 static void handle_events(SDL_Event& event) {
-    if (event.type == SDL_WINDOWEVENT && event.window.windowID != main_window_id) {
+    /*if (event.type == SDL_WINDOWEVENT && event.window.windowID != main_window_id) {
         if (auto plugin_window = get_plugin_window_from_id(event.window.windowID)) {
             SDL_Window* window = plugin_window.value();
             switch (event.type) {
@@ -89,7 +89,7 @@ static void handle_events(SDL_Event& event) {
             }
             return;
         }
-    }
+    }*/
 
     switch (event.type) {
         case SDL_WINDOWEVENT: {
@@ -354,6 +354,7 @@ void app_render_control_bar() {
             ImGui::MenuItem("Timeline", nullptr, &g_timeline.open);
             ImGui::MenuItem("Mixer", nullptr, &g_mixer.open);
             ImGui::MenuItem("Browser", nullptr, &g_browser.open);
+            ImGui::MenuItem("Plugins", nullptr, &g_plugins_window.open);
             ImGui::MenuItem("Test controls", nullptr, &controls::g_test_control_shown);
             ImGui::Separator();
             ImGui::MenuItem("Settings", nullptr, &g_settings.open);
@@ -448,6 +449,7 @@ void app_render() {
     g_settings.render();
     g_plugin_manager.render();
     g_browser.render();
+    g_plugins_window.render();
     g_mixer.render();
     g_timeline.render();
     g_piano_roll.render();

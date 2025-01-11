@@ -168,6 +168,8 @@ set(WB_SOURCES
     "src/ui/mixer.h"
     "src/ui/piano_roll.cpp"
     "src/ui/piano_roll.h"
+    "src/ui/plugins.cpp"
+    "src/ui/plugins.h"
     "src/ui/plugin_mgr.cpp"
     "src/ui/plugin_mgr.h"
     "src/ui/popup_state_manager.h"
