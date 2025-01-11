@@ -5,17 +5,19 @@
 #include <pluginterfaces/vst/ivstaudioprocessor.h>
 #include <pluginterfaces/vst/ivsteditcontroller.h>
 #include <pluginterfaces/vst/vsttypes.h>
+#include <public.sdk/source/vst/hosting/connectionproxy.h>
 #include <public.sdk/source/vst/hosting/hostclasses.h>
 #include <public.sdk/source/vst/hosting/module.h>
 #include <public.sdk/source/vst/hosting/plugprovider.h>
+#include <optional>
 
 namespace wb {
 
 struct VST3Module {
     uint64_t hash;
-    VST3::Hosting::Module::Ptr module;
+    VST3::Hosting::Module::Ptr mod_ptr;
     uint32_t ref_count = 1;
-    VST3Module(uint64_t hash, VST3::Hosting::Module::Ptr&& mod) : hash(hash), module(std::move(mod)) {}
+    VST3Module(uint64_t hash, VST3::Hosting::Module::Ptr&& mod) : hash(hash), mod_ptr(std::move(mod)) {}
 };
 
 class VST3HostApplication : public Steinberg::Vst::HostApplication {
@@ -48,8 +50,13 @@ struct VST3PluginWrapper : public PluginInterface {
     Steinberg::Vst::IComponent* component_ {};
     Steinberg::Vst::IAudioProcessor* processor_ {};
     Steinberg::Vst::IEditController* controller_ {};
+    bool single_component_ = true;
 
-    VST3PluginWrapper(uint64_t module_hash, Steinberg::Vst::IComponent* component);
+    std::optional<Steinberg::Vst::ConnectionProxy> component_cp_;
+    std::optional<Steinberg::Vst::ConnectionProxy> controller_cp_;
+
+    VST3PluginWrapper(uint64_t module_hash, Steinberg::Vst::IComponent* component,
+                      Steinberg::Vst::IEditController* controller);
     virtual ~VST3PluginWrapper();
     PluginResult init() override;
     PluginResult shutdown() override;
@@ -68,6 +75,8 @@ struct VST3PluginWrapper : public PluginInterface {
     PluginResult process(const AudioBuffer<float>& input, AudioBuffer<float>& output) override;
 
     PluginResult render_ui() override { return PluginResult::Unimplemented; }
+
+    void disconnect_components_();
 };
 
 struct VST3Host {

@@ -71,22 +71,79 @@ Steinberg::tresult PLUGIN_API VST3ComponentHandler::restartComponent(Steinberg::
 
 //
 
-VST3PluginWrapper::VST3PluginWrapper(uint64_t module_hash, Steinberg::Vst::IComponent* component) :
-    PluginInterface(module_hash, PluginFormat::VST3), component_(component) {
+VST3PluginWrapper::VST3PluginWrapper(uint64_t module_hash, Steinberg::Vst::IComponent* component,
+                                     Steinberg::Vst::IEditController* controller) :
+    PluginInterface(module_hash, PluginFormat::VST3), component_(component), controller_(controller) {
 }
 
 VST3PluginWrapper::~VST3PluginWrapper() {
+    if (controller_)
+        controller_->release();
+    if (component_)
+        component_->release();
 }
 
 PluginResult VST3PluginWrapper::init() {
-    Steinberg::IPluginBase* plugin_base = component_;
-    if (plugin_base->initialize(&vst3_host_app) != Steinberg::kResultOk)
+    Steinberg::IPluginBase* component_base = component_;
+    if (component_base->initialize(&vst3_host_app) != Steinberg::kResultOk)
         return PluginResult::Failed;
-    return PluginResult::Unimplemented;
+
+    if (!controller_) {
+        // The plugin did not separate the controller
+        if (component_->queryInterface(Steinberg::Vst::IEditController::iid, (void**)&controller_) !=
+            Steinberg::kResultOk) {
+            return PluginResult::Failed;
+        }
+        if (!controller_)
+            return PluginResult::Failed;
+        single_component_ = true;
+    }
+
+    // Initialize the controller
+    Steinberg::IPluginBase* controller_base = controller_;
+    if (controller_base->initialize(&vst3_host_app) != Steinberg::kResultOk)
+        return PluginResult::Failed;
+
+    // If the component is separated, connect the component with controller manually
+    if (!single_component_) {
+        Steinberg::Vst::IConnectionPoint* component_icp;
+        Steinberg::Vst::IConnectionPoint* controller_icp;
+
+        if (component_->queryInterface(Steinberg::Vst::IConnectionPoint::iid, (void**)&component_icp) !=
+            Steinberg::kResultOk)
+            return PluginResult::Failed;
+        if (controller_->queryInterface(Steinberg::Vst::IConnectionPoint::iid, (void**)&controller_icp) !=
+            Steinberg::kResultOk) {
+            component_icp->release();
+            return PluginResult::Failed;
+        }
+
+        component_cp_.emplace(component_icp);
+        controller_cp_.emplace(controller_icp);
+
+        if (component_cp_->connect(controller_icp) != Steinberg::kResultOk) {
+            component_icp->release();
+            controller_icp->release();
+            return PluginResult::Failed;
+        }
+
+        if (controller_cp_->connect(component_icp) != Steinberg::kResultOk) {
+            component_icp->release();
+            controller_icp->release();
+            return PluginResult::Failed;
+        }
+    }
+
+    return PluginResult::Ok;
 }
 
 PluginResult VST3PluginWrapper::shutdown() {
-    return PluginResult::Unimplemented;
+    disconnect_components_();
+    if (component_)
+        component_->terminate();
+    if (controller_ && !single_component_)
+        controller_->terminate();
+    return PluginResult::Ok;
 }
 
 uint32_t VST3PluginWrapper::get_plugin_param_count() const {
@@ -124,6 +181,15 @@ PluginResult VST3PluginWrapper::init_processing(PluginProcessingMode mode, uint3
 
 PluginResult VST3PluginWrapper::process(const AudioBuffer<float>& input, AudioBuffer<float>& output) {
     return PluginResult::Unimplemented;
+}
+
+void VST3PluginWrapper::disconnect_components_() {
+    if (controller_cp_)
+        controller_cp_->disconnect();
+    if (component_cp_)
+        component_cp_->disconnect();
+    controller_cp_.reset();
+    component_cp_.reset();
 }
 
 //
@@ -182,11 +248,42 @@ bool VST3Host::init_view() {
 PluginInterface* vst3_open_plugin(PluginUID uid, const std::string& descriptor_id, const std::string& module_path) {
     assert(descriptor_id.size() == sizeof(Steinberg::TUID));
     VST3Module* module = create_module(module_path);
-    return nullptr;
+    if (!module)
+        return nullptr;
+
+    Steinberg::TUID tuid;
+    std::memcpy(tuid, descriptor_id.data(), descriptor_id.size());
+
+    // Create plugin component instance
+    auto& factory = module->mod_ptr->getFactory();
+    Steinberg::TUID controller_uid;
+    Steinberg::IPtr<Steinberg::Vst::IComponent> component =
+        factory.createInstance<Steinberg::Vst::IComponent>(VST3::UID::fromTUID(tuid));
+    if (!component)
+        return nullptr;
+
+    // Try creating controller
+    Steinberg::IPtr<Steinberg::Vst::IEditController> controller;
+    if (component->getControllerClassId(controller_uid) == Steinberg::kResultOk)
+        controller = factory.createInstance<Steinberg::Vst::IEditController>(controller_uid);
+
+    void* ptr = vst3_plugins.allocate();
+    if (!ptr)
+        return nullptr;
+
+    // Wrap vst3 plugin
+    VST3PluginWrapper* plugin_instance = new (ptr) VST3PluginWrapper(module->hash, component.take(), controller.take());
+    if (plugin_instance->init() == PluginResult::Failed) {
+        vst3_plugins.destroy(plugin_instance);
+        return nullptr;
+    }
+
+    return plugin_instance;
 }
 
 void vst3_close_plugin(PluginInterface* plugin) {
-
+    plugin->shutdown();
+    release_module(plugin->module_hash);
 }
 
 VST3HostApplication* get_vst3_host_application() {
