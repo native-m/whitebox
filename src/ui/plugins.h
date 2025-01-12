@@ -14,7 +14,6 @@ struct PluginItem {
 };
 
 struct GuiPlugins {
-    bool open = true;
     Vector<PluginItem> items;
     std::string search_text;
     float search_timeout = 0.0;

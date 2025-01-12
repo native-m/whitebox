@@ -2,8 +2,6 @@
 
 namespace wb {
 struct GuiMixer {
-    bool open = true;
-
     void render();
 };
 

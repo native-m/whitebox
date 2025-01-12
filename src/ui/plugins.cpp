@@ -28,7 +28,7 @@ void GuiPlugins::render() {
     if (ImGui::InputTextWithHint("##search", "Search plugin name", &search_text))
         search_timeout = 80.0f / 1000.0f;
     if (ImGui::Button("Open plugin manager", ImVec2(window_area.x, 0.0f)))
-        g_plugin_manager.open = true;
+        g_plugin_mgr_window_open = true;
     ImGui::PopItemWidth();
 
     if (search_timeout > 0.0f) {

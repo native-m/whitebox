@@ -82,7 +82,6 @@ struct GuiBrowser {
     using DirectoryRefItem = std::pair<DirectorySet::iterator, BrowserItem>;
     DirectorySet directory_set;
     std::vector<DirectoryRefItem> directories;
-    bool open = true;
 
     bool open_context_menu = false;
     std::filesystem::path context_menu_path;

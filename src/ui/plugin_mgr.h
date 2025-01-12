@@ -8,7 +8,6 @@ struct ImGuiTableSortSpecs;
 
 namespace wb {
 struct GuiPluginManager {
-    bool open = false;
     Vector<PluginInfo> plugin_infos;
     std::unordered_set<uint32_t> selected_plugin_set;
     uint32_t num_selected_plugins = 0;

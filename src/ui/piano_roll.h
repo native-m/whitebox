@@ -11,9 +11,7 @@ struct GuiPianoRoll : public TimelineBase {
     static constexpr float note_height = 18.0f;
     static constexpr float note_height_padded = note_height + 1.0f;
 
-    bool open = true;
     MidiData midi_note;
-
     ImVec2 content_size;
     ImVec2 main_cursor_pos;
     ImVec2 child_content_size;

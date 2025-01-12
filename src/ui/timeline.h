@@ -35,7 +35,6 @@ struct TargetSelectionRange {
 };
 
 struct GuiTimeline : public TimelineBase {
-    bool open = true;
     bool force_redraw = false;
     uint32_t color_spin = 0;
     ImDrawList* main_draw_list {};

@@ -296,10 +296,6 @@ void app_shutdown() {
     SDL_Quit();
 }
 
-void set_mouse_cursor_pos(float x, float y) {
-    SDL_WarpMouseGlobal((int)x, (int)y);
-}
-
 static bool last_resized = false;
 
 int SDLCALL event_watcher(void* userdata, SDL_Event* event) {
