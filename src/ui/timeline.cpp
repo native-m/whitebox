@@ -12,6 +12,7 @@
 #include "engine/track.h"
 #include "forms.h"
 #include "layout.h"
+#include "plugins.h"
 #include "window.h"
 #include <fmt/format.h>
 
@@ -408,6 +409,7 @@ void GuiTimeline::render_track_controls() {
     ImGui::PushClipRect(screen_pos, ImVec2(screen_pos.x + clamped_separator_pos, screen_pos.y + area_size.y + vscroll),
                         true);
 
+    bool item_dropped = false;
     auto& tracks = g_engine.tracks;
     for (uint32_t i = 0; i < tracks.size(); i++) {
         Track* track = tracks[i];
@@ -426,8 +428,11 @@ void GuiTimeline::render_track_controls() {
         ImGui::PushID(i);
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2());
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(track_color_width - 2.0f, 2.0f));
-        ImGui::BeginChild("##track_control", ImVec2(clamped_separator_pos - track_color_width - 11.0f, height), 0,
-                          track_control_window_flags);
+
+        const ImVec2 size = ImVec2(clamped_separator_pos - track_color_width - 11.0f, height);
+        const ImVec2 pos_start = ImGui::GetCursorScreenPos();
+        const ImVec2 pos_end = pos_start + size;
+        ImGui::BeginChild("##track_control", size, 0, track_control_window_flags);
 
         {
             bool parameter_updated = false;
@@ -550,11 +555,17 @@ void GuiTimeline::render_track_controls() {
                 ImGui::EndDisabled();
 
                 ImGui::SameLine(0.0f, 2.0f);
-                ImGui::SmallButton("FX");
+                if (ImGui::SmallButton("FX"))
+                    ImGui::OpenPopup("track_plugin_context_menu");
             }
 
             if (ImGui::BeginPopup("track_input_context_menu")) {
                 track_input_context_menu(track, i);
+                ImGui::EndPopup();
+            }
+
+            if (ImGui::BeginPopup("track_plugin_context_menu")) {
+                track_plugin_context_menu(track);
                 ImGui::EndPopup();
             }
 
@@ -575,8 +586,18 @@ void GuiTimeline::render_track_controls() {
         }
 
         ImGui::EndChild();
-        ImGui::SameLine();
 
+        if (ImGui::BeginDragDropTarget()) {
+            static constexpr auto drag_drop_flags = ImGuiDragDropFlags_AcceptNoDrawDefaultRect;
+            if (ImGui::GetDragDropPayload()) // Workaround for overlapped drag-drop highlighter
+                main_draw_list->AddRect(pos_start, pos_end, ImGui::GetColorU32(ImGuiCol_DragDropTarget), 0.0f, 0, 2.0f);
+            if (auto drop_payload_data = ImGui::AcceptDragDropPayload("WB_PLUGINDROP", drag_drop_flags)) {
+                Log::debug("Test");
+            }
+            ImGui::EndDragDropTarget();
+        }
+
+        ImGui::SameLine();
         controls::level_meter("##timeline_vu_meter", ImVec2(10.0f, height), 2, track->level_meter,
                               track->level_meter_color, false);
 
@@ -926,9 +947,8 @@ void GuiTimeline::render_track_lanes() {
     const float expand_max_y = !dragging ? 0.0f : math::max(mouse_pos.y - view_max.y, 0.0f);
     const bool has_deleted_clips = g_engine.has_deleted_clips.load(std::memory_order_relaxed);
 
-    if (has_deleted_clips) {
+    if (has_deleted_clips)
         g_engine.delete_lock.lock();
-    }
 
     float track_pos_y = timeline_view_pos.y;
     static constexpr float track_separator_height = 2.0f;
@@ -1201,9 +1221,8 @@ void GuiTimeline::render_track_lanes() {
         edited_clip_max_time = max_time;
     }
 
-    if (has_deleted_clips) {
+    if (has_deleted_clips)
         g_engine.delete_lock.unlock();
-    }
 
     if (redraw) {
         if (selecting_range || range_selected) {

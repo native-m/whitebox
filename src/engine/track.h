@@ -11,6 +11,7 @@
 #include "event_list.h"
 #include "midi_voice.h"
 #include "param_changes.h"
+#include "plughost/plugin_interface.h"
 #include "test_synth.h"
 #include "track_input.h"
 #include "vu_meter.h"
@@ -87,6 +88,8 @@ struct Track {
 
     LevelMeterColorMode level_meter_color {};
     VUMeter level_meter[2] {};
+
+    PluginInterface* plugin_instance = nullptr;
 
     TrackParameterState ui_parameter_state {}; // UI-side state
     TrackParameterState parameter_state {};    // Audio-side state

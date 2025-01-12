@@ -6,6 +6,7 @@
 #include "core/dsp_ops.h"
 #include "core/panning_law.h"
 #include "core/queue.h"
+#include "plughost/plugin_manager.h"
 #include <algorithm>
 
 #ifndef _NDEBUG
@@ -65,6 +66,8 @@ Track::~Track() {
         clip->~Clip();
         clip_allocator.free(clip);
     }
+    if (plugin_instance)
+        pm_close_plugin(plugin_instance);
 }
 
 void Track::set_volume(float db) {

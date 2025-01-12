@@ -89,4 +89,9 @@ void track_input_context_menu(Track* track, uint32_t track_slot) {
             g_engine.set_track_input(track_slot, TrackInputType::ExternalMono, i, track->input_attr.armed);
     }
 }
+
+void track_plugin_context_menu(Track* track) {
+    if (ImGui::MenuItem("Close plugin", nullptr, nullptr, track->plugin_instance != nullptr)) {
+    }
+}
 } // namespace wb
