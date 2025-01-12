@@ -676,8 +676,11 @@ void GuiTimeline::render_track_lanes() {
     ImGui::PushClipRect(view_min, view_max, true);
 
     if (timeline_width != old_timeline_size.x || area_size.y != old_timeline_size.y) {
+        // Sometimes the window can have negative size, clamp the size
+        int width = (int)math::max(timeline_width, 16.0f);
+        int height = (int)math::max(area_size.y, 16.0f);
         Log::info("Resizing timeline framebuffer ({}x{})", (int)timeline_width, (int)area_size.y);
-        timeline_fb = g_renderer->create_framebuffer((int)timeline_width, (int)area_size.y);
+        timeline_fb = g_renderer->create_framebuffer(width, height);
         old_timeline_size.x = timeline_width;
         old_timeline_size.y = area_size.y;
         redraw = redraw || true;
