@@ -506,7 +506,7 @@ void Engine::add_plugin_to_track(Track* track, PluginUID uid) {
         Log::debug("Failed to open plugin");
         return;
     }
-    track->plugin_instance = pm_open_plugin(uid);
+    track->plugin_instance = plugin;
 }
 
 void Engine::delete_plugin_from_track(Track* track) {

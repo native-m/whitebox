@@ -120,7 +120,6 @@ PluginResult VST3PluginWrapper::init() {
 
         component_cp_.emplace(component_icp);
         controller_cp_.emplace(controller_icp);
-
         if (component_cp_->connect(controller_icp) != Steinberg::kResultOk) {
             component_icp->release();
             controller_icp->release();
@@ -132,6 +131,9 @@ PluginResult VST3PluginWrapper::init() {
             controller_icp->release();
             return PluginResult::Failed;
         }
+     
+        component_icp->release();
+        controller_icp->release();
     }
 
     return PluginResult::Ok;
@@ -256,7 +258,6 @@ PluginInterface* vst3_open_plugin(PluginUID uid, const std::string& descriptor_i
 
     // Create plugin component instance
     auto& factory = module->mod_ptr->getFactory();
-    Steinberg::TUID controller_uid;
     Steinberg::IPtr<Steinberg::Vst::IComponent> component =
         factory.createInstance<Steinberg::Vst::IComponent>(VST3::UID::fromTUID(tuid));
     if (!component) {
@@ -265,6 +266,7 @@ PluginInterface* vst3_open_plugin(PluginUID uid, const std::string& descriptor_i
     }
 
     // Try creating controller
+    Steinberg::TUID controller_uid;
     Steinberg::IPtr<Steinberg::Vst::IEditController> controller;
     if (component->getControllerClassId(controller_uid) == Steinberg::kResultOk)
         controller = factory.createInstance<Steinberg::Vst::IEditController>(controller_uid);
@@ -287,8 +289,10 @@ PluginInterface* vst3_open_plugin(PluginUID uid, const std::string& descriptor_i
 }
 
 void vst3_close_plugin(PluginInterface* plugin) {
+    uint64_t module_hash = plugin->module_hash;
     plugin->shutdown();
-    release_module(plugin->module_hash);
+    vst3_plugins.destroy(static_cast<VST3PluginWrapper*>(plugin));
+    release_module(module_hash);
 }
 
 VST3HostApplication* get_vst3_host_application() {
