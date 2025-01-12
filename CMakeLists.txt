@@ -77,6 +77,7 @@ set(WB_SOURCES
     "src/core/panning_law.h"
     "src/core/platform_def.h"
     "src/core/queue.h"
+    "src/core/span.h"
     "src/core/stream.h"
     "src/core/thread.cpp"
     "src/core/thread.h"

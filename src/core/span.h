@@ -5,8 +5,16 @@
 namespace wb {
 template <typename T>
 struct Span {
-    T* data;
-    size_t size;
+    T* data {};
+    size_t size {};
+
+    template <typename It>
+    void assign(It begin_it, It end_it) {
+        assert(begin_it < end_it);
+        auto length = end_it - begin_it;
+        data = &*begin_it;
+        size = (size_t)length;
+    }
 
     inline T& front() noexcept {
         assert(size > 0);
@@ -30,12 +38,12 @@ struct Span {
 
     inline T& at(size_t n) noexcept {
         assert(n < size && "Index out of bounds");
-        return data[idx];
+        return data[n];
     }
 
     inline const T& at(size_t n) const noexcept {
         assert(n < size && "Index out of bounds");
-        return data[idx];
+        return data[n];
     }
 
     T& operator[](size_t n) {
@@ -52,6 +60,5 @@ struct Span {
     const T* begin() const { return data; }
     T* end() { return data + size; }
     const T* end() const { return data + size; }
-
 };
 } // namespace wb

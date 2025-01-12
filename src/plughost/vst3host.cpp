@@ -1,7 +1,9 @@
 #include "vst3host.h"
+#include "core/bit_manipulation.h"
 #include "core/debug.h"
 #include "core/memory.h"
 #include "extern/xxhash.h"
+#include <public.sdk/source/common/memorystream.h>
 #include <unordered_map>
 
 namespace wb {
@@ -30,6 +32,13 @@ static VST3Module* create_module(const std::string& path) {
     return &new_module.first->second;
 }
 
+static VST3Module* get_module(uint64_t hash) {
+    auto module = vst3_module_cache.find(hash);
+    if (module != vst3_module_cache.end())
+        return &module->second;
+    return nullptr;
+}
+
 static void release_module(uint64_t hash) {
     auto module = vst3_module_cache.find(hash);
     if (module == vst3_module_cache.end())
@@ -50,22 +59,26 @@ Steinberg::tresult VST3HostApplication::getName(Steinberg::Vst::String128 name) 
 
 Steinberg::tresult PLUGIN_API VST3ComponentHandler::beginEdit(Steinberg::Vst::ParamID id) {
     // SMTG_DBPRT1("beginEdit called (%d)\n", id);
+    Log::debug("beginEdit called ({})", id);
     return Steinberg::kNotImplemented;
 }
 
 Steinberg::tresult PLUGIN_API VST3ComponentHandler::performEdit(Steinberg::Vst::ParamID id,
                                                                 Steinberg::Vst::ParamValue valueNormalized) {
     // SMTG_DBPRT2("performEdit called (%d, %f)\n", id, valueNormalized);
+    Log::debug("performEdit called ({}, {})", id, valueNormalized);
     return Steinberg::kNotImplemented;
 }
 
 Steinberg::tresult PLUGIN_API VST3ComponentHandler::endEdit(Steinberg::Vst::ParamID id) {
     // SMTG_DBPRT1("endEdit called (%d)\n", id);
+    Log::debug("endEdit called ({})", id);
     return Steinberg::kNotImplemented;
 }
 
 Steinberg::tresult PLUGIN_API VST3ComponentHandler::restartComponent(Steinberg::int32 flags) {
     // SMTG_DBPRT1("restartComponent called (%d)\n", flags);
+    Log::debug("restartComponent called ({})", flags);
     return Steinberg::kNotImplemented;
 }
 
@@ -104,6 +117,8 @@ PluginResult VST3PluginWrapper::init() {
     if (controller_base->initialize(&vst3_host_app) != Steinberg::kResultOk)
         return PluginResult::Failed;
 
+    controller_->setComponentHandler(&component_handler_);
+
     // If the component is separated, connect the component with controller manually
     if (!single_component_) {
         Steinberg::Vst::IConnectionPoint* component_icp;
@@ -131,9 +146,31 @@ PluginResult VST3PluginWrapper::init() {
             controller_icp->release();
             return PluginResult::Failed;
         }
-     
+
         component_icp->release();
         controller_icp->release();
+    }
+
+    int32_t param_count = controller_->getParameterCount();
+    if (params.size == 0) {
+        if (auto module = get_module(module_hash)) {
+            Steinberg::Vst::ParameterInfo param_info;
+            module->param_cache.resize(param_count);
+            for (int32_t i = 0; i < param_count; i++) {
+                PluginParamInfo& wb = module->param_cache[i];
+                controller_->getParameterInfo(i, param_info);
+                wb.id = param_info.id;
+                if (has_bit(param_info.flags, Steinberg::Vst::ParameterInfo::kCanAutomate))
+                    wb.flags |= PluginParamFlags::Automatable;
+                if (has_bit(param_info.flags, Steinberg::Vst::ParameterInfo::kIsReadOnly))
+                    wb.flags |= PluginParamFlags::ReadOnly;
+                if (has_bit(param_info.flags, Steinberg::Vst::ParameterInfo::kIsHidden))
+                    wb.flags |= PluginParamFlags::Hidden;
+                wb.default_normalized_value = param_info.defaultNormalizedValue;
+                std::memcpy(wb.name, param_info.title, sizeof(param_info.title));
+            }
+            params.assign(module->param_cache.begin(), module->param_cache.end());
+        }
     }
 
     return PluginResult::Ok;
@@ -148,28 +185,47 @@ PluginResult VST3PluginWrapper::shutdown() {
     return PluginResult::Ok;
 }
 
-uint32_t VST3PluginWrapper::get_plugin_param_count() const {
-    return 0;
+uint32_t VST3PluginWrapper::get_param_count() const {
+    return params.size;
 }
 
-uint32_t VST3PluginWrapper::get_audio_bus_count() const {
-    return 0;
+uint32_t VST3PluginWrapper::get_audio_bus_count(bool is_input) const {
+    return component_->getBusCount(Steinberg::Vst::MediaTypes::kAudio, (Steinberg::Vst::BusDirection)is_input);
 }
 
-uint32_t VST3PluginWrapper::get_event_bus_count() const {
-    return 0;
+uint32_t VST3PluginWrapper::get_event_bus_count(bool is_input) const {
+    return component_->getBusCount(Steinberg::Vst::MediaTypes::kEvent, (Steinberg::Vst::BusDirection)is_input);
 }
 
-PluginResult VST3PluginWrapper::get_plugin_param_info(uint32_t id, PluginParamInfo* result) const {
-    return PluginResult::Unimplemented;
+PluginResult VST3PluginWrapper::get_plugin_param_info(uint32_t index, PluginParamInfo* result) const {
+    if (index >= params.size)
+        return PluginResult::Failed;
+    *result = params[index];
+    return PluginResult::Ok;
 }
 
 PluginResult VST3PluginWrapper::get_audio_bus_info(bool is_input, uint32_t index, PluginAudioBusInfo* bus) const {
-    return PluginResult::Unimplemented;
+    Steinberg::Vst::BusInfo bus_info;
+    Steinberg::tresult result = component_->getBusInfo(Steinberg::Vst::MediaTypes::kAudio,
+                                                       (Steinberg::Vst::BusDirection)is_input, index, bus_info);
+    if (result == Steinberg::kInvalidArgument)
+        return PluginResult::Failed;
+    bus->id = index;
+    bus->channel_count = bus_info.channelCount;
+    bus->default_bus = has_bit(bus_info.flags, Steinberg::Vst::BusInfo::kDefaultActive);
+    std::memcpy(bus->name, bus_info.name, sizeof(bus_info.name));
+    return PluginResult::Ok;
 }
 
 PluginResult VST3PluginWrapper::get_event_bus_info(bool is_input, uint32_t index, PluginEventBusInfo* bus) const {
-    return PluginResult::Unimplemented;
+    Steinberg::Vst::BusInfo bus_info;
+    Steinberg::tresult result = component_->getBusInfo(Steinberg::Vst::MediaTypes::kAudio,
+                                                       (Steinberg::Vst::BusDirection)is_input, index, bus_info);
+    if (result == Steinberg::kInvalidArgument)
+        return PluginResult::Failed;
+    bus->id = index;
+    std::memcpy(bus->name, bus_info.name, sizeof(bus_info.name));
+    return PluginResult::Ok;
 }
 
 uint32_t VST3PluginWrapper::get_latency_samples() const {

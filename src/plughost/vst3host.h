@@ -1,6 +1,9 @@
 #pragma once
 
+#include "core/span.h"
+#include "core/vector.h"
 #include "plugin_interface.h"
+#include <optional>
 #include <pluginterfaces/gui/iplugview.h>
 #include <pluginterfaces/vst/ivstaudioprocessor.h>
 #include <pluginterfaces/vst/ivsteditcontroller.h>
@@ -9,13 +12,13 @@
 #include <public.sdk/source/vst/hosting/hostclasses.h>
 #include <public.sdk/source/vst/hosting/module.h>
 #include <public.sdk/source/vst/hosting/plugprovider.h>
-#include <optional>
 
 namespace wb {
 
 struct VST3Module {
     uint64_t hash;
     VST3::Hosting::Module::Ptr mod_ptr;
+    Vector<PluginParamInfo> param_cache; // Let's not waste memory by caching parameter information
     uint32_t ref_count = 1;
     VST3Module(uint64_t hash, VST3::Hosting::Module::Ptr&& mod) : hash(hash), mod_ptr(std::move(mod)) {}
 };
@@ -50,10 +53,13 @@ struct VST3PluginWrapper : public PluginInterface {
     Steinberg::Vst::IComponent* component_ {};
     Steinberg::Vst::IAudioProcessor* processor_ {};
     Steinberg::Vst::IEditController* controller_ {};
+    VST3ComponentHandler component_handler_;
     bool single_component_ = false;
 
     std::optional<Steinberg::Vst::ConnectionProxy> component_cp_;
     std::optional<Steinberg::Vst::ConnectionProxy> controller_cp_;
+
+    Span<PluginParamInfo> params;
 
     VST3PluginWrapper(uint64_t module_hash, Steinberg::Vst::IComponent* component,
                       Steinberg::Vst::IEditController* controller);
@@ -61,9 +67,9 @@ struct VST3PluginWrapper : public PluginInterface {
     PluginResult init() override;
     PluginResult shutdown() override;
 
-    uint32_t get_plugin_param_count() const override;
-    uint32_t get_audio_bus_count() const override;
-    uint32_t get_event_bus_count() const override;
+    uint32_t get_param_count() const override;
+    uint32_t get_audio_bus_count(bool is_input) const override;
+    uint32_t get_event_bus_count(bool is_input) const override;
 
     PluginResult get_plugin_param_info(uint32_t id, PluginParamInfo* result) const override;
     PluginResult get_audio_bus_info(bool is_input, uint32_t index, PluginAudioBusInfo* bus) const override;

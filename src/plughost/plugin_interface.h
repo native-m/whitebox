@@ -13,6 +13,8 @@
 namespace wb {
 using PluginUID = uint8_t[16];
 
+static constexpr uint32_t plugin_name_size = 256;
+
 enum class PluginResult {
     Ok,
     Failed = -1,
@@ -49,21 +51,20 @@ struct PluginParamFlags {
 struct PluginParamInfo {
     uint32_t id;
     uint32_t flags;
-    const char* name;
-    PluginParamType type;
-    int32_t step_count;
     double default_normalized_value;
+    char name[plugin_name_size];
 };
 
 struct PluginAudioBusInfo {
+    uint32_t id;
     uint32_t channel_count;
     bool default_bus;
-    bool auxiliary_bus;
-    const char* name;
+    char name[plugin_name_size];
 };
 
 struct PluginEventBusInfo {
-    const char* name;
+    uint32_t id;
+    char name[plugin_name_size];
 };
 
 struct PluginParameterFn {
@@ -88,12 +89,12 @@ struct PluginInterface {
     virtual PluginResult shutdown() = 0;
 
     // Get counts
-    virtual uint32_t get_plugin_param_count() const = 0;
-    virtual uint32_t get_audio_bus_count() const = 0;
-    virtual uint32_t get_event_bus_count() const = 0;
+    virtual uint32_t get_param_count() const = 0;
+    virtual uint32_t get_audio_bus_count(bool is_input) const = 0;
+    virtual uint32_t get_event_bus_count(bool is_input) const = 0;
 
     // Get plugin informations
-    virtual PluginResult get_plugin_param_info(uint32_t id, PluginParamInfo* result) const = 0;
+    virtual PluginResult get_plugin_param_info(uint32_t index, PluginParamInfo* result) const = 0;
     virtual PluginResult get_audio_bus_info(bool is_input, uint32_t index, PluginAudioBusInfo* bus) const = 0;
     virtual PluginResult get_event_bus_info(bool is_input, uint32_t index, PluginEventBusInfo* bus) const = 0;
 
