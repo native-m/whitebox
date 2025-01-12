@@ -27,7 +27,7 @@ static ldb::DB* plugin_db;
 static fs::path vst3_extension {".vst3"};
 static Vector<PluginDBUpdateListenerData> plugin_db_update_listeners;
 
-    static void decode_plugin_info(ByteBuffer& buffer, PluginInfo* info) {
+static void decode_plugin_info(ByteBuffer& buffer, PluginInfo* info) {
     info->descriptor_id.resize(sizeof(VST3::UID::TUID));
     io_read(buffer, &info->structure_version);
     io_read_bytes(buffer, (std::byte*)info->descriptor_id.data(), sizeof(VST3::UID::TUID));
@@ -219,6 +219,9 @@ PluginInterface* pm_open_plugin(PluginUID uid) {
     ByteBuffer buffer((std::byte*)bytes.data(), bytes.size(), false);
     PluginInfo plugin_info;
     decode_plugin_info(buffer, &plugin_info);
+
+    Log::debug("Opening plugin: {}", plugin_info.name);
+    
     switch (plugin_info.format) {
         case PluginFormat::Native:
             break;
@@ -232,5 +235,12 @@ PluginInterface* pm_open_plugin(PluginUID uid) {
 }
 
 void pm_close_plugin(PluginInterface* plugin) {
+    switch (plugin->format) {
+        case PluginFormat::Native:
+            break;
+        case PluginFormat::VST3:
+            vst3_close_plugin(plugin);
+            break;
+    }
 }
 } // namespace wb

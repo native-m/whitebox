@@ -1,11 +1,11 @@
 #include "engine.h"
+#include "audio_io.h"
 #include "clip_edit.h"
 #include "core/core_math.h"
 #include "core/debug.h"
 #include "track.h"
-#include "audio_io.h"
-#include <numbers>
 #include <fmt/chrono.h>
+#include <numbers>
 
 namespace wb {
 
@@ -498,6 +498,20 @@ TrackEditResult Engine::reserve_track_region(Track* track, uint32_t first_clip, 
         .deleted_clips = std::move(deleted_clips),
         .modified_clips = std::move(modified_clips),
     };
+}
+
+void Engine::add_plugin_to_track(Track* track, PluginUID uid) {
+    PluginInterface* plugin = pm_open_plugin(uid);
+    if (!plugin) {
+        Log::debug("Failed to open plugin");
+        return;
+    }
+    track->plugin_instance = pm_open_plugin(uid);
+}
+
+void Engine::delete_plugin_from_track(Track* track) {
+    if (track->plugin_instance)
+        pm_close_plugin(track->plugin_instance);
 }
 
 double Engine::get_song_length() const {

@@ -591,8 +591,10 @@ void GuiTimeline::render_track_controls() {
             static constexpr auto drag_drop_flags = ImGuiDragDropFlags_AcceptNoDrawDefaultRect;
             if (ImGui::GetDragDropPayload()) // Workaround for overlapped drag-drop highlighter
                 main_draw_list->AddRect(pos_start, pos_end, ImGui::GetColorU32(ImGuiCol_DragDropTarget), 0.0f, 0, 2.0f);
-            if (auto drop_payload_data = ImGui::AcceptDragDropPayload("WB_PLUGINDROP", drag_drop_flags)) {
-                Log::debug("Test");
+            if (auto payload = ImGui::AcceptDragDropPayload("WB_PLUGINDROP", drag_drop_flags)) {
+                PluginItem* item;
+                std::memcpy(&item, payload->Data, payload->DataSize);
+                g_engine.add_plugin_to_track(track, item->uid);
             }
             ImGui::EndDragDropTarget();
         }

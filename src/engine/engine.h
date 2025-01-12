@@ -6,6 +6,7 @@
 #include "core/audio_buffer.h"
 #include "core/common.h"
 #include "core/thread.h"
+#include "plughost/plugin_manager.h"
 #include "etypes.h"
 #include <functional>
 
@@ -96,6 +97,9 @@ struct Engine {
     std::optional<ClipQueryResult> query_clip_by_range(Track* track, double min, double max) const;
     TrackEditResult reserve_track_region(Track* track, uint32_t first_clip, uint32_t last_clip, double min, double max,
                                          bool dont_sort, Clip* ignore_clip);
+
+    void add_plugin_to_track(Track* track, PluginUID uid);
+    void delete_plugin_from_track(Track* track);
 
     double get_song_length() const;
 

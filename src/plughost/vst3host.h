@@ -50,7 +50,7 @@ struct VST3PluginWrapper : public PluginInterface {
     Steinberg::Vst::IComponent* component_ {};
     Steinberg::Vst::IAudioProcessor* processor_ {};
     Steinberg::Vst::IEditController* controller_ {};
-    bool single_component_ = true;
+    bool single_component_ = false;
 
     std::optional<Steinberg::Vst::ConnectionProxy> component_cp_;
     std::optional<Steinberg::Vst::ConnectionProxy> controller_cp_;
