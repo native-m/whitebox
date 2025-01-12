@@ -259,8 +259,10 @@ PluginInterface* vst3_open_plugin(PluginUID uid, const std::string& descriptor_i
     Steinberg::TUID controller_uid;
     Steinberg::IPtr<Steinberg::Vst::IComponent> component =
         factory.createInstance<Steinberg::Vst::IComponent>(VST3::UID::fromTUID(tuid));
-    if (!component)
+    if (!component) {
+        Log::debug("Cannot create VST3 plugin component");
         return nullptr;
+    }
 
     // Try creating controller
     Steinberg::IPtr<Steinberg::Vst::IEditController> controller;
@@ -268,12 +270,15 @@ PluginInterface* vst3_open_plugin(PluginUID uid, const std::string& descriptor_i
         controller = factory.createInstance<Steinberg::Vst::IEditController>(controller_uid);
 
     void* ptr = vst3_plugins.allocate();
-    if (!ptr)
+    if (!ptr) {
+        Log::debug("Cannot allocate memory to open VST3 plugin");
         return nullptr;
+    }
 
     // Wrap vst3 plugin
     VST3PluginWrapper* plugin_instance = new (ptr) VST3PluginWrapper(module->hash, component.take(), controller.take());
     if (plugin_instance->init() == PluginResult::Failed) {
+        Log::debug("Cannot initialize VST3 plugin");
         vst3_plugins.destroy(plugin_instance);
         return nullptr;
     }
