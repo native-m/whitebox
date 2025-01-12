@@ -10,15 +10,22 @@ if (MSVC AND POLICY CMP0141)
 endif()
 
 project("whitebox" VERSION 0.1.0)
+
 include(CMakeDependentOption)
+option(WB_BUILD_TEST "Build test programs" ON)
+option(WB_ENABLE_ASAN "Enable address sanitizer" OFF)
+option(WB_ENABLE_INSTALL "Enable install" OFF)
+cmake_dependent_option(WB_ENABLE_PACKAGING "Enable packaging with CPack" OFF "WB_ENABLE_INSTALL" OFF)
+
+if (WB_ENABLE_ASAN AND (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC"))
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fsanitize=address")
+elseif (WB_ENABLE_ASAN AND (CMAKE_CXX_COMPILER_ID STREQUAL "Clang"))
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
+endif()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED 20)
 set(CMAKE_CXX_EXTENSIONS OFF)
-
-option(WB_BUILD_TEST "Build test programs" ON)
-option(WB_ENABLE_INSTALL "Enable install" OFF)
-cmake_dependent_option(WB_ENABLE_PACKAGING "Enable packaging with CPack" OFF "WB_ENABLE_INSTALL" OFF)
 
 include(CheckIPOSupported)
 check_ipo_supported(RESULT WB_IPO_SUPPORTED OUTPUT output)

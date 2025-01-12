@@ -46,6 +46,14 @@
       }
     },
     {
+      "name": "x64-debug-sanitized",
+      "displayName": "x64 Debug (Sanitized)",
+      "inherits": "x64-debug",
+      "cacheVariables": {
+        "WB_ENABLE_ASAN": true
+      }
+    },
+    {
       "name": "x64-release",
       "displayName": "x64 Release",
       "inherits": "x64-debug",
