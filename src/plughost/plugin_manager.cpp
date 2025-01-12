@@ -17,10 +17,17 @@ namespace fs = std::filesystem;
 namespace vst = Steinberg::Vst;
 
 namespace wb {
+
+struct PluginDBUpdateListenerData {
+    void* userdata;
+    PluginDBUpdateListenerFn fn;
+};
+
 static ldb::DB* plugin_db;
 static fs::path vst3_extension {".vst3"};
+static Vector<PluginDBUpdateListenerData> plugin_db_update_listeners;
 
-static void decode_plugin_info(ByteBuffer& buffer, PluginInfo* info) {
+    static void decode_plugin_info(ByteBuffer& buffer, PluginInfo* info) {
     info->descriptor_id.resize(sizeof(VST3::UID::TUID));
     io_read(buffer, &info->structure_version);
     io_read_bytes(buffer, (std::byte*)info->descriptor_id.data(), sizeof(VST3::UID::TUID));
@@ -136,6 +143,10 @@ void shutdown_plugin_manager() {
         delete plugin_db;
 }
 
+void pm_add_plugin_db_update_listener(void* userdata, PluginDBUpdateListenerFn fn) {
+    plugin_db_update_listeners.push_back({userdata, fn});
+}
+
 void pm_fetch_registered_plugins(const std::string& name_search, void* userdata, PluginFetchFn fn) {
     ldb::ReadOptions read_options;
     read_options.fill_cache = false;
@@ -194,6 +205,8 @@ void pm_delete_plugin(uint8_t plugin_uid[16]) {
 void pm_scan_plugins() {
     scan_vst3_plugins();
     // scan_XX_plugins...
+    for (auto& listener : plugin_db_update_listeners)
+        listener.fn(listener.userdata);
     Log::info("Plugin scan complete!");
 }
 

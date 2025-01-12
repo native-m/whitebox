@@ -248,14 +248,13 @@ void app_render() {
     if (first_time) {
         ImGui::DockBuilderRemoveNode(main_dockspace_id);
         ImGui::DockBuilderAddNode(main_dockspace_id, ImGuiDockNodeFlags_PassthruCentralNode);
-        ImGui::DockBuilderSetNodeSize(main_dockspace_id, main_viewport->Size);
+        ImGui::DockBuilderSetNodeSize(main_dockspace_id, main_viewport->WorkSize);
 
         auto dock_left =
             ImGui::DockBuilderSplitNode(main_dockspace_id, ImGuiDir_Left, 0.22f, nullptr, &main_dockspace_id);
         auto dock_right =
             ImGui::DockBuilderSplitNode(main_dockspace_id, ImGuiDir_Right, 0.78f, nullptr, &main_dockspace_id);
-        auto dock_bottom_right =
-            ImGui::DockBuilderSplitNode(dock_right, ImGuiDir_Down, 0.3f, nullptr, &dock_right);
+        auto dock_bottom_right = ImGui::DockBuilderSplitNode(dock_right, ImGuiDir_Down, 0.3f, nullptr, &dock_right);
 
         ImGui::DockBuilderDockWindow("Browser", dock_left);
         ImGui::DockBuilderDockWindow("Plugins", dock_left);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "plugins.h"
+#include "core/debug.h"
 #include "plugin_mgr.h"
 #include "window.h"
 #include <algorithm>
@@ -16,13 +17,21 @@ enum PluginsColumnID {
 };
 
 void GuiPlugins::render() {
+    if (first_time) {
+        pm_add_plugin_db_update_listener(this, [](void* userdata) {
+            GuiPlugins* plugins_window = (GuiPlugins*)userdata;
+            plugins_window->force_refresh = true;
+            plugins_window->refit_table_column = true;
+        });
+        first_time = false;
+    }
+
     ImGui::SetNextWindowSize(ImVec2(300.0f, 500.0f), ImGuiCond_FirstUseEver);
     if (!ImGui::Begin("Plugins", &g_plugins_window_open)) {
         ImGui::End();
         return;
     }
 
-    bool force_refresh = false;
     ImVec2 window_area = ImGui::GetContentRegionAvail();
     ImGui::PushItemWidth(-FLT_MIN);
     if (ImGui::InputTextWithHint("##search", "Search plugin name", &search_text))
@@ -45,6 +54,9 @@ void GuiPlugins::render() {
                                         ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY;
 
     if (ImGui::BeginTable("plugin_table", 2, table_flags)) {
+        if (refit_table_column)
+            ImGui::TableSetColumnWidthAutoAll(ImGui::GetCurrentTable());
+
         ImGui::TableSetupScrollFreeze(0, 1);
         ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 0.0f,
                                 PluginsColumnID_Name);
@@ -53,6 +65,7 @@ void GuiPlugins::render() {
 
         if (ImGuiTableSortSpecs* sort_specs = ImGui::TableGetSortSpecs()) {
             if (sort_specs->SpecsDirty || force_refresh) {
+                Log::debug("Force refresh");
                 update_plugin_info_data(sort_specs);
                 sort_specs->SpecsDirty = false;
             }
@@ -92,6 +105,8 @@ void GuiPlugins::render() {
     }
 
     ImGui::End();
+    force_refresh = false;
+    refit_table_column = false;
 }
 
 void GuiPlugins::update_plugin_info_data(ImGuiTableSortSpecs* sort_specs) {
