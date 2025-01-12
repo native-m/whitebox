@@ -1,6 +1,14 @@
 #include "file_dialog.h"
 
 namespace wb {
+void init_file_dialog() {
+    NFD::Init();
+}
+
+void shutdown_file_dialog() {
+    NFD::Quit();
+}
+
 std::optional<std::filesystem::path> pick_folder_dialog() {
     NFD::UniquePathU8 path;
     nfdresult_t result = NFD::PickFolder(path);

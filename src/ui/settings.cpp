@@ -1,6 +1,7 @@
 #include "settings.h"
 #include "config.h"
 #include "engine/audio_io.h"
+#include "window.h"
 #include <fmt/format.h>
 #include <imgui.h>
 
@@ -21,11 +22,8 @@ static const char* buffer_sizes[] = {
 
 namespace wb {
 void GuiSettings::render() {
-    if (!open)
-        return;
-
     ImGui::SetNextWindowSize(ImVec2(300.0f, 200.0f), ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("Settings", &open, ImGuiWindowFlags_NoDocking)) {
+    if (!ImGui::Begin("Settings", &g_timeline_window_open, ImGuiWindowFlags_NoDocking)) {
         ImGui::End();
         return;
     }

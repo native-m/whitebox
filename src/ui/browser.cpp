@@ -4,6 +4,7 @@
 #include "core/fs.h"
 #include "engine/sample.h"
 #include "file_dropper.h"
+#include "window.h"
 #include <nfd.hpp>
 
 namespace fs = std::filesystem;
@@ -155,10 +156,7 @@ void GuiBrowser::render_item(const std::filesystem::path& root_path, BrowserItem
 }
 
 void GuiBrowser::render() {
-    if (!open)
-        return;
-
-    if (!controls::begin_window("Browser", &open)) {
+    if (!controls::begin_window("Browser", &g_browser_window_open)) {
         controls::end_window();
         return;
     }

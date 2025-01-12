@@ -8,22 +8,15 @@
 #include "gfx/renderer.h"
 #include "platform/platform.h"
 #include "plughost/plugin_manager.h"
-#include "ui/IconsMaterialSymbols.h"
 #include "ui/browser.h"
 #include "ui/command_manager.h"
-#include "ui/controls.h"
+#include "ui/control_bar.h"
 #include "ui/dialogs.h"
-#include "ui/env_editor.h"
 #include "ui/file_dialog.h"
 #include "ui/file_dropper.h"
 #include "ui/font.h"
-#include "ui/history.h"
-#include "ui/mixer.h"
-#include "ui/piano_roll.h"
-#include "ui/plugins.h"
-#include "ui/plugin_mgr.h"
-#include "ui/settings.h"
 #include "ui/timeline.h"
+#include "ui/window.h"
 #include <SDL.h>
 #include <SDL_mouse.h>
 #include <SDL_syswm.h>
@@ -194,7 +187,7 @@ void app_init() {
     SDL_VERSION(&main_wm_info.version);
     SDL_GetWindowWMInfo(new_window, &main_wm_info);
 
-    NFD::Init();
+    init_file_dialog();
 
     // Init imgui
     IMGUI_CHECKVERSION();
@@ -226,183 +219,6 @@ void app_init() {
     g_engine.set_bpm(150.0f);
 }
 
-void app_render_control_bar() {
-    bool open_menu = false;
-    ImVec2 frame_padding = GImGui->Style.FramePadding;
-    ImVec4 btn_color = GImGui->Style.Colors[ImGuiCol_Button];
-    ImVec4 frame_bg = GImGui->Style.Colors[ImGuiCol_FrameBg];
-    bool is_playing = g_engine.is_playing();
-    bool is_recording = g_engine.is_recording();
-    bool new_project = false;
-    bool open_project = false;
-    bool save_project = false;
-
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_TitleBg));
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 4.0f));
-    ImGui::BeginChild("WB_TOOLBAR", ImVec2(), ImGuiChildFlags_AlwaysUseWindowPadding);
-    ImGui::PopStyleColor();
-
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
-    ImGui::PushStyleColor(ImGuiCol_Button, color_brighten(btn_color, 0.12f).Value);
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, color_brighten(frame_bg, 0.12f).Value);
-
-    set_current_font(FontType::Icon);
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 3.0f));
-    open_menu = ImGui::Button(ICON_MS_MENU);
-    ImGui::SameLine(0.0f, 12.0f);
-    new_project = ImGui::Button(ICON_MS_LIBRARY_ADD "##wb_new_project");
-    ImGui::SameLine(0.0f, 4.0f);
-    open_project = ImGui::Button(ICON_MS_FOLDER_OPEN "##wb_open_project");
-    ImGui::SameLine(0.0f, 4.0f);
-    save_project = ImGui::Button(ICON_MS_SAVE "##wb_save_project");
-
-    //
-    ImGui::SameLine(0.0f, 12.0f);
-    if (ImGui::Button(ICON_MS_UNDO "##wb_undo")) {
-        g_cmd_manager.undo();
-    }
-    ImGui::SameLine(0.0f, 4.0f);
-    if (ImGui::Button(ICON_MS_REDO "##wb_redo")) {
-        g_cmd_manager.redo();
-    }
-
-    if (ImGui::IsKeyDown(ImGuiKey_ModCtrl) && ImGui::IsKeyPressed(ImGuiKey_Z) && !ImGui::GetIO().WantTextInput) {
-        g_cmd_manager.undo();
-    }
-
-    //
-    ImGui::SameLine(0.0f, 12.0f);
-    if (ImGui::Button(!is_playing ? ICON_MS_PLAY_ARROW "##wb_play" : ICON_MS_PAUSE "##wb_play")) {
-        if (is_playing) {
-            if (g_engine.recording)
-                g_timeline.redraw_screen();
-            g_engine.stop();
-        } else {
-            g_engine.play();
-        }
-    }
-    ImGui::SameLine(0.0f, 4.0f);
-    if (ImGui::Button(ICON_MS_STOP "##wb_stop")) {
-        if (g_engine.recording)
-            g_timeline.redraw_screen();
-        g_engine.stop();
-    }
-    ImGui::SameLine(0.0f, 4.0f);
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.951f, 0.322f, 0.322f, 1.000f));
-    if (controls::toggle_button(ICON_MS_FIBER_MANUAL_RECORD "##wb_record", &is_recording,
-                                ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive))) {
-        if (!is_recording) {
-            g_engine.record();
-        } else {
-            g_timeline.redraw_screen();
-            g_engine.stop_record();
-        }
-    }
-    ImGui::PopStyleColor();
-    ImGui::PopStyleVar();
-
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 8.5f));
-    ImGui::PushItemWidth(85.0f);
-    ImGui::SameLine(0.0f, 4.0f);
-    set_current_font(FontType::MonoMedium);
-    controls::song_position();
-    set_current_font(FontType::Normal);
-    ImGui::SameLine(0.0f, 4.0f);
-    float tempo = (float)g_engine.get_bpm();
-    if (ImGui::DragFloat("##TEMPO_DRAG", &tempo, 1.0f, 0.0f, 0.0f, "%.2f BPM", ImGuiSliderFlags_Vertical)) {
-        g_engine.set_bpm((double)tempo);
-    }
-    ImGui::PopItemWidth();
-
-    // ImGui::SameLine(0.0f, 12.0f);
-    // float playhead_pos = g_engine.playhead_ui.load(std::memory_order_relaxed);
-    // ImGui::Text("Playhead: %f", playhead_pos);
-
-    ImGui::PopStyleColor(2);
-    ImGui::PopStyleVar(2);
-    ImGui::EndChild();
-    ImGui::PopStyleVar();
-
-    if (open_menu)
-        ImGui::OpenPopup("WB_MAIN_MENU_POPUP");
-
-    if (ImGui::BeginPopup("WB_MAIN_MENU_POPUP")) {
-        if (ImGui::BeginMenu("File")) {
-            new_project = ImGui::MenuItem("New");
-            open_project = ImGui::MenuItem("Open...", "Ctrl+O");
-            ImGui::MenuItem("Open recent");
-            ImGui::Separator();
-            ImGui::MenuItem("Save", "Ctrl+S");
-            save_project = ImGui::MenuItem("Save as...", "Shift+Ctrl+S");
-            ImGui::Separator();
-            ImGui::MenuItem("Project info...", nullptr, &g_show_project_dialog);
-            ImGui::Separator();
-            if (ImGui::MenuItem("Quit"))
-                is_running = false;
-            ImGui::EndMenu();
-        }
-
-        if (ImGui::BeginMenu("Edit")) {
-            ImGui::MenuItem("Undo");
-            ImGui::MenuItem("Redo");
-            ImGui::End();
-        }
-
-        if (ImGui::BeginMenu("View")) {
-            ImGui::MenuItem("Windows", nullptr, false, false);
-            ImGui::Separator();
-            ImGui::MenuItem("Timeline", nullptr, &g_timeline.open);
-            ImGui::MenuItem("Mixer", nullptr, &g_mixer.open);
-            ImGui::MenuItem("Browser", nullptr, &g_browser.open);
-            ImGui::MenuItem("Plugins", nullptr, &g_plugins_window.open);
-            ImGui::MenuItem("Test controls", nullptr, &controls::g_test_control_shown);
-            ImGui::Separator();
-            ImGui::MenuItem("Settings", nullptr, &g_settings.open);
-            ImGui::MenuItem("Plugin manager", nullptr, &g_plugin_manager.open);
-            ImGui::EndMenu();
-        }
-
-        if (ImGui::BeginMenu("Help")) {
-            ImGui::MenuItem("About...");
-            ImGui::EndMenu();
-        }
-        ImGui::EndPopup();
-    }
-
-    if (new_project) {
-        shutdown_audio_io();
-        g_engine.clear_all();
-        g_timeline.reset();
-        g_timeline.add_track();
-        g_timeline.recalculate_timeline_length();
-        g_timeline.redraw_screen();
-        start_audio_engine();
-    } else if (open_project) {
-        if (auto file = open_file_dialog({{"Whitebox Project File", "wb"}})) {
-            shutdown_audio_io();
-            g_engine.clear_all();
-            auto result = read_project_file(file.value(), g_engine, g_sample_table, g_midi_table, g_timeline);
-            if (result != ProjectFileResult::Ok) {
-                Log::error("Failed to open project {}", (uint32_t)result);
-                assert(false);
-            }
-            g_timeline.recalculate_timeline_length();
-            g_timeline.redraw_screen();
-            start_audio_engine();
-        }
-    } else if (save_project) {
-        if (auto file = save_file_dialog({{"Whitebox Project File", "wb"}})) {
-            shutdown_audio_io();
-            auto result = write_project_file(file.value(), g_engine, g_sample_table, g_midi_table, g_timeline);
-            if (result != ProjectFileResult::Ok) {
-                Log::error("Failed to open project {}", (uint32_t)result);
-                assert(false);
-            }
-            start_audio_engine();
-        }
-    }
-}
-
 void app_render() {
     g_renderer->new_frame();
     ImGui_ImplSDL2_NewFrame();
@@ -427,36 +243,8 @@ void app_render() {
 
     ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
     g_engine.update_audio_visualization(GImGui->IO.Framerate);
-
-    ImVec2 frame_padding = GImGui->Style.FramePadding;
-    ImVec2 window_padding = GImGui->Style.WindowPadding;
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 13.0f));
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-    ImGui::PushStyleColor(ImGuiCol_MenuBarBg, ImGui::GetStyleColorVec4(ImGuiCol_TitleBg));
-    if (ImGui::BeginMainMenuBar()) {
-        ImGui::PopStyleVar(4);
-        ImGui::PopStyleColor();
-        app_render_control_bar();
-        ImGui::EndMainMenuBar();
-    }
-
-    ImGui::ShowDemoWindow();
-    controls::render_test_controls();
-    render_history_window();
-    render_asset_window();
-    g_settings.render();
-    g_plugin_manager.render();
-    g_browser.render();
-    g_plugins_window.render();
-    g_mixer.render();
-    g_timeline.render();
-    g_piano_roll.render();
-    g_env_window.render();
-
-    if (g_show_project_dialog)
-        project_info_dialog();
+    render_control_bar();
+    render_windows();
 
     ImGui::Render();
     g_renderer->begin_draw(nullptr, {0.0f, 0.0f, 0.0f, 1.0f});
@@ -467,9 +255,8 @@ void app_render() {
     g_renderer->end_frame();
     g_renderer->present();
 
-    if (!g_file_drop.empty()) {
+    if (!g_file_drop.empty())
         g_file_drop.clear();
-    }
 }
 
 void app_run_loop() {
@@ -496,13 +283,12 @@ void app_shutdown() {
     Log::info("Closing application...");
     g_timeline.shutdown();
     shutdown_audio_io();
-    g_engine.clear_all();
     g_cmd_manager.reset();
+    g_engine.clear_all();
     g_sample_table.shutdown();
     g_midi_table.shutdown();
     shutdown_renderer();
     shutdown_plugin_manager();
-    NFD::Quit();
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
     if (!main_window)

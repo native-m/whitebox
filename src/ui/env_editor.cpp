@@ -206,7 +206,7 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
 
     static constexpr uint32_t fill_col = 0x2F53A3F9;
     static constexpr uint32_t col = 0xFF53A3F9;
-    constexpr float click_dist_sq = 25.0f; // 4^2
+    constexpr float click_dist_sq = 25.0f; // 5^2
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
     ImVec2 white_pixel = ImGui::GetDrawListSharedData()->TexUvWhitePixel;
     double px = points[0].x;
@@ -256,6 +256,7 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
         double px = point.x;
         double py = point.y;
 
+        // Move the control point
         if (state.move_control_point && state.move_control_point == i) {
             ImVec2 offset = mouse_pos - state.last_click_pos;
             px += (double)offset.x / scale;
@@ -268,6 +269,7 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
             ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
         }
 
+        // Move last curve tension point
         if (state.move_tension_point && state.move_tension_point == (i - 1)) {
             float inc = mouse_rel_y / 500.0f;
             if (ImGui::IsKeyDown(ImGuiKey_LeftShift))
@@ -323,6 +325,7 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
 
         draw_list->AddCircleFilled(pos, 4.0f, col);
 
+        // Check if the control point is clicked
         float dist = ImLengthSqr(pos - global_mouse_pos);
         bool control_point_hovered = false;
         if (dist <= click_dist_sq && !moving_point) {
@@ -337,6 +340,7 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
             }
         }
 
+        // Check if the tension point is clicked
         if (has_control_point && !moving_point && !control_point_hovered) {
             float dist = ImLengthSqr(tension_point_pos - global_mouse_pos);
             if (dist <= click_dist_sq) {

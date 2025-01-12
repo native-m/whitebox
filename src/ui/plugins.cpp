@@ -2,6 +2,7 @@
 
 #include "plugins.h"
 #include "plugin_mgr.h"
+#include "window.h"
 #include <algorithm>
 #include <imgui.h>
 #include <imgui_stdlib.h>
@@ -15,11 +16,8 @@ enum PluginsColumnID {
 };
 
 void GuiPlugins::render() {
-    if (!open)
-        return;
-
     ImGui::SetNextWindowSize(ImVec2(300.0f, 500.0f), ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("Plugins", &open)) {
+    if (!ImGui::Begin("Plugins", &g_plugins_window_open)) {
         ImGui::End();
         return;
     }
@@ -68,7 +66,8 @@ void GuiPlugins::render() {
             ImGui::Selectable(item.name.c_str(), false, selectable_flags);
 
             if (ImGui::BeginDragDropSource()) {
-                ImGui::SetDragDropPayload("WB_PLUGINDROP", item.uid, sizeof(PluginUID), ImGuiCond_Once);
+                PluginItem* payload = &item;
+                ImGui::SetDragDropPayload("WB_PLUGINDROP", &payload, sizeof(PluginItem*), ImGuiCond_Once);
                 ImGui::Text("Plugin: %s", item.name.c_str());
                 ImGui::EndDragDropSource();
             }

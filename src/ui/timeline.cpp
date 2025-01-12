@@ -12,6 +12,7 @@
 #include "engine/track.h"
 #include "forms.h"
 #include "layout.h"
+#include "window.h"
 #include <fmt/format.h>
 
 #define DEBUG_MIDI_CLIPS 0
@@ -300,15 +301,12 @@ void GuiTimeline::reset() {
 }
 
 void GuiTimeline::render() {
-    if (!open)
-        return;
-
     playhead = g_engine.playhead_ui.load(std::memory_order_relaxed);
     inv_ppq = 1.0 / g_engine.ppq;
 
     ImGui::SetNextWindowSize(ImVec2(640.0f, 480.0f), ImGuiCond_FirstUseEver);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 1.0f));
-    if (!controls::begin_window("Timeline", &open)) {
+    if (!controls::begin_window("Timeline", &g_timeline_window_open)) {
         ImGui::PopStyleVar();
         controls::end_window();
         return;

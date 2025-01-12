@@ -1,7 +1,8 @@
 #include "plugin_mgr.h"
 #include "core/bit_manipulation.h"
 #include "core/core_math.h"
-#include "ui/dialogs.h"
+#include "dialogs.h"
+#include "window.h"
 #include <algorithm>
 #include <imgui_stdlib.h>
 
@@ -35,11 +36,8 @@ static uint32_t get_plugin_flag_type(uint32_t flag) {
 }
 
 void GuiPluginManager::render() {
-    if (!open)
-        return;
-
     ImGui::SetNextWindowSize(ImVec2(600.0f, 400.0f), ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("Plugin Manager", &open, ImGuiWindowFlags_NoDocking)) {
+    if (!ImGui::Begin("Plugin Manager", &g_plugin_mgr_window_open, ImGuiWindowFlags_NoDocking)) {
         return;
     }
 

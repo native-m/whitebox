@@ -3,19 +3,17 @@
 #include "core/debug.h"
 #include "engine/engine.h"
 #include "engine/track.h"
+#include "window.h"
 
 namespace wb {
 
 void GuiMixer::render() {
-    if (!open)
-        return;
-
     ImGui::SetNextWindowSize(ImVec2(500, 300), ImGuiCond_FirstUseEver);
 
     ImVec2 window_padding = GImGui->Style.WindowPadding;
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(1.0f, 1.0f));
 
-    if (!controls::begin_window("Mixer", &open, ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_HorizontalScrollbar)) {
+    if (!controls::begin_window("Mixer", &g_mixer_window_open, ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_HorizontalScrollbar)) {
         ImGui::PopStyleVar();
         controls::end_window();
         return;

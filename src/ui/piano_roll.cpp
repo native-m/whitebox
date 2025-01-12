@@ -3,6 +3,7 @@
 #include "core/color.h"
 #include "engine/engine.h"
 #include "file_dialog.h"
+#include "window.h"
 #include <imgui.h>
 #include <optional>
 
@@ -23,14 +24,10 @@ void GuiPianoRoll::open_midi_file() {
     }
 }
 void GuiPianoRoll::render() {
-    if (!open)
-        return;
-
     ppq = g_engine.ppq;
-
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
     ImGui::SetNextWindowSize(ImVec2(640.0f, 480.0f), ImGuiCond_FirstUseEver);
-    if (!controls::begin_window("Piano Roll", &open)) {
+    if (!controls::begin_window("Piano Roll", &g_piano_roll_window_open)) {
         ImGui::PopStyleVar();
         controls::end_window();
         return;

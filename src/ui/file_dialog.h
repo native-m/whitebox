@@ -1,11 +1,14 @@
 #pragma once
 
 #include <filesystem>
-#include <nfd.hpp>
 #include <optional>
 #include <utility>
+#include <nfd.hpp>
 
 namespace wb {
+void init_file_dialog();
+void shutdown_file_dialog();
+
 std::optional<std::filesystem::path> pick_folder_dialog();
 
 std::optional<std::filesystem::path>
