@@ -114,6 +114,7 @@ struct PluginInterface {
 
     // UI
     virtual bool has_view() const = 0;
+    virtual bool has_window_attached() const = 0;
     virtual PluginResult get_view_size(uint32_t* width, uint32_t* height) const = 0;
     virtual PluginResult attach_window(SDL_Window* handle) = 0;
     virtual PluginResult detach_window() = 0;

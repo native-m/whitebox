@@ -272,6 +272,10 @@ bool VST3PluginWrapper::has_view() const {
     return editor_view_ != nullptr;
 }
 
+bool VST3PluginWrapper::has_window_attached() const {
+    return window_handle != nullptr;
+}
+
 PluginResult VST3PluginWrapper::get_view_size(uint32_t* width, uint32_t* height) const {
     if (!has_view())
         return PluginResult::Unsupported;

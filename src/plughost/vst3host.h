@@ -88,6 +88,7 @@ struct VST3PluginWrapper : public PluginInterface {
     PluginResult process(const AudioBuffer<float>& input, AudioBuffer<float>& output) override;
 
     bool has_view() const override;
+    bool has_window_attached() const override;
     PluginResult get_view_size(uint32_t* width, uint32_t* height) const override;
     PluginResult attach_window(SDL_Window* handle) override;
     PluginResult detach_window() override;
