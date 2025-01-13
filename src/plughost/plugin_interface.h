@@ -94,10 +94,12 @@ struct PluginInterface {
     virtual PluginResult shutdown() = 0;
 
     // Get counts
-    virtual uint32_t get_param_count() const = 0;
-    virtual uint32_t get_audio_bus_count(bool is_input) const = 0;
-    virtual uint32_t get_event_bus_count(bool is_input) const = 0;
     virtual const char* get_name() const = 0;
+    virtual uint32_t get_param_count() const = 0;
+    virtual uint32_t get_audio_bus_count(bool is_output) const = 0;
+    virtual uint32_t get_event_bus_count(bool is_output) const = 0;
+    virtual uint32_t get_latency_samples() const = 0;
+    virtual uint32_t get_tail_samples() const = 0;
 
     // Get plugin informations
     virtual PluginResult get_plugin_param_info(uint32_t index, PluginParamInfo* result) const = 0;

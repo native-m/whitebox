@@ -200,20 +200,28 @@ PluginResult VST3PluginWrapper::shutdown() {
     return PluginResult::Ok;
 }
 
+const char* VST3PluginWrapper::get_name() const {
+    return name_.c_str();
+}
+
 uint32_t VST3PluginWrapper::get_param_count() const {
     return params.size;
 }
 
-uint32_t VST3PluginWrapper::get_audio_bus_count(bool is_input) const {
-    return component_->getBusCount(Steinberg::Vst::MediaTypes::kAudio, (Steinberg::Vst::BusDirection)is_input);
+uint32_t VST3PluginWrapper::get_audio_bus_count(bool is_output) const {
+    return component_->getBusCount(Steinberg::Vst::MediaTypes::kAudio, is_output);
 }
 
-uint32_t VST3PluginWrapper::get_event_bus_count(bool is_input) const {
-    return component_->getBusCount(Steinberg::Vst::MediaTypes::kEvent, (Steinberg::Vst::BusDirection)is_input);
+uint32_t VST3PluginWrapper::get_event_bus_count(bool is_output) const {
+    return component_->getBusCount(Steinberg::Vst::MediaTypes::kEvent, is_output);
 }
 
-const char* VST3PluginWrapper::get_name() const {
-    return name_.c_str();
+uint32_t VST3PluginWrapper::get_latency_samples() const {
+    return processor_->getLatencySamples();
+}
+
+uint32_t VST3PluginWrapper::get_tail_samples() const {
+    return processor_->getTailSamples();
 }
 
 PluginResult VST3PluginWrapper::get_plugin_param_info(uint32_t index, PluginParamInfo* result) const {

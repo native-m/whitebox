@@ -15,6 +15,8 @@
 
 namespace wb {
 
+struct VST3PluginWrapper;
+
 struct VST3Module {
     uint64_t hash;
     VST3::Hosting::Module::Ptr mod_ptr;
@@ -69,10 +71,12 @@ struct VST3PluginWrapper : public PluginInterface {
     PluginResult init() override;
     PluginResult shutdown() override;
 
-    uint32_t get_param_count() const override;
-    uint32_t get_audio_bus_count(bool is_input) const override;
-    uint32_t get_event_bus_count(bool is_input) const override;
     const char* get_name() const override;
+    uint32_t get_param_count() const override;
+    uint32_t get_audio_bus_count(bool is_output) const override;
+    uint32_t get_event_bus_count(bool is_output) const override;
+    uint32_t get_latency_samples() const override;
+    uint32_t get_tail_samples() const override;
 
     PluginResult get_plugin_param_info(uint32_t id, PluginParamInfo* result) const override;
     PluginResult get_audio_bus_info(bool is_input, uint32_t index, PluginAudioBusInfo* bus) const override;
