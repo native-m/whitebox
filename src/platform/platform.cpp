@@ -1,8 +1,8 @@
 #include "platform.h"
 #include "core/debug.h"
 #include "plughost/plugin_interface.h"
-#include <SDL_syswm.h>
 #include <SDL_mouse.h>
+#include <SDL_syswm.h>
 #include <unordered_map>
 
 #ifdef WB_PLATFORM_WINDOWS
@@ -24,7 +24,6 @@ static std::optional<SDL_Window*> get_plugin_window_from_id(uint32_t window_id) 
 }
 
 void create_main_window() {
-    
 }
 
 SDL_SysWMinfo get_window_wm_info(SDL_Window* window) {
@@ -67,7 +66,7 @@ void make_child_window(SDL_Window* window, SDL_Window* parent_window, bool imgui
 void add_foreign_plugin_window(PluginInterface* plugin) {
     uint32_t w, h;
     plugin->get_view_size(&w, &h);
-    
+
     SDL_Window* window = SDL_CreateWindow(plugin->get_name(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, w, h, 0);
     if (!window)
         return;
@@ -90,6 +89,13 @@ void close_plugin_window(PluginInterface* plugin) {
     plugin_windows.erase(SDL_GetWindowID(window));
 }
 
+void close_all_plugin_window() {
+    for (auto& [id, window] : plugin_windows) {
+        PluginInterface* plugin = (PluginInterface*)SDL_GetWindowData(window, "wplg");
+        close_plugin_window(plugin);
+    }
+}
+
 bool process_plugin_window_event(SDL_Event* event) {
     if (event->type == SDL_WINDOWEVENT) {
         if (auto window = get_plugin_window_from_id(event->window.windowID)) {
@@ -101,8 +107,8 @@ bool process_plugin_window_event(SDL_Event* event) {
                         close_plugin_window(plugin);
                     break;
             }
+            return true;
         }
-        return true;
     }
     return false;
 }

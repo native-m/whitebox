@@ -309,6 +309,7 @@ void app_push_event(uint32_t type, void* data, size_t size) {
 }
 
 void app_shutdown() {
+    close_all_plugin_window();
     save_settings_data();
     Log::info("Closing application...");
     g_timeline.shutdown();
