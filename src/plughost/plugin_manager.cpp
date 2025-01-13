@@ -226,7 +226,7 @@ PluginInterface* pm_open_plugin(PluginUID uid) {
         case PluginFormat::Native:
             break;
         case PluginFormat::VST3:
-            return vst3_open_plugin(uid, plugin_info.descriptor_id, plugin_info.path);
+            return vst3_open_plugin(uid, plugin_info);
         default:
             WB_UNREACHABLE();
     }

@@ -1,6 +1,9 @@
 #include "platform.h"
+#include "core/debug.h"
+#include "plughost/plugin_interface.h"
 #include <SDL_syswm.h>
 #include <SDL_mouse.h>
+#include <unordered_map>
 
 #ifdef WB_PLATFORM_WINDOWS
 #include <dwmapi.h>
@@ -9,6 +12,20 @@
 #endif
 
 namespace wb {
+static std::unordered_map<uint32_t, SDL_Window*> plugin_windows;
+
+static std::optional<SDL_Window*> get_plugin_window_from_id(uint32_t window_id) {
+    if (plugin_windows.empty())
+        return {};
+    auto plugin_window = plugin_windows.find(window_id);
+    if (plugin_window == plugin_windows.end())
+        return {};
+    return plugin_window->second;
+}
+
+void create_main_window() {
+    
+}
 
 SDL_SysWMinfo get_window_wm_info(SDL_Window* window) {
     SDL_SysWMinfo wm_info {};
@@ -44,6 +61,50 @@ void make_child_window(SDL_Window* window, SDL_Window* parent_window, bool imgui
     }
     ::SetWindowLongPtr(handle, GWLP_HWNDPARENT, (LONG_PTR)parent_wm_info.info.win.window);
 #endif
+}
+
+// Non-native plugin have to use its own window
+void add_foreign_plugin_window(PluginInterface* plugin) {
+    uint32_t w, h;
+    plugin->get_view_size(&w, &h);
+    
+    SDL_Window* window = SDL_CreateWindow(plugin->get_name(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, w, h, 0);
+    if (!window)
+        return;
+
+    if (plugin->attach_window(window) != PluginResult::Ok) {
+        Log::debug("Failed to create plugin window");
+        SDL_DestroyWindow(window);
+        return;
+    }
+
+    plugin_windows.emplace(SDL_GetWindowID(window), window);
+    SDL_SetWindowData(window, "wplg", (void*)plugin); // Attach PluginInterface to the window
+}
+
+void close_plugin_window(PluginInterface* plugin) {
+    SDL_Window* window = plugin->window_handle;
+    if (window)
+        plugin->detach_window();
+    SDL_DestroyWindow(window);
+    plugin_windows.erase(SDL_GetWindowID(window));
+}
+
+bool process_plugin_window_event(SDL_Event* event) {
+    if (event->type == SDL_WINDOWEVENT) {
+        if (auto window = get_plugin_window_from_id(event->window.windowID)) {
+            SDL_Window* window_handle = (SDL_Window*)window.value();
+            PluginInterface* plugin = (PluginInterface*)SDL_GetWindowData(window_handle, "wplg");
+            switch (event->window.event) {
+                case SDL_WINDOWEVENT_CLOSE:
+                    if (plugin)
+                        close_plugin_window(plugin);
+                    break;
+            }
+        }
+        return true;
+    }
+    return false;
 }
 
 void set_mouse_pos(int x, int y) {

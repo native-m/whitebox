@@ -2,7 +2,7 @@
 
 #include "core/span.h"
 #include "core/vector.h"
-#include "plugin_interface.h"
+#include "plugin_manager.h"
 #include <optional>
 #include <pluginterfaces/gui/iplugview.h>
 #include <pluginterfaces/vst/ivstaudioprocessor.h>
@@ -18,7 +18,7 @@ namespace wb {
 struct VST3Module {
     uint64_t hash;
     VST3::Hosting::Module::Ptr mod_ptr;
-    Vector<PluginParamInfo> param_cache; // Let's not waste memory by caching parameter information
+    Vector<PluginParamInfo> param_cache; // Let's not waste memory by caching the parameter information
     uint32_t ref_count = 1;
     VST3Module(uint64_t hash, VST3::Hosting::Module::Ptr&& mod) : hash(hash), mod_ptr(std::move(mod)) {}
 };
@@ -50,9 +50,11 @@ class VST3ComponentHandler : public Steinberg::Vst::IComponentHandler {
 };
 
 struct VST3PluginWrapper : public PluginInterface {
+    std::string name_;
     Steinberg::Vst::IComponent* component_ {};
     Steinberg::Vst::IAudioProcessor* processor_ {};
     Steinberg::Vst::IEditController* controller_ {};
+    Steinberg::IPlugView* editor_view_ {};
     VST3ComponentHandler component_handler_;
     bool single_component_ = false;
 
@@ -61,7 +63,7 @@ struct VST3PluginWrapper : public PluginInterface {
 
     Span<PluginParamInfo> params;
 
-    VST3PluginWrapper(uint64_t module_hash, Steinberg::Vst::IComponent* component,
+    VST3PluginWrapper(uint64_t module_hash, const std::string& name, Steinberg::Vst::IComponent* component,
                       Steinberg::Vst::IEditController* controller);
     virtual ~VST3PluginWrapper();
     PluginResult init() override;
@@ -70,6 +72,7 @@ struct VST3PluginWrapper : public PluginInterface {
     uint32_t get_param_count() const override;
     uint32_t get_audio_bus_count(bool is_input) const override;
     uint32_t get_event_bus_count(bool is_input) const override;
+    const char* get_name() const override;
 
     PluginResult get_plugin_param_info(uint32_t id, PluginParamInfo* result) const override;
     PluginResult get_audio_bus_info(bool is_input, uint32_t index, PluginAudioBusInfo* bus) const override;
@@ -80,6 +83,10 @@ struct VST3PluginWrapper : public PluginInterface {
                                  double sample_rate) override;
     PluginResult process(const AudioBuffer<float>& input, AudioBuffer<float>& output) override;
 
+    bool has_view() const override;
+    PluginResult get_view_size(uint32_t* width, uint32_t* height) const override;
+    PluginResult attach_window(SDL_Window* handle) override;
+    PluginResult detach_window() override;
     PluginResult render_ui() override { return PluginResult::Unimplemented; }
 
     void disconnect_components_();
@@ -101,7 +108,7 @@ struct VST3Host {
     bool init_view();
 };
 
-PluginInterface* vst3_open_plugin(PluginUID uid, const std::string& descriptor_id, const std::string& module_path);
+PluginInterface* vst3_open_plugin(PluginUID uid, const PluginInfo& info);
 void vst3_close_plugin(PluginInterface* plugin);
 VST3HostApplication* get_vst3_host_application();
 

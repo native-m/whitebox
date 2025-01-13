@@ -44,8 +44,10 @@ void Engine::set_audio_channel_config(uint32_t input_channels, uint32_t output_c
 
 void Engine::clear_all() {
     track_input_groups.clear();
-    for (auto track : tracks)
+    for (auto track : tracks) {
+        delete_plugin_from_track(track);
         delete track;
+    }
     tracks.clear();
 }
 
@@ -500,18 +502,30 @@ TrackEditResult Engine::reserve_track_region(Track* track, uint32_t first_clip, 
     };
 }
 
-void Engine::add_plugin_to_track(Track* track, PluginUID uid) {
+PluginInterface* Engine::add_plugin_to_track(Track* track, PluginUID uid) {
     PluginInterface* plugin = pm_open_plugin(uid);
     if (!plugin) {
         Log::debug("Failed to open plugin");
-        return;
+        return nullptr;
     }
+    
+    if (plugin->init() != PluginResult::Ok) {
+        plugin->shutdown();
+        pm_close_plugin(plugin);
+        Log::debug("Failed to initialize plugin");
+        return nullptr;
+    }
+
     track->plugin_instance = plugin;
+    return plugin;
 }
 
 void Engine::delete_plugin_from_track(Track* track) {
-    if (track->plugin_instance)
+    if (track->plugin_instance) {
+        track->plugin_instance->shutdown();
         pm_close_plugin(track->plugin_instance);
+        track->plugin_instance = nullptr;
+    }
 }
 
 double Engine::get_song_length() const {

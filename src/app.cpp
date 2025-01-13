@@ -66,6 +66,8 @@ static void handle_plugin_events(SDL_Event& event) {
 }
 
 static void handle_events(SDL_Event& event) {
+    if (process_plugin_window_event(&event))
+        return;
     /*if (event.type == SDL_WINDOWEVENT && event.window.windowID != main_window_id) {
         if (auto plugin_window = get_plugin_window_from_id(event.window.windowID)) {
             SDL_Window* window = plugin_window.value();
@@ -171,8 +173,8 @@ void app_init() {
 
     SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
     SDL_AddEventWatch(event_watcher, nullptr);
-
     register_events();
+
     SDL_Window* new_window =
         SDL_CreateWindow("whitebox", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, SDL_WINDOW_RESIZABLE);
     if (!new_window) {
@@ -301,6 +303,7 @@ void app_push_event(uint32_t type, void* data, size_t size) {
         .type = type,
         .timestamp = 0,
         .windowID = 0,
+        .data1 = data,
     };
     SDL_PushEvent(&event);
 }

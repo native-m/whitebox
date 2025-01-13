@@ -66,8 +66,6 @@ Track::~Track() {
         clip->~Clip();
         clip_allocator.free(clip);
     }
-    if (plugin_instance)
-        pm_close_plugin(plugin_instance);
 }
 
 void Track::set_volume(float db) {

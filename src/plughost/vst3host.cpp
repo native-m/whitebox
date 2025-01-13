@@ -3,6 +3,8 @@
 #include "core/debug.h"
 #include "core/memory.h"
 #include "extern/xxhash.h"
+#include <SDL_syswm.h>
+#include <SDL_video.h>
 #include <public.sdk/source/common/memorystream.h>
 #include <unordered_map>
 
@@ -84,21 +86,21 @@ Steinberg::tresult PLUGIN_API VST3ComponentHandler::restartComponent(Steinberg::
 
 //
 
-VST3PluginWrapper::VST3PluginWrapper(uint64_t module_hash, Steinberg::Vst::IComponent* component,
+VST3PluginWrapper::VST3PluginWrapper(uint64_t module_hash, const std::string& name,
+                                     Steinberg::Vst::IComponent* component,
                                      Steinberg::Vst::IEditController* controller) :
-    PluginInterface(module_hash, PluginFormat::VST3), component_(component), controller_(controller) {
+    PluginInterface(module_hash, PluginFormat::VST3), name_(name), component_(component), controller_(controller) {
 }
 
 VST3PluginWrapper::~VST3PluginWrapper() {
-    if (controller_)
-        controller_->release();
-    if (component_)
-        component_->release();
 }
 
 PluginResult VST3PluginWrapper::init() {
     Steinberg::IPluginBase* component_base = component_;
     if (component_base->initialize(&vst3_host_app) != Steinberg::kResultOk)
+        return PluginResult::Failed;
+
+    if (component_->queryInterface(Steinberg::Vst::IAudioProcessor::iid, (void**)&processor_) != Steinberg::kResultOk)
         return PluginResult::Failed;
 
     if (!controller_) {
@@ -151,6 +153,11 @@ PluginResult VST3PluginWrapper::init() {
         controller_icp->release();
     }
 
+    Steinberg::IPlugView* view = controller_->createView(Steinberg::Vst::ViewType::kEditor);
+    if (view)
+        editor_view_ = view;
+
+    // Cache paramater info
     int32_t param_count = controller_->getParameterCount();
     if (params.size == 0) {
         if (auto module = get_module(module_hash)) {
@@ -178,10 +185,18 @@ PluginResult VST3PluginWrapper::init() {
 
 PluginResult VST3PluginWrapper::shutdown() {
     disconnect_components_();
+    if (editor_view_)
+        editor_view_->release();
     if (component_)
         component_->terminate();
     if (controller_ && !single_component_)
         controller_->terminate();
+    if (controller_)
+        controller_->release();
+    if (processor_)
+        processor_->release();
+    if (component_)
+        component_->release();
     return PluginResult::Ok;
 }
 
@@ -195,6 +210,10 @@ uint32_t VST3PluginWrapper::get_audio_bus_count(bool is_input) const {
 
 uint32_t VST3PluginWrapper::get_event_bus_count(bool is_input) const {
     return component_->getBusCount(Steinberg::Vst::MediaTypes::kEvent, (Steinberg::Vst::BusDirection)is_input);
+}
+
+const char* VST3PluginWrapper::get_name() const {
+    return name_.c_str();
 }
 
 PluginResult VST3PluginWrapper::get_plugin_param_info(uint32_t index, PluginParamInfo* result) const {
@@ -229,7 +248,7 @@ PluginResult VST3PluginWrapper::get_event_bus_info(bool is_input, uint32_t index
 }
 
 uint32_t VST3PluginWrapper::get_latency_samples() const {
-    return 0;
+    return processor_->getLatencySamples();
 }
 
 PluginResult VST3PluginWrapper::init_processing(PluginProcessingMode mode, uint32_t max_samples_per_block,
@@ -239,6 +258,50 @@ PluginResult VST3PluginWrapper::init_processing(PluginProcessingMode mode, uint3
 
 PluginResult VST3PluginWrapper::process(const AudioBuffer<float>& input, AudioBuffer<float>& output) {
     return PluginResult::Unimplemented;
+}
+
+bool VST3PluginWrapper::has_view() const {
+    return editor_view_ != nullptr;
+}
+
+PluginResult VST3PluginWrapper::get_view_size(uint32_t* width, uint32_t* height) const {
+    if (!has_view())
+        return PluginResult::Unsupported;
+    Steinberg::ViewRect rect;
+    if (editor_view_->getSize(&rect) != Steinberg::kResultOk)
+        return PluginResult::Failed;
+    *width = rect.getWidth();
+    *height = rect.getHeight();
+    return PluginResult::Ok;
+}
+
+PluginResult VST3PluginWrapper::attach_window(SDL_Window* handle) {
+    if (!has_view())
+        return PluginResult::Unsupported;
+    SDL_SysWMinfo wm_info {};
+    SDL_VERSION(&wm_info.version);
+    SDL_GetWindowWMInfo(handle, &wm_info);
+#ifdef WB_PLATFORM_WINDOWS
+    if (editor_view_->isPlatformTypeSupported(Steinberg::kPlatformTypeHWND) != Steinberg::kResultOk)
+        return PluginResult::Unsupported;
+    if (editor_view_->attached(wm_info.info.win.window, Steinberg::kPlatformTypeHWND) != Steinberg::kResultOk)
+        return PluginResult::Failed;
+    window_handle = handle;
+    return PluginResult::Ok;
+#else
+    return PluginResult::Unsupported;
+#endif
+}
+
+PluginResult VST3PluginWrapper::detach_window() {
+    if (!has_view())
+        return PluginResult::Unsupported;
+    if (window_handle == nullptr)
+        return PluginResult::Unsupported;
+    if (editor_view_->removed() != Steinberg::kResultOk)
+        return PluginResult::Failed;
+    window_handle = nullptr;
+    return PluginResult::Ok;
 }
 
 void VST3PluginWrapper::disconnect_components_() {
@@ -303,20 +366,21 @@ bool VST3Host::init_view() {
     return true;
 }
 
-PluginInterface* vst3_open_plugin(PluginUID uid, const std::string& descriptor_id, const std::string& module_path) {
-    assert(descriptor_id.size() == sizeof(Steinberg::TUID));
-    VST3Module* module = create_module(module_path);
+PluginInterface* vst3_open_plugin(PluginUID uid, const PluginInfo& info) {
+    assert(info.descriptor_id.size() == sizeof(Steinberg::TUID));
+    VST3Module* module = create_module(info.path);
     if (!module)
         return nullptr;
 
     Steinberg::TUID tuid;
-    std::memcpy(tuid, descriptor_id.data(), descriptor_id.size());
+    std::memcpy(tuid, info.descriptor_id.data(), info.descriptor_id.size());
 
     // Create plugin component instance
     auto& factory = module->mod_ptr->getFactory();
     Steinberg::IPtr<Steinberg::Vst::IComponent> component =
         factory.createInstance<Steinberg::Vst::IComponent>(VST3::UID::fromTUID(tuid));
     if (!component) {
+        release_module(module->hash);
         Log::debug("Cannot create VST3 plugin component");
         return nullptr;
     }
@@ -329,24 +393,17 @@ PluginInterface* vst3_open_plugin(PluginUID uid, const std::string& descriptor_i
 
     void* ptr = vst3_plugins.allocate();
     if (!ptr) {
+        component.reset();
+        release_module(module->hash);
         Log::debug("Cannot allocate memory to open VST3 plugin");
         return nullptr;
     }
 
-    // Wrap vst3 plugin
-    VST3PluginWrapper* plugin_instance = new (ptr) VST3PluginWrapper(module->hash, component.take(), controller.take());
-    if (plugin_instance->init() == PluginResult::Failed) {
-        Log::debug("Cannot initialize VST3 plugin");
-        vst3_plugins.destroy(plugin_instance);
-        return nullptr;
-    }
-
-    return plugin_instance;
+    return new (ptr) VST3PluginWrapper(module->hash, info.name, component.take(), controller.take());
 }
 
 void vst3_close_plugin(PluginInterface* plugin) {
     uint64_t module_hash = plugin->module_hash;
-    plugin->shutdown();
     vst3_plugins.destroy(static_cast<VST3PluginWrapper*>(plugin));
     release_module(module_hash);
 }

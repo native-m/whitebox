@@ -2,6 +2,7 @@
 #include "engine/audio_io.h"
 #include "engine/engine.h"
 #include "engine/track.h"
+#include "platform/platform.h"
 #include "forms.h"
 
 namespace wb {
@@ -92,6 +93,8 @@ void track_input_context_menu(Track* track, uint32_t track_slot) {
 
 void track_plugin_context_menu(Track* track) {
     if (ImGui::MenuItem("Close plugin", nullptr, nullptr, track->plugin_instance != nullptr)) {
+        close_plugin_window(track->plugin_instance);
+        g_engine.delete_plugin_from_track(track);
     }
 }
 } // namespace wb

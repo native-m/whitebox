@@ -267,6 +267,12 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
     }
 }
 
+static void add_track_plugin(Track* track, PluginUID uid) {
+    PluginInterface* plugin = g_engine.add_plugin_to_track(track, uid);
+    if (plugin->has_view())
+        add_foreign_plugin_window(plugin);
+}
+
 void GuiTimeline::init() {
     layer1_draw_list = new ImDrawList(ImGui::GetDrawListSharedData());
     layer2_draw_list = new ImDrawList(ImGui::GetDrawListSharedData());
@@ -594,7 +600,7 @@ void GuiTimeline::render_track_controls() {
             if (auto payload = ImGui::AcceptDragDropPayload("WB_PLUGINDROP", drag_drop_flags)) {
                 PluginItem* item;
                 std::memcpy(&item, payload->Data, payload->DataSize);
-                g_engine.add_plugin_to_track(track, item->uid);
+                add_track_plugin(track, item->uid);
             }
             ImGui::EndDragDropTarget();
         }

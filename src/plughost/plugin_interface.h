@@ -10,6 +10,8 @@
 #define WB_PLUG_API
 #endif
 
+struct SDL_Window;
+
 namespace wb {
 using PluginUID = uint8_t[16];
 
@@ -19,6 +21,7 @@ enum class PluginResult {
     Ok,
     Failed = -1,
     Unimplemented = -2,
+    Unsupported = -3,
 };
 
 enum class PluginFormat : uint8_t {
@@ -82,6 +85,8 @@ struct PluginUIDHash {
 struct PluginInterface {
     uint64_t module_hash;
     PluginFormat format;
+    bool is_plugin_valid = false;
+    SDL_Window* window_handle = nullptr;
 
     PluginInterface(uint64_t module_hash, PluginFormat format);
     virtual ~PluginInterface() {}
@@ -92,6 +97,7 @@ struct PluginInterface {
     virtual uint32_t get_param_count() const = 0;
     virtual uint32_t get_audio_bus_count(bool is_input) const = 0;
     virtual uint32_t get_event_bus_count(bool is_input) const = 0;
+    virtual const char* get_name() const = 0;
 
     // Get plugin informations
     virtual PluginResult get_plugin_param_info(uint32_t index, PluginParamInfo* result) const = 0;
@@ -105,6 +111,12 @@ struct PluginInterface {
     virtual PluginResult process(const AudioBuffer<float>& input, AudioBuffer<float>& output) = 0;
 
     // UI
+    virtual bool has_view() const = 0;
+    virtual PluginResult get_view_size(uint32_t* width, uint32_t* height) const = 0;
+    virtual PluginResult attach_window(SDL_Window* handle) = 0;
+    virtual PluginResult detach_window() = 0;
     virtual PluginResult render_ui() = 0;
+
+    inline bool is_native_plugin() const { return format == PluginFormat::Native; }
 };
 } // namespace wb
