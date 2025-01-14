@@ -153,7 +153,7 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
 
     int mouse_rel_x, mouse_rel_y;
     if (state.move_tension_point) {
-        get_relative_mouse_state(&mouse_rel_x, &mouse_rel_y);
+        wm_get_relative_mouse_state(&mouse_rel_x, &mouse_rel_y);
     }
 
     if (deactivated && state.move_control_point) {
@@ -200,8 +200,8 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
         const float slope = float(point.y - next_point.y) * view_height;
         const float mouse_x = (x0 + x1) * 0.5f;
         const float mouse_y = cursor_pos.y + (1.0f - float(next_point.y)) * view_height - mid_y * slope;
-        enable_relative_mouse_mode(false);
-        set_mouse_pos((int)mouse_x, (int)mouse_y);
+        wm_enable_relative_mouse_mode(false);
+        wm_set_mouse_pos((int)mouse_x, (int)mouse_y);
     }
 
     static constexpr uint32_t fill_col = 0x2F53A3F9;
@@ -349,9 +349,9 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
                 if (left_click) {
                     state.move_tension_point = i - 1;
                     state.last_click_pos = mouse_pos;
-                    set_mouse_pos((int)global_mouse_pos.x, (int)global_mouse_pos.y);
-                    reset_relative_mouse_state();
-                    enable_relative_mouse_mode(true);
+                    wm_set_mouse_pos((int)global_mouse_pos.x, (int)global_mouse_pos.y);
+                    wm_reset_relative_mouse_state();
+                    wm_enable_relative_mouse_mode(true);
                 } else if (right_click) {
                     last_point.tension = 0.0f;
                     state.last_tension_value = 0.0f;

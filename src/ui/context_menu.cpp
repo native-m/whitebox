@@ -94,11 +94,11 @@ void track_input_context_menu(Track* track, uint32_t track_slot) {
 void track_plugin_context_menu(Track* track) {
     if (ImGui::MenuItem("Open plugin editor", nullptr, nullptr, track->plugin_instance != nullptr)) {
         if (!track->plugin_instance->has_window_attached())
-            add_foreign_plugin_window(track->plugin_instance);
+            wm_add_foreign_plugin_window(track->plugin_instance);
     }
     if (ImGui::MenuItem("Close plugin", nullptr, nullptr, track->plugin_instance != nullptr)) {
         if (track->plugin_instance->has_window_attached())
-            close_plugin_window(track->plugin_instance);
+            wm_close_plugin_window(track->plugin_instance);
         g_engine.delete_plugin_from_track(track);
     }
 }

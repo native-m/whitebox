@@ -26,12 +26,12 @@ static std::optional<SDL_Window*> get_plugin_window_from_id(uint32_t window_id) 
     return plugin_window->second;
 }
 
-bool create_main_window() {
+bool wm_create_main_window() {
     SDL_Window* window =
         SDL_CreateWindow("whitebox", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN);
     if (!window)
         return false;
-    setup_dark_mode(window);
+    wm_setup_dark_mode(window);
     SDL_SetWindowMinimumSize(window, 640, 480);
     SDL_ShowWindow(window);
     main_window = window;
@@ -39,27 +39,27 @@ bool create_main_window() {
     return true;
 }
 
-void destroy_main_window() {
+void wm_destroy_main_window() {
     SDL_DestroyWindow(main_window);
 }
 
-SDL_Window* get_main_window() {
+SDL_Window* wm_get_main_window() {
     return main_window;
 }
 
-uint32_t get_main_window_id() {
+uint32_t wm_get_main_window_id() {
     return main_window_id;
 }
 
-SDL_SysWMinfo get_window_wm_info(SDL_Window* window) {
+SDL_SysWMinfo wm_get_window_wm_info(SDL_Window* window) {
     SDL_SysWMinfo wm_info {};
     SDL_VERSION(&wm_info.version);
     SDL_GetWindowWMInfo(window, &wm_info);
     return wm_info;
 }
 
-void setup_dark_mode(SDL_Window* window) {
-    SDL_SysWMinfo wm_info = get_window_wm_info(window);
+void wm_setup_dark_mode(SDL_Window* window) {
+    SDL_SysWMinfo wm_info = wm_get_window_wm_info(window);
     ImU32 title_bar_color = ImColor(0.15f, 0.15f, 0.15f, 1.00f) & 0x00FFFFFF;
 #ifdef WB_PLATFORM_WINDOWS
     BOOL dark_mode = true;
@@ -71,9 +71,9 @@ void setup_dark_mode(SDL_Window* window) {
 }
 
 // TODO(native-m): Replace with SDL function in SDL 3.0
-void make_child_window(SDL_Window* window, SDL_Window* parent_window, bool imgui_window) {
-    SDL_SysWMinfo wm_info = get_window_wm_info(window);
-    SDL_SysWMinfo parent_wm_info = get_window_wm_info(parent_window);
+void wm_make_child_window(SDL_Window* window, SDL_Window* parent_window, bool imgui_window) {
+    SDL_SysWMinfo wm_info = wm_get_window_wm_info(window);
+    SDL_SysWMinfo parent_wm_info = wm_get_window_wm_info(parent_window);
 #ifdef WB_PLATFORM_WINDOWS
     HWND handle = wm_info.info.win.window;
     if (imgui_window) {
@@ -88,7 +88,7 @@ void make_child_window(SDL_Window* window, SDL_Window* parent_window, bool imgui
 }
 
 // Non-native plugin have to use its own window
-void add_foreign_plugin_window(PluginInterface* plugin) {
+void wm_add_foreign_plugin_window(PluginInterface* plugin) {
     uint32_t w = 256, h = 256;
     // Try request the view size
     if (plugin->get_view_size(&w, &h) != PluginResult::Ok)
@@ -98,7 +98,8 @@ void add_foreign_plugin_window(PluginInterface* plugin) {
     if (!window)
         return;
 
-    setup_dark_mode(window);
+    wm_setup_dark_mode(window);
+    wm_make_child_window(window, main_window, false);
 
     if (plugin->attach_window(window) != PluginResult::Ok) {
         Log::debug("Failed to create plugin window");
@@ -111,7 +112,7 @@ void add_foreign_plugin_window(PluginInterface* plugin) {
     SDL_ShowWindow(window);
 }
 
-void close_plugin_window(PluginInterface* plugin) {
+void wm_close_plugin_window(PluginInterface* plugin) {
     SDL_Window* window = plugin->window_handle;
     if (window) {
         SDL_HideWindow(window);
@@ -121,7 +122,7 @@ void close_plugin_window(PluginInterface* plugin) {
     }
 }
 
-void close_all_plugin_window() {
+void wm_close_all_plugin_window() {
     if (plugin_windows.size() == 0)
         return;
     for (auto& [id, window] : plugin_windows) {
@@ -132,7 +133,7 @@ void close_all_plugin_window() {
     plugin_windows.clear();
 }
 
-bool process_plugin_window_event(SDL_Event* event) {
+bool wm_process_plugin_window_event(SDL_Event* event) {
     if (event->type == SDL_WINDOWEVENT) {
         if (auto window = get_plugin_window_from_id(event->window.windowID)) {
             SDL_Window* window_handle = (SDL_Window*)window.value();
@@ -140,7 +141,7 @@ bool process_plugin_window_event(SDL_Event* event) {
             switch (event->window.event) {
                 case SDL_WINDOWEVENT_CLOSE:
                     if (plugin)
-                        close_plugin_window(plugin);
+                        wm_close_plugin_window(plugin);
                     break;
             }
             return true;
@@ -149,19 +150,19 @@ bool process_plugin_window_event(SDL_Event* event) {
     return false;
 }
 
-void set_mouse_pos(int x, int y) {
+void wm_set_mouse_pos(int x, int y) {
     SDL_WarpMouseGlobal(x, y);
 }
 
-void enable_relative_mouse_mode(bool relative_mode) {
+void wm_enable_relative_mouse_mode(bool relative_mode) {
     SDL_SetRelativeMouseMode((SDL_bool)relative_mode);
 }
 
-void get_relative_mouse_state(int* x, int* y) {
+void wm_get_relative_mouse_state(int* x, int* y) {
     SDL_GetRelativeMouseState(x, y);
 }
 
-void reset_relative_mouse_state() {
+void wm_reset_relative_mouse_state() {
     int x, y;
     SDL_GetRelativeMouseState(&x, &y);
 }

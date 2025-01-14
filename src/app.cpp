@@ -50,7 +50,7 @@ static void wait_until_restored() {
     SDL_Event next_event;
     while (SDL_WaitEvent(&next_event)) {
         if (next_event.type == SDL_WINDOWEVENT) {
-            if (next_event.window.windowID == get_main_window_id() &&
+            if (next_event.window.windowID == wm_get_main_window_id() &&
                 next_event.window.event == SDL_WINDOWEVENT_RESTORED) {
                 break;
             }
@@ -63,7 +63,7 @@ static void handle_plugin_events(SDL_Event& event) {
 }
 
 static void handle_events(SDL_Event& event) {
-    if (process_plugin_window_event(&event))
+    if (wm_process_plugin_window_event(&event))
         return;
     /*if (event.type == SDL_WINDOWEVENT && event.window.windowID != main_window_id) {
         if (auto plugin_window = get_plugin_window_from_id(event.window.windowID)) {
@@ -85,7 +85,7 @@ static void handle_events(SDL_Event& event) {
 
     switch (event.type) {
         case SDL_WINDOWEVENT: {
-            if (event.window.windowID == get_main_window_id()) {
+            if (event.window.windowID == wm_get_main_window_id()) {
                 switch (event.window.event) {
                     case SDL_WINDOWEVENT_RESIZED:
                         // g_renderer->resize_viewport();
@@ -135,7 +135,7 @@ static void imgui_renderer_create_window(ImGuiViewport* viewport) {
     /*if (!has_bit(viewport->Flags, ImGuiViewportFlags_NoDecoration)) {
         setup_dark_mode(window);
     }*/
-    make_child_window(window, get_main_window(), true);
+    wm_make_child_window(window, wm_get_main_window(), true);
     g_renderer->add_viewport(viewport);
 }
 
@@ -172,7 +172,7 @@ void app_init() {
     SDL_AddEventWatch(event_watcher, nullptr);
     register_events();
 
-    if (!create_main_window()) {
+    if (!wm_create_main_window()) {
         Log::debug("Cannot create window");
         std::abort();
     }
@@ -195,7 +195,7 @@ void app_init() {
 
     init_font_assets();
     apply_theme(ImGui::GetStyle());
-    init_renderer(get_main_window());
+    init_renderer(wm_get_main_window());
 
     ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
     platform_io.Renderer_CreateWindow = imgui_renderer_create_window;
@@ -297,7 +297,7 @@ void app_push_event(uint32_t type, void* data, size_t size) {
 }
 
 void app_shutdown() {
-    close_all_plugin_window();
+    wm_close_all_plugin_window();
     save_settings_data();
     Log::info("Closing application...");
     g_timeline.shutdown();
@@ -310,7 +310,7 @@ void app_shutdown() {
     shutdown_plugin_manager();
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
-    destroy_main_window();
+    wm_destroy_main_window();
     SDL_Quit();
 }
 
@@ -318,7 +318,7 @@ static bool last_resized = false;
 
 int SDLCALL event_watcher(void* userdata, SDL_Event* event) {
     bool refresh = false;
-    uint32_t main_window_id = get_main_window_id();
+    uint32_t main_window_id = wm_get_main_window_id();
     switch (event->type) {
         case SDL_WINDOWEVENT: {
             int32_t w, h;

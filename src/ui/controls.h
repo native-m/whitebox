@@ -262,15 +262,15 @@ static bool knob(const KnobProperties& props, const char* str_id, const ImVec2& 
         GImGui->ColorPickerRef.x = pos.x;
         GImGui->ColorPickerRef.y = pos.y;
         // Reset relative mouse state to prevent jumping
-        set_mouse_pos((int)pos.x, (int)pos.y);
-        reset_relative_mouse_state();
-        enable_relative_mouse_mode(true);
+        wm_set_mouse_pos((int)pos.x, (int)pos.y);
+        wm_reset_relative_mouse_state();
+        wm_enable_relative_mouse_mode(true);
     }
 
     if (ImGui::IsItemDeactivated()) {
         // Reset mouse position back to its original click position
-        enable_relative_mouse_mode(false);
-        set_mouse_pos((int)GImGui->ColorPickerRef.x, (int)GImGui->ColorPickerRef.y);
+        wm_enable_relative_mouse_mode(false);
+        wm_set_mouse_pos((int)GImGui->ColorPickerRef.x, (int)GImGui->ColorPickerRef.y);
     }
 
     static constexpr double two_pi = 2.0 * std::numbers::pi;
@@ -283,7 +283,7 @@ static bool knob(const KnobProperties& props, const char* str_id, const ImVec2& 
 
     if (held) {
         int x, y;
-        get_relative_mouse_state(&x, &y);
+        wm_get_relative_mouse_state(&x, &y);
         ImGui::SetMouseCursor(ImGuiMouseCursor_None);
         if (y != 0.0f) {
             static constexpr double speed = 0.25;

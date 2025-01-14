@@ -272,7 +272,7 @@ static void add_track_plugin(Track* track, PluginUID uid) {
     if (!plugin)
         return;
     if (plugin->has_view())
-        add_foreign_plugin_window(plugin);
+        wm_add_foreign_plugin_window(plugin);
 }
 
 void GuiTimeline::init() {

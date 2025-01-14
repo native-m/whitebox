@@ -183,14 +183,14 @@ bool TimelineBase::render_time_ruler(double* time_value) {
         GImGui->ColorPickerRef.x = pos.x;
         GImGui->ColorPickerRef.y = pos.y;
         // Reset relative mouse state to prevent jumping
-        set_mouse_pos((int)pos.x, (int)pos.y);
-        reset_relative_mouse_state();
-        enable_relative_mouse_mode(true);
+        wm_set_mouse_pos((int)pos.x, (int)pos.y);
+        wm_reset_relative_mouse_state();
+        wm_enable_relative_mouse_mode(true);
     }
 
     if (zooming_on_ruler) {
         int x, y;
-        get_relative_mouse_state(&x, &y);
+        wm_get_relative_mouse_state(&x, &y);
         if (y != 0) {
             zoom(mouse_pos.x, cursor_pos.x, view_scale, (float)y * 0.1f);
             view_scale = calc_view_scale();
@@ -201,8 +201,8 @@ bool TimelineBase::render_time_ruler(double* time_value) {
     if (zooming_on_ruler && !ImGui::IsMouseDown(ImGuiMouseButton_Middle)) {
         view_scale = calc_view_scale();
         zooming_on_ruler = false;
-        enable_relative_mouse_mode(false);
-        set_mouse_pos((int)GImGui->ColorPickerRef.x, (int)GImGui->ColorPickerRef.y);
+        wm_enable_relative_mouse_mode(false);
+        wm_set_mouse_pos((int)GImGui->ColorPickerRef.x, (int)GImGui->ColorPickerRef.y);
     }
 
     ImFont* font = ImGui::GetFont();
