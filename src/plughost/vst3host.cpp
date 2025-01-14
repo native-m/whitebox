@@ -280,7 +280,7 @@ PluginResult VST3PluginWrapper::get_audio_bus_info(bool is_output, uint32_t inde
     bus->id = index;
     bus->channel_count = bus_info.channelCount;
     bus->default_bus = has_bit(bus_info.flags, Steinberg::Vst::BusInfo::kDefaultActive);
-    wcstombs_s(&retval, bus->name, sizeof(bus->name), (const wchar_t*)bus_info.name, sizeof(bus_info.name));
+    std::wcstombs(bus->name, (const wchar_t*)bus_info.name, sizeof(bus_info.name));
     return PluginResult::Ok;
 }
 
@@ -291,7 +291,7 @@ PluginResult VST3PluginWrapper::get_event_bus_info(bool is_output, uint32_t inde
         return PluginResult::Failed;
     size_t retval;
     bus->id = index;
-    wcstombs_s(&retval, bus->name, sizeof(bus->name), (const wchar_t*)bus_info.name, sizeof(bus_info.name));
+    std::wcstombs(bus->name, (const wchar_t*)bus_info.name, sizeof(bus_info.name));
     return PluginResult::Ok;
 }
 
