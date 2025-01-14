@@ -1,5 +1,6 @@
 #include "vst3host.h"
 #include "core/bit_manipulation.h"
+#include "core/core_math.h"
 #include "core/debug.h"
 #include "core/memory.h"
 #include "extern/xxhash.h"
@@ -209,6 +210,16 @@ PluginResult VST3PluginWrapper::init() {
         }
     }
 
+    uint32_t num_input = get_audio_bus_count(false);
+    uint32_t num_output = get_audio_bus_count(true);
+    uint32_t max_arrangements = math::max(num_input, num_output);
+    Vector<Steinberg::Vst::SpeakerArrangement> arrangements;
+    arrangements.resize(max_arrangements, Steinberg::Vst::SpeakerArr::kStereo);
+    Steinberg::tresult result =
+        processor_->setBusArrangements(arrangements.data(), num_input, arrangements.data(), num_output);
+    if (result == Steinberg::kResultFalse)
+        Log::debug("Some plugin buses do not support stereo channel");
+
     return PluginResult::Ok;
 }
 
@@ -260,36 +271,46 @@ PluginResult VST3PluginWrapper::get_plugin_param_info(uint32_t index, PluginPara
     return PluginResult::Ok;
 }
 
-PluginResult VST3PluginWrapper::get_audio_bus_info(bool is_input, uint32_t index, PluginAudioBusInfo* bus) const {
+PluginResult VST3PluginWrapper::get_audio_bus_info(bool is_output, uint32_t index, PluginAudioBusInfo* bus) const {
+    size_t retval;
     Steinberg::Vst::BusInfo bus_info;
-    Steinberg::tresult result = component_->getBusInfo(Steinberg::Vst::MediaTypes::kAudio,
-                                                       (Steinberg::Vst::BusDirection)is_input, index, bus_info);
+    Steinberg::tresult result = component_->getBusInfo(Steinberg::Vst::MediaTypes::kAudio, is_output, index, bus_info);
     if (result == Steinberg::kInvalidArgument)
-        return PluginResult::Failed;
+        return {};
     bus->id = index;
     bus->channel_count = bus_info.channelCount;
     bus->default_bus = has_bit(bus_info.flags, Steinberg::Vst::BusInfo::kDefaultActive);
-    std::memcpy(bus->name, bus_info.name, sizeof(bus_info.name));
+    wcstombs_s(&retval, bus->name, sizeof(bus->name), (const wchar_t*)bus_info.name, sizeof(bus_info.name));
     return PluginResult::Ok;
 }
 
-PluginResult VST3PluginWrapper::get_event_bus_info(bool is_input, uint32_t index, PluginEventBusInfo* bus) const {
+PluginResult VST3PluginWrapper::get_event_bus_info(bool is_output, uint32_t index, PluginEventBusInfo* bus) const {
     Steinberg::Vst::BusInfo bus_info;
-    Steinberg::tresult result = component_->getBusInfo(Steinberg::Vst::MediaTypes::kAudio,
-                                                       (Steinberg::Vst::BusDirection)is_input, index, bus_info);
+    Steinberg::tresult result = component_->getBusInfo(Steinberg::Vst::MediaTypes::kAudio, is_output, index, bus_info);
     if (result == Steinberg::kInvalidArgument)
-        return PluginResult::Failed;
+        return {};
+    size_t retval;
     bus->id = index;
-    std::memcpy(bus->name, bus_info.name, sizeof(bus_info.name));
+    wcstombs_s(&retval, bus->name, sizeof(bus->name), (const wchar_t*)bus_info.name, sizeof(bus_info.name));
     return PluginResult::Ok;
 }
 
-uint32_t VST3PluginWrapper::get_latency_samples() const {
-    return processor_->getLatencySamples();
+PluginResult VST3PluginWrapper::activate_audio_bus(bool is_output, uint32_t index, bool state) {
+    return PluginResult::Ok;
 }
 
 PluginResult VST3PluginWrapper::init_processing(PluginProcessingMode mode, uint32_t max_samples_per_block,
                                                 double sample_rate) {
+    Steinberg::Vst::ProcessSetup setup {
+        .processMode = mode == PluginProcessingMode::Offline ? Steinberg::Vst::kOffline : Steinberg::Vst::kOffline,
+        .symbolicSampleSize = Steinberg::Vst::kSample32,
+        .maxSamplesPerBlock = (int32_t)max_samples_per_block,
+        .sampleRate = sample_rate,
+    };
+
+    if (processor_->setupProcessing(setup) != Steinberg::kResultOk)
+        return PluginResult::Failed;
+
     return PluginResult::Unimplemented;
 }
 

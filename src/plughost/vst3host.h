@@ -80,7 +80,6 @@ struct VST3PluginWrapper : public PluginInterface {
 
     std::optional<Steinberg::Vst::ConnectionProxy> component_cp_;
     std::optional<Steinberg::Vst::ConnectionProxy> controller_cp_;
-
     Span<PluginParamInfo> params;
 
     VST3PluginWrapper(uint64_t module_hash, const std::string& name, Steinberg::Vst::IComponent* component,
@@ -97,10 +96,11 @@ struct VST3PluginWrapper : public PluginInterface {
     uint32_t get_tail_samples() const override;
 
     PluginResult get_plugin_param_info(uint32_t id, PluginParamInfo* result) const override;
-    PluginResult get_audio_bus_info(bool is_input, uint32_t index, PluginAudioBusInfo* bus) const override;
-    PluginResult get_event_bus_info(bool is_input, uint32_t index, PluginEventBusInfo* bus) const override;
+    PluginResult get_audio_bus_info(bool is_output, uint32_t index, PluginAudioBusInfo* bus) const override;
+    PluginResult get_event_bus_info(bool is_output, uint32_t index, PluginEventBusInfo* bus) const override;
 
-    uint32_t get_latency_samples() const override;
+    PluginResult activate_audio_bus(bool is_output, uint32_t index, bool state) override;
+
     PluginResult init_processing(PluginProcessingMode mode, uint32_t max_samples_per_block,
                                  double sample_rate) override;
     PluginResult process(const AudioBuffer<float>& input, AudioBuffer<float>& output) override;

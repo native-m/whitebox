@@ -105,11 +105,13 @@ struct PluginInterface {
 
     // Get plugin informations
     virtual PluginResult get_plugin_param_info(uint32_t index, PluginParamInfo* result) const = 0;
-    virtual PluginResult get_audio_bus_info(bool is_input, uint32_t index, PluginAudioBusInfo* bus) const = 0;
-    virtual PluginResult get_event_bus_info(bool is_input, uint32_t index, PluginEventBusInfo* bus) const = 0;
+    virtual PluginResult get_audio_bus_info(bool is_output, uint32_t index, PluginAudioBusInfo* bus) const = 0;
+    virtual PluginResult get_event_bus_info(bool is_output, uint32_t index, PluginEventBusInfo* bus) const = 0;
+
+    // Busses
+    virtual PluginResult activate_audio_bus(bool is_output, uint32_t index, bool state) = 0;
 
     // Processing
-    virtual uint32_t get_latency_samples() const = 0;
     virtual PluginResult init_processing(PluginProcessingMode mode, uint32_t max_samples_per_block,
                                          double sample_rate) = 0;
     virtual PluginResult process(const AudioBuffer<float>& input, AudioBuffer<float>& output) = 0;
