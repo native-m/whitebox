@@ -75,6 +75,8 @@ struct VST3PluginWrapper : public PluginInterface {
     Steinberg::IPlugView* editor_view_ {};
     VST3ComponentHandler component_handler_;
     VST3PlugFrame plug_frame_;
+
+    uint32_t sample_size = Steinberg::Vst::kSample32;
     bool single_component_ = false;
     bool has_view_ = false;
 
@@ -103,6 +105,8 @@ struct VST3PluginWrapper : public PluginInterface {
 
     PluginResult init_processing(PluginProcessingMode mode, uint32_t max_samples_per_block,
                                  double sample_rate) override;
+    PluginResult start_processing() override;
+    PluginResult stop_processing() override;
     PluginResult process(const AudioBuffer<float>& input, AudioBuffer<float>& output) override;
 
     bool has_view() const override;

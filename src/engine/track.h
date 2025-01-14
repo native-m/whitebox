@@ -90,6 +90,8 @@ struct Track {
     VUMeter level_meter[2] {};
 
     PluginInterface* plugin_instance = nullptr;
+    uint32_t default_input_bus = 0;
+    uint32_t default_output_bus = 0;
 
     TrackParameterState ui_parameter_state {}; // UI-side state
     TrackParameterState parameter_state {};    // Audio-side state

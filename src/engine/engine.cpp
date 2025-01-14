@@ -505,19 +505,21 @@ TrackEditResult Engine::reserve_track_region(Track* track, uint32_t first_clip, 
 PluginInterface* Engine::add_plugin_to_track(Track* track, PluginUID uid) {
     PluginInterface* plugin = pm_open_plugin(uid);
     if (!plugin) {
-        Log::debug("Failed to open plugin");
+        Log::error("Failed to open plugin");
         return nullptr;
     }
 
-    if (plugin->init() != PluginResult::Ok) {
+    if (WB_PLUG_FAIL(plugin->init())) {
         plugin->shutdown();
         pm_close_plugin(plugin);
-        Log::debug("Failed to initialize plugin");
+        Log::error("Failed to initialize plugin");
         return nullptr;
     }
 
     uint32_t input_bus_count = plugin->get_audio_bus_count(false);
     uint32_t output_bus_count = plugin->get_audio_bus_count(true);
+    uint32_t default_input_bus = 0;
+    uint32_t default_output_bus = 0;
 
     Log::debug("---- Plugin input bus ----");
     for (uint32_t i = 0; i < input_bus_count; i++) {
@@ -526,6 +528,11 @@ PluginInterface* Engine::add_plugin_to_track(Track* track, PluginUID uid) {
         Log::debug("Bus: {} ({})", bus_info.name, bus_info.id);
         Log::debug("\tChannel count: {}", bus_info.channel_count);
         Log::debug("\tDefault bus: {}", bus_info.default_bus);
+        if (bus_info.default_bus) {
+            if (plugin->activate_audio_bus(false, i, true) != PluginResult::Ok)
+                Log::error("Failed to open audio input bus {}", i);
+            default_input_bus = i;
+        }
     }
 
     Log::debug("---- Plugin output bus ----");
@@ -535,14 +542,30 @@ PluginInterface* Engine::add_plugin_to_track(Track* track, PluginUID uid) {
         Log::debug("Bus: {} ({})", bus_info.name, bus_info.id);
         Log::debug("\tChannel count: {}", bus_info.channel_count);
         Log::debug("\tDefault bus: {}", bus_info.default_bus);
+        if (bus_info.default_bus) {
+            if (plugin->activate_audio_bus(true, i, true) != PluginResult::Ok)
+                Log::error("Failed to open audio input bus {}", i);
+            default_output_bus = i;
+        }
     }
 
+    if (WB_PLUG_FAIL(
+            plugin->init_processing(PluginProcessingMode::Realtime, audio_buffer_size, (double)audio_sample_rate))) {
+        Log::error("Cannot initialize processing");
+    }
+
+    if (WB_PLUG_FAIL(plugin->start_processing()))
+        Log::error("Cannot start plugin processing");
+
+    track->default_input_bus = default_input_bus;
+    track->default_output_bus = default_output_bus;
     track->plugin_instance = plugin;
     return plugin;
 }
 
 void Engine::delete_plugin_from_track(Track* track) {
     if (track->plugin_instance) {
+        track->plugin_instance->stop_processing();
         track->plugin_instance->shutdown();
         pm_close_plugin(track->plugin_instance);
         track->plugin_instance = nullptr;

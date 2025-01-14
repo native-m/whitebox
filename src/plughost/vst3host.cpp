@@ -14,6 +14,8 @@
         Log::debug(#x " returned {}", ret);                                                                            \
     }
 
+#define VST3_FAILED(x) ((x) != Steinberg::kResultOk)
+
 namespace wb {
 static VST3HostApplication vst3_host_app;
 static std::unordered_map<uint64_t, VST3Module> vst3_module_cache;
@@ -224,6 +226,11 @@ PluginResult VST3PluginWrapper::init() {
     if (result == Steinberg::kResultFalse)
         Log::debug("Some plugin buses do not support stereo channel");
 
+    if (processor_->canProcessSampleSize(Steinberg::Vst::kSample32) == Steinberg::kResultOk)
+        sample_size = Steinberg::Vst::kSample32;
+    else if (processor_->canProcessSampleSize(Steinberg::Vst::kSample64) == Steinberg::kResultOk)
+        sample_size = Steinberg::Vst::kSample64;
+
     return PluginResult::Ok;
 }
 
@@ -300,7 +307,9 @@ PluginResult VST3PluginWrapper::get_event_bus_info(bool is_output, uint32_t inde
 }
 
 PluginResult VST3PluginWrapper::activate_audio_bus(bool is_output, uint32_t index, bool state) {
-    return PluginResult::Ok;
+    if (component_->activateBus(Steinberg::Vst::MediaTypes::kAudio, is_output, index, state) == Steinberg::kResultOk)
+        return PluginResult::Ok;
+    return PluginResult::Failed;
 }
 
 PluginResult VST3PluginWrapper::init_processing(PluginProcessingMode mode, uint32_t max_samples_per_block,
@@ -312,10 +321,24 @@ PluginResult VST3PluginWrapper::init_processing(PluginProcessingMode mode, uint3
         .sampleRate = sample_rate,
     };
 
-    if (processor_->setupProcessing(setup) != Steinberg::kResultOk)
+    if (VST3_FAILED(processor_->setupProcessing(setup)))
         return PluginResult::Failed;
 
-    return PluginResult::Unimplemented;
+    return PluginResult::Ok;
+}
+
+PluginResult VST3PluginWrapper::start_processing() {
+    if (VST3_FAILED(component_->setActive(true)))
+        return PluginResult::Failed;
+    processor_->setProcessing(true);
+    return PluginResult::Ok;
+}
+
+PluginResult VST3PluginWrapper::stop_processing() {
+    processor_->setProcessing(false);
+    if (VST3_FAILED(component_->setActive(false)))
+        return PluginResult::Failed;
+    return PluginResult::Ok;
 }
 
 PluginResult VST3PluginWrapper::process(const AudioBuffer<float>& input, AudioBuffer<float>& output) {

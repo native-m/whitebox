@@ -10,6 +10,8 @@
 #define WB_PLUG_API
 #endif
 
+#define WB_PLUG_FAIL(x) ((x) != PluginResult::Ok) 
+
 struct SDL_Window;
 
 namespace wb {
@@ -114,6 +116,8 @@ struct PluginInterface {
     // Processing
     virtual PluginResult init_processing(PluginProcessingMode mode, uint32_t max_samples_per_block,
                                          double sample_rate) = 0;
+    virtual PluginResult start_processing() = 0;
+    virtual PluginResult stop_processing() = 0;
     virtual PluginResult process(const AudioBuffer<float>& input, AudioBuffer<float>& output) = 0;
 
     // UI
