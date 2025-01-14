@@ -86,10 +86,35 @@ Steinberg::tresult PLUGIN_API VST3ComponentHandler::restartComponent(Steinberg::
 
 //
 
+Steinberg::tresult PLUGIN_API VST3PlugFrame::resizeView(Steinberg::IPlugView* view, Steinberg::ViewRect* rect) {
+    Log::debug("resizeView called ({:x})", (size_t)view);
+    SDL_SetWindowSize(instance->window_handle, rect->getWidth(), rect->getHeight());
+    view->onSize(rect);
+    return Steinberg::kResultOk;
+}
+
+Steinberg::tresult PLUGIN_API VST3PlugFrame::queryInterface(const Steinberg::TUID _iid, void** obj) {
+    if (Steinberg::FUnknownPrivate::iidEqual(_iid, IPlugFrame::iid) ||
+        Steinberg::FUnknownPrivate::iidEqual(_iid, FUnknown::iid)) {
+        *obj = this;
+        addRef();
+        return Steinberg::kResultTrue;
+    }
+    return Steinberg::kNoInterface;
+}
+
+//
+
 VST3PluginWrapper::VST3PluginWrapper(uint64_t module_hash, const std::string& name,
                                      Steinberg::Vst::IComponent* component,
                                      Steinberg::Vst::IEditController* controller) :
-    PluginInterface(module_hash, PluginFormat::VST3), name_(name), component_(component), controller_(controller) {
+    PluginInterface(module_hash, PluginFormat::VST3),
+    name_(name),
+    component_(component),
+    controller_(controller),
+    plug_frame_(this) {
+    last_window_x = SDL_WINDOWPOS_CENTERED;
+    last_window_y = SDL_WINDOWPOS_CENTERED;
 }
 
 VST3PluginWrapper::~VST3PluginWrapper() {
@@ -154,6 +179,10 @@ PluginResult VST3PluginWrapper::init() {
     }
 
     Steinberg::IPlugView* view = controller_->createView(Steinberg::Vst::ViewType::kEditor);
+    if (!view)
+        view = controller_->createView(nullptr);
+    if (!view)
+        controller_->queryInterface(Steinberg::IPlugView::iid, (void**)&view);
     if (view)
         editor_view_ = view;
 
@@ -290,15 +319,23 @@ PluginResult VST3PluginWrapper::get_view_size(uint32_t* width, uint32_t* height)
 PluginResult VST3PluginWrapper::attach_window(SDL_Window* handle) {
     if (!has_view())
         return PluginResult::Unsupported;
+    if (has_window_attached())
+        return PluginResult::Failed;
     SDL_SysWMinfo wm_info {};
     SDL_VERSION(&wm_info.version);
     SDL_GetWindowWMInfo(handle, &wm_info);
 #ifdef WB_PLATFORM_WINDOWS
     if (editor_view_->isPlatformTypeSupported(Steinberg::kPlatformTypeHWND) != Steinberg::kResultOk)
         return PluginResult::Unsupported;
-    if (editor_view_->attached(wm_info.info.win.window, Steinberg::kPlatformTypeHWND) != Steinberg::kResultOk)
-        return PluginResult::Failed;
     window_handle = handle;
+    Steinberg::tresult result = editor_view_->setFrame(&plug_frame_);
+    Log::debug("{}", result);
+    /*if (editor_view_->setFrame(&plug_frame_) != Steinberg::kResultOk)
+        return PluginResult::Failed;*/
+    if (editor_view_->attached(wm_info.info.win.window, Steinberg::kPlatformTypeHWND) != Steinberg::kResultOk) {
+        window_handle = nullptr;
+        return PluginResult::Failed;
+    }
     return PluginResult::Ok;
 #else
     return PluginResult::Unsupported;
@@ -310,8 +347,10 @@ PluginResult VST3PluginWrapper::detach_window() {
         return PluginResult::Unsupported;
     if (window_handle == nullptr)
         return PluginResult::Unsupported;
-    if (editor_view_->removed() != Steinberg::kResultOk)
-        return PluginResult::Failed;
+    editor_view_->setFrame(nullptr);
+    if (auto result = editor_view_->removed(); result != Steinberg::kResultOk)
+        Log::debug("Failed to detach window {}", result);
+    SDL_GetWindowPosition(window_handle, &last_window_x, &last_window_y);
     window_handle = nullptr;
     return PluginResult::Ok;
 }

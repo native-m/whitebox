@@ -2,8 +2,8 @@
 #include "engine/audio_io.h"
 #include "engine/engine.h"
 #include "engine/track.h"
-#include "platform/platform.h"
 #include "forms.h"
+#include "platform/platform.h"
 
 namespace wb {
 bool track_context_menu(Track* track, int track_id, const std::string* tmp_name, const ImColor* tmp_color) {
@@ -92,8 +92,13 @@ void track_input_context_menu(Track* track, uint32_t track_slot) {
 }
 
 void track_plugin_context_menu(Track* track) {
+    if (ImGui::MenuItem("Open plugin editor", nullptr, nullptr, track->plugin_instance != nullptr)) {
+        if (!track->plugin_instance->has_window_attached())
+            add_foreign_plugin_window(track->plugin_instance);
+    }
     if (ImGui::MenuItem("Close plugin", nullptr, nullptr, track->plugin_instance != nullptr)) {
-        close_plugin_window(track->plugin_instance);
+        if (track->plugin_instance->has_window_attached())
+            close_plugin_window(track->plugin_instance);
         g_engine.delete_plugin_from_track(track);
     }
 }

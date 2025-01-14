@@ -269,6 +269,8 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
 
 static void add_track_plugin(Track* track, PluginUID uid) {
     PluginInterface* plugin = g_engine.add_plugin_to_track(track, uid);
+    if (!plugin)
+        return;
     if (plugin->has_view())
         add_foreign_plugin_window(plugin);
 }

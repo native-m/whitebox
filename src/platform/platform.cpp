@@ -64,12 +64,16 @@ void make_child_window(SDL_Window* window, SDL_Window* parent_window, bool imgui
 
 // Non-native plugin have to use its own window
 void add_foreign_plugin_window(PluginInterface* plugin) {
-    uint32_t w, h;
-    plugin->get_view_size(&w, &h);
+    uint32_t w = 256, h = 256;
+    // Try request the view size
+    if (plugin->get_view_size(&w, &h) != PluginResult::Ok)
+        Log::debug("Failed to get window size");
 
-    SDL_Window* window = SDL_CreateWindow(plugin->get_name(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, w, h, 0);
+    SDL_Window* window = SDL_CreateWindow(plugin->get_name(), plugin->last_window_x, plugin->last_window_y, w, h, SDL_WINDOW_HIDDEN);
     if (!window)
         return;
+
+    setup_dark_mode(window);
 
     if (plugin->attach_window(window) != PluginResult::Ok) {
         Log::debug("Failed to create plugin window");
@@ -79,21 +83,28 @@ void add_foreign_plugin_window(PluginInterface* plugin) {
 
     plugin_windows.emplace(SDL_GetWindowID(window), window);
     SDL_SetWindowData(window, "wplg", (void*)plugin); // Attach PluginInterface to the window
+    SDL_ShowWindow(window);
 }
 
 void close_plugin_window(PluginInterface* plugin) {
     SDL_Window* window = plugin->window_handle;
-    if (window)
+    if (window) {
+        SDL_HideWindow(window);
         plugin->detach_window();
-    SDL_DestroyWindow(window);
-    plugin_windows.erase(SDL_GetWindowID(window));
+        plugin_windows.erase(SDL_GetWindowID(window));
+        SDL_DestroyWindow(window);
+    }
 }
 
 void close_all_plugin_window() {
+    if (plugin_windows.size() == 0)
+        return;
     for (auto& [id, window] : plugin_windows) {
         PluginInterface* plugin = (PluginInterface*)SDL_GetWindowData(window, "wplg");
-        close_plugin_window(plugin);
+        plugin->detach_window();
+        SDL_DestroyWindow(window);
     }
+    plugin_windows.clear();
 }
 
 bool process_plugin_window_event(SDL_Event* event) {

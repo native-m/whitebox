@@ -87,6 +87,8 @@ struct PluginInterface {
     PluginFormat format;
     bool is_plugin_valid = false;
     SDL_Window* window_handle = nullptr;
+    int last_window_x;
+    int last_window_y;
 
     PluginInterface(uint64_t module_hash, PluginFormat format);
     virtual ~PluginInterface() {}
