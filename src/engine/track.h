@@ -81,6 +81,7 @@ struct Track {
     Vector<AudioEvent> audio_event_buffer;
     AudioEvent current_audio_event {};
     size_t samples_processed {};
+    AudioBuffer<float> effect_buffer {};
 
     MidiVoiceState midi_voice_state {};
     MidiEventList midi_event_list;
@@ -147,6 +148,8 @@ struct Track {
      */
     std::optional<uint32_t> find_next_clip(double time_pos, uint32_t hint = WB_INVALID_CLIP_ID);
 
+    void prepare_effect_buffer(uint32_t num_channels, uint32_t num_samples);
+
     /**
      * @brief Reset track playback state. When track state changes, this must be called to update the playback state and
      * make sure everything keep sync.
@@ -189,7 +192,7 @@ struct Track {
      * @param playing Should play the track.
      */
     void process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>& output_buffer, double sample_rate,
-                 bool playing);
+                 int64_t playhead_in_samples, bool playing);
 
     void render_sample(AudioBuffer<float>& output_buffer, uint32_t buffer_offset, uint32_t num_samples,
                        double sample_rate);

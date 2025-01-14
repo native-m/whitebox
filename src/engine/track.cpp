@@ -198,6 +198,11 @@ std::optional<uint32_t> Track::find_next_clip(double time_pos, uint32_t hint) {
     return (*clip)->id;
 }
 
+void Track::prepare_effect_buffer(uint32_t num_channels, uint32_t num_samples) {
+    effect_buffer.resize(num_samples);
+    effect_buffer.resize_channel(num_channels);
+}
+
 void Track::reset_playback_state(double time_pos, bool refresh_voices) {
     if (!refresh_voices) {
         std::optional<uint32_t> next_clip = find_next_clip(time_pos);
@@ -542,7 +547,8 @@ void Track::stop_midi_notes(uint32_t buffer_offset, double time_pos) {
 }
 
 void Track::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>& output_buffer, double sample_rate,
-                    bool playing) {
+                    int64_t playhead_in_samples, bool playing) {
+    AudioBuffer<float>& write_buffer = plugin_instance ? effect_buffer : output_buffer;
     param_changes.transfer_changes_from(ui_param_changes);
 
     for (uint32_t i = 0; i < param_changes.changes_count; i++) {
@@ -583,10 +589,10 @@ void Track::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>& 
         AudioEvent* event = audio_event_buffer.begin();
         AudioEvent* end = audio_event_buffer.end();
         uint32_t start_sample = 0;
-        while (start_sample < output_buffer.n_samples) {
+        while (start_sample < write_buffer.n_samples) {
             if (event != end) {
                 uint32_t event_length = event->buffer_offset - start_sample;
-                render_sample(output_buffer, start_sample, event_length, sample_rate);
+                render_sample(write_buffer, start_sample, event_length, sample_rate);
 #if WB_DBG_LOG_AUDIO_EVENT
                 switch (event->type) {
                     case EventType::StopSample:
@@ -603,14 +609,27 @@ void Track::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>& 
                 start_sample += event_length;
                 event++;
             } else {
-                uint32_t event_length = output_buffer.n_samples - start_sample;
-                render_sample(output_buffer, start_sample, event_length, sample_rate);
-                start_sample = output_buffer.n_samples;
+                uint32_t event_length = write_buffer.n_samples - start_sample;
+                render_sample(write_buffer, start_sample, event_length, sample_rate);
+                start_sample = write_buffer.n_samples;
             }
         }
     }
 
-    process_test_synth(output_buffer, sample_rate, playing);
+    process_test_synth(write_buffer, sample_rate, playing);
+
+    if (plugin_instance) {
+        PluginProcessInfo process_info;
+        process_info.sample_count = output_buffer.n_samples;
+        process_info.input_buffer_count = 1;
+        process_info.output_buffer_count = 1;
+        process_info.input_buffer = &write_buffer;
+        process_info.output_buffer = &output_buffer;
+        process_info.sample_rate = sample_rate;
+        process_info.project_time_in_samples = playhead_in_samples;
+        process_info.playing = playing;
+        plugin_instance->process(process_info);
+    }
 
     float volume = parameter_state.mute ? 0.0f : parameter_state.volume;
     for (uint32_t i = 0; i < output_buffer.n_channels; i++) {

@@ -12,6 +12,7 @@
 #include <public.sdk/source/vst/hosting/hostclasses.h>
 #include <public.sdk/source/vst/hosting/module.h>
 #include <public.sdk/source/vst/hosting/plugprovider.h>
+#include <public.sdk/source/vst/hosting/parameterchanges.h>
 
 namespace wb {
 
@@ -77,11 +78,15 @@ struct VST3PluginWrapper : public PluginInterface {
     VST3PlugFrame plug_frame_;
 
     uint32_t sample_size = Steinberg::Vst::kSample32;
+    int32_t current_process_mode = Steinberg::Vst::kRealtime;
     bool single_component_ = false;
     bool has_view_ = false;
 
     std::optional<Steinberg::Vst::ConnectionProxy> component_cp_;
     std::optional<Steinberg::Vst::ConnectionProxy> controller_cp_;
+    Vector<Steinberg::Vst::AudioBusBuffers> input_bus_buffers;
+    Vector<Steinberg::Vst::AudioBusBuffers> output_bus_buffers;
+    Steinberg::Vst::ParameterChanges input_param_changes_ {};
     Span<PluginParamInfo> params;
 
     VST3PluginWrapper(uint64_t module_hash, const std::string& name, Steinberg::Vst::IComponent* component,
@@ -107,7 +112,7 @@ struct VST3PluginWrapper : public PluginInterface {
                                  double sample_rate) override;
     PluginResult start_processing() override;
     PluginResult stop_processing() override;
-    PluginResult process(const AudioBuffer<float>& input, AudioBuffer<float>& output) override;
+    PluginResult process(PluginProcessInfo& process_info) override;
 
     bool has_view() const override;
     bool has_window_attached() const override;
@@ -127,7 +132,6 @@ struct VST3Host {
     Steinberg::OPtr<Steinberg::Vst::IEditController> controller_;
     Steinberg::Vst::HostApplication plugin_context_;
     VST3ComponentHandler component_handler_;
-
     Steinberg::IPtr<Steinberg::IPlugView> view;
 
     VST3Host();

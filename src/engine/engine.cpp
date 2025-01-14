@@ -40,6 +40,8 @@ void Engine::set_audio_channel_config(uint32_t input_channels, uint32_t output_c
     audio_buffer_duration_ms = period_to_ms(buffer_size_to_period(buffer_size, sample_rate));
     mixing_buffer.resize(buffer_size);
     mixing_buffer.resize_channel(output_channels);
+    for (auto track : tracks)
+        track->prepare_effect_buffer(num_output_channels, buffer_size);
 }
 
 void Engine::clear_all() {
@@ -182,6 +184,7 @@ Track* Engine::add_track(const std::string& name) {
     Track* new_track = new Track();
     new_track->name = name;
     tracks.push_back(new_track);
+    new_track->prepare_effect_buffer(num_output_channels, audio_buffer_size);
     return new_track;
 }
 
@@ -529,7 +532,7 @@ PluginInterface* Engine::add_plugin_to_track(Track* track, PluginUID uid) {
         Log::debug("\tChannel count: {}", bus_info.channel_count);
         Log::debug("\tDefault bus: {}", bus_info.default_bus);
         if (bus_info.default_bus) {
-            if (plugin->activate_audio_bus(false, i, true) != PluginResult::Ok)
+            if (WB_PLUG_FAIL(plugin->activate_audio_bus(false, i, true)))
                 Log::error("Failed to open audio input bus {}", i);
             default_input_bus = i;
         }
@@ -543,7 +546,7 @@ PluginInterface* Engine::add_plugin_to_track(Track* track, PluginUID uid) {
         Log::debug("\tChannel count: {}", bus_info.channel_count);
         Log::debug("\tDefault bus: {}", bus_info.default_bus);
         if (bus_info.default_bus) {
-            if (plugin->activate_audio_bus(true, i, true) != PluginResult::Ok)
+            if (WB_PLUG_FAIL(plugin->activate_audio_bus(true, i, true)))
                 Log::error("Failed to open audio input bus {}", i);
             default_output_bus = i;
         }
@@ -557,14 +560,17 @@ PluginInterface* Engine::add_plugin_to_track(Track* track, PluginUID uid) {
     if (WB_PLUG_FAIL(plugin->start_processing()))
         Log::error("Cannot start plugin processing");
 
+    editor_lock.lock();
     track->default_input_bus = default_input_bus;
     track->default_output_bus = default_output_bus;
     track->plugin_instance = plugin;
+    editor_lock.unlock();
     return plugin;
 }
 
 void Engine::delete_plugin_from_track(Track* track) {
     if (track->plugin_instance) {
+        std::unique_lock lock(editor_lock);
         track->plugin_instance->stop_processing();
         track->plugin_instance->shutdown();
         pm_close_plugin(track->plugin_instance);
@@ -598,6 +604,7 @@ void Engine::update_audio_visualization(float frame_rate) {
 
 void Engine::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>& output_buffer, double sample_rate) {
     double buffer_duration = (double)output_buffer.n_samples / sample_rate;
+    int64_t playhead_in_samples = beat_to_samples(playhead, sample_rate, beat_duration.load(std::memory_order_relaxed));
     bool currently_playing = playing.load(std::memory_order_relaxed);
 
     editor_lock.lock();
@@ -631,7 +638,7 @@ void Engine::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>&
     for (uint32_t i = 0; i < tracks.size(); i++) {
         auto track = tracks[i];
         mixing_buffer.clear();
-        track->process(input_buffer, mixing_buffer, sample_rate, currently_playing);
+        track->process(input_buffer, mixing_buffer, sample_rate, playhead_in_samples, currently_playing);
         output_buffer.mix(mixing_buffer);
     }
 

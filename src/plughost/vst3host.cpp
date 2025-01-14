@@ -6,6 +6,7 @@
 #include "extern/xxhash.h"
 #include <SDL_syswm.h>
 #include <SDL_video.h>
+#include <pluginterfaces/vst/ivstprocesscontext.h>
 #include <public.sdk/source/common/memorystream.h>
 #include <unordered_map>
 
@@ -226,10 +227,15 @@ PluginResult VST3PluginWrapper::init() {
     if (result == Steinberg::kResultFalse)
         Log::debug("Some plugin buses do not support stereo channel");
 
+    input_bus_buffers.resize(num_input);
+    output_bus_buffers.resize(num_output);
+
     if (processor_->canProcessSampleSize(Steinberg::Vst::kSample32) == Steinberg::kResultOk)
         sample_size = Steinberg::Vst::kSample32;
     else if (processor_->canProcessSampleSize(Steinberg::Vst::kSample64) == Steinberg::kResultOk)
         sample_size = Steinberg::Vst::kSample64;
+
+    assert(sample_size == Steinberg::Vst::kSample32 && "kSample64 is not supported at the moment");
 
     return PluginResult::Ok;
 }
@@ -314,8 +320,9 @@ PluginResult VST3PluginWrapper::activate_audio_bus(bool is_output, uint32_t inde
 
 PluginResult VST3PluginWrapper::init_processing(PluginProcessingMode mode, uint32_t max_samples_per_block,
                                                 double sample_rate) {
+    int32_t process_mode = mode == PluginProcessingMode::Offline ? Steinberg::Vst::kOffline : Steinberg::Vst::kRealtime;
     Steinberg::Vst::ProcessSetup setup {
-        .processMode = mode == PluginProcessingMode::Offline ? Steinberg::Vst::kOffline : Steinberg::Vst::kOffline,
+        .processMode = process_mode,
         .symbolicSampleSize = Steinberg::Vst::kSample32,
         .maxSamplesPerBlock = (int32_t)max_samples_per_block,
         .sampleRate = sample_rate,
@@ -324,6 +331,7 @@ PluginResult VST3PluginWrapper::init_processing(PluginProcessingMode mode, uint3
     if (VST3_FAILED(processor_->setupProcessing(setup)))
         return PluginResult::Failed;
 
+    current_process_mode = process_mode;
     return PluginResult::Ok;
 }
 
@@ -341,8 +349,42 @@ PluginResult VST3PluginWrapper::stop_processing() {
     return PluginResult::Ok;
 }
 
-PluginResult VST3PluginWrapper::process(const AudioBuffer<float>& input, AudioBuffer<float>& output) {
-    return PluginResult::Unimplemented;
+PluginResult VST3PluginWrapper::process(PluginProcessInfo& process_info) {
+    for (uint32_t i = 0; i < process_info.input_buffer_count; i++) {
+        auto& vst_buffer = input_bus_buffers[i];
+        const auto& wb_buffer = process_info.input_buffer[i];
+        vst_buffer.numChannels = wb_buffer.n_channels;
+        vst_buffer.channelBuffers32 = wb_buffer.channel_buffers;
+        vst_buffer.silenceFlags = 0; //(1 << wb_buffer.n_channels) - 1;
+    }
+
+    for (uint32_t i = 0; i < process_info.output_buffer_count; i++) {
+        auto& vst_buffer = output_bus_buffers[i];
+        const auto& wb_buffer = process_info.output_buffer[i];
+        vst_buffer.numChannels = wb_buffer.n_channels;
+        vst_buffer.channelBuffers32 = wb_buffer.channel_buffers;
+        vst_buffer.silenceFlags = 0; //(1 << wb_buffer.n_channels) - 1;
+    }
+
+    Steinberg::Vst::ProcessContext process_ctx;
+    if (process_info.playing)
+        process_ctx.state |= Steinberg::Vst::ProcessContext::kPlaying;
+    process_ctx.sampleRate = process_info.sample_rate;
+    process_ctx.projectTimeSamples = process_info.project_time_in_samples;
+
+    Steinberg::Vst::ProcessData process_data;
+    process_data.processMode = current_process_mode;
+    process_data.symbolicSampleSize = sample_size;
+    process_data.numSamples = process_info.sample_count;
+    process_data.numInputs = process_info.input_buffer_count;
+    process_data.numOutputs = process_info.output_buffer_count;
+    process_data.inputs = input_bus_buffers.data();
+    process_data.outputs = output_bus_buffers.data();
+    process_data.inputParameterChanges = &input_param_changes_;
+    process_data.processContext = &process_ctx;
+    processor_->process(process_data);
+
+    return PluginResult::Ok;
 }
 
 bool VST3PluginWrapper::has_view() const {

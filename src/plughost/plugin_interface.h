@@ -10,7 +10,7 @@
 #define WB_PLUG_API
 #endif
 
-#define WB_PLUG_FAIL(x) ((x) != PluginResult::Ok) 
+#define WB_PLUG_FAIL(x) ((x) != PluginResult::Ok)
 
 struct SDL_Window;
 
@@ -72,6 +72,18 @@ struct PluginEventBusInfo {
     char name[plugin_name_size];
 };
 
+struct PluginProcessInfo {
+    // Audio buffer
+    uint32_t sample_count;
+    uint32_t input_buffer_count;
+    uint32_t output_buffer_count;
+    AudioBuffer<float>* input_buffer;
+    AudioBuffer<float>* output_buffer;
+    double sample_rate;
+    int64_t project_time_in_samples;
+    bool playing;
+};
+
 struct PluginParameterFn {
     void* userdata;
     double(WB_PLUG_API* plain_to_normalized_value)(void* userdata, uint32_t id, double plain);
@@ -118,7 +130,7 @@ struct PluginInterface {
                                          double sample_rate) = 0;
     virtual PluginResult start_processing() = 0;
     virtual PluginResult stop_processing() = 0;
-    virtual PluginResult process(const AudioBuffer<float>& input, AudioBuffer<float>& output) = 0;
+    virtual PluginResult process(PluginProcessInfo& process_info) = 0;
 
     // UI
     virtual bool has_view() const = 0;
