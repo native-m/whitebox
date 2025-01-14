@@ -585,6 +585,9 @@ void Track::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>& 
         }
     }
 
+    if (plugin_instance)
+        write_buffer.clear();
+
     if (playing) {
         AudioEvent* event = audio_event_buffer.begin();
         AudioEvent* end = audio_event_buffer.end();
