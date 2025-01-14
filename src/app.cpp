@@ -26,14 +26,10 @@
 using namespace std::literals::chrono_literals;
 
 namespace wb {
-
-static SDL_Window* main_window;
-static uint32_t main_window_id;
 static int32_t main_window_x;
 static int32_t main_window_y;
 static int32_t main_window_width;
 static int32_t main_window_height;
-static SDL_SysWMinfo main_wm_info;
 static bool is_running = true;
 static std::unordered_map<uint32_t, SDL_Window*> plugin_windows;
 uint32_t AppEvent::audio_device_removed_event;
@@ -54,7 +50,8 @@ static void wait_until_restored() {
     SDL_Event next_event;
     while (SDL_WaitEvent(&next_event)) {
         if (next_event.type == SDL_WINDOWEVENT) {
-            if (next_event.window.windowID == main_window_id && next_event.window.event == SDL_WINDOWEVENT_RESTORED) {
+            if (next_event.window.windowID == get_main_window_id() &&
+                next_event.window.event == SDL_WINDOWEVENT_RESTORED) {
                 break;
             }
         }
@@ -88,7 +85,7 @@ static void handle_events(SDL_Event& event) {
 
     switch (event.type) {
         case SDL_WINDOWEVENT: {
-            if (event.window.windowID == main_window_id) {
+            if (event.window.windowID == get_main_window_id()) {
                 switch (event.window.event) {
                     case SDL_WINDOWEVENT_RESIZED:
                         // g_renderer->resize_viewport();
@@ -138,7 +135,7 @@ static void imgui_renderer_create_window(ImGuiViewport* viewport) {
     /*if (!has_bit(viewport->Flags, ImGuiViewportFlags_NoDecoration)) {
         setup_dark_mode(window);
     }*/
-    make_child_window(window, main_window, true);
+    make_child_window(window, get_main_window(), true);
     g_renderer->add_viewport(viewport);
 }
 
@@ -175,19 +172,10 @@ void app_init() {
     SDL_AddEventWatch(event_watcher, nullptr);
     register_events();
 
-    SDL_Window* new_window =
-        SDL_CreateWindow("whitebox", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, SDL_WINDOW_RESIZABLE);
-    if (!new_window) {
-        SDL_Quit();
-        return;
+    if (!create_main_window()) {
+        Log::debug("Cannot create window");
+        std::abort();
     }
-
-    main_window_id = SDL_GetWindowID(new_window);
-    main_window = new_window;
-    SDL_GetWindowSize(new_window, &main_window_width, &main_window_height);
-    setup_dark_mode(new_window);
-    SDL_VERSION(&main_wm_info.version);
-    SDL_GetWindowWMInfo(new_window, &main_wm_info);
 
     init_file_dialog();
 
@@ -207,7 +195,7 @@ void app_init() {
 
     init_font_assets();
     apply_theme(ImGui::GetStyle());
-    init_renderer(main_window);
+    init_renderer(get_main_window());
 
     ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
     platform_io.Renderer_CreateWindow = imgui_renderer_create_window;
@@ -322,8 +310,7 @@ void app_shutdown() {
     shutdown_plugin_manager();
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
-    if (!main_window)
-        SDL_DestroyWindow(main_window);
+    destroy_main_window();
     SDL_Quit();
 }
 
@@ -331,6 +318,7 @@ static bool last_resized = false;
 
 int SDLCALL event_watcher(void* userdata, SDL_Event* event) {
     bool refresh = false;
+    uint32_t main_window_id = get_main_window_id();
     switch (event->type) {
         case SDL_WINDOWEVENT: {
             int32_t w, h;

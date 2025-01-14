@@ -8,6 +8,10 @@
 namespace wb {
 struct PluginInterface;
 // Window
+bool create_main_window();
+void destroy_main_window();
+SDL_Window* get_main_window();
+uint32_t get_main_window_id();
 void setup_dark_mode(SDL_Window* window);
 void make_child_window(SDL_Window* window, SDL_Window* parent_window, bool imgui_window = false);
 void add_foreign_plugin_window(PluginInterface* plugin);

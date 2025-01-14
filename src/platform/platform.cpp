@@ -3,6 +3,7 @@
 #include "plughost/plugin_interface.h"
 #include <SDL_mouse.h>
 #include <SDL_syswm.h>
+#include <SDL_video.h>
 #include <unordered_map>
 
 #ifdef WB_PLATFORM_WINDOWS
@@ -12,6 +13,8 @@
 #endif
 
 namespace wb {
+static SDL_Window* main_window;
+static uint32_t main_window_id;
 static std::unordered_map<uint32_t, SDL_Window*> plugin_windows;
 
 static std::optional<SDL_Window*> get_plugin_window_from_id(uint32_t window_id) {
@@ -23,7 +26,29 @@ static std::optional<SDL_Window*> get_plugin_window_from_id(uint32_t window_id) 
     return plugin_window->second;
 }
 
-void create_main_window() {
+bool create_main_window() {
+    SDL_Window* window =
+        SDL_CreateWindow("whitebox", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN);
+    if (!window)
+        return false;
+    setup_dark_mode(window);
+    SDL_SetWindowMinimumSize(window, 640, 480);
+    SDL_ShowWindow(window);
+    main_window = window;
+    main_window_id = SDL_GetWindowID(window);
+    return true;
+}
+
+void destroy_main_window() {
+    SDL_DestroyWindow(main_window);
+}
+
+SDL_Window* get_main_window() {
+    return main_window;
+}
+
+uint32_t get_main_window_id() {
+    return main_window_id;
 }
 
 SDL_SysWMinfo get_window_wm_info(SDL_Window* window) {
