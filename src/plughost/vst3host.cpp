@@ -9,6 +9,11 @@
 #include <public.sdk/source/common/memorystream.h>
 #include <unordered_map>
 
+#define VST3_WARN(x)                                                                                                   \
+    if (auto ret = (x); ret != Steinberg::kResultOk) {                                                                 \
+        Log::debug(#x " returned {}", ret);                                                                            \
+    }
+
 namespace wb {
 static VST3HostApplication vst3_host_app;
 static std::unordered_map<uint64_t, VST3Module> vst3_module_cache;
@@ -138,12 +143,11 @@ PluginResult VST3PluginWrapper::init() {
         if (!controller_)
             return PluginResult::Failed;
         single_component_ = true;
+    } else {
+        Steinberg::IPluginBase* controller_base = controller_;
+        if (controller_base->initialize(&vst3_host_app) != Steinberg::kResultOk)
+            return PluginResult::Failed;
     }
-
-    // Initialize the controller
-    Steinberg::IPluginBase* controller_base = controller_;
-    if (controller_base->initialize(&vst3_host_app) != Steinberg::kResultOk)
-        return PluginResult::Failed;
 
     controller_->setComponentHandler(&component_handler_);
 
@@ -349,11 +353,11 @@ PluginResult VST3PluginWrapper::attach_window(SDL_Window* handle) {
     if (editor_view_->isPlatformTypeSupported(Steinberg::kPlatformTypeHWND) != Steinberg::kResultOk)
         return PluginResult::Unsupported;
     window_handle = handle;
-    Steinberg::tresult result = editor_view_->setFrame(&plug_frame_);
-    Log::debug("{}", result);
     /*if (editor_view_->setFrame(&plug_frame_) != Steinberg::kResultOk)
         return PluginResult::Failed;*/
+    VST3_WARN(editor_view_->setFrame(&plug_frame_));
     if (editor_view_->attached(wm_info.info.win.window, Steinberg::kPlatformTypeHWND) != Steinberg::kResultOk) {
+        VST3_WARN(editor_view_->setFrame(nullptr))
         window_handle = nullptr;
         return PluginResult::Failed;
     }
@@ -368,9 +372,8 @@ PluginResult VST3PluginWrapper::detach_window() {
         return PluginResult::Unsupported;
     if (window_handle == nullptr)
         return PluginResult::Unsupported;
-    editor_view_->setFrame(nullptr);
-    if (auto result = editor_view_->removed(); result != Steinberg::kResultOk)
-        Log::debug("Failed to detach window {}", result);
+    VST3_WARN(editor_view_->removed());
+    VST3_WARN(editor_view_->setFrame(nullptr));
     SDL_GetWindowPosition(window_handle, &last_window_x, &last_window_y);
     window_handle = nullptr;
     return PluginResult::Ok;

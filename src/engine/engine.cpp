@@ -508,12 +508,33 @@ PluginInterface* Engine::add_plugin_to_track(Track* track, PluginUID uid) {
         Log::debug("Failed to open plugin");
         return nullptr;
     }
-    
+
     if (plugin->init() != PluginResult::Ok) {
         plugin->shutdown();
         pm_close_plugin(plugin);
         Log::debug("Failed to initialize plugin");
         return nullptr;
+    }
+
+    uint32_t input_bus_count = plugin->get_audio_bus_count(false);
+    uint32_t output_bus_count = plugin->get_audio_bus_count(true);
+
+    Log::debug("---- Plugin input bus ----");
+    for (uint32_t i = 0; i < input_bus_count; i++) {
+        PluginAudioBusInfo bus_info;
+        plugin->get_audio_bus_info(false, i, &bus_info);
+        Log::debug("Bus: {} ({})", bus_info.name, bus_info.id);
+        Log::debug("\tChannel count: {}", bus_info.channel_count);
+        Log::debug("\tDefault bus: {}", bus_info.default_bus);
+    }
+
+    Log::debug("---- Plugin output bus ----");
+    for (uint32_t i = 0; i < output_bus_count; i++) {
+        PluginAudioBusInfo bus_info;
+        plugin->get_audio_bus_info(true, i, &bus_info);
+        Log::debug("Bus: {} ({})", bus_info.name, bus_info.id);
+        Log::debug("\tChannel count: {}", bus_info.channel_count);
+        Log::debug("\tDefault bus: {}", bus_info.default_bus);
     }
 
     track->plugin_instance = plugin;
