@@ -58,6 +58,19 @@ static void release_module(uint64_t hash) {
         vst3_module_cache.erase(hash);
 }
 
+inline static Steinberg::tresult vst3_result(PluginResult result) {
+    switch (result) {
+        case PluginResult::Ok:
+            return Steinberg::kResultOk;
+        case PluginResult::Failed:
+            return Steinberg::kResultFalse;
+        case PluginResult::Unimplemented:
+            return Steinberg::kNotImplemented;
+        default:
+            WB_UNREACHABLE();
+    }
+}
+
 //
 
 Steinberg::tresult VST3HostApplication::getName(Steinberg::Vst::String128 name) {
@@ -68,60 +81,10 @@ Steinberg::tresult VST3HostApplication::getName(Steinberg::Vst::String128 name) 
 
 //
 
-Steinberg::tresult PLUGIN_API VST3ComponentHandler::beginEdit(Steinberg::Vst::ParamID id) {
-    // SMTG_DBPRT1("beginEdit called (%d)\n", id);
-    Log::debug("beginEdit called ({})", id);
-    return Steinberg::kNotImplemented;
-}
-
-Steinberg::tresult PLUGIN_API VST3ComponentHandler::performEdit(Steinberg::Vst::ParamID id,
-                                                                Steinberg::Vst::ParamValue valueNormalized) {
-    // SMTG_DBPRT2("performEdit called (%d, %f)\n", id, valueNormalized);
-    Log::debug("performEdit called ({}, {})", id, valueNormalized);
-    return Steinberg::kNotImplemented;
-}
-
-Steinberg::tresult PLUGIN_API VST3ComponentHandler::endEdit(Steinberg::Vst::ParamID id) {
-    // SMTG_DBPRT1("endEdit called (%d)\n", id);
-    Log::debug("endEdit called ({})", id);
-    return Steinberg::kNotImplemented;
-}
-
-Steinberg::tresult PLUGIN_API VST3ComponentHandler::restartComponent(Steinberg::int32 flags) {
-    // SMTG_DBPRT1("restartComponent called (%d)\n", flags);
-    Log::debug("restartComponent called ({})", flags);
-    return Steinberg::kNotImplemented;
-}
-
-//
-
-Steinberg::tresult PLUGIN_API VST3PlugFrame::resizeView(Steinberg::IPlugView* view, Steinberg::ViewRect* rect) {
-    Log::debug("resizeView called ({:x})", (size_t)view);
-    SDL_SetWindowSize(instance->window_handle, rect->getWidth(), rect->getHeight());
-    view->onSize(rect);
-    return Steinberg::kResultOk;
-}
-
-Steinberg::tresult PLUGIN_API VST3PlugFrame::queryInterface(const Steinberg::TUID _iid, void** obj) {
-    if (Steinberg::FUnknownPrivate::iidEqual(_iid, IPlugFrame::iid) ||
-        Steinberg::FUnknownPrivate::iidEqual(_iid, FUnknown::iid)) {
-        *obj = this;
-        addRef();
-        return Steinberg::kResultTrue;
-    }
-    return Steinberg::kNoInterface;
-}
-
-//
-
 VST3PluginWrapper::VST3PluginWrapper(uint64_t module_hash, const std::string& name,
                                      Steinberg::Vst::IComponent* component,
                                      Steinberg::Vst::IEditController* controller) :
-    PluginInterface(module_hash, PluginFormat::VST3),
-    name_(name),
-    component_(component),
-    controller_(controller),
-    plug_frame_(this) {
+    PluginInterface(module_hash, PluginFormat::VST3), name_(name), component_(component), controller_(controller) {
     last_window_x = SDL_WINDOWPOS_CENTERED;
     last_window_y = SDL_WINDOWPOS_CENTERED;
 }
@@ -152,7 +115,7 @@ PluginResult VST3PluginWrapper::init() {
             return PluginResult::Failed;
     }
 
-    controller_->setComponentHandler(&component_handler_);
+    controller_->setComponentHandler(this);
 
     // If the component is separated, connect the component with controller manually
     if (!single_component_) {
@@ -227,27 +190,33 @@ PluginResult VST3PluginWrapper::init() {
     if (result == Steinberg::kResultFalse)
         Log::debug("Some plugin buses do not support stereo channel");
 
-    input_bus_buffers.resize(num_input);
-    output_bus_buffers.resize(num_output);
+    input_bus_buffers_.resize(num_input);
+    output_bus_buffers_.resize(num_output);
 
     if (processor_->canProcessSampleSize(Steinberg::Vst::kSample32) == Steinberg::kResultOk)
-        sample_size = Steinberg::Vst::kSample32;
+        sample_size_ = Steinberg::Vst::kSample32;
     else if (processor_->canProcessSampleSize(Steinberg::Vst::kSample64) == Steinberg::kResultOk)
-        sample_size = Steinberg::Vst::kSample64;
+        sample_size_ = Steinberg::Vst::kSample64;
 
-    assert(sample_size == Steinberg::Vst::kSample32 && "kSample64 is not supported at the moment");
+    assert(sample_size_ == Steinberg::Vst::kSample32 && "kSample64 is not supported at the moment");
 
     return PluginResult::Ok;
 }
 
 PluginResult VST3PluginWrapper::shutdown() {
     disconnect_components_();
+    /*for (uint32_t i = 0; i < get_audio_bus_count(false); i++)
+        if (active_input_audio_bus_.get(i))
+            activate_audio_bus(false, i, false);
+    for (uint32_t i = 0; i < get_audio_bus_count(true); i++)
+        if (active_output_audio_bus_.get(i))
+            activate_audio_bus(true, i, false);*/
     if (editor_view_)
         editor_view_->release();
-    if (component_)
-        component_->terminate();
     if (controller_ && !single_component_)
         controller_->terminate();
+    if (component_)
+        component_->terminate();
     if (controller_)
         controller_->release();
     if (processor_)
@@ -313,9 +282,9 @@ PluginResult VST3PluginWrapper::get_event_bus_info(bool is_output, uint32_t inde
 }
 
 PluginResult VST3PluginWrapper::activate_audio_bus(bool is_output, uint32_t index, bool state) {
-    if (component_->activateBus(Steinberg::Vst::MediaTypes::kAudio, is_output, index, state) == Steinberg::kResultOk)
-        return PluginResult::Ok;
-    return PluginResult::Failed;
+    if (component_->activateBus(Steinberg::Vst::MediaTypes::kAudio, is_output, index, state) != Steinberg::kResultOk)
+        return PluginResult::Failed;
+    return PluginResult::Ok;
 }
 
 PluginResult VST3PluginWrapper::init_processing(PluginProcessingMode mode, uint32_t max_samples_per_block,
@@ -338,12 +307,12 @@ PluginResult VST3PluginWrapper::init_processing(PluginProcessingMode mode, uint3
 PluginResult VST3PluginWrapper::start_processing() {
     if (VST3_FAILED(component_->setActive(true)))
         return PluginResult::Failed;
-    processor_->setProcessing(true);
+    VST3_WARN(processor_->setProcessing(true));
     return PluginResult::Ok;
 }
 
 PluginResult VST3PluginWrapper::stop_processing() {
-    processor_->setProcessing(false);
+    VST3_WARN(processor_->setProcessing(false));
     if (VST3_FAILED(component_->setActive(false)))
         return PluginResult::Failed;
     return PluginResult::Ok;
@@ -351,7 +320,7 @@ PluginResult VST3PluginWrapper::stop_processing() {
 
 PluginResult VST3PluginWrapper::process(PluginProcessInfo& process_info) {
     for (uint32_t i = 0; i < process_info.input_buffer_count; i++) {
-        auto& vst_buffer = input_bus_buffers[i];
+        auto& vst_buffer = input_bus_buffers_[i];
         const auto& wb_buffer = process_info.input_buffer[i];
         vst_buffer.numChannels = wb_buffer.n_channels;
         vst_buffer.channelBuffers32 = wb_buffer.channel_buffers;
@@ -359,7 +328,7 @@ PluginResult VST3PluginWrapper::process(PluginProcessInfo& process_info) {
     }
 
     for (uint32_t i = 0; i < process_info.output_buffer_count; i++) {
-        auto& vst_buffer = output_bus_buffers[i];
+        auto& vst_buffer = output_bus_buffers_[i];
         const auto& wb_buffer = process_info.output_buffer[i];
         vst_buffer.numChannels = wb_buffer.n_channels;
         vst_buffer.channelBuffers32 = wb_buffer.channel_buffers;
@@ -374,15 +343,15 @@ PluginResult VST3PluginWrapper::process(PluginProcessInfo& process_info) {
 
     Steinberg::Vst::ProcessData process_data;
     process_data.processMode = current_process_mode;
-    process_data.symbolicSampleSize = sample_size;
+    process_data.symbolicSampleSize = sample_size_;
     process_data.numSamples = process_info.sample_count;
     process_data.numInputs = process_info.input_buffer_count;
     process_data.numOutputs = process_info.output_buffer_count;
-    process_data.inputs = input_bus_buffers.data();
-    process_data.outputs = output_bus_buffers.data();
+    process_data.inputs = input_bus_buffers_.data();
+    process_data.outputs = output_bus_buffers_.data();
     process_data.inputParameterChanges = &input_param_changes_;
     process_data.processContext = &process_ctx;
-    processor_->process(process_data);
+    VST3_WARN(processor_->process(process_data));
 
     return PluginResult::Ok;
 }
@@ -420,9 +389,9 @@ PluginResult VST3PluginWrapper::attach_window(SDL_Window* handle) {
     window_handle = handle;
     /*if (editor_view_->setFrame(&plug_frame_) != Steinberg::kResultOk)
         return PluginResult::Failed;*/
-    VST3_WARN(editor_view_->setFrame(&plug_frame_));
+    VST3_WARN(editor_view_->setFrame(this));
     if (editor_view_->attached(wm_info.info.win.window, Steinberg::kPlatformTypeHWND) != Steinberg::kResultOk) {
-        VST3_WARN(editor_view_->setFrame(nullptr))
+        VST3_WARN(editor_view_->setFrame(nullptr));
         window_handle = nullptr;
         return PluginResult::Failed;
     }
@@ -453,58 +422,43 @@ void VST3PluginWrapper::disconnect_components_() {
     component_cp_.reset();
 }
 
+Steinberg::tresult PLUGIN_API VST3PluginWrapper::beginEdit(Steinberg::Vst::ParamID id) {
+    return vst3_result(handler->begin_edit(handler_userdata, this, id));
+}
+
+Steinberg::tresult PLUGIN_API VST3PluginWrapper::performEdit(Steinberg::Vst::ParamID id,
+                                                             Steinberg::Vst::ParamValue valueNormalized) {
+    return vst3_result(handler->perform_edit(handler_userdata, this, id, valueNormalized));
+}
+
+Steinberg::tresult PLUGIN_API VST3PluginWrapper::endEdit(Steinberg::Vst::ParamID id) {
+    return vst3_result(handler->end_edit(handler_userdata, this, id));
+}
+
+Steinberg::tresult PLUGIN_API VST3PluginWrapper::restartComponent(Steinberg::int32 flags) {
+    // SMTG_DBPRT1("restartComponent called (%d)\n", flags);
+    Log::debug("restartComponent called ({})", flags);
+    return Steinberg::kNotImplemented;
+}
+
+Steinberg::tresult PLUGIN_API VST3PluginWrapper::resizeView(Steinberg::IPlugView* view, Steinberg::ViewRect* rect) {
+    Log::debug("resizeView called ({:x})", (size_t)view);
+    SDL_SetWindowSize(window_handle, rect->getWidth(), rect->getHeight());
+    view->onSize(rect);
+    return Steinberg::kResultOk;
+}
+
+Steinberg::tresult PLUGIN_API VST3PluginWrapper::queryInterface(const Steinberg::TUID _iid, void** obj) {
+    if (Steinberg::FUnknownPrivate::iidEqual(_iid, IPlugFrame::iid) ||
+        Steinberg::FUnknownPrivate::iidEqual(_iid, FUnknown::iid)) {
+        *obj = this;
+        addRef();
+        return Steinberg::kResultTrue;
+    }
+    return Steinberg::kNoInterface;
+}
+
 //
-
-VST3Host::VST3Host() {
-    Steinberg::Vst::PluginContextFactory::instance().setPluginContext(&plugin_context_);
-}
-
-bool VST3Host::open_module(const std::string& path) {
-    std::string error_msg;
-    module_ = VST3::Hosting::Module::create(path, error_msg);
-    if (!module_) {
-        Log::debug("VST3 Error: {}", error_msg);
-        return false;
-    }
-
-    int32_t index = -1;
-    const VST3::Hosting::PluginFactory& factory = module_->getFactory();
-    class_infos_ = factory.classInfos();
-    for (int32_t idx = 0; auto& class_info : class_infos_) {
-        Log::debug("----------------------");
-        Log::debug("Name: {}", class_info.name());
-        Log::debug("ID: {}", class_info.ID().toString());
-        if (class_info.category() == kVstAudioEffectClass)
-            index = idx;
-        idx++;
-    }
-
-    plug_provider_ = Steinberg::owned(new Steinberg::Vst::PlugProvider(factory, class_infos_[index]));
-
-    if (!plug_provider_) {
-        Log::debug("VST3 Error: No module classes found");
-        return false;
-    }
-
-    component_.reset(plug_provider_->getComponent());
-    controller_.reset(plug_provider_->getController());
-    controller_->setComponentHandler(&component_handler_);
-    // controller_->
-    return true;
-}
-
-bool VST3Host::init_view() {
-    if (!controller_) {
-        Log::debug("VST plugin has no view!");
-        return false;
-    }
-    view = controller_->createView(Steinberg::Vst::ViewType::kEditor);
-    if (!view) {
-        Log::debug("Cannot create plugin view");
-        return false;
-    }
-    return true;
-}
 
 PluginInterface* vst3_open_plugin(PluginUID uid, const PluginInfo& info) {
     assert(info.descriptor_id.size() == sizeof(Steinberg::TUID));

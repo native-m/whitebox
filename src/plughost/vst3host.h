@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/bitset.h"
 #include "core/span.h"
 #include "core/vector.h"
 #include "plugin_manager.h"
@@ -11,8 +12,8 @@
 #include <public.sdk/source/vst/hosting/connectionproxy.h>
 #include <public.sdk/source/vst/hosting/hostclasses.h>
 #include <public.sdk/source/vst/hosting/module.h>
-#include <public.sdk/source/vst/hosting/plugprovider.h>
 #include <public.sdk/source/vst/hosting/parameterchanges.h>
+#include <public.sdk/source/vst/hosting/plugprovider.h>
 
 namespace wb {
 
@@ -31,61 +32,26 @@ class VST3HostApplication : public Steinberg::Vst::HostApplication {
     Steinberg::tresult PLUGIN_API getName(Steinberg::Vst::String128 name) override;
 };
 
-class VST3ComponentHandler : public Steinberg::Vst::IComponentHandler {
-  public:
-    Steinberg::tresult PLUGIN_API beginEdit(Steinberg::Vst::ParamID id) override;
-
-    Steinberg::tresult PLUGIN_API performEdit(Steinberg::Vst::ParamID id,
-                                              Steinberg::Vst::ParamValue valueNormalized) override;
-
-    Steinberg::tresult PLUGIN_API endEdit(Steinberg::Vst::ParamID id) override;
-
-    Steinberg::tresult PLUGIN_API restartComponent(Steinberg::int32 flags) override;
-
-  private:
-    Steinberg::tresult PLUGIN_API queryInterface(const Steinberg::TUID /*_iid*/, void** /*obj*/) override {
-        return Steinberg::kNoInterface;
-    }
-    // we do not care here of the ref-counting. A plug-in call of release should not destroy this
-    // class!
-    Steinberg::uint32 PLUGIN_API addRef() override { return 1000; }
-    Steinberg::uint32 PLUGIN_API release() override { return 1000; }
-};
-
-class VST3PlugFrame : public Steinberg::IPlugFrame {
-  public:
-    VST3PlugFrame(VST3PluginWrapper* parent_instance) : instance(parent_instance) {}
-    Steinberg::tresult PLUGIN_API resizeView(Steinberg::IPlugView* view, Steinberg::ViewRect* rect) override;
-
-  private:
-    Steinberg::tresult PLUGIN_API queryInterface(const Steinberg::TUID _iid, void** obj) override;
-    // we do not care here of the ref-counting. A plug-in call of release should not destroy this
-    // class!
-    Steinberg::uint32 PLUGIN_API addRef() override { return 1000; }
-    Steinberg::uint32 PLUGIN_API release() override { return 1000; }
-
-  private:
-    VST3PluginWrapper* instance;
-};
-
-struct VST3PluginWrapper : public PluginInterface {
+struct VST3PluginWrapper : public PluginInterface,
+                           public Steinberg::Vst::IComponentHandler,
+                           public Steinberg::IPlugFrame {
     std::string name_;
     Steinberg::Vst::IComponent* component_ {};
     Steinberg::Vst::IAudioProcessor* processor_ {};
     Steinberg::Vst::IEditController* controller_ {};
     Steinberg::IPlugView* editor_view_ {};
-    VST3ComponentHandler component_handler_;
-    VST3PlugFrame plug_frame_;
+    //VST3ComponentHandler component_handler_;
+    //VST3PlugFrame plug_frame_;
 
-    uint32_t sample_size = Steinberg::Vst::kSample32;
+    uint32_t sample_size_ = Steinberg::Vst::kSample32;
     int32_t current_process_mode = Steinberg::Vst::kRealtime;
     bool single_component_ = false;
     bool has_view_ = false;
 
     std::optional<Steinberg::Vst::ConnectionProxy> component_cp_;
     std::optional<Steinberg::Vst::ConnectionProxy> controller_cp_;
-    Vector<Steinberg::Vst::AudioBusBuffers> input_bus_buffers;
-    Vector<Steinberg::Vst::AudioBusBuffers> output_bus_buffers;
+    Vector<Steinberg::Vst::AudioBusBuffers> input_bus_buffers_;
+    Vector<Steinberg::Vst::AudioBusBuffers> output_bus_buffers_;
     Steinberg::Vst::ParameterChanges input_param_changes_ {};
     Span<PluginParamInfo> params;
 
@@ -121,22 +87,24 @@ struct VST3PluginWrapper : public PluginInterface {
     PluginResult detach_window() override;
     PluginResult render_ui() override { return PluginResult::Unimplemented; }
 
+    Steinberg::tresult PLUGIN_API beginEdit(Steinberg::Vst::ParamID id) override;
+
+    Steinberg::tresult PLUGIN_API performEdit(Steinberg::Vst::ParamID id,
+                                              Steinberg::Vst::ParamValue valueNormalized) override;
+
+    Steinberg::tresult PLUGIN_API endEdit(Steinberg::Vst::ParamID id) override;
+
+    Steinberg::tresult PLUGIN_API restartComponent(Steinberg::int32 flags) override;
+
+    Steinberg::tresult PLUGIN_API resizeView(Steinberg::IPlugView* view, Steinberg::ViewRect* rect) override;
+
     void disconnect_components_();
-};
 
-struct VST3Host {
-    VST3::Hosting::Module::Ptr module_;
-    std::vector<VST3::Hosting::ClassInfo> class_infos_;
-    Steinberg::IPtr<Steinberg::Vst::PlugProvider> plug_provider_;
-    Steinberg::OPtr<Steinberg::Vst::IComponent> component_;
-    Steinberg::OPtr<Steinberg::Vst::IEditController> controller_;
-    Steinberg::Vst::HostApplication plugin_context_;
-    VST3ComponentHandler component_handler_;
-    Steinberg::IPtr<Steinberg::IPlugView> view;
-
-    VST3Host();
-    bool open_module(const std::string& path);
-    bool init_view();
+    Steinberg::tresult PLUGIN_API queryInterface(const Steinberg::TUID iid, void** obj) override;
+    // we do not care here of the ref-counting. A plug-in call of release should not destroy this
+    // class!
+    Steinberg::uint32 PLUGIN_API addRef() override { return 1000; }
+    Steinberg::uint32 PLUGIN_API release() override { return 1000; }
 };
 
 PluginInterface* vst3_open_plugin(PluginUID uid, const PluginInfo& info);
