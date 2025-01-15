@@ -90,6 +90,7 @@ struct Track {
     LevelMeterColorMode level_meter_color {};
     VUMeter level_meter[2] {};
 
+    PluginHandler plugin_handler {plugin_begin_edit, plugin_perform_edit, plugin_end_edit};
     PluginInterface* plugin_instance = nullptr;
     uint32_t default_input_bus = 0;
     uint32_t default_output_bus = 0;
@@ -201,6 +202,11 @@ struct Track {
     void process_test_synth(AudioBuffer<float>& output_buffer, double sample_rate, bool playing);
 
     void flush_deleted_clips(double time_pos);
+
+    static PluginResult plugin_begin_edit(void* userdata, PluginInterface* interface, uint32_t param_id);
+    static PluginResult plugin_perform_edit(void* userdata, PluginInterface* interface, uint32_t param_id,
+                                               double normalized_value);
+    static PluginResult plugin_end_edit(void* userdata, PluginInterface* interface, uint32_t param_id);
 };
 
 } // namespace wb

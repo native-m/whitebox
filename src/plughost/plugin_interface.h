@@ -19,6 +19,8 @@ using PluginUID = uint8_t[16];
 
 static constexpr uint32_t plugin_name_size = 256;
 
+struct PluginInterface;
+
 enum class PluginResult {
     Ok,
     Failed = -1,
@@ -96,13 +98,21 @@ struct PluginUIDHash {
     size_t operator()(PluginUID uid) const;
 };
 
+struct PluginHandler {
+    PluginResult (*begin_edit)(void* userdata, PluginInterface* plugin, uint32_t param_id);
+    PluginResult (*perform_edit)(void* userdata, PluginInterface* plugin, uint32_t param_id, double normalized_value);
+    PluginResult (*end_edit)(void* userdata, PluginInterface* plugin, uint32_t param_id);
+};
+
 struct PluginInterface {
     uint64_t module_hash;
-    PluginFormat format;
-    bool is_plugin_valid = false;
     SDL_Window* window_handle = nullptr;
     int last_window_x;
     int last_window_y;
+    void* handler_userdata;
+    PluginHandler* handler;
+    PluginFormat format;
+    bool is_plugin_valid = false;
 
     PluginInterface(uint64_t module_hash, PluginFormat format);
     virtual ~PluginInterface() {}
@@ -141,5 +151,10 @@ struct PluginInterface {
     virtual PluginResult render_ui() = 0;
 
     inline bool is_native_plugin() const { return format == PluginFormat::Native; }
+
+    inline void set_handler(PluginHandler* plugin_handler, void* plugin_handler_userdata) {
+        handler = plugin_handler;
+        handler_userdata = plugin_handler_userdata;
+    }
 };
 } // namespace wb

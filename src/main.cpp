@@ -10,7 +10,7 @@ struct MemoryLeakDetection {
     ~MemoryLeakDetection() { _CrtDumpMemoryLeaks(); }
 };
 
-MemoryLeakDetection g_memleak_detection;
+static MemoryLeakDetection g_memleak_detection;
 #endif
 
 int main() {

@@ -792,4 +792,24 @@ void Track::flush_deleted_clips(double time_pos) {
     // deleted_clip_ids.clear();
     clips = std::move(new_clip_list);
 }
+
+PluginResult Track::plugin_begin_edit(void* userdata, PluginInterface* interface, uint32_t param_id) {
+    Track* track = (Track*)userdata;
+    Log::debug("beginEdit called ({})", param_id);
+    return PluginResult::Unimplemented;
+}
+
+PluginResult Track::plugin_perform_edit(void* userdata, PluginInterface* interface, uint32_t param_id,
+                                double normalized_value) {
+    Track* track = (Track*)userdata;
+    Log::debug("performEdit called ({}, {})", param_id, normalized_value);
+    return PluginResult::Unimplemented;
+}
+
+PluginResult Track::plugin_end_edit(void* userdata, PluginInterface* interface, uint32_t param_id) {
+    Track* track = (Track*)userdata;
+    Log::debug("endEdit called ({})", param_id);
+    return PluginResult::Unimplemented;
+}
+
 } // namespace wb

@@ -519,6 +519,8 @@ PluginInterface* Engine::add_plugin_to_track(Track* track, PluginUID uid) {
         return nullptr;
     }
 
+    plugin->set_handler(&track->plugin_handler, track);
+
     uint32_t input_bus_count = plugin->get_audio_bus_count(false);
     uint32_t output_bus_count = plugin->get_audio_bus_count(true);
     uint32_t default_input_bus = 0;
