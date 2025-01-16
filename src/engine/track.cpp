@@ -22,6 +22,7 @@ Track::Track() {
     ui_parameter_state.pan = 0.0f;
     ui_parameter_state.mute = false;
     param_changes.set_max_params(TrackParameter_Max);
+    ui_plugin_param_changes.set_capacity(64);
     ui_param_changes.set_capacity(64);
     ui_param_changes.push({
         .id = TrackParameter_Volume,
@@ -45,6 +46,7 @@ Track::Track(const std::string& name, const ImColor& color, float height, bool s
     name(name), color(color), height(height), shown(shown), ui_parameter_state(track_param) {
     ui_parameter_state.volume_db = math::linear_to_db(track_param.volume);
     param_changes.set_max_params(TrackParameter_Max);
+    ui_plugin_param_changes.set_capacity(64);
     ui_param_changes.set_capacity(64);
     ui_param_changes.push({
         .id = TrackParameter_Volume,
@@ -552,6 +554,7 @@ void Track::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>& 
                     int64_t playhead_in_samples, bool playing) {
     AudioBuffer<float>& write_buffer = plugin_instance ? effect_buffer : output_buffer;
     param_changes.transfer_changes_from(ui_param_changes);
+    transfer_plugin_param_changes();
 
     for (uint32_t i = 0; i < param_changes.changes_count; i++) {
         ParamValueQueue& queue = param_changes.queues[i];
@@ -795,20 +798,31 @@ void Track::flush_deleted_clips(double time_pos) {
     clips = std::move(new_clip_list);
 }
 
-PluginResult Track::plugin_begin_edit(void* userdata, PluginInterface* interface, uint32_t param_id) {
+void Track::transfer_plugin_param_changes() {
+    PluginParamTransfer src;
+    while (ui_plugin_param_changes.pop(src))
+       src.plugin->transfer_param(src.param_id, src.normalized_value);
+}
+
+PluginResult Track::plugin_begin_edit(void* userdata, PluginInterface* plugin, uint32_t param_id) {
     Track* track = (Track*)userdata;
     Log::debug("beginEdit called ({})", param_id);
     return PluginResult::Unimplemented;
 }
 
-PluginResult Track::plugin_perform_edit(void* userdata, PluginInterface* interface, uint32_t param_id,
-                                double normalized_value) {
+PluginResult Track::plugin_perform_edit(void* userdata, PluginInterface* plugin, uint32_t param_id,
+                                        double normalized_value) {
     Track* track = (Track*)userdata;
-    Log::debug("performEdit called ({}, {})", param_id, normalized_value);
+    track->ui_plugin_param_changes.push({
+        .plugin = plugin,
+        .param_id = param_id,
+        .normalized_value = normalized_value,
+    });
+    //Log::debug("plugin_perform_edit called ({}, {})", param_id, normalized_value);
     return PluginResult::Unimplemented;
 }
 
-PluginResult Track::plugin_end_edit(void* userdata, PluginInterface* interface, uint32_t param_id) {
+PluginResult Track::plugin_end_edit(void* userdata, PluginInterface* plugin, uint32_t param_id) {
     Track* track = (Track*)userdata;
     Log::debug("endEdit called ({})", param_id);
     return PluginResult::Unimplemented;

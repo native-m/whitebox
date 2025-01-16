@@ -50,7 +50,7 @@ void AudioRecordQueue::end_write() {
     writer_.pos.store(next_write_pos, std::memory_order_release);
     size_.store(next_write_size, std::memory_order_release);
     if (writer_.should_signal.exchange(0, std::memory_order_release))
-        reader_cv_.notify_all();
+        reader_cv_.notify_all(); // Notify reader thread
 }
 
 bool AudioRecordQueue::begin_read(uint32_t read_size) {

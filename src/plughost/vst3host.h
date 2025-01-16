@@ -4,6 +4,7 @@
 #include "core/span.h"
 #include "core/vector.h"
 #include "plugin_manager.h"
+#include "engine/param_changes.h"
 #include <optional>
 #include <pluginterfaces/gui/iplugview.h>
 #include <pluginterfaces/vst/ivstaudioprocessor.h>
@@ -32,6 +33,19 @@ class VST3HostApplication : public Steinberg::Vst::HostApplication {
     Steinberg::tresult PLUGIN_API getName(Steinberg::Vst::String128 name) override;
 };
 
+class VST3ParameterChanges : public Steinberg::Vst::IParameterChanges {
+  public:
+    ParamChanges param_changes;
+
+    Steinberg::int32 PLUGIN_API getParameterCount() override { return param_changes.changes_count; }
+    Steinberg::Vst::IParamValueQueue* PLUGIN_API getParameterData(Steinberg::int32 index) override { return nullptr; }
+    Steinberg::Vst::IParamValueQueue* PLUGIN_API addParameterData(const Steinberg::Vst::ParamID& id, Steinberg::int32& index) override {
+        return nullptr;
+    }
+
+    //Steinberg::Vst::IParamValueQueue* PLUGIN_API getParameterData()
+};
+
 struct VST3PluginWrapper : public PluginInterface,
                            public Steinberg::Vst::IComponentHandler,
                            public Steinberg::IPlugFrame {
@@ -40,10 +54,9 @@ struct VST3PluginWrapper : public PluginInterface,
     Steinberg::Vst::IAudioProcessor* processor_ {};
     Steinberg::Vst::IEditController* controller_ {};
     Steinberg::IPlugView* editor_view_ {};
-    //VST3ComponentHandler component_handler_;
-    //VST3PlugFrame plug_frame_;
 
     uint32_t sample_size_ = Steinberg::Vst::kSample32;
+    uint32_t max_samples_per_block_ = 0;
     int32_t current_process_mode_ = Steinberg::Vst::kRealtime;
     bool single_component_ = false;
     bool has_view_ = false;
@@ -78,6 +91,7 @@ struct VST3PluginWrapper : public PluginInterface,
                                  double sample_rate) override;
     PluginResult start_processing() override;
     PluginResult stop_processing() override;
+    void transfer_param(uint32_t param_id, double normalized_value) override;
     PluginResult process(PluginProcessInfo& process_info) override;
 
     bool has_view() const override;

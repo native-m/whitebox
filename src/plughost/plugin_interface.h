@@ -2,7 +2,7 @@
 
 #include "core/audio_buffer.h"
 #include "core/common.h"
-// #include "engine/param_changes.h"
+#include "engine/param_changes.h"
 
 #ifdef WB_PLATFORM_WINDOWS
 #define WB_PLUG_API __stdcall
@@ -86,6 +86,12 @@ struct PluginProcessInfo {
     bool playing;
 };
 
+struct PluginParamTransfer {
+    PluginInterface* plugin;
+    uint32_t param_id;
+    double normalized_value;
+};
+
 struct PluginParameterFn {
     void* userdata;
     double(WB_PLUG_API* plain_to_normalized_value)(void* userdata, uint32_t id, double plain);
@@ -140,6 +146,7 @@ struct PluginInterface {
                                          double sample_rate) = 0;
     virtual PluginResult start_processing() = 0;
     virtual PluginResult stop_processing() = 0;
+    virtual void transfer_param(uint32_t param_id, double normalized_value) = 0;
     virtual PluginResult process(PluginProcessInfo& process_info) = 0;
 
     // UI

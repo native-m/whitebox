@@ -100,6 +100,7 @@ struct Track {
     ParamChanges param_changes;
     // This handles parameter state transfer from UI to audio thread
     ConcurrentRingBuffer<ParamChange> ui_param_changes;
+    ConcurrentRingBuffer<PluginParamTransfer> ui_plugin_param_changes;
 
     Track();
     Track(const std::string& name, const ImColor& color, float height, bool shown,
@@ -203,10 +204,12 @@ struct Track {
 
     void flush_deleted_clips(double time_pos);
 
-    static PluginResult plugin_begin_edit(void* userdata, PluginInterface* interface, uint32_t param_id);
-    static PluginResult plugin_perform_edit(void* userdata, PluginInterface* interface, uint32_t param_id,
+    void transfer_plugin_param_changes();
+
+    static PluginResult plugin_begin_edit(void* userdata, PluginInterface* plugin, uint32_t param_id);
+    static PluginResult plugin_perform_edit(void* userdata, PluginInterface* plugin, uint32_t param_id,
                                                double normalized_value);
-    static PluginResult plugin_end_edit(void* userdata, PluginInterface* interface, uint32_t param_id);
+    static PluginResult plugin_end_edit(void* userdata, PluginInterface* plugin, uint32_t param_id);
 };
 
 } // namespace wb

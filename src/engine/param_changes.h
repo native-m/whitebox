@@ -1,9 +1,8 @@
 #pragma once
 
+//#include "core/debug.h"
 #include "core/queue.h"
 #include "core/vector.h"
-#include "core/debug.h"
-//#include <pluginterfaces/vst/ivstparameterchanges.h>
 
 namespace wb {
 
@@ -45,9 +44,7 @@ struct ParamValueQueue {
         return dest_idx;
     }
 
-    inline void push_point(uint32_t sample_offset, double value) {
-        points.emplace_back(value, sample_offset);
-    }
+    inline void push_point(uint32_t sample_offset, double value) { points.emplace_back(value, sample_offset); }
 };
 
 struct ParamChanges {

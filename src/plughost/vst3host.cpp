@@ -300,6 +300,7 @@ PluginResult VST3PluginWrapper::init_processing(PluginProcessingMode mode, uint3
     if (VST3_FAILED(processor_->setupProcessing(setup)))
         return PluginResult::Failed;
 
+    max_samples_per_block_ = max_samples_per_block;
     current_process_mode_ = process_mode;
     return PluginResult::Ok;
 }
@@ -316,6 +317,14 @@ PluginResult VST3PluginWrapper::stop_processing() {
     if (VST3_FAILED(component_->setActive(false)))
         return PluginResult::Failed;
     return PluginResult::Ok;
+}
+
+void VST3PluginWrapper::transfer_param(uint32_t param_id, double normalized_value) {
+    int32_t index;
+    Steinberg::Vst::ParameterValueQueue* queue =
+        (Steinberg::Vst::ParameterValueQueue*)input_param_changes_.addParameterData(param_id, index);
+    queue->addPoint(max_samples_per_block_ - 1, normalized_value, index);
+    Log::debug("transfer_param called ({}, {})", param_id, normalized_value);
 }
 
 PluginResult VST3PluginWrapper::process(PluginProcessInfo& process_info) {
@@ -352,6 +361,8 @@ PluginResult VST3PluginWrapper::process(PluginProcessInfo& process_info) {
     process_data.inputParameterChanges = &input_param_changes_;
     process_data.processContext = &process_ctx;
     VST3_WARN(processor_->process(process_data));
+
+    input_param_changes_.clearQueue();
 
     return PluginResult::Ok;
 }
