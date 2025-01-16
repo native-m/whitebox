@@ -572,11 +572,13 @@ PluginInterface* Engine::add_plugin_to_track(Track* track, PluginUID uid) {
 
 void Engine::delete_plugin_from_track(Track* track) {
     if (track->plugin_instance) {
-        std::unique_lock lock(editor_lock);
-        track->plugin_instance->stop_processing();
-        track->plugin_instance->shutdown();
-        pm_close_plugin(track->plugin_instance);
+        PluginInterface* plugin = track->plugin_instance;
+        editor_lock.lock();
         track->plugin_instance = nullptr;
+        editor_lock.unlock();
+        plugin->stop_processing();
+        plugin->shutdown();
+        pm_close_plugin(plugin);
     }
 }
 
