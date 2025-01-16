@@ -22,6 +22,7 @@ Track::Track() {
     ui_parameter_state.pan = 0.0f;
     ui_parameter_state.mute = false;
     param_changes.set_max_params(TrackParameter_Max);
+    ui_param_changes.set_capacity(64);
     ui_param_changes.push({
         .id = TrackParameter_Volume,
         .sample_offset = 0,
@@ -44,6 +45,7 @@ Track::Track(const std::string& name, const ImColor& color, float height, bool s
     name(name), color(color), height(height), shown(shown), ui_parameter_state(track_param) {
     ui_parameter_state.volume_db = math::linear_to_db(track_param.volume);
     param_changes.set_max_params(TrackParameter_Max);
+    ui_param_changes.set_capacity(64);
     ui_param_changes.push({
         .id = TrackParameter_Volume,
         .sample_offset = 0,

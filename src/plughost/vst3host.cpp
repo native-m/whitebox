@@ -300,7 +300,7 @@ PluginResult VST3PluginWrapper::init_processing(PluginProcessingMode mode, uint3
     if (VST3_FAILED(processor_->setupProcessing(setup)))
         return PluginResult::Failed;
 
-    current_process_mode = process_mode;
+    current_process_mode_ = process_mode;
     return PluginResult::Ok;
 }
 
@@ -342,7 +342,7 @@ PluginResult VST3PluginWrapper::process(PluginProcessInfo& process_info) {
     process_ctx.projectTimeSamples = process_info.project_time_in_samples;
 
     Steinberg::Vst::ProcessData process_data;
-    process_data.processMode = current_process_mode;
+    process_data.processMode = current_process_mode_;
     process_data.symbolicSampleSize = sample_size_;
     process_data.numSamples = process_info.sample_count;
     process_data.numInputs = process_info.input_buffer_count;

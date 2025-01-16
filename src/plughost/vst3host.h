@@ -44,7 +44,7 @@ struct VST3PluginWrapper : public PluginInterface,
     //VST3PlugFrame plug_frame_;
 
     uint32_t sample_size_ = Steinberg::Vst::kSample32;
-    int32_t current_process_mode = Steinberg::Vst::kRealtime;
+    int32_t current_process_mode_ = Steinberg::Vst::kRealtime;
     bool single_component_ = false;
     bool has_view_ = false;
 

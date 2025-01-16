@@ -94,73 +94,85 @@ struct LocalQueue {
 };
 
 template <Trivial T>
+struct RingBuffer {
+    uint32_t write_pos_ {};
+    uint32_t read_pos_ {};
+    uint32_t capacity_ {};
+    uint32_t size_ {};
+    T* data_ {};
+
+    RingBuffer(uint32_t capacity) : capacity_ {capacity} {
+        data_ = (T*)std::malloc(sizeof(T) * capacity_);
+        assert(data_ && "Cannot allocate ring buffer");
+    }
+
+    void push(const T& value) {
+        data_[write_pos_] = value;
+        write_pos_ = (write_pos_ + 1) % capacity_;
+        size_++;
+    }
+
+    T* pop(const T& value) {
+        uint32_t current_pos = read_pos_;
+        read_pos_ = (read_pos_ + 1) % capacity_;
+        size_++;
+        return data_[current_pos];
+    }
+};
+
+template <Trivial T>
 struct ConcurrentRingBuffer {
     static constexpr auto cache_size_ = 64;
 
     alignas(cache_size_) std::atomic<uint32_t> write_pos_ {};
     alignas(cache_size_) std::atomic<uint32_t> read_pos_ {};
-    alignas(cache_size_) std::atomic<uint32_t> size_ {};
-    alignas(cache_size_) std::atomic<T*> data_ {};
+    T* data_ {};
     uint32_t capacity_ {};
-    Spinlock resize_lock_;
 
     ~ConcurrentRingBuffer() {
-        if (data_) {
+        if (data_)
             std::free(data_);
-        }
+    }
+
+    // Not thread-safe
+    void set_capacity(size_t capacity) {
+        T* new_data = (T*)std::malloc(sizeof(T) * capacity);
+        assert(new_data != nullptr && "Cannot allocate memory");
+        if (data_)
+            std::free(data_);
+        data_ = new_data;
+        capacity_ = capacity;
+    }
+
+    inline bool try_push(const T& value) {
+        uint32_t write_pos = write_pos_.load(std::memory_order_relaxed);
+        uint32_t read_pos = read_pos_.load(std::memory_order_acquire);
+        uint32_t next_write_pos = (write_pos + 1) % capacity_;
+
+        if (next_write_pos == read_pos)
+            return false;
+
+        data_[write_pos] = value;
+        write_pos_.store(next_write_pos, std::memory_order_release);
+        return true;
     }
 
     inline void push(const T& value) {
-        uint32_t write_pos = write_pos_.load(std::memory_order_relaxed);
-        uint32_t read_pos = read_pos_.load(std::memory_order_acquire);
-        uint32_t size = size_.load(std::memory_order_acquire) + 1;
-        if (size >= capacity_) {
-            resize(capacity_ + (capacity_ / 2) + 2);
-            write_pos = write_pos_.load(std::memory_order_relaxed);
-            read_pos = read_pos_.load(std::memory_order_relaxed);
-        }
-        T* data = data_.load(std::memory_order_relaxed);
-        data[write_pos] = value;
-        write_pos = (write_pos + 1) % capacity_;
-        write_pos_.store(write_pos, std::memory_order_release);
-        size_.store(size, std::memory_order_release);
+        while (!try_push(value))
+            std::this_thread::yield();
     }
 
     inline bool pop(T& value) {
         uint32_t write_pos = write_pos_.load(std::memory_order_acquire);
         uint32_t read_pos = read_pos_.load(std::memory_order_relaxed);
-        if (write_pos == read_pos) {
+
+        if (write_pos == read_pos)
             return false;
-        }
-        T* data = data_.load(std::memory_order_relaxed);
-        value = data[read_pos];
+
+        value = data_[read_pos];
         read_pos = (read_pos + 1) % capacity_;
         read_pos_.store(read_pos, std::memory_order_release);
-        size_.fetch_sub(1, std::memory_order_acq_rel);
         return true;
-    }
-
-    inline uint32_t size() { return size_.load(std::memory_order_acquire); }
-
-    inline uint32_t num_items_written() { return write_pos_.load(std::memory_order_acquire); }
-    inline uint32_t num_items_read() { return read_pos_.load(std::memory_order_acquire); }
-
-    inline void resize(size_t new_size) {
-        T* new_data = (T*)std::malloc(new_size * sizeof(T));
-        T* old_data = data_.load(std::memory_order_relaxed);
-        assert(new_data && "Cannot allocate memory");
-        if (old_data) {
-            uint32_t read_pos = read_pos_.load(std::memory_order_acquire);
-            uint32_t size = size_.load(std::memory_order_relaxed);
-            for (uint32_t i = 0; i < size; i++) {
-                new_data[i] = old_data[(read_pos + i) % capacity_];
-            }
-            write_pos_.store(size, std::memory_order_release);
-            read_pos_.store(0, std::memory_order_release);
-            std::free(old_data);
-        }
-        capacity_ = new_size;
-        data_ = new_data;
     }
 };
 
