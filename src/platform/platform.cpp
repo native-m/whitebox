@@ -26,6 +26,14 @@ static std::optional<SDL_Window*> get_plugin_window_from_id(uint32_t window_id) 
     return plugin_window->second;
 }
 
+static void setup_plugin_window(SDL_Window* window) {
+#ifdef WB_PLATFORM_WINDOWS
+    HWND hwnd = (HWND)wm_get_native_window_handle(window);
+    LONG style = GetWindowLong(hwnd, GWL_STYLE);
+    SetWindowLong(hwnd, GWL_STYLE, style & ~WS_MINIMIZEBOX); // Disable minimize button
+#endif
+}
+
 void init_platform() {
 #ifdef WB_PLATFORM_WINDOWS
     enum class PreferredAppMode {
@@ -69,6 +77,17 @@ SDL_Window* wm_get_main_window() {
 
 uint32_t wm_get_main_window_id() {
     return main_window_id;
+}
+
+void* wm_get_native_window_handle(SDL_Window* window) {
+    SDL_SysWMinfo wm_info {};
+    SDL_VERSION(&wm_info.version);
+    SDL_GetWindowWMInfo(window, &wm_info);
+#ifdef WB_PLATFORM_WINDOWS
+    return (void*)wm_info.info.win.window;
+#else
+    return nullptr;
+#endif
 }
 
 SDL_SysWMinfo wm_get_window_wm_info(SDL_Window* window) {
@@ -119,6 +138,7 @@ void wm_add_foreign_plugin_window(PluginInterface* plugin) {
     if (!window)
         return;
 
+    setup_plugin_window(window);
     wm_setup_dark_mode(window);
     wm_make_child_window(window, main_window, false);
 

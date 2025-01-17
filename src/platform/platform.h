@@ -15,6 +15,7 @@ bool wm_create_main_window();
 void wm_destroy_main_window();
 SDL_Window* wm_get_main_window();
 uint32_t wm_get_main_window_id();
+void* wm_get_native_window_handle(SDL_Window* window);
 void wm_setup_dark_mode(SDL_Window* window);
 void wm_make_child_window(SDL_Window* window, SDL_Window* parent_window, bool imgui_window = false);
 void wm_add_foreign_plugin_window(PluginInterface* plugin);
