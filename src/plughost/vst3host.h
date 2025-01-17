@@ -3,14 +3,16 @@
 #include "core/bitset.h"
 #include "core/span.h"
 #include "core/vector.h"
-#include "plugin_manager.h"
+#include "engine/event_list.h"
 #include "engine/param_changes.h"
+#include "plugin_manager.h"
 #include <optional>
 #include <pluginterfaces/gui/iplugview.h>
 #include <pluginterfaces/vst/ivstaudioprocessor.h>
 #include <pluginterfaces/vst/ivsteditcontroller.h>
 #include <pluginterfaces/vst/vsttypes.h>
 #include <public.sdk/source/vst/hosting/connectionproxy.h>
+#include <public.sdk/source/vst/hosting/eventlist.h>
 #include <public.sdk/source/vst/hosting/hostclasses.h>
 #include <public.sdk/source/vst/hosting/module.h>
 #include <public.sdk/source/vst/hosting/parameterchanges.h>
@@ -39,11 +41,31 @@ class VST3ParameterChanges : public Steinberg::Vst::IParameterChanges {
 
     Steinberg::int32 PLUGIN_API getParameterCount() override { return param_changes.changes_count; }
     Steinberg::Vst::IParamValueQueue* PLUGIN_API getParameterData(Steinberg::int32 index) override { return nullptr; }
-    Steinberg::Vst::IParamValueQueue* PLUGIN_API addParameterData(const Steinberg::Vst::ParamID& id, Steinberg::int32& index) override {
+    Steinberg::Vst::IParamValueQueue* PLUGIN_API addParameterData(const Steinberg::Vst::ParamID& id,
+                                                                  Steinberg::int32& index) override {
         return nullptr;
     }
 
-    //Steinberg::Vst::IParamValueQueue* PLUGIN_API getParameterData()
+    // Steinberg::Vst::IParamValueQueue* PLUGIN_API getParameterData()
+};
+
+class VST3EventList : public Steinberg::Vst::IEventList {
+  public:
+    MidiEventList* event_list_ = nullptr;
+
+    VST3EventList(MidiEventList* event_list) : event_list_(event_list) {}
+
+    Steinberg::int32 PLUGIN_API getEventCount() SMTG_OVERRIDE { return event_list_->size(); }
+
+    Steinberg::tresult PLUGIN_API getEvent(Steinberg::int32 index, Steinberg::Vst::Event& e) SMTG_OVERRIDE;
+
+    Steinberg::tresult PLUGIN_API addEvent(Steinberg::Vst::Event& e) SMTG_OVERRIDE;
+
+    Steinberg::tresult PLUGIN_API queryInterface(const Steinberg::TUID iid, void** obj) override;
+    // we do not care here of the ref-counting. A plug-in call of release should not destroy this
+    // class!
+    Steinberg::uint32 PLUGIN_API addRef() override { return 1000; }
+    Steinberg::uint32 PLUGIN_API release() override { return 1000; }
 };
 
 struct VST3PluginWrapper : public PluginInterface,
@@ -61,11 +83,16 @@ struct VST3PluginWrapper : public PluginInterface,
     bool single_component_ = false;
     bool has_view_ = false;
 
+    Steinberg::Vst::IConnectionPoint* component_icp_;
+    Steinberg::Vst::IConnectionPoint* controller_icp_;
+
     std::optional<Steinberg::Vst::ConnectionProxy> component_cp_;
     std::optional<Steinberg::Vst::ConnectionProxy> controller_cp_;
     Vector<Steinberg::Vst::AudioBusBuffers> input_bus_buffers_;
     Vector<Steinberg::Vst::AudioBusBuffers> output_bus_buffers_;
     Steinberg::Vst::ParameterChanges input_param_changes_ {};
+    Steinberg::Vst::EventList input_events_;
+    Steinberg::Vst::EventList output_events_;
     Span<PluginParamInfo> params;
 
     VST3PluginWrapper(uint64_t module_hash, const std::string& name, Steinberg::Vst::IComponent* component,
@@ -86,6 +113,7 @@ struct VST3PluginWrapper : public PluginInterface,
     PluginResult get_event_bus_info(bool is_output, uint32_t index, PluginEventBusInfo* bus) const override;
 
     PluginResult activate_audio_bus(bool is_output, uint32_t index, bool state) override;
+    PluginResult activate_event_bus(bool is_output, uint32_t index, bool state) override;
 
     PluginResult init_processing(PluginProcessingMode mode, uint32_t max_samples_per_block,
                                  double sample_rate) override;

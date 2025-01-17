@@ -51,6 +51,7 @@ struct MidiControlChangeEvent {
 struct MidiEvent {
     MidiEventType type;
     uint32_t buffer_offset;
+    uint32_t bus_index;
     double time;
     union {
         MidiNoteOnEvent note_on;

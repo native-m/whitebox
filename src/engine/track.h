@@ -194,7 +194,7 @@ struct Track {
      * @param playing Should play the track.
      */
     void process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>& output_buffer, double sample_rate,
-                 int64_t playhead_in_samples, bool playing);
+                 double beat_duration, double playhead_pos, int64_t playhead_in_samples, bool playing);
 
     void render_sample(AudioBuffer<float>& output_buffer, uint32_t buffer_offset, uint32_t num_samples,
                        double sample_rate);
@@ -208,7 +208,7 @@ struct Track {
 
     static PluginResult plugin_begin_edit(void* userdata, PluginInterface* plugin, uint32_t param_id);
     static PluginResult plugin_perform_edit(void* userdata, PluginInterface* plugin, uint32_t param_id,
-                                               double normalized_value);
+                                            double normalized_value);
     static PluginResult plugin_end_edit(void* userdata, PluginInterface* plugin, uint32_t param_id);
 };
 

@@ -551,7 +551,7 @@ void Track::stop_midi_notes(uint32_t buffer_offset, double time_pos) {
 }
 
 void Track::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>& output_buffer, double sample_rate,
-                    int64_t playhead_in_samples, bool playing) {
+                    double beat_duration, double playhead_pos, int64_t playhead_in_samples, bool playing) {
     AudioBuffer<float>& write_buffer = plugin_instance ? effect_buffer : output_buffer;
     param_changes.transfer_changes_from(ui_param_changes);
     transfer_plugin_param_changes();
@@ -624,7 +624,7 @@ void Track::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>& 
         }
     }
 
-    process_test_synth(write_buffer, sample_rate, playing);
+    //process_test_synth(write_buffer, sample_rate, playing);
 
     if (plugin_instance) {
         PluginProcessInfo process_info;
@@ -633,7 +633,10 @@ void Track::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>& 
         process_info.output_buffer_count = 1;
         process_info.input_buffer = &write_buffer;
         process_info.output_buffer = &output_buffer;
+        process_info.input_event_list = &midi_event_list;
         process_info.sample_rate = sample_rate;
+        process_info.tempo = 60.0 / beat_duration;
+        process_info.project_time_in_ppq = playhead_pos;
         process_info.project_time_in_samples = playhead_in_samples;
         process_info.playing = playing;
         plugin_instance->process(process_info);
@@ -801,7 +804,7 @@ void Track::flush_deleted_clips(double time_pos) {
 void Track::transfer_plugin_param_changes() {
     PluginParamTransfer src;
     while (ui_plugin_param_changes.pop(src))
-       src.plugin->transfer_param(src.param_id, src.normalized_value);
+        src.plugin->transfer_param(src.param_id, src.normalized_value);
 }
 
 PluginResult Track::plugin_begin_edit(void* userdata, PluginInterface* plugin, uint32_t param_id) {
@@ -818,7 +821,7 @@ PluginResult Track::plugin_perform_edit(void* userdata, PluginInterface* plugin,
         .param_id = param_id,
         .normalized_value = normalized_value,
     });
-    //Log::debug("plugin_perform_edit called ({}, {})", param_id, normalized_value);
+    // Log::debug("plugin_perform_edit called ({}, {})", param_id, normalized_value);
     return PluginResult::Unimplemented;
 }
 

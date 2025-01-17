@@ -2,6 +2,7 @@
 
 #include "core/audio_buffer.h"
 #include "core/common.h"
+#include "engine/event_list.h"
 #include "engine/param_changes.h"
 
 #ifdef WB_PLATFORM_WINDOWS
@@ -81,7 +82,10 @@ struct PluginProcessInfo {
     uint32_t output_buffer_count;
     AudioBuffer<float>* input_buffer;
     AudioBuffer<float>* output_buffer;
+    MidiEventList* input_event_list;
     double sample_rate;
+    double tempo;
+    double project_time_in_ppq;
     int64_t project_time_in_samples;
     bool playing;
 };
@@ -140,6 +144,7 @@ struct PluginInterface {
 
     // Busses
     virtual PluginResult activate_audio_bus(bool is_output, uint32_t index, bool state) = 0;
+    virtual PluginResult activate_event_bus(bool is_output, uint32_t index, bool state) = 0;
 
     // Processing
     virtual PluginResult init_processing(PluginProcessingMode mode, uint32_t max_samples_per_block,

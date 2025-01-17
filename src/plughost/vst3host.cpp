@@ -81,6 +81,53 @@ Steinberg::tresult VST3HostApplication::getName(Steinberg::Vst::String128 name) 
 
 //
 
+Steinberg::tresult PLUGIN_API VST3EventList::getEvent(Steinberg::int32 index, Steinberg::Vst::Event& e) {
+    if (index >= 0 || index < event_list_->size()) {
+        const auto& event = event_list_->events[index];
+        e.busIndex = event.bus_index;
+        e.sampleOffset = event.buffer_offset;
+        e.ppqPosition = event.time;
+        e.type = Steinberg::Vst::Event::kNoteOnEvent;
+        switch (event.type) {
+            case MidiEventType::NoteOn:
+                e.noteOn.channel = event.note_on.channel;
+                e.noteOn.pitch = event.note_on.note_number;
+                e.noteOn.tuning = event.note_on.tuning;
+                e.noteOn.velocity = event.note_on.velocity;
+                e.noteOn.length = 0;
+                e.noteOn.noteId = -1;
+                break;
+            case MidiEventType::NoteOff:
+                e.noteOff.channel = event.note_on.channel;
+                e.noteOff.pitch = event.note_on.note_number;
+                e.noteOff.tuning = event.note_on.tuning;
+                e.noteOff.velocity = event.note_on.velocity;
+                e.noteOff.noteId = -1;
+                break;
+            default:
+                return Steinberg::kResultFalse;
+        }
+        return Steinberg::kResultOk;
+    }
+    return Steinberg::kResultFalse;
+}
+
+Steinberg::tresult PLUGIN_API VST3EventList::addEvent(Steinberg::Vst::Event& e) {
+    return Steinberg::kResultOk;
+}
+
+Steinberg::tresult PLUGIN_API VST3EventList::queryInterface(const Steinberg::TUID iid, void** obj) {
+    if (Steinberg::FUnknownPrivate::iidEqual(iid, IEventList::iid) ||
+        Steinberg::FUnknownPrivate::iidEqual(iid, FUnknown::iid)) {
+        *obj = this;
+        addRef();
+        return Steinberg::kResultTrue;
+    }
+    return Steinberg::kNoInterface;
+}
+
+//
+
 VST3PluginWrapper::VST3PluginWrapper(uint64_t module_hash, const std::string& name,
                                      Steinberg::Vst::IComponent* component,
                                      Steinberg::Vst::IEditController* controller) :
@@ -119,34 +166,26 @@ PluginResult VST3PluginWrapper::init() {
 
     // If the component is separated, connect the component with controller manually
     if (!single_component_) {
-        Steinberg::Vst::IConnectionPoint* component_icp;
-        Steinberg::Vst::IConnectionPoint* controller_icp;
-
-        if (component_->queryInterface(Steinberg::Vst::IConnectionPoint::iid, (void**)&component_icp) !=
+        if (component_->queryInterface(Steinberg::Vst::IConnectionPoint::iid, (void**)&component_icp_) !=
             Steinberg::kResultOk)
             return PluginResult::Failed;
-        if (controller_->queryInterface(Steinberg::Vst::IConnectionPoint::iid, (void**)&controller_icp) !=
+        if (controller_->queryInterface(Steinberg::Vst::IConnectionPoint::iid, (void**)&controller_icp_) !=
             Steinberg::kResultOk) {
-            component_icp->release();
+            component_icp_->release();
             return PluginResult::Failed;
         }
 
-        component_cp_.emplace(component_icp);
-        controller_cp_.emplace(controller_icp);
-        if (component_cp_->connect(controller_icp) != Steinberg::kResultOk) {
-            component_icp->release();
-            controller_icp->release();
+        if (component_icp_->connect(controller_icp_) != Steinberg::kResultOk) {
+            component_icp_->release();
+            controller_icp_->release();
             return PluginResult::Failed;
         }
 
-        if (controller_cp_->connect(component_icp) != Steinberg::kResultOk) {
-            component_icp->release();
-            controller_icp->release();
+        if (controller_icp_->connect(component_icp_) != Steinberg::kResultOk) {
+            component_icp_->release();
+            controller_icp_->release();
             return PluginResult::Failed;
         }
-
-        component_icp->release();
-        controller_icp->release();
     }
 
     Steinberg::IPlugView* view = controller_->createView(Steinberg::Vst::ViewType::kEditor);
@@ -174,7 +213,7 @@ PluginResult VST3PluginWrapper::init() {
                 if (has_bit(param_info.flags, Steinberg::Vst::ParameterInfo::kIsHidden))
                     wb.flags |= PluginParamFlags::Hidden;
                 wb.default_normalized_value = param_info.defaultNormalizedValue;
-                std::memcpy(wb.name, param_info.title, sizeof(param_info.title));
+                std::wcstombs(wb.name, (const wchar_t*)param_info.title, sizeof(param_info.title));
             }
             params.assign(module->param_cache.begin(), module->param_cache.end());
         }
@@ -272,7 +311,7 @@ PluginResult VST3PluginWrapper::get_audio_bus_info(bool is_output, uint32_t inde
 
 PluginResult VST3PluginWrapper::get_event_bus_info(bool is_output, uint32_t index, PluginEventBusInfo* bus) const {
     Steinberg::Vst::BusInfo bus_info;
-    Steinberg::tresult result = component_->getBusInfo(Steinberg::Vst::MediaTypes::kAudio, is_output, index, bus_info);
+    Steinberg::tresult result = component_->getBusInfo(Steinberg::Vst::MediaTypes::kEvent, is_output, index, bus_info);
     if (result == Steinberg::kInvalidArgument)
         return PluginResult::Failed;
     size_t retval;
@@ -283,6 +322,12 @@ PluginResult VST3PluginWrapper::get_event_bus_info(bool is_output, uint32_t inde
 
 PluginResult VST3PluginWrapper::activate_audio_bus(bool is_output, uint32_t index, bool state) {
     if (component_->activateBus(Steinberg::Vst::MediaTypes::kAudio, is_output, index, state) != Steinberg::kResultOk)
+        return PluginResult::Failed;
+    return PluginResult::Ok;
+}
+
+PluginResult VST3PluginWrapper::activate_event_bus(bool is_output, uint32_t index, bool state) {
+    if (component_->activateBus(Steinberg::Vst::MediaTypes::kEvent, is_output, index, state) != Steinberg::kResultOk)
         return PluginResult::Failed;
     return PluginResult::Ok;
 }
@@ -328,7 +373,10 @@ void VST3PluginWrapper::transfer_param(uint32_t param_id, double normalized_valu
 }
 
 PluginResult VST3PluginWrapper::process(PluginProcessInfo& process_info) {
-    for (uint32_t i = 0; i < process_info.input_buffer_count; i++) {
+    output_events_.clear();
+
+    uint32_t input_buffer_count = math::min((uint32_t)input_bus_buffers_.size(), process_info.input_buffer_count);
+    for (uint32_t i = 0; i < input_buffer_count; i++) {
         auto& vst_buffer = input_bus_buffers_[i];
         const auto& wb_buffer = process_info.input_buffer[i];
         vst_buffer.numChannels = wb_buffer.n_channels;
@@ -344,25 +392,35 @@ PluginResult VST3PluginWrapper::process(PluginProcessInfo& process_info) {
         vst_buffer.silenceFlags = 0; //(1 << wb_buffer.n_channels) - 1;
     }
 
-    Steinberg::Vst::ProcessContext process_ctx;
+    VST3EventList input_event_list(process_info.input_event_list);
+    Steinberg::Vst::ProcessContext process_ctx{};
+
     if (process_info.playing)
         process_ctx.state |= Steinberg::Vst::ProcessContext::kPlaying;
+    process_ctx.state |= Steinberg::Vst::ProcessContext::kTempoValid;
+    process_ctx.state |= Steinberg::Vst::ProcessContext::kProjectTimeMusicValid;
     process_ctx.sampleRate = process_info.sample_rate;
+    process_ctx.tempo = process_info.tempo;
+    process_ctx.projectTimeMusic = process_info.project_time_in_ppq;
     process_ctx.projectTimeSamples = process_info.project_time_in_samples;
+    //process_ctx.samplesToNextClock
 
     Steinberg::Vst::ProcessData process_data;
     process_data.processMode = current_process_mode_;
     process_data.symbolicSampleSize = sample_size_;
     process_data.numSamples = process_info.sample_count;
-    process_data.numInputs = process_info.input_buffer_count;
+    process_data.numInputs = input_buffer_count;
     process_data.numOutputs = process_info.output_buffer_count;
     process_data.inputs = input_bus_buffers_.data();
     process_data.outputs = output_bus_buffers_.data();
     process_data.inputParameterChanges = &input_param_changes_;
+    process_data.inputEvents = &input_event_list;
+    process_data.outputEvents = &output_events_;
     process_data.processContext = &process_ctx;
     VST3_WARN(processor_->process(process_data));
 
     input_param_changes_.clearQueue();
+    input_events_.clear();
 
     return PluginResult::Ok;
 }
@@ -425,12 +483,14 @@ PluginResult VST3PluginWrapper::detach_window() {
 }
 
 void VST3PluginWrapper::disconnect_components_() {
-    if (controller_cp_)
-        controller_cp_->disconnect();
-    if (component_cp_)
-        component_cp_->disconnect();
-    controller_cp_.reset();
-    component_cp_.reset();
+    if (component_icp_)
+        component_icp_->disconnect(controller_icp_);
+    if (controller_icp_)
+        controller_icp_->disconnect(component_icp_);
+    if (component_icp_)
+        component_icp_->release();
+    if (controller_icp_)
+        controller_icp_->release();
 }
 
 Steinberg::tresult PLUGIN_API VST3PluginWrapper::beginEdit(Steinberg::Vst::ParamID id) {
