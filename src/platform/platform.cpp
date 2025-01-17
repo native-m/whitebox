@@ -26,9 +26,29 @@ static std::optional<SDL_Window*> get_plugin_window_from_id(uint32_t window_id) 
     return plugin_window->second;
 }
 
+void init_platform() {
+#ifdef WB_PLATFORM_WINDOWS
+    enum class PreferredAppMode {
+        Default,
+        AllowDark,
+        ForceDark,
+        ForceLight,
+        Max
+    };
+    using SetPreferredAppModeFn = PreferredAppMode(WINAPI*)(PreferredAppMode appMode);
+    HMODULE uxtheme = LoadLibraryEx(L"uxtheme.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
+    if (uxtheme) {
+        SetPreferredAppModeFn set_preferred_app_mode_fn =
+            (SetPreferredAppModeFn)GetProcAddress(uxtheme, MAKEINTRESOURCEA(135));
+        if (set_preferred_app_mode_fn)
+            set_preferred_app_mode_fn(PreferredAppMode::ForceDark);
+    }
+#endif
+}
+
 bool wm_create_main_window() {
-    SDL_Window* window =
-        SDL_CreateWindow("whitebox", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN);
+    SDL_Window* window = SDL_CreateWindow("whitebox", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720,
+                                          SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN);
     if (!window)
         return false;
     wm_setup_dark_mode(window);
@@ -94,7 +114,8 @@ void wm_add_foreign_plugin_window(PluginInterface* plugin) {
     if (plugin->get_view_size(&w, &h) != PluginResult::Ok)
         Log::debug("Failed to get window size");
 
-    SDL_Window* window = SDL_CreateWindow(plugin->get_name(), plugin->last_window_x, plugin->last_window_y, w, h, SDL_WINDOW_HIDDEN);
+    SDL_Window* window =
+        SDL_CreateWindow(plugin->get_name(), plugin->last_window_x, plugin->last_window_y, w, h, SDL_WINDOW_HIDDEN);
     if (!window)
         return;
 

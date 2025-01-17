@@ -7,6 +7,9 @@
 
 namespace wb {
 struct PluginInterface;
+
+void init_platform();
+
 // Window
 bool wm_create_main_window();
 void wm_destroy_main_window();

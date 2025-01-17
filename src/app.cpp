@@ -162,6 +162,8 @@ static void imgui_renderer_swap_buffers(ImGuiViewport* viewport, void* userdata)
 }
 
 void app_init() {
+    init_platform();
+
     // Init SDL & create main window
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) < 0) {
         Log::debug("{}", SDL_GetError());
