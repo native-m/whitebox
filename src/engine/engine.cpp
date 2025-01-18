@@ -521,13 +521,14 @@ PluginInterface* Engine::add_plugin_to_track(Track* track, PluginUID uid) {
 
     plugin->set_handler(&track->plugin_handler, track);
 
-    uint32_t input_bus_count = plugin->get_audio_bus_count(false);
-    uint32_t output_bus_count = plugin->get_audio_bus_count(true);
+    uint32_t input_audio_bus_count = plugin->get_audio_bus_count(false);
+    uint32_t output_audio_bus_count = plugin->get_audio_bus_count(true);
+    uint32_t input_event_bus_count = plugin->get_event_bus_count(false);
     uint32_t default_input_bus = 0;
     uint32_t default_output_bus = 0;
 
-    Log::debug("---- Plugin input bus ----");
-    for (uint32_t i = 0; i < input_bus_count; i++) {
+    Log::debug("---- Plugin audio input bus ----");
+    for (uint32_t i = 0; i < input_audio_bus_count; i++) {
         PluginAudioBusInfo bus_info;
         plugin->get_audio_bus_info(false, i, &bus_info);
         Log::debug("Bus: {} ({})", bus_info.name, bus_info.id);
@@ -540,8 +541,8 @@ PluginInterface* Engine::add_plugin_to_track(Track* track, PluginUID uid) {
         }
     }
 
-    Log::debug("---- Plugin output bus ----");
-    for (uint32_t i = 0; i < output_bus_count; i++) {
+    Log::debug("---- Plugin audio output bus ----");
+    for (uint32_t i = 0; i < output_audio_bus_count; i++) {
         PluginAudioBusInfo bus_info;
         plugin->get_audio_bus_info(true, i, &bus_info);
         Log::debug("Bus: {} ({})", bus_info.name, bus_info.id);
@@ -552,6 +553,15 @@ PluginInterface* Engine::add_plugin_to_track(Track* track, PluginUID uid) {
                 Log::error("Failed to open audio input bus {}", i);
             default_output_bus = i;
         }
+    }
+
+    Log::debug("---- Plugin event input bus ----");
+    for (uint32_t i = 0; i < input_event_bus_count; i++) {
+        PluginEventBusInfo bus_info;
+        plugin->get_event_bus_info(false, i, &bus_info);
+        Log::debug("Bus: {} ({})", bus_info.name, bus_info.id);
+        if (WB_PLUG_FAIL(plugin->activate_event_bus(false, i, true)))
+            Log::error("Failed to open audio input bus {}", i);
     }
 
     if (WB_PLUG_FAIL(
@@ -608,7 +618,9 @@ void Engine::update_audio_visualization(float frame_rate) {
 
 void Engine::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>& output_buffer, double sample_rate) {
     double buffer_duration = (double)output_buffer.n_samples / sample_rate;
-    int64_t playhead_in_samples = beat_to_samples(playhead, sample_rate, beat_duration.load(std::memory_order_relaxed));
+    double current_beat_duration = beat_duration.load(std::memory_order_relaxed);
+    double current_playhead_position = playhead;
+    int64_t playhead_in_samples = beat_to_samples(playhead, sample_rate, current_beat_duration);
     bool currently_playing = playing.load(std::memory_order_relaxed);
 
     editor_lock.lock();
@@ -624,7 +636,6 @@ void Engine::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>&
 
     if (currently_playing) {
         double inv_ppq = 1.0 / ppq;
-        double current_beat_duration = beat_duration.load(std::memory_order_relaxed);
         double buffer_duration_in_beats = buffer_duration / current_beat_duration;
         double next_playhead_pos = playhead + buffer_duration_in_beats;
 
@@ -642,7 +653,8 @@ void Engine::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>&
     for (uint32_t i = 0; i < tracks.size(); i++) {
         auto track = tracks[i];
         mixing_buffer.clear();
-        track->process(input_buffer, mixing_buffer, sample_rate, playhead_in_samples, currently_playing);
+        track->process(input_buffer, mixing_buffer, sample_rate, current_beat_duration, current_playhead_position,
+                       playhead_in_samples, currently_playing);
         output_buffer.mix(mixing_buffer);
     }
 

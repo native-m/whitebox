@@ -1,5 +1,3 @@
-#pragma once
-
 #include "browser.h"
 #include "command_manager.h"
 #include "controls.h"

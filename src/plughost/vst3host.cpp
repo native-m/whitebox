@@ -369,7 +369,6 @@ void VST3PluginWrapper::transfer_param(uint32_t param_id, double normalized_valu
     Steinberg::Vst::ParameterValueQueue* queue =
         (Steinberg::Vst::ParameterValueQueue*)input_param_changes_.addParameterData(param_id, index);
     queue->addPoint(max_samples_per_block_ - 1, normalized_value, index);
-    Log::debug("transfer_param called ({}, {})", param_id, normalized_value);
 }
 
 PluginResult VST3PluginWrapper::process(PluginProcessInfo& process_info) {

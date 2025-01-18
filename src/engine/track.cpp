@@ -11,7 +11,7 @@
 
 #ifndef _NDEBUG
 #define WB_DBG_LOG_CLIP_ORDERING 1
-#define WB_DBG_LOG_NOTE_ON_EVENT 1
+#define WB_DBG_LOG_NOTE_ON_EVENT 0
 #define WB_DBG_LOG_AUDIO_EVENT 1
 #define WB_DBG_LOG_PARAMETER_UPDATE 1
 #endif
@@ -822,7 +822,7 @@ PluginResult Track::plugin_perform_edit(void* userdata, PluginInterface* plugin,
         .normalized_value = normalized_value,
     });
     // Log::debug("plugin_perform_edit called ({}, {})", param_id, normalized_value);
-    return PluginResult::Unimplemented;
+    return PluginResult::Ok;
 }
 
 PluginResult Track::plugin_end_edit(void* userdata, PluginInterface* plugin, uint32_t param_id) {

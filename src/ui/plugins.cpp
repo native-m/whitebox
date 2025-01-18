@@ -1,5 +1,3 @@
-#pragma once
-
 #include "plugins.h"
 #include "core/debug.h"
 #include "plugin_mgr.h"
