@@ -49,13 +49,13 @@ class VST3ParameterChanges : public Steinberg::Vst::IParameterChanges {
     // Steinberg::Vst::IParamValueQueue* PLUGIN_API getParameterData()
 };
 
-class VST3EventList : public Steinberg::Vst::IEventList {
+class VST3InputEventList : public Steinberg::Vst::IEventList {
   public:
     MidiEventList* event_list_ = nullptr;
 
-    VST3EventList(MidiEventList* event_list) : event_list_(event_list) {}
+    inline void set_event_list(MidiEventList* event_list) { event_list_ = event_list; }
 
-    Steinberg::int32 PLUGIN_API getEventCount() SMTG_OVERRIDE { return event_list_->size(); }
+    Steinberg::int32 PLUGIN_API getEventCount() SMTG_OVERRIDE { return event_list_ ? event_list_->size() : 0; }
 
     Steinberg::tresult PLUGIN_API getEvent(Steinberg::int32 index, Steinberg::Vst::Event& e) SMTG_OVERRIDE;
 
@@ -91,7 +91,7 @@ struct VST3PluginWrapper : public PluginInterface,
     Vector<Steinberg::Vst::AudioBusBuffers> input_bus_buffers_;
     Vector<Steinberg::Vst::AudioBusBuffers> output_bus_buffers_;
     Steinberg::Vst::ParameterChanges input_param_changes_ {};
-    Steinberg::Vst::EventList input_events_;
+    VST3InputEventList input_events_;
     Steinberg::Vst::EventList output_events_;
     Span<PluginParamInfo> params;
 

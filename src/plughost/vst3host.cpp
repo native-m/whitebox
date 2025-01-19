@@ -81,15 +81,15 @@ Steinberg::tresult VST3HostApplication::getName(Steinberg::Vst::String128 name) 
 
 //
 
-Steinberg::tresult PLUGIN_API VST3EventList::getEvent(Steinberg::int32 index, Steinberg::Vst::Event& e) {
+Steinberg::tresult PLUGIN_API VST3InputEventList::getEvent(Steinberg::int32 index, Steinberg::Vst::Event& e) {
     if (index >= 0 || index < event_list_->size()) {
         const auto& event = event_list_->events[index];
         e.busIndex = event.bus_index;
         e.sampleOffset = event.buffer_offset;
         e.ppqPosition = event.time;
-        e.type = Steinberg::Vst::Event::kNoteOnEvent;
         switch (event.type) {
             case MidiEventType::NoteOn:
+                e.type = Steinberg::Vst::Event::kNoteOnEvent;
                 e.noteOn.channel = event.note_on.channel;
                 e.noteOn.pitch = event.note_on.note_number;
                 e.noteOn.tuning = event.note_on.tuning;
@@ -98,10 +98,11 @@ Steinberg::tresult PLUGIN_API VST3EventList::getEvent(Steinberg::int32 index, St
                 e.noteOn.noteId = -1;
                 break;
             case MidiEventType::NoteOff:
-                e.noteOff.channel = event.note_on.channel;
-                e.noteOff.pitch = event.note_on.note_number;
-                e.noteOff.tuning = event.note_on.tuning;
-                e.noteOff.velocity = event.note_on.velocity;
+                e.type = Steinberg::Vst::Event::kNoteOffEvent;
+                e.noteOff.channel = event.note_off.channel;
+                e.noteOff.pitch = event.note_off.note_number;
+                e.noteOff.tuning = event.note_off.tuning;
+                e.noteOff.velocity = event.note_off.velocity;
                 e.noteOff.noteId = -1;
                 break;
             default:
@@ -112,11 +113,11 @@ Steinberg::tresult PLUGIN_API VST3EventList::getEvent(Steinberg::int32 index, St
     return Steinberg::kResultFalse;
 }
 
-Steinberg::tresult PLUGIN_API VST3EventList::addEvent(Steinberg::Vst::Event& e) {
+Steinberg::tresult PLUGIN_API VST3InputEventList::addEvent(Steinberg::Vst::Event& e) {
     return Steinberg::kResultOk;
 }
 
-Steinberg::tresult PLUGIN_API VST3EventList::queryInterface(const Steinberg::TUID iid, void** obj) {
+Steinberg::tresult PLUGIN_API VST3InputEventList::queryInterface(const Steinberg::TUID iid, void** obj) {
     if (Steinberg::FUnknownPrivate::iidEqual(iid, IEventList::iid) ||
         Steinberg::FUnknownPrivate::iidEqual(iid, FUnknown::iid)) {
         *obj = this;
@@ -391,18 +392,22 @@ PluginResult VST3PluginWrapper::process(PluginProcessInfo& process_info) {
         vst_buffer.silenceFlags = 0; //(1 << wb_buffer.n_channels) - 1;
     }
 
-    VST3EventList input_event_list(process_info.input_event_list);
-    Steinberg::Vst::ProcessContext process_ctx{};
+    Steinberg::Vst::ProcessContext process_ctx {};
 
     if (process_info.playing)
         process_ctx.state |= Steinberg::Vst::ProcessContext::kPlaying;
     process_ctx.state |= Steinberg::Vst::ProcessContext::kTempoValid;
     process_ctx.state |= Steinberg::Vst::ProcessContext::kProjectTimeMusicValid;
+    process_ctx.state |= Steinberg::Vst::ProcessContext::kTimeSigValid;
     process_ctx.sampleRate = process_info.sample_rate;
     process_ctx.tempo = process_info.tempo;
     process_ctx.projectTimeMusic = process_info.project_time_in_ppq;
     process_ctx.projectTimeSamples = process_info.project_time_in_samples;
-    //process_ctx.samplesToNextClock
+    process_ctx.timeSigNumerator = 4;
+    process_ctx.timeSigDenominator = 4;
+    // process_ctx.samplesToNextClock
+
+    input_events_.set_event_list(process_info.input_event_list);
 
     Steinberg::Vst::ProcessData process_data;
     process_data.processMode = current_process_mode_;
@@ -413,13 +418,12 @@ PluginResult VST3PluginWrapper::process(PluginProcessInfo& process_info) {
     process_data.inputs = input_bus_buffers_.data();
     process_data.outputs = output_bus_buffers_.data();
     process_data.inputParameterChanges = &input_param_changes_;
-    process_data.inputEvents = &input_event_list;
+    process_data.inputEvents = &input_events_;
     process_data.outputEvents = &output_events_;
     process_data.processContext = &process_ctx;
     VST3_WARN(processor_->process(process_data));
 
     input_param_changes_.clearQueue();
-    input_events_.clear();
 
     return PluginResult::Ok;
 }

@@ -810,7 +810,7 @@ void Track::transfer_plugin_param_changes() {
 PluginResult Track::plugin_begin_edit(void* userdata, PluginInterface* plugin, uint32_t param_id) {
     Track* track = (Track*)userdata;
     Log::debug("beginEdit called ({})", param_id);
-    return PluginResult::Unimplemented;
+    return PluginResult::Ok;
 }
 
 PluginResult Track::plugin_perform_edit(void* userdata, PluginInterface* plugin, uint32_t param_id,
@@ -828,7 +828,7 @@ PluginResult Track::plugin_perform_edit(void* userdata, PluginInterface* plugin,
 PluginResult Track::plugin_end_edit(void* userdata, PluginInterface* plugin, uint32_t param_id) {
     Track* track = (Track*)userdata;
     Log::debug("endEdit called ({})", param_id);
-    return PluginResult::Unimplemented;
+    return PluginResult::Ok;
 }
 
 } // namespace wb
