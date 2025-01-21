@@ -111,6 +111,8 @@ struct Track {
     void set_pan(float pan);
     void set_mute(bool mute);
 
+    inline bool has_clips() const { return !clips.empty(); }
+
     /**
      * @brief Allocate clip. The callee must construct Clip object itself.
      *

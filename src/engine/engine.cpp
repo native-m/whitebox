@@ -404,9 +404,8 @@ TrackEditResult Engine::add_to_cliplist(Track* track, Clip* clip) {
 
 TrackEditResult Engine::delete_region(Track* track, double min, double max) {
     auto query_result = track->query_clip_by_range(min, max);
-    if (!query_result) {
+    if (!query_result)
         return {};
-    }
     TrackEditResult result =
         g_engine.reserve_track_region(track, query_result->first, query_result->last, min, max, false, nullptr);
     track->update_clip_ordering();
