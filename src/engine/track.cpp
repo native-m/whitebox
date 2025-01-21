@@ -442,7 +442,7 @@ void Track::process_midi_event(Clip* clip, double start_time, double end_time, d
         double min_time = math::round((time_offset + note.min_time) * ppq) * inv_ppq;
         double max_time = math::round((time_offset + note.max_time) * ppq) * inv_ppq;
 
-        if (min_time > end_time)
+        if (min_time > end_time || min_time >= clip->max_time)
             break;
 
         while (auto voice = midi_voice_state.release_voice(min_time)) {
@@ -802,9 +802,9 @@ void Track::flush_deleted_clips(double time_pos) {
 }
 
 void Track::transfer_plugin_param_changes() {
-    PluginParamTransfer src;
-    while (ui_plugin_param_changes.pop(src))
-        src.plugin->transfer_param(src.param_id, src.normalized_value);
+    PluginParamTransfer tf;
+    while (ui_plugin_param_changes.pop(tf))
+        tf.plugin->transfer_param(tf.param_id, tf.normalized_value);
 }
 
 PluginResult Track::plugin_begin_edit(void* userdata, PluginInterface* plugin, uint32_t param_id) {
