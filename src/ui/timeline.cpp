@@ -719,7 +719,10 @@ void GuiTimeline::render_track_lanes() {
 
     // The timeline is actually just a very large button that cover almost
     // entire window.
-    ImGui::InvisibleButton("##timeline", ImVec2(timeline_width, std::max(timeline_area.y, area_size.y + vscroll)));
+    static constexpr uint32_t timeline_mouse_btn_flags =
+        ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_MouseButtonMiddle;
+    ImGui::InvisibleButton("##timeline", ImVec2(timeline_width, std::max(timeline_area.y, area_size.y + vscroll)),
+                           timeline_mouse_btn_flags);
 
     const double view_scale = calc_view_scale();
     const double inv_view_scale = 1.0 / view_scale;
@@ -868,7 +871,7 @@ void GuiTimeline::render_track_lanes() {
         }
     }
 
-    if (range_selected && timeline_clicked) {
+    if (range_selected && timeline_clicked && left_mouse_clicked) {
         range_selected = false;
         redraw = true;
     }

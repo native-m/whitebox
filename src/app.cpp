@@ -65,23 +65,6 @@ static void handle_plugin_events(SDL_Event& event) {
 static void handle_events(SDL_Event& event) {
     if (wm_process_plugin_window_event(&event))
         return;
-    /*if (event.type == SDL_WINDOWEVENT && event.window.windowID != main_window_id) {
-        if (auto plugin_window = get_plugin_window_from_id(event.window.windowID)) {
-            SDL_Window* window = plugin_window.value();
-            switch (event.type) {
-                case SDL_WINDOWEVENT: {
-                    VST3Host* plug_instance = static_cast<VST3Host*>(SDL_GetWindowData(window, "wb_vst3_instance"));
-                    if (event.window.event == SDL_WINDOWEVENT_CLOSE) {
-                        SDL_DestroyWindow(window);
-                        plug_instance->view = nullptr;
-                        plugin_windows.erase(event.window.windowID);
-                    }
-                    break;
-                }
-            }
-            return;
-        }
-    }*/
 
     switch (event.type) {
         case SDL_WINDOWEVENT: {
