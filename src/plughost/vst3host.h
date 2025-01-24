@@ -51,11 +51,9 @@ class VST3ParameterChanges : public Steinberg::Vst::IParameterChanges {
 
 class VST3InputEventList : public Steinberg::Vst::IEventList {
   public:
-    MidiEventList* event_list_ = nullptr;
+    MidiEventList* event_list = nullptr;
 
-    inline void set_event_list(MidiEventList* event_list) { event_list_ = event_list; }
-
-    Steinberg::int32 PLUGIN_API getEventCount() SMTG_OVERRIDE { return event_list_ ? event_list_->size() : 0; }
+    Steinberg::int32 PLUGIN_API getEventCount() SMTG_OVERRIDE { return event_list ? event_list->size() : 0; }
 
     Steinberg::tresult PLUGIN_API getEvent(Steinberg::int32 index, Steinberg::Vst::Event& e) SMTG_OVERRIDE;
 
@@ -129,6 +127,9 @@ struct VST3PluginWrapper : public PluginInterface,
     PluginResult detach_window() override;
     PluginResult render_ui() override { return PluginResult::Unimplemented; }
 
+    void disconnect_components_();
+
+    // Steinberg::Vst::IComponentHandler
     Steinberg::tresult PLUGIN_API beginEdit(Steinberg::Vst::ParamID id) override;
 
     Steinberg::tresult PLUGIN_API performEdit(Steinberg::Vst::ParamID id,
@@ -138,9 +139,8 @@ struct VST3PluginWrapper : public PluginInterface,
 
     Steinberg::tresult PLUGIN_API restartComponent(Steinberg::int32 flags) override;
 
+    // Steinberg::IPlugFrame
     Steinberg::tresult PLUGIN_API resizeView(Steinberg::IPlugView* view, Steinberg::ViewRect* rect) override;
-
-    void disconnect_components_();
 
     Steinberg::tresult PLUGIN_API queryInterface(const Steinberg::TUID iid, void** obj) override;
     // we do not care here of the ref-counting. A plug-in call of release should not destroy this

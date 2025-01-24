@@ -18,7 +18,7 @@ struct SDL_Window;
 namespace wb {
 using PluginUID = uint8_t[16];
 
-static constexpr uint32_t plugin_name_size = 256;
+static constexpr uint32_t plugin_name_size = 128;
 
 struct PluginInterface;
 
@@ -130,7 +130,6 @@ struct PluginInterface {
     virtual PluginResult shutdown() = 0;
 
     // Get counts
-    virtual const char* get_name() const = 0;
     virtual uint32_t get_param_count() const = 0;
     virtual uint32_t get_audio_bus_count(bool is_output) const = 0;
     virtual uint32_t get_event_bus_count(bool is_output) const = 0;
@@ -138,6 +137,7 @@ struct PluginInterface {
     virtual uint32_t get_tail_samples() const = 0;
 
     // Get plugin informations
+    virtual const char* get_name() const = 0;
     virtual PluginResult get_plugin_param_info(uint32_t index, PluginParamInfo* result) const = 0;
     virtual PluginResult get_audio_bus_info(bool is_output, uint32_t index, PluginAudioBusInfo* bus) const = 0;
     virtual PluginResult get_event_bus_info(bool is_output, uint32_t index, PluginEventBusInfo* bus) const = 0;

@@ -82,8 +82,8 @@ Steinberg::tresult VST3HostApplication::getName(Steinberg::Vst::String128 name) 
 //
 
 Steinberg::tresult PLUGIN_API VST3InputEventList::getEvent(Steinberg::int32 index, Steinberg::Vst::Event& e) {
-    if (index >= 0 || index < event_list_->size()) {
-        const auto& event = event_list_->events[index];
+    if (index >= 0 || index < event_list->size()) {
+        const auto& event = event_list->events[index];
         e.busIndex = event.bus_index;
         e.sampleOffset = event.buffer_offset;
         e.ppqPosition = event.time;
@@ -214,7 +214,7 @@ PluginResult VST3PluginWrapper::init() {
                 if (has_bit(param_info.flags, Steinberg::Vst::ParameterInfo::kIsHidden))
                     wb.flags |= PluginParamFlags::Hidden;
                 wb.default_normalized_value = param_info.defaultNormalizedValue;
-                std::wcstombs(wb.name, (const wchar_t*)param_info.title, sizeof(param_info.title));
+                std::wcstombs(wb.name, (const wchar_t*)param_info.title, sizeof(wb.name));
             }
             params.assign(module->param_cache.begin(), module->param_cache.end());
         }
@@ -266,10 +266,6 @@ PluginResult VST3PluginWrapper::shutdown() {
     return PluginResult::Ok;
 }
 
-const char* VST3PluginWrapper::get_name() const {
-    return name_.c_str();
-}
-
 uint32_t VST3PluginWrapper::get_param_count() const {
     return params.size;
 }
@@ -290,6 +286,10 @@ uint32_t VST3PluginWrapper::get_tail_samples() const {
     return processor_->getTailSamples();
 }
 
+const char* VST3PluginWrapper::get_name() const {
+    return name_.c_str();
+}
+
 PluginResult VST3PluginWrapper::get_plugin_param_info(uint32_t index, PluginParamInfo* result) const {
     if (index >= params.size)
         return PluginResult::Failed;
@@ -306,7 +306,7 @@ PluginResult VST3PluginWrapper::get_audio_bus_info(bool is_output, uint32_t inde
     bus->id = index;
     bus->channel_count = bus_info.channelCount;
     bus->default_bus = has_bit(bus_info.flags, Steinberg::Vst::BusInfo::kDefaultActive);
-    std::wcstombs(bus->name, (const wchar_t*)bus_info.name, sizeof(bus_info.name));
+    std::wcstombs(bus->name, (const wchar_t*)bus_info.name, sizeof(bus->name));
     return PluginResult::Ok;
 }
 
@@ -317,7 +317,7 @@ PluginResult VST3PluginWrapper::get_event_bus_info(bool is_output, uint32_t inde
         return PluginResult::Failed;
     size_t retval;
     bus->id = index;
-    std::wcstombs(bus->name, (const wchar_t*)bus_info.name, sizeof(bus_info.name));
+    std::wcstombs(bus->name, (const wchar_t*)bus_info.name, sizeof(bus->name));
     return PluginResult::Ok;
 }
 
@@ -407,7 +407,7 @@ PluginResult VST3PluginWrapper::process(PluginProcessInfo& process_info) {
     process_ctx.timeSigDenominator = 4;
     // process_ctx.samplesToNextClock
 
-    input_events_.set_event_list(process_info.input_event_list);
+    input_events_.event_list = process_info.input_event_list;
 
     Steinberg::Vst::ProcessData process_data;
     process_data.processMode = current_process_mode_;
@@ -523,7 +523,8 @@ Steinberg::tresult PLUGIN_API VST3PluginWrapper::resizeView(Steinberg::IPlugView
 }
 
 Steinberg::tresult PLUGIN_API VST3PluginWrapper::queryInterface(const Steinberg::TUID _iid, void** obj) {
-    if (Steinberg::FUnknownPrivate::iidEqual(_iid, IPlugFrame::iid) ||
+    if (Steinberg::FUnknownPrivate::iidEqual(_iid, IComponentHandler::iid) ||
+        Steinberg::FUnknownPrivate::iidEqual(_iid, IPlugFrame::iid) ||
         Steinberg::FUnknownPrivate::iidEqual(_iid, FUnknown::iid)) {
         *obj = this;
         addRef();
