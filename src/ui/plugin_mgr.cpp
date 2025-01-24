@@ -37,8 +37,10 @@ static uint32_t get_plugin_flag_type(uint32_t flag) {
 
 void GuiPluginManager::render() {
     ImGui::SetNextWindowSize(ImVec2(800.0f, 600.0f), ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("Plugin Manager", &g_plugin_mgr_window_open, ImGuiWindowFlags_NoDocking))
+    if (!ImGui::Begin("Plugin Manager", &g_plugin_mgr_window_open, ImGuiWindowFlags_NoDocking)) {
+        ImGui::End();
         return;
+    }
 
     bool force_refresh = false;
     bool rescan_plugins = false;
