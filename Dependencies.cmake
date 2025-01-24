@@ -185,6 +185,12 @@ CPMAddPackage(
     DOWNLOAD_ONLY       YES
 )
 
+if (UNIX AND NOT APPLE)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(LIBPULSE REQUIRED IMPORTED_TARGET libpulse)
+endif()
+
+# Here we define targets that are not using CMake
 if (imgui_ADDED)
     set(IMGUI_SRC_FILES
         "${imgui_SOURCE_DIR}/imgui.cpp"

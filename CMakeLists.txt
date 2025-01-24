@@ -218,8 +218,6 @@ set(WB_LINK_LIBRARIES
 if (WIN32)
     set(WB_LINK_LIBRARIES ${WB_LINK_LIBRARIES} imgui-d3d11 Avrt Dwmapi)
 elseif (UNIX AND NOT APPLE)
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(LIBPULSE REQUIRED IMPORTED_TARGET libpulse)
     set(WB_LINK_LIBRARIES ${WB_LINK_LIBRARIES} PkgConfig::LIBPULSE xcb X11 X11-xcb)
 endif ()
 
