@@ -199,30 +199,13 @@ void app_render() {
     ImGui_ImplSDL2_NewFrame();
     ImGui::NewFrame();
 
-    if (!g_file_drop.empty()) {
-        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceExtern)) {
-            ImGui::SetDragDropPayload("ExternalFileDrop", nullptr, 0, ImGuiCond_Once);
-            ImGui::EndDragDropSource();
-        }
-    }
-
-    bool is_playing = g_engine.is_playing();
-    if (!ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Space)) {
-        if (is_playing) {
-            g_engine.stop();
-            g_timeline.redraw_screen();
-        } else {
-            g_engine.play();
-        }
-    }
-
     static auto first_time = true;
     ImGuiViewport* main_viewport = ImGui::GetMainViewport();
     ImGuiID main_dockspace_id = ImGui::DockSpaceOverViewport(0, main_viewport, ImGuiDockNodeFlags_PassthruCentralNode);
-
     if (first_time) {
         ImGui::DockBuilderRemoveNode(main_dockspace_id);
         ImGui::DockBuilderAddNode(main_dockspace_id, ImGuiDockNodeFlags_PassthruCentralNode);
+        ImGui::DockBuilderSetNodePos(main_dockspace_id, main_viewport->WorkPos);
         ImGui::DockBuilderSetNodeSize(main_dockspace_id, main_viewport->WorkSize);
 
         auto dock_left =
@@ -244,10 +227,28 @@ void app_render() {
         first_time = false;
     }
 
+    if (!g_file_drop.empty()) {
+        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceExtern)) {
+            ImGui::SetDragDropPayload("ExternalFileDrop", nullptr, 0, ImGuiCond_Once);
+            ImGui::EndDragDropSource();
+        }
+    }
+
+    bool is_playing = g_engine.is_playing();
+    if (!ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Space)) {
+        if (is_playing) {
+            g_engine.stop();
+            g_timeline.redraw_screen();
+        } else {
+            g_engine.play();
+        }
+    }
+    
     g_engine.update_audio_visualization(GImGui->IO.Framerate);
     render_control_bar();
     render_windows();
 
+    ImGui::EndFrame();
     ImGui::Render();
     g_renderer->begin_draw(nullptr, {0.0f, 0.0f, 0.0f, 1.0f});
     g_renderer->render_imgui_draw_data(ImGui::GetDrawData());
