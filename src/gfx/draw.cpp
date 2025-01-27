@@ -109,7 +109,7 @@ void DrawCommandList::draw_polygon(const ImVec2* points, uint32_t count) {
     reset_fill_rect();
 }
 
-ImVec2 draw_simple_text(ImDrawList* draw_list, const char* text, ImVec2 pos, ImU32 text_color) {
+ImVec2 im_draw_simple_text(ImDrawList* draw_list, const char* text, ImVec2 pos, ImU32 text_color) {
     ImFont* font = ImGui::GetFont();
     float half_size = font->FontSize * 0.5f;
     float x = (float)(int)pos.x;
@@ -132,7 +132,7 @@ ImVec2 draw_simple_text(ImDrawList* draw_list, const char* text, ImVec2 pos, ImU
     return pos;
 }
 
-void draw_vertical_text(ImDrawList* draw_list, const char* text, ImVec2 pos, ImVec4 rect,
+void im_draw_vertical_text(ImDrawList* draw_list, const char* text, ImVec2 pos, ImVec4 rect,
                         ImU32 text_color) {
     pos.x = IM_ROUND(pos.x);
     pos.y = IM_ROUND(pos.y);
@@ -157,7 +157,7 @@ void draw_vertical_text(ImDrawList* draw_list, const char* text, ImVec2 pos, ImV
     }
 }
 
-void draw_line_segment(ImDrawList* draw_list, const ImVec2& p0, const ImVec2& p1, ImU32 col, float thickness) {
+void im_draw_line_segment(ImDrawList* draw_list, const ImVec2& p0, const ImVec2& p1, ImU32 col, float thickness) {
     const float tx = p1.x - p0.x;
     const float ty = p1.y - p0.y;
     const ImVec2 n(ty, -tx);
