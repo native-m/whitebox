@@ -16,6 +16,36 @@ GPURendererVK::GPURendererVK(VkInstance instance, VkPhysicalDevice physical_devi
 }
 
 bool GPURendererVK::init(SDL_Window* window) {
+    VmaVulkanFunctions vma_func {
+        .vkGetInstanceProcAddr = vkGetInstanceProcAddr,
+        .vkGetDeviceProcAddr = vkGetDeviceProcAddr,
+        .vkGetPhysicalDeviceProperties = vkGetPhysicalDeviceProperties,
+        .vkGetPhysicalDeviceMemoryProperties = vkGetPhysicalDeviceMemoryProperties,
+        .vkAllocateMemory = vkAllocateMemory,
+        .vkFreeMemory = vkFreeMemory,
+        .vkMapMemory = vkMapMemory,
+        .vkUnmapMemory = vkUnmapMemory,
+        .vkFlushMappedMemoryRanges = vkFlushMappedMemoryRanges,
+        .vkInvalidateMappedMemoryRanges = vkInvalidateMappedMemoryRanges,
+        .vkBindBufferMemory = vkBindBufferMemory,
+        .vkBindImageMemory = vkBindImageMemory,
+        .vkGetBufferMemoryRequirements = vkGetBufferMemoryRequirements,
+        .vkGetImageMemoryRequirements = vkGetImageMemoryRequirements,
+        .vkCreateBuffer = vkCreateBuffer,
+        .vkDestroyBuffer = vkDestroyBuffer,
+        .vkCreateImage = vkCreateImage,
+        .vkDestroyImage = vkDestroyImage,
+        .vkCmdCopyBuffer = vkCmdCopyBuffer,
+    };
+
+    VmaAllocatorCreateInfo allocator_info {
+        .physicalDevice = physical_device_,
+        .device = device_,
+        .pVulkanFunctions = &vma_func,
+        .instance = instance_,
+    };
+    VK_CHECK(vmaCreateAllocator(&allocator_info, &allocator_));
+
     VkAttachmentDescription att_desc {
         .format = VK_FORMAT_B8G8R8A8_UNORM,
         .samples = VK_SAMPLE_COUNT_1_BIT,

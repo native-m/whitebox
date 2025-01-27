@@ -34,6 +34,7 @@ struct GPURendererVK : public GPURenderer {
     VkDebugUtilsMessengerEXT debug_messenger_ {};
     VkPhysicalDevice physical_device_ {};
     VkDevice device_ {};
+    VmaAllocator allocator_ {};
 
     uint32_t graphics_queue_index_;
     uint32_t present_queue_index_;
