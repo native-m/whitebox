@@ -5,6 +5,13 @@
 #include "vk_stub.h"
 
 namespace wb {
+struct GPUViewportDataVK;
+
+struct GPUTextureAccessVK {
+    VkPipelineStageFlags stages;
+    VkAccessFlags mask;
+    VkImageLayout layout;
+};
 struct GPUBufferVK : public GPUBuffer {
     VmaAllocation allocation[WB_GPU_RENDER_BUFFER_SIZE];
 };

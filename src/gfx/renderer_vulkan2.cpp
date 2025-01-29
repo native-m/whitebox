@@ -5,6 +5,36 @@
 #include <SDL_syswm.h>
 
 namespace wb {
+
+static constexpr GPUTextureAccessVK get_texture_access(VkImageLayout layout) {
+    switch (layout) {
+        case VK_IMAGE_LAYOUT_UNDEFINED:
+            return {
+                .stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                .mask = 0,
+                .layout = VK_IMAGE_LAYOUT_UNDEFINED,
+            };
+        case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+            return {
+                .stages = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                .mask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            };
+        case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+            return {
+                .stages = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                .mask = VK_ACCESS_SHADER_READ_BIT,
+                .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            };
+        case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
+            return {
+                .stages = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                .mask = 0,
+                .layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+            };
+    }
+    return {};
+}
 VkDescriptorSet GPUDescriptorStreamVK::allocate_descriptor_set(VkDevice device, VkDescriptorSetLayout layout,
                                                                uint32_t num_storage_buffers,
                                                                uint32_t num_sampled_images) {
