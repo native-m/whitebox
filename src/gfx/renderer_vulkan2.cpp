@@ -39,7 +39,7 @@ static constexpr GPUTextureAccessVK get_texture_access(VkImageLayout layout) {
 VkResult GPUViewportDataVK::acquire(VkDevice device) {
     GPUTextureVK* rt = static_cast<GPUTextureVK*>(render_target);
     VkResult err =
-        vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, image_acquire_semaphore[sync_id], nullptr, &rt->image_id);
+        vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, image_acquire_semaphore[sync_id], nullptr, &rt->active_id);
     return err;
 }
 
@@ -401,9 +401,9 @@ void GPURendererVK::end_frame() {
     for (auto viewport : viewports) {
         GPUTextureVK* rt = static_cast<GPUTextureVK*>(viewport->render_target);
         uint32_t sync_id = viewport->sync_id;
-        uint32_t image_id = rt->image_id;
-        if (rt->layout[image_id] != VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
-            GPUTextureAccessVK src_access = get_texture_access(rt->layout[image_id]);
+        uint32_t image_id = rt->active_id;
+        if (auto layout = rt->layout[image_id]; layout != VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
+            GPUTextureAccessVK src_access = get_texture_access(layout);
             constexpr GPUTextureAccessVK dst_access = get_texture_access(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
             VkImageMemoryBarrier barrier {
                 .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -446,6 +446,10 @@ void GPURendererVK::end_frame() {
     vkResetFences(device_, 1, &fences_[frame_id]);
     vkQueueSubmit(graphics_queue_, 1, &submit, fences_[frame_id]);
 
+    while (auto resource = static_cast<GPUResource*>(active_resources_list_.pop_next_item())) {
+        resource->active_id = (resource->active_id + 1) % num_inflight_frames_;
+    }
+
     frame_id = (frame_id + 1) % num_inflight_frames_;
     frame_count_++;
     image_acquired_semaphore.resize(0);
@@ -457,7 +461,7 @@ void GPURendererVK::present() {
     for (auto viewport : viewports) {
         GPUTextureVK* rt = static_cast<GPUTextureVK*>(viewport->render_target);
         swapchain_present.push_back(viewport->swapchain);
-        sc_image_index_present.push_back(rt->image_id);
+        sc_image_index_present.push_back(rt->active_id);
     }
     swapchain_results.resize(viewports.size());
 
@@ -493,7 +497,7 @@ void GPURendererVK::unmap_buffer(GPUBuffer* buffer) {
 void GPURendererVK::begin_render(GPUTexture* render_target, const ImVec4& clear_color) {
     assert(!inside_render_pass);
     GPUTextureVK* rt = static_cast<GPUTextureVK*>(render_target);
-    uint32_t image_id = rt->image_id;
+    uint32_t image_id = rt->active_id;
 
     VkClearValue vk_clear_color {
         .color = {clear_color.x, clear_color.y, clear_color.z, clear_color.w},
@@ -534,9 +538,8 @@ void GPURendererVK::begin_render(GPUTexture* render_target, const ImVec4& clear_
 
     vkCmdBeginRenderPass(current_cb_, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
 
-    if (!render_target->is_connected_to_list()) {
+    if (!render_target->is_connected_to_list())
         active_resources_list_.push_item(render_target);
-    }
 
     inside_render_pass = true;
 }
@@ -567,18 +570,18 @@ void GPURendererVK::flush_state() {
         while (dirty_bits) {
             int slot = next_set_bits(dirty_bits);
             GPUTextureVK* tex = static_cast<GPUTextureVK*>(current_texture[slot]);
-            uint32_t image_id = tex->image_id;
+            uint32_t active_id = tex->active_id;
 
             descriptor[num_updates] = {
                 .sampler = common_sampler_,
-                .imageView = tex->view[image_id],
+                .imageView = tex->view[active_id],
                 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             };
 
             write_set[num_updates] = {
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                .dstSet = WB_VULKAN_IMAGE_DESCRIPTOR_SET_SLOT,
-                .dstBinding = 0,
+                .dstSet = VK_NULL_HANDLE,
+                .dstBinding = WB_VULKAN_IMAGE_DESCRIPTOR_SET_SLOT,
                 .dstArrayElement = 0,
                 .descriptorCount = 1,
                 .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -587,7 +590,7 @@ void GPURendererVK::flush_state() {
 
             num_updates++;
 
-            if (auto layout = tex->layout[image_id]; layout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+            if (auto layout = tex->layout[active_id]; layout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
                 GPUTextureAccessVK src_access = get_texture_access(layout);
                 constexpr GPUTextureAccessVK dst_access = get_texture_access(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
                 barriers[num_barriers] = {
@@ -598,7 +601,7 @@ void GPURendererVK::flush_state() {
                     .newLayout = dst_access.layout,
                     .srcQueueFamilyIndex = graphics_queue_index_,
                     .dstQueueFamilyIndex = graphics_queue_index_,
-                    .image = tex->image[image_id],
+                    .image = tex->image[active_id],
                     .subresourceRange =
                         {
                             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -626,14 +629,14 @@ void GPURendererVK::flush_state() {
     if (dirty_flags.vtx_buf) {
         GPUBufferVK* vtx_buf = static_cast<GPUBufferVK*>(current_vtx_buf);
         VkDeviceSize vtx_offset = 0;
-        vkCmdBindVertexBuffers(cb, 0, 1, &vtx_buf->buffer[vtx_buf->buffer_id], &vtx_offset);
+        vkCmdBindVertexBuffers(cb, 0, 1, &vtx_buf->buffer[vtx_buf->active_id], &vtx_offset);
         if (!vtx_buf->is_connected_to_list())
             active_resources_list_.push_item(vtx_buf);
     }
 
     if (dirty_flags.idx_buf) {
         GPUBufferVK* idx_buf = static_cast<GPUBufferVK*>(current_idx_buf);
-        vkCmdBindIndexBuffer(cb, idx_buf->buffer[idx_buf->buffer_id], 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindIndexBuffer(cb, idx_buf->buffer[idx_buf->active_id], 0, VK_INDEX_TYPE_UINT32);
         if (!idx_buf->is_connected_to_list())
             active_resources_list_.push_item(idx_buf);
     }
@@ -750,7 +753,7 @@ bool GPURendererVK::create_or_recreate_swapchain_(GPUViewportDataVK* vp_data) {
     }
 
     render_target->parent_viewport = vp_data;
-    render_target->image_id = 0;
+    render_target->active_id = 0;
     render_target->width = fb_info.width;
     render_target->height = fb_info.height;
     vp_data->surface = surface;
