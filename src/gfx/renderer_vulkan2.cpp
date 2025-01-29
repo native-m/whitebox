@@ -101,10 +101,10 @@ GPUDescriptorStreamChunkVK* GPUDescriptorStreamVK::create_chunk(VkDevice device,
         return {};
 
     VkDescriptorPoolSize pool_sizes[2];
-    pool_sizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    pool_sizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    pool_sizes[0].descriptorCount = max_descriptors;
+    pool_sizes[1].type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
     pool_sizes[1].descriptorCount = max_descriptors;
-    pool_sizes[2].type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-    pool_sizes[2].descriptorCount = max_descriptors;
 
     VkDescriptorPoolCreateInfo pool_info {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
@@ -641,7 +641,7 @@ void GPURendererVK::flush_state() {
     if (dirty_flags.scissor) {
         VkRect2D scissor {
             .offset = {sc_x, sc_y},
-            .extent = {sc_w, sc_h},
+            .extent = {(uint32_t)sc_w, (uint32_t)sc_h},
         };
         vkCmdSetScissor(cb, 0, 1, &scissor);
     }
