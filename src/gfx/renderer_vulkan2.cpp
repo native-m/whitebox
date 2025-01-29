@@ -5,6 +5,120 @@
 #include <SDL_syswm.h>
 
 namespace wb {
+VkDescriptorSet GPUDescriptorStreamVK::allocate_descriptor_set(VkDevice device, VkDescriptorSetLayout layout,
+                                                               uint32_t num_storage_buffers,
+                                                               uint32_t num_sampled_images) {
+    if (current_chunk == nullptr) {
+        // First use case
+        chunk_list[current_frame_id] = create_chunk(device, 64, 64);
+        assert(chunk_list[current_frame_id]);
+        current_chunk = chunk_list[current_frame_id];
+    } else {
+        // Create new or use next existing chunk if there is not enough storage to allocate new
+        // descriptor set
+        uint32_t free_storage_buffers = current_chunk->max_descriptors - current_chunk->num_storage_buffers;
+        uint32_t free_sampled_images = current_chunk->max_descriptors - current_chunk->num_sampled_images;
+        uint32_t free_descriptor_sets = current_chunk->max_descriptor_sets - current_chunk->num_descriptor_sets;
+
+        if (num_storage_buffers > free_storage_buffers || num_sampled_images > free_sampled_images ||
+            free_descriptor_sets == 0) {
+            if (current_chunk->next == nullptr) {
+                const uint32_t max_descriptor_sets =
+                    current_chunk->max_descriptor_sets + current_chunk->max_descriptor_sets / 2;
+                const uint32_t max_descriptors = current_chunk->max_descriptors + current_chunk->max_descriptors / 2;
+                GPUDescriptorStreamChunkVK* new_chunk = create_chunk(device, max_descriptor_sets, max_descriptors);
+                assert(new_chunk);
+                current_chunk->next = new_chunk;
+                current_chunk = new_chunk;
+            } else {
+                current_chunk = current_chunk->next;
+            }
+        }
+    }
+
+    VkDescriptorSetAllocateInfo alloc_info {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .descriptorPool = current_chunk->pool,
+        .descriptorSetCount = 1,
+        .pSetLayouts = &layout,
+    };
+
+    VkDescriptorSet descriptor_set;
+    VK_CHECK(vkAllocateDescriptorSets(device, &alloc_info, &descriptor_set));
+
+    current_chunk->num_storage_buffers += num_storage_buffers;
+    current_chunk->num_sampled_images += num_sampled_images;
+    current_chunk->num_descriptor_sets++;
+
+    return descriptor_set;
+}
+
+GPUDescriptorStreamChunkVK* GPUDescriptorStreamVK::create_chunk(VkDevice device, uint32_t max_descriptor_sets,
+                                                                uint32_t max_descriptors) {
+    GPUDescriptorStreamChunkVK* chunk = (GPUDescriptorStreamChunkVK*)std::malloc(sizeof(GPUDescriptorStreamChunkVK));
+
+    if (chunk == nullptr)
+        return {};
+
+    VkDescriptorPoolSize pool_sizes[2];
+    pool_sizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    pool_sizes[1].descriptorCount = max_descriptors;
+    pool_sizes[2].type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+    pool_sizes[2].descriptorCount = max_descriptors;
+
+    VkDescriptorPoolCreateInfo pool_info {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .maxSets = max_descriptor_sets,
+        .poolSizeCount = 2,
+        .pPoolSizes = pool_sizes,
+    };
+
+    VkDescriptorPool pool;
+    VK_CHECK(vkCreateDescriptorPool(device, &pool_info, nullptr, &pool));
+
+    chunk->pool = pool;
+    chunk->max_descriptors = max_descriptors;
+    chunk->num_uniform_buffers = 0;
+    chunk->num_storage_buffers = 0;
+    chunk->num_sampled_images = 0;
+    chunk->num_storage_images = 0;
+    chunk->max_descriptor_sets = max_descriptor_sets;
+    chunk->num_descriptor_sets = 0;
+    chunk->next = nullptr;
+
+    return chunk;
+}
+
+void GPUDescriptorStreamVK::reset(VkDevice device, uint32_t frame_id) {
+    current_frame_id = frame_id;
+
+    GPUDescriptorStreamChunkVK* chunk = chunk_list[current_frame_id];
+    while (chunk != nullptr) {
+        vkResetDescriptorPool(device, chunk->pool, 0);
+        chunk->num_uniform_buffers = 0;
+        chunk->num_storage_buffers = 0;
+        chunk->num_sampled_images = 0;
+        chunk->num_storage_images = 0;
+        chunk->num_descriptor_sets = 0;
+        chunk = chunk->next;
+    }
+
+    current_chunk = chunk_list[current_frame_id];
+}
+
+void GPUDescriptorStreamVK::destroy(VkDevice device) {
+    for (auto chunk : chunk_list) {
+        while (chunk) {
+            GPUDescriptorStreamChunkVK* chunk_to_destroy = chunk;
+            vkDestroyDescriptorPool(device, chunk->pool, nullptr);
+            chunk = chunk->next;
+            std::free(chunk_to_destroy);
+        }
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 GPURendererVK::GPURendererVK(VkInstance instance, VkPhysicalDevice physical_device, VkDevice device,
                              VkSurfaceKHR main_surface, uint32_t graphics_queue_index, uint32_t present_queue_index) :
     instance_(instance),

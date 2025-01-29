@@ -29,6 +29,30 @@ struct GPUViewportDataVK : public GPUViewportData {
     VkSurfaceKHR surface;
 };
 
+struct GPUDescriptorStreamChunkVK {
+    VkDescriptorPool pool;
+    uint32_t max_descriptors;
+    uint32_t num_uniform_buffers;
+    uint32_t num_storage_buffers;
+    uint32_t num_sampled_images;
+    uint32_t num_storage_images;
+    uint32_t max_descriptor_sets;
+    uint32_t num_descriptor_sets;
+    GPUDescriptorStreamChunkVK* next;
+};
+
+struct GPUDescriptorStreamVK {
+    GPUDescriptorStreamChunkVK* chunk_list[WB_GPU_RENDER_BUFFER_SIZE] {};
+    GPUDescriptorStreamChunkVK* current_chunk {};
+    uint32_t current_frame_id {};
+
+    VkDescriptorSet allocate_descriptor_set(VkDevice device, VkDescriptorSetLayout layout, uint32_t num_storage_buffers,
+                                            uint32_t num_sampled_images);
+    GPUDescriptorStreamChunkVK* create_chunk(VkDevice device, uint32_t max_descriptor_sets, uint32_t max_descriptors);
+    void reset(VkDevice device, uint32_t frame_id);
+    void destroy(VkDevice device);
+};
+
 struct GPURendererVK : public GPURenderer {
     VkInstance instance_ {};
     VkDebugUtilsMessengerEXT debug_messenger_ {};
@@ -43,6 +67,7 @@ struct GPURendererVK : public GPURenderer {
 
     VkSurfaceKHR main_surface_ {};
     VkRenderPass fb_render_pass_ {};
+    GPUDescriptorStreamVK descriptor_stream;
 
     Pool<GPUBufferVK> buffer_pool_ {};
     Pool<GPUTextureVK> texture_pool_ {};
