@@ -6,6 +6,7 @@
 #include "engine/engine.h"
 #include "engine/project.h"
 #include "gfx/renderer.h"
+#include "gfx/renderer2.h"
 #include "platform/platform.h"
 #include "plughost/plugin_manager.h"
 #include "ui/browser.h"
@@ -173,14 +174,15 @@ void app_init() {
 
     ImGuiIO& io = ImGui::GetIO();
     // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+    // io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     io.ConfigViewportsNoTaskBarIcon = false;
     io.IniFilename = ".whitebox/ui.ini";
 
     init_font_assets();
     apply_theme(ImGui::GetStyle());
-    init_renderer(wm_get_main_window());
+    init_renderer2(wm_get_main_window());
+    //init_renderer(wm_get_main_window());
 
     ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
     platform_io.Renderer_CreateWindow = imgui_renderer_create_window;
@@ -267,7 +269,9 @@ void app_run_loop() {
         SDL_Event event;
         while (SDL_PollEvent(&event))
             handle_events(event);
-        app_render();
+        g_renderer2->begin_frame();
+        g_renderer2->end_frame();
+        //app_render();
     }
 }
 
@@ -292,7 +296,7 @@ void app_shutdown() {
     g_engine.clear_all();
     g_sample_table.shutdown();
     g_midi_table.shutdown();
-    shutdown_renderer();
+    shutdown_renderer2();
     shutdown_plugin_manager();
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();

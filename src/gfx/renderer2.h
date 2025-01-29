@@ -1,12 +1,26 @@
 #pragma once
 
 #include "core/common.h"
+#include "core/list.h"
 #include <SDL_video.h>
 #include <imgui.h>
 
 #define WB_GPU_RENDER_BUFFER_SIZE 2
 
 namespace wb {
+
+enum class GPUFormat {
+    UnormR8G8B8A8,
+    UnormB8G8R8A8,
+    FloatR32B32,
+    FloatR32B32G32,
+};
+
+enum class GPUResourceType {
+    Texture,
+    StorageBuffer,
+    ReadOnlyStorageBuffer,
+};
 
 struct GPUBufferUsage {
     enum {
@@ -27,22 +41,47 @@ struct GPUTextureUsage {
 };
 using GPUTextureUsageFlags = uint32_t;
 
+struct GPUTextureResourceDesc {
+    uint32_t binding;
+};
+
+struct GPUStorageBufferResourceDesc {
+    uint32_t binding;
+    bool read_only;
+};
+
+struct GPUVertexAttribute {
+    const char* semantic_name;
+    uint32_t slot;
+    GPUFormat format;
+    uint32_t byte_offset;
+};
+
 struct GPUPipelineDesc {
     const void* vs;
     uint32_t vs_size;
     const void* fs;
     uint32_t fs_size;
+    uint32_t num_texture_resources;
+    uint32_t num_storage_buf_resources;
+    const GPUTextureResourceDesc* texture_resources;
+    const GPUTextureResourceDesc* storage_buf_resources;
+    uint32_t num_vertex_attributes;
+    const GPUVertexAttribute* vertex_attributes;
+    bool enable_blending;
+    bool enable_color_write;
 };
 
-struct GPUBuffer {
+struct GPUBuffer : public InplaceList<GPUBuffer> {
     GPUBufferUsageFlags usage;
-    void* impl[WB_GPU_RENDER_BUFFER_SIZE];
+    size_t size;
 };
 
-struct GPUTexture {
+struct GPUTexture : public InplaceList<GPUTexture> {
     GPUTextureUsageFlags usage;
-    void* impl[WB_GPU_RENDER_BUFFER_SIZE];
-    virtual ImTextureID as_imgui_texture_id() const = 0;
+    GPUFormat format;
+    uint32_t width;
+    uint32_t height;
 };
 
 struct GPUViewportData {
@@ -60,6 +99,7 @@ struct GPURenderer {
     union StateUpdateFlags {
         uint32_t u32;
         struct {
+            uint32_t texture : 4;
             uint32_t storage_buf : 4;
             uint32_t vtx_buf : 1;
             uint32_t idx_buf : 1;
@@ -71,7 +111,8 @@ struct GPURenderer {
         inline bool state_dirty() { return u32 != 0; }
     };
 
-    uint32_t current_frame_id = 0;
+    GPUViewportData* main_vp;
+    uint32_t frame_id = 0;
 
     void* cmd_private_data {};
     DrawFn draw_fn;
@@ -99,16 +140,17 @@ struct GPURenderer {
     virtual void destroy_pipeline(GPUPipeline* buffer) = 0;
     virtual void add_viewport(ImGuiViewport* viewport) = 0;
     virtual void remove_viewport(ImGuiViewport* viewport) = 0;
+    virtual void resize_viewport(ImGuiViewport* viewport, ImVec2 vec) = 0;
 
     virtual void begin_frame() = 0;
     virtual void end_frame() = 0;
+    virtual void present() = 0;
 
     virtual void* map_buffer(GPUBuffer* buffer) = 0;
     virtual void unmap_buffer(GPUBuffer* buffer) = 0;
 
     virtual void begin_render(GPUTexture* render_target, const ImVec4& clear_color) = 0;
     virtual void end_render() = 0;
-    virtual void set_pipeline(GPUPipeline* pipeline) = 0;
     virtual void set_shader_parameter(size_t size, const void* data) = 0;
     virtual void flush_state() = 0;
 
@@ -176,6 +218,9 @@ struct GPURenderer {
             flush_state();
         draw_indexed_fn(cmd_private_data, idx_count, 1, first_idx, vtx_offset, 0);
     }
+
+  protected:
+    void clear_state(); // Must be called in begin_frame() by the implementation!
 };
 
 extern GPURenderer* g_renderer2;

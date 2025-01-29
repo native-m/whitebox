@@ -1,8 +1,8 @@
 #include "renderer_vulkan2.h"
 #include "core/bit_manipulation.h"
 #include "core/debug.h"
-#include "core/vector.h"
 #include <SDL_syswm.h>
+#include <imgui_impl_sdl2.h>
 
 namespace wb {
 
@@ -35,6 +35,16 @@ static constexpr GPUTextureAccessVK get_texture_access(VkImageLayout layout) {
     }
     return {};
 }
+
+VkResult GPUViewportDataVK::acquire(VkDevice device) {
+    GPUTextureVK* rt = static_cast<GPUTextureVK*>(render_target);
+    VkResult err =
+        vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, image_acquire_semaphore[sync_id], nullptr, &rt->image_id);
+    return err;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 VkDescriptorSet GPUDescriptorStreamVK::allocate_descriptor_set(VkDevice device, VkDescriptorSetLayout layout,
                                                                uint32_t num_storage_buffers,
                                                                uint32_t num_sampled_images) {
@@ -157,6 +167,8 @@ GPURendererVK::GPURendererVK(VkInstance instance, VkPhysicalDevice physical_devi
     main_surface_(main_surface),
     graphics_queue_index_(graphics_queue_index),
     present_queue_index_(present_queue_index) {
+    vkGetDeviceQueue(device_, graphics_queue_index_, 0, &graphics_queue_);
+    vkGetDeviceQueue(device_, present_queue_index_, 0, &present_queue_);
 }
 
 bool GPURendererVK::init(SDL_Window* window) {
@@ -233,10 +245,78 @@ bool GPURendererVK::init(SDL_Window* window) {
     };
     VK_CHECK(vkCreateRenderPass(device_, &rp_info, nullptr, &fb_render_pass_));
 
-    return false;
+    VkSamplerCreateInfo sampler_info {
+        .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+        .magFilter = VK_FILTER_LINEAR,
+        .minFilter = VK_FILTER_LINEAR,
+        .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+        .addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        .addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        .addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        .maxAnisotropy = 1.0f,
+        .minLod = -1000,
+        .maxLod = 1000,
+    };
+    VK_CHECK(vkCreateSampler(device_, &sampler_info, nullptr, &common_sampler_));
+
+    VkCommandPoolCreateInfo pool_info {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .queueFamilyIndex = graphics_queue_index_,
+    };
+
+    VkCommandBufferAllocateInfo cmd_buf_info {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1,
+    };
+
+    VkFenceCreateInfo fence_info {};
+    fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+    for (uint32_t i = 0; i < num_inflight_frames_; i++) {
+        VK_CHECK(vkCreateCommandPool(device_, &pool_info, nullptr, &cmd_pool_[i]));
+        cmd_buf_info.commandPool = cmd_pool_[i];
+        VK_CHECK(vkAllocateCommandBuffers(device_, &cmd_buf_info, &cmd_buf_[i]));
+        VK_CHECK(vkCreateFence(device_, &fence_info, nullptr, &fences_[i]));
+    }
+
+    VK_CHECK(vkCreateCommandPool(device_, &pool_info, nullptr, &imm_cmd_pool_));
+    cmd_buf_info.commandPool = imm_cmd_pool_;
+    VK_CHECK(vkAllocateCommandBuffers(device_, &cmd_buf_info, &imm_cmd_buf_));
+
+    GPUViewportDataVK* main_viewport = new GPUViewportDataVK();
+    main_viewport->surface = main_surface_;
+    create_or_recreate_swapchain_(main_viewport);
+    viewports.push_back(main_viewport);
+    main_vp = main_viewport;
+
+    return true;
 }
 
 void GPURendererVK::shutdown() {
+    vkDeviceWaitIdle(device_);
+
+    for (uint32_t i = 0; i < num_inflight_frames_; i++) {
+        vkDestroyFence(device_, fences_[i], nullptr);
+        vkDestroyCommandPool(device_, cmd_pool_[i], nullptr);
+    }
+
+    for (auto viewport : viewports) {
+        if (viewport->viewport) {
+            viewport->viewport->RendererUserData = nullptr;
+            viewport->viewport = nullptr;
+        }
+        dispose_viewport_data_(viewport, viewport->surface);
+        delete viewport;
+    }
+
+    dispose_resources_(~0ull);
+
+    if (cmd_pool_)
+        vkDestroyCommandPool(device_, imm_cmd_pool_, nullptr);
+    if (common_sampler_)
+        vkDestroySampler(device_, common_sampler_, nullptr);
     if (fb_render_pass_)
         vkDestroyRenderPass(device_, fb_render_pass_, nullptr);
     if (main_surface_)
@@ -245,12 +325,6 @@ void GPURendererVK::shutdown() {
         vkDestroyDevice(device_, nullptr);
     if (instance_)
         vkDestroyInstance(instance_, nullptr);
-}
-
-void GPURendererVK::begin_frame() {
-}
-
-void GPURendererVK::end_frame() {
 }
 
 GPUBuffer* GPURendererVK::create_buffer(GPUBufferUsageFlags usage, size_t buffer_size, size_t init_size,
@@ -263,6 +337,9 @@ GPUTexture* GPURendererVK::create_texture(GPUTextureUsageFlags usage, uint32_t w
 }
 
 GPUPipeline* GPURendererVK::create_pipeline(const GPUPipelineDesc& desc) {
+    if (auto& set_layout = texture_set_layout[desc.num_texture_resources]; !set_layout) {
+        texture_set_layout[desc.num_texture_resources].emplace();
+    }
     return nullptr;
 }
 
@@ -281,6 +358,131 @@ void GPURendererVK::add_viewport(ImGuiViewport* viewport) {
 void GPURendererVK::remove_viewport(ImGuiViewport* viewport) {
 }
 
+void GPURendererVK::resize_viewport(ImGuiViewport* viewport, ImVec2 vec) {
+    if (GImGui->Viewports[0] == viewport) {
+        static_cast<GPUViewportDataVK*>(main_vp)->need_rebuild = true;
+        return;
+    }
+    GPUViewportDataVK* vp_data = static_cast<GPUViewportDataVK*>(viewport->RendererUserData);
+    vp_data->need_rebuild = true;
+}
+
+void GPURendererVK::begin_frame() {
+    VkCommandBufferBeginInfo begin_info {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+    };
+
+    vkWaitForFences(device_, 1, &fences_[frame_id], VK_TRUE, UINT64_MAX);
+
+    for (auto viewport : added_viewports)
+        viewports.push_back(viewport);
+
+    bool been_waiting = false;
+    for (auto viewport : viewports) {
+        if (viewport->need_rebuild) {
+            if (!been_waiting)
+                vkQueueWaitIdle(present_queue_);
+            create_or_recreate_swapchain_(viewport);
+        }
+        viewport->acquire(device_);
+    }
+
+    dispose_resources_(frame_count_);
+    vkResetCommandPool(device_, cmd_pool_[frame_id], 0);
+    vkBeginCommandBuffer(cmd_buf_[frame_id], &begin_info);
+    current_cb_ = cmd_buf_[frame_id];
+    cmd_private_data = current_cb_;
+    clear_state();
+}
+
+void GPURendererVK::end_frame() {
+    // NOTE(native-m): use arena allocator to allocate temporary data
+    for (auto viewport : viewports) {
+        GPUTextureVK* rt = static_cast<GPUTextureVK*>(viewport->render_target);
+        uint32_t sync_id = viewport->sync_id;
+        uint32_t image_id = rt->image_id;
+        if (rt->layout[image_id] != VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
+            GPUTextureAccessVK src_access = get_texture_access(rt->layout[image_id]);
+            constexpr GPUTextureAccessVK dst_access = get_texture_access(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+            VkImageMemoryBarrier barrier {
+                .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                .srcAccessMask = src_access.mask,
+                .dstAccessMask = dst_access.mask,
+                .oldLayout = src_access.layout,
+                .newLayout = dst_access.layout,
+                .srcQueueFamilyIndex = graphics_queue_index_,
+                .dstQueueFamilyIndex = graphics_queue_index_,
+                .image = rt->image[image_id],
+                .subresourceRange =
+                    {
+                        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                        .baseMipLevel = 0,
+                        .levelCount = 1,
+                        .baseArrayLayer = 0,
+                        .layerCount = 1,
+                    },
+            };
+            vkCmdPipelineBarrier(current_cb_, src_access.stages, dst_access.stages, 0, 0, nullptr, 0, nullptr, 1,
+                                 &barrier);
+        }
+        image_acquired_semaphore.push_back(viewport->image_acquire_semaphore[viewport->sync_id]);
+        swapchain_image_wait_stage.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+        viewport->sync_id = (sync_id + 1) % viewport->num_sync;
+    }
+
+    vkEndCommandBuffer(current_cb_);
+
+    VkSubmitInfo submit {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .waitSemaphoreCount = (uint32_t)image_acquired_semaphore.size(),
+        .pWaitSemaphores = image_acquired_semaphore.data(),
+        .pWaitDstStageMask = swapchain_image_wait_stage.data(),
+        .commandBufferCount = 1,
+        .pCommandBuffers = &current_cb_,
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores = &render_finished_semaphore_[frame_id],
+    };
+    vkResetFences(device_, 1, &fences_[frame_id]);
+    vkQueueSubmit(graphics_queue_, 1, &submit, fences_[frame_id]);
+
+    frame_id = (frame_id + 1) % num_inflight_frames_;
+    frame_count_++;
+    image_acquired_semaphore.resize(0);
+    swapchain_image_wait_stage.resize(0);
+}
+
+void GPURendererVK::present() {
+    // NOTE(native-m): use arena allocator to allocate temporary data
+    for (auto viewport : viewports) {
+        GPUTextureVK* rt = static_cast<GPUTextureVK*>(viewport->render_target);
+        swapchain_present.push_back(viewport->swapchain);
+        sc_image_index_present.push_back(rt->image_id);
+    }
+    swapchain_results.resize(viewports.size());
+
+    VkPresentInfoKHR present_info {
+        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &render_finished_semaphore_[frame_id],
+        .swapchainCount = (uint32_t)swapchain_present.size(),
+        .pSwapchains = swapchain_present.data(),
+        .pImageIndices = sc_image_index_present.data(),
+        .pResults = swapchain_results.data(),
+    };
+    vkQueuePresentKHR(graphics_queue_, &present_info);
+
+    for (uint32_t i = 0; i < (uint32_t)viewports.size(); i++) {
+        VkResult result = swapchain_results[i];
+        if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
+            viewports[i]->need_rebuild = true;
+    }
+
+    swapchain_present.resize(0);
+    swapchain_results.resize(0);
+    sc_image_index_present.resize(0);
+}
+
 void* GPURendererVK::map_buffer(GPUBuffer* buffer) {
     return nullptr;
 }
@@ -289,18 +491,372 @@ void GPURendererVK::unmap_buffer(GPUBuffer* buffer) {
 }
 
 void GPURendererVK::begin_render(GPUTexture* render_target, const ImVec4& clear_color) {
+    assert(!inside_render_pass);
+    GPUTextureVK* rt = static_cast<GPUTextureVK*>(render_target);
+    uint32_t image_id = rt->image_id;
+
+    VkClearValue vk_clear_color {
+        .color = {clear_color.x, clear_color.y, clear_color.z, clear_color.w},
+    };
+
+    VkRenderPassBeginInfo rp_begin {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+        .renderPass = fb_render_pass_,
+        .framebuffer = rt->fb[image_id],
+        .renderArea = {0, 0, rt->width, rt->height},
+        .clearValueCount = 1,
+        .pClearValues = &vk_clear_color,
+    };
+
+    if (rt->layout[image_id] != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+        GPUTextureAccessVK src_access = get_texture_access(rt->layout[image_id]);
+        constexpr GPUTextureAccessVK dst_access = get_texture_access(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        VkImageMemoryBarrier barrier {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            .srcAccessMask = src_access.mask,
+            .dstAccessMask = dst_access.mask,
+            .oldLayout = src_access.layout,
+            .newLayout = dst_access.layout,
+            .srcQueueFamilyIndex = graphics_queue_index_,
+            .dstQueueFamilyIndex = graphics_queue_index_,
+            .image = rt->image[image_id],
+            .subresourceRange =
+                {
+                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .baseMipLevel = 0,
+                    .levelCount = 1,
+                    .baseArrayLayer = 0,
+                    .layerCount = 1,
+                },
+        };
+        vkCmdPipelineBarrier(current_cb_, src_access.stages, dst_access.stages, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+    }
+
+    vkCmdBeginRenderPass(current_cb_, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
+
+    if (!render_target->is_connected_to_list()) {
+        tracked_texture_.push_item(render_target);
+    }
+
+    inside_render_pass = true;
 }
 
 void GPURendererVK::end_render() {
-}
-
-void GPURendererVK::set_pipeline(GPUPipeline* pipeline) {
+    vkCmdEndRenderPass(current_cb_);
+    inside_render_pass = false;
 }
 
 void GPURendererVK::set_shader_parameter(size_t size, const void* data) {
 }
 
 void GPURendererVK::flush_state() {
+    VkCommandBuffer cb = current_cb_;
+
+    if (dirty_flags.pipeline) {
+        GPUPipelineVK* pipeline = static_cast<GPUPipelineVK*>(current_pipeline);
+        vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
+    }
+
+    if (uint32_t dirty_bits = dirty_flags.texture) {
+        VkDescriptorImageInfo descriptor[4];
+        VkWriteDescriptorSet write_set[4];
+        VkImageMemoryBarrier barriers[4];
+        uint32_t num_updates = 0;
+        uint32_t num_barriers = 0;
+
+        while (dirty_bits) {
+            int slot = next_set_bits(dirty_bits);
+            GPUTextureVK* tex = static_cast<GPUTextureVK*>(current_texture[slot]);
+            uint32_t image_id = tex->image_id;
+
+            descriptor[num_updates] = {
+                .sampler = common_sampler_,
+                .imageView = tex->view[image_id],
+                .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            };
+
+            write_set[num_updates] = {
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .dstSet = WB_VULKAN_IMAGE_DESCRIPTOR_SET_SLOT,
+                .dstBinding = 0,
+                .dstArrayElement = 0,
+                .descriptorCount = 1,
+                .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                .pImageInfo = &descriptor[num_updates],
+            };
+
+            num_updates++;
+
+            if (auto layout = tex->layout[image_id]; layout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+                GPUTextureAccessVK src_access = get_texture_access(layout);
+                constexpr GPUTextureAccessVK dst_access = get_texture_access(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+                barriers[num_barriers] = {
+                    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                    .srcAccessMask = src_access.mask,
+                    .dstAccessMask = dst_access.mask,
+                    .oldLayout = src_access.layout,
+                    .newLayout = dst_access.layout,
+                    .srcQueueFamilyIndex = graphics_queue_index_,
+                    .dstQueueFamilyIndex = graphics_queue_index_,
+                    .image = tex->image[image_id],
+                    .subresourceRange =
+                        {
+                            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                            .baseMipLevel = 0,
+                            .levelCount = 1,
+                            .baseArrayLayer = 0,
+                            .layerCount = 1,
+                        },
+                };
+                num_barriers++;
+            }
+        }
+
+        if (num_updates > 0) {
+            // descriptor_stream.allocate_descriptor_set(device_, )
+        }
+    }
+
+    if (uint32_t dirty_bits = dirty_flags.storage_buf) {
+        while (dirty_bits) {
+            int slot = next_set_bits(dirty_bits);
+        }
+    }
+
+    if (dirty_flags.vtx_buf) {
+        GPUBufferVK* vtx_buf = static_cast<GPUBufferVK*>(current_vtx_buf);
+        VkDeviceSize vtx_offset = 0;
+        vkCmdBindVertexBuffers(cb, 0, 1, &vtx_buf->buffer[vtx_buf->buffer_id], &vtx_offset);
+        if (!vtx_buf->is_connected_to_list())
+            tracked_buffer_.push_item(vtx_buf);
+    }
+
+    if (dirty_flags.idx_buf) {
+        GPUBufferVK* idx_buf = static_cast<GPUBufferVK*>(current_idx_buf);
+        vkCmdBindIndexBuffer(cb, idx_buf->buffer[idx_buf->buffer_id], 0, VK_INDEX_TYPE_UINT32);
+        if (!idx_buf->is_connected_to_list())
+            tracked_buffer_.push_item(idx_buf);
+    }
+
+    if (dirty_flags.scissor) {
+        VkRect2D scissor {
+            .offset = {sc_x, sc_y},
+            .extent = {sc_w, sc_h},
+        };
+        vkCmdSetScissor(cb, 0, 1, &scissor);
+    }
+
+    if (dirty_flags.vp) {
+        VkViewport viewport {
+            .x = vp_x,
+            .y = vp_y,
+            .width = vp_w,
+            .height = vp_h,
+            .minDepth = 0.0f,
+            .maxDepth = 1.0f,
+        };
+        vkCmdSetViewport(cb, 0, 1, &viewport);
+    }
+
+    dirty_flags.u32 = 0;
+}
+
+bool GPURendererVK::create_or_recreate_swapchain_(GPUViewportDataVK* vp_data) {
+    VkSurfaceKHR surface = vp_data->surface;
+    VkBool32 surface_supported;
+    vkGetPhysicalDeviceSurfaceSupportKHR(physical_device_, graphics_queue_index_, surface, &surface_supported);
+
+    VkSurfaceCapabilitiesKHR surface_caps;
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device_, surface, &surface_caps);
+
+    if (surface_caps.minImageCount > 2) {
+        return false;
+    }
+
+    if (!has_bit(surface_caps.supportedUsageFlags, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)) {
+        return false;
+    }
+
+    VkPresentModeKHR present_modes[6] {};
+    uint32_t present_mode_count = 6;
+    vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device_, surface, &present_mode_count, present_modes);
+
+    VkSwapchainCreateInfoKHR swapchain_info {
+        .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+        .surface = surface,
+        .minImageCount = WB_GPU_RENDER_BUFFER_SIZE,
+        .imageFormat = VK_FORMAT_B8G8R8A8_UNORM,
+        .imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
+        .imageExtent = surface_caps.currentExtent,
+        .imageArrayLayers = 1,
+        .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+        .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
+        .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+        .presentMode = VK_PRESENT_MODE_FIFO_KHR,
+        .clipped = VK_FALSE,
+        .oldSwapchain = vp_data->swapchain,
+    };
+
+    VkSwapchainKHR vk_swapchain = vp_data->swapchain;
+    if (vk_swapchain != VK_NULL_HANDLE)
+        dispose_viewport_data_(vp_data, nullptr);
+
+    VkResult result = vkCreateSwapchainKHR(device_, &swapchain_info, nullptr, &vk_swapchain);
+    if (VK_FAILED(result))
+        return false;
+
+    VkFramebufferCreateInfo fb_info {
+        .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+        .renderPass = fb_render_pass_,
+        .attachmentCount = 1,
+        .width = surface_caps.currentExtent.width,
+        .height = surface_caps.currentExtent.height,
+        .layers = 1,
+    };
+
+    VkImageViewCreateInfo view_info {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .format = swapchain_info.imageFormat,
+        .subresourceRange =
+            {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+    };
+
+    VkSemaphoreCreateInfo semaphore {
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+    };
+
+    VkDebugUtilsObjectNameInfoEXT debug_info {
+        .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+        .objectType = VK_OBJECT_TYPE_IMAGE,
+    };
+
+    GPUTextureVK* render_target;
+    if (vp_data->render_target == nullptr) {
+        void* rt_mem = texture_pool_.allocate();
+        GPUTextureVK* texture = new (rt_mem) GPUTextureVK();
+        texture->window_framebuffer = true;
+        texture->num_buffers = num_inflight_frames_;
+        vp_data->render_target = render_target = texture;
+    } else {
+        render_target = static_cast<GPUTextureVK*>(vp_data->render_target);
+    }
+
+    render_target->parent_viewport = vp_data;
+    render_target->image_id = 0;
+    render_target->width = fb_info.width;
+    render_target->height = fb_info.height;
+    vp_data->surface = surface;
+    vp_data->swapchain = vk_swapchain;
+    vp_data->num_sync = num_inflight_frames_;
+    vp_data->sync_id = 0;
+
+    uint32_t swapchain_image_count;
+    vkGetSwapchainImagesKHR(device_, vk_swapchain, &swapchain_image_count, nullptr);
+    vkGetSwapchainImagesKHR(device_, vk_swapchain, &swapchain_image_count, render_target->image);
+
+    for (uint32_t i = 0; i < num_inflight_frames_; i++) {
+        VK_CHECK(vkCreateSemaphore(device_, &semaphore, nullptr, &vp_data->image_acquire_semaphore[i]));
+        VK_CHECK(vkCreateImageView(device_, &view_info, nullptr, &render_target->view[i]));
+        fb_info.pAttachments = &render_target->view[i];
+        VK_CHECK(vkCreateFramebuffer(device_, &fb_info, nullptr, &render_target->fb[i]));
+    }
+
+    return true;
+}
+
+void GPURendererVK::dispose_buffer_(GPUBufferVK* buffer) {
+    std::scoped_lock lock(mtx_);
+    for (uint32_t i = 0; i < buffer->num_buffers; i++) {
+        GPUResourceDisposeItemVK& buf = resource_disposal_.emplace_back();
+        buf.type = GPUResourceDisposeItemVK::Buffer;
+        buf.frame_stamp = frame_count_;
+        buf.buffer = {
+            .buffer = (VkBuffer)buffer->buffer[i],
+            .allocation = buffer->allocation[i],
+        };
+    }
+}
+
+void GPURendererVK::dispose_texture_(GPUTextureVK* texture) {
+    std::scoped_lock lock(mtx_);
+    for (uint32_t i = 0; i < texture->num_buffers; i++) {
+        GPUResourceDisposeItemVK& tex = resource_disposal_.emplace_back();
+        tex.type = GPUResourceDisposeItemVK::Texture;
+        tex.frame_stamp = frame_count_;
+        tex.texture = {
+            .image = texture->image[i],
+            .view = texture->view[i],
+            .fb = texture->fb[i],
+            .allocation = texture->allocation[i],
+        };
+    }
+}
+
+void GPURendererVK::dispose_viewport_data_(GPUViewportDataVK* vp_data, VkSurfaceKHR surface) {
+    std::scoped_lock lock(mtx_);
+    GPUTextureVK* vk_texture = static_cast<GPUTextureVK*>(vp_data->render_target);
+    for (uint32_t i = 0; i < vk_texture->num_buffers; i++) {
+        GPUResourceDisposeItemVK& tex = resource_disposal_.emplace_back();
+        tex.type = GPUResourceDisposeItemVK::Texture;
+        tex.frame_stamp = frame_count_;
+        tex.texture = {
+            .view = vk_texture->view[i],
+            .fb = vk_texture->fb[i],
+        };
+    }
+    for (uint32_t i = 0; i < vp_data->num_sync; i++) {
+        GPUResourceDisposeItemVK& sync = resource_disposal_.emplace_back();
+        sync.type = GPUResourceDisposeItemVK::SyncObject;
+        sync.frame_stamp = frame_count_;
+        sync.sync_obj.semaphore = vp_data->image_acquire_semaphore[i];
+    }
+    GPUResourceDisposeItemVK& swapchain = resource_disposal_.emplace_back();
+    swapchain.type = GPUResourceDisposeItemVK::Swapchain;
+    swapchain.frame_stamp = frame_count_;
+    swapchain.swapchain = {
+        .swapchain = vp_data->swapchain,
+        .surface = vp_data->surface,
+    };
+}
+
+void GPURendererVK::dispose_resources_(uint64_t frame_count) {
+    std::scoped_lock lock(mtx_);
+    while (!resource_disposal_.empty()) {
+        auto& item = resource_disposal_.front();
+        if (item.frame_stamp + num_inflight_frames_ < frame_count) {
+            switch (item.type) {
+                case GPUResourceDisposeItemVK::Buffer:
+                    vmaDestroyBuffer(allocator_, item.buffer.buffer, item.buffer.allocation);
+                    break;
+                case GPUResourceDisposeItemVK::Texture:
+                    if (item.texture.fb)
+                        vkDestroyFramebuffer(device_, item.texture.fb, nullptr);
+                    vkDestroyImageView(device_, item.texture.view, nullptr);
+                    if (item.texture.image && item.texture.allocation)
+                        vmaDestroyImage(allocator_, item.texture.image, item.texture.allocation);
+                    break;
+                case GPUResourceDisposeItemVK::Swapchain:
+                    vkDestroySwapchainKHR(device_, item.swapchain.swapchain, nullptr);
+                    if (item.swapchain.surface)
+                        vkDestroySurfaceKHR(instance_, item.swapchain.surface, nullptr);
+                    break;
+                case GPUResourceDisposeItemVK::SyncObject:
+                    vkDestroySemaphore(device_, item.sync_obj.semaphore, nullptr);
+                    break;
+            }
+            resource_disposal_.pop_front();
+        } else {
+            break;
+        }
+    }
 }
 
 GPURenderer* GPURendererVK::create(SDL_Window* window) {
