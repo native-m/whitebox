@@ -304,6 +304,12 @@ void GPURendererVK::flush_state() {
 }
 
 GPURenderer* GPURendererVK::create(SDL_Window* window) {
+    if (!window)
+        return nullptr;
+
+    if (!ImGui_ImplSDL2_InitForOther(window))
+        return nullptr;
+
     if (VK_FAILED(volkInitialize()))
         return nullptr;
 
@@ -417,6 +423,7 @@ GPURenderer* GPURendererVK::create(SDL_Window* window) {
         return nullptr;
     }
 #elif defined(WB_PLATFORM_LINUX)
+#ifdef VK_USE_PLATFORM_XLIB_KHR
     Display* display = wm_info.info.x11.display;
 
     VkXlibSurfaceCreateInfoKHR surface_info {
@@ -430,6 +437,19 @@ GPURenderer* GPURendererVK::create(SDL_Window* window) {
         vkDestroyInstance(instance, nullptr);
         return nullptr;
     }
+#else
+    VkXcbSurfaceCreateInfoKHR surface_info {
+        .sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
+        .connection = XGetXCBConnection(wm_info.info.x11.display),
+        .window = static_cast<xcb_window_t>(wm_info.info.x11.window),
+    };
+
+    if (VK_FAILED(vkCreateXcbSurfaceKHR(instance, &surface_info, nullptr, &surface))) {
+        Log::error("Failed to create window surface");
+        vkb::destroy_instance(instance);
+        return nullptr;
+    }
+#endif
 #endif
 
     Vector<VkQueueFamilyProperties> queue_families;
@@ -438,6 +458,7 @@ GPURenderer* GPURendererVK::create(SDL_Window* window) {
     queue_families.resize(queue_family_count);
     vkGetPhysicalDeviceQueueFamilyProperties(selected_physical_device, &queue_family_count, queue_families.data());
 
+    // Find graphics queue and presentation queue
     uint32_t graphics_queue_index = (uint32_t)-1;
     uint32_t present_queue_index = (uint32_t)-1;
     for (uint32_t i = 0; const auto& queue_family : queue_families) {
@@ -458,6 +479,8 @@ GPURenderer* GPURendererVK::create(SDL_Window* window) {
         vkDestroyInstance(instance, nullptr);
         return nullptr;
     }
+
+    assert(graphics_queue_index == present_queue_index && "Separate presentation queue is not supported at the moment");
 
     const float queue_priority = 1.0f;
     VkDeviceQueueCreateInfo queue_info {
@@ -486,6 +509,8 @@ GPURenderer* GPURendererVK::create(SDL_Window* window) {
         vkDestroyInstance(instance, nullptr);
         return nullptr;
     }
+
+    volkLoadDevice(device);
 
     GPURendererVK* renderer = new (std::nothrow)
         GPURendererVK(instance, selected_physical_device, device, surface, graphics_queue_index, present_queue_index);
