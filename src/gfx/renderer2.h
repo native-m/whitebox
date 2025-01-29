@@ -72,12 +72,16 @@ struct GPUPipelineDesc {
     bool enable_color_write;
 };
 
-struct GPUBuffer : public InplaceList<GPUBuffer> {
+struct GPUResource : public InplaceList<GPUResource> {
+    uint32_t active_id = 0;
+};
+
+struct GPUBuffer : public GPUResource {
     GPUBufferUsageFlags usage;
     size_t size;
 };
 
-struct GPUTexture : public InplaceList<GPUTexture> {
+struct GPUTexture : public GPUResource {
     GPUTextureUsageFlags usage;
     GPUFormat format;
     uint32_t width;

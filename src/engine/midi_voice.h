@@ -28,7 +28,6 @@ struct MidiVoiceState {
     MidiVoice* release_voice(double time_range);
     void release_all();
     inline bool has_voice() const { return used_voices != 0; }
-    void add_voice(MidiVoice&& voice);
 };
 
 } // namespace wb

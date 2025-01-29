@@ -150,8 +150,7 @@ struct GPURendererVK : public GPURenderer {
     uint32_t sync_id_ = 0;
     uint64_t frame_count_ = 0;
     uint32_t num_inflight_frames_ = WB_GPU_RENDER_BUFFER_SIZE;
-    InplaceList<GPUBuffer> tracked_buffer_;
-    InplaceList<GPUTexture> tracked_texture_;
+    InplaceList<GPUResource> active_resources_list_;
 
     VkCommandPool imm_cmd_pool_ {};
     VkCommandBuffer imm_cmd_buf_ {};

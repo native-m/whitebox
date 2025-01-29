@@ -53,9 +53,4 @@ void MidiVoiceState::release_all() {
     }
 }
 
-void MidiVoiceState::add_voice(MidiVoice&& voice) {
-    int free_voice = std::countr_one(~voice_mask) - 1; // find free voice
-    voices[free_voice] = std::move(voice);
-    voice_mask |= 1ull << free_voice;
-}
 } // namespace wb

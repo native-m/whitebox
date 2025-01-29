@@ -20,7 +20,7 @@ static void imgui_renderer_swap_buffers(ImGuiViewport* viewport, void* userdata)
 }
 
 void GPURenderer::clear_state() {
-    pipeline = {};
+    current_pipeline = {};
     current_vtx_buf = {};
     current_idx_buf = {};
     std::memset(current_storage_buf, 0, sizeof(current_storage_buf));

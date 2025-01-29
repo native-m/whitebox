@@ -535,7 +535,7 @@ void GPURendererVK::begin_render(GPUTexture* render_target, const ImVec4& clear_
     vkCmdBeginRenderPass(current_cb_, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
 
     if (!render_target->is_connected_to_list()) {
-        tracked_texture_.push_item(render_target);
+        active_resources_list_.push_item(render_target);
     }
 
     inside_render_pass = true;
@@ -628,14 +628,14 @@ void GPURendererVK::flush_state() {
         VkDeviceSize vtx_offset = 0;
         vkCmdBindVertexBuffers(cb, 0, 1, &vtx_buf->buffer[vtx_buf->buffer_id], &vtx_offset);
         if (!vtx_buf->is_connected_to_list())
-            tracked_buffer_.push_item(vtx_buf);
+            active_resources_list_.push_item(vtx_buf);
     }
 
     if (dirty_flags.idx_buf) {
         GPUBufferVK* idx_buf = static_cast<GPUBufferVK*>(current_idx_buf);
         vkCmdBindIndexBuffer(cb, idx_buf->buffer[idx_buf->buffer_id], 0, VK_INDEX_TYPE_UINT32);
         if (!idx_buf->is_connected_to_list())
-            tracked_buffer_.push_item(idx_buf);
+            active_resources_list_.push_item(idx_buf);
     }
 
     if (dirty_flags.scissor) {
