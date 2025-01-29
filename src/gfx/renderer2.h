@@ -77,18 +77,18 @@ struct GPURenderer {
     DrawFn draw_fn;
     DrawIndexedFn draw_indexed_fn;
 
-    GPUPipeline* pipeline;
-    void* current_vtx_buf;
-    void* current_idx_buf;
-    void* current_storage_buf[4];
+    GPUPipeline* current_pipeline;
+    GPUBuffer* current_vtx_buf;
+    GPUBuffer* current_idx_buf;
+    GPUBuffer* current_storage_buf[4];
+    GPUTexture* current_texture[4];
     int32_t sc_x, sc_y, sc_w, sc_h;
     float vp_x, vp_y, vp_w, vp_h;
     StateUpdateFlags dirty_flags {};
+    bool inside_render_pass = false;
 
     virtual bool init(SDL_Window* window) = 0;
     virtual void shutdown() = 0;
-    virtual void begin_frame() = 0;
-    virtual void end_frame() = 0;
 
     virtual GPUBuffer* create_buffer(GPUBufferUsageFlags usage, size_t buffer_size, size_t init_size,
                                      void* init_data) = 0;
@@ -100,6 +100,9 @@ struct GPURenderer {
     virtual void add_viewport(ImGuiViewport* viewport) = 0;
     virtual void remove_viewport(ImGuiViewport* viewport) = 0;
 
+    virtual void begin_frame() = 0;
+    virtual void end_frame() = 0;
+
     virtual void* map_buffer(GPUBuffer* buffer) = 0;
     virtual void unmap_buffer(GPUBuffer* buffer) = 0;
 
@@ -109,24 +112,39 @@ struct GPURenderer {
     virtual void set_shader_parameter(size_t size, const void* data) = 0;
     virtual void flush_state() = 0;
 
+    void bind_pipeline(GPUPipeline* pipeline) {
+        if (pipeline != current_pipeline) {
+            current_pipeline = pipeline;
+            dirty_flags.pipeline = 1;
+        }
+    }
+
+    void bind_texture(uint32_t index, GPUTexture* tex) {
+        assert(index < 4 && "Index out of range");
+        if (tex != current_texture[index]) {
+            current_texture[index] = tex;
+            dirty_flags.texture |= 1 << index;
+        }
+    }
+
     void bind_storage_buffer(uint32_t index, GPUBuffer* buf) {
         assert(index < 4 && "Index out of range");
-        if (buf->impl[current_frame_id] != current_storage_buf[index]) {
-            current_storage_buf[index] = buf->impl[current_frame_id];
+        if (buf != current_storage_buf[index]) {
+            current_storage_buf[index] = buf;
             dirty_flags.vtx_buf |= 1 << index;
         }
     }
 
     void bind_vertex_buffer(GPUBuffer* vtx_buf) {
-        if (vtx_buf->impl[current_frame_id] != vtx_buf) {
-            current_vtx_buf = vtx_buf->impl[current_frame_id];
+        if (vtx_buf != vtx_buf) {
+            current_vtx_buf = vtx_buf;
             dirty_flags.vtx_buf = 1;
         }
     }
 
     void bind_index_buffer(GPUBuffer* idx_buf) {
-        if (idx_buf->impl[current_frame_id] != idx_buf) {
-            current_idx_buf = idx_buf->impl[current_frame_id];
+        if (idx_buf != idx_buf) {
+            current_idx_buf = idx_buf;
             dirty_flags.idx_buf = 1;
         }
     }
