@@ -357,7 +357,7 @@ static bool knob(const KnobProperties& props, const char* str_id, const ImVec2& 
         dl->AddCircleFilled(center, body_radius, body_color);
     }
     if (props.pointer_color != 0) {
-        draw_line_segment(dl, center + ImVec2(dir_x * min_radius, dir_y * min_radius),
+        im_draw_line_segment(dl, center + ImVec2(dir_x * min_radius, dir_y * min_radius),
                           center + ImVec2(dir_x * max_radius, dir_y * max_radius), props.pointer_color,
                           props.pointer_thickness);
     }

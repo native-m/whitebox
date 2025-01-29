@@ -10,6 +10,8 @@ void init_renderer2(SDL_Window* window) {
         Log::error("Failed to create renderer");
 }
 void shutdown_renderer2() {
-    delete g_renderer;
+    delete g_renderer2;
 }
+
+GPURenderer* g_renderer2;
 } // namespace wb
