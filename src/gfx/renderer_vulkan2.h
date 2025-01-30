@@ -23,6 +23,7 @@ struct GPUTextureAccessVK {
 struct GPUBufferVK : public GPUBuffer {
     VkBuffer buffer[WB_GPU_RENDER_BUFFER_SIZE];
     VmaAllocation allocation[WB_GPU_RENDER_BUFFER_SIZE];
+    void* persistent_map_ptr[WB_GPU_RENDER_BUFFER_SIZE];
     uint32_t num_buffers {};
 };
 
@@ -39,6 +40,7 @@ struct GPUTextureVK : public GPUTexture {
 
 struct GPUPipelineVK : public GPUPipeline {
     VkPipeline pipeline;
+    VkPipelineLayout layout;
 };
 
 struct GPUViewportDataVK : public GPUViewportData {
@@ -66,6 +68,11 @@ struct GPUTextureDisposalVK {
     VmaAllocation allocation;
 };
 
+struct GPUPipelineDisposalVK {
+    VkPipeline pipeline;
+    VkPipelineLayout layout;
+};
+
 struct GPUSwapchainDisposalVK {
     VkSwapchainKHR swapchain;
     VkSurfaceKHR surface;
@@ -79,6 +86,7 @@ struct GPUResourceDisposeItemVK {
     enum {
         Buffer,
         Texture,
+        Pipeline,
         Swapchain,
         SyncObject,
     };
@@ -89,6 +97,7 @@ struct GPUResourceDisposeItemVK {
     union {
         GPUBufferDisposalVK buffer;
         GPUTextureDisposalVK texture;
+        GPUPipelineDisposalVK pipeline;
         GPUSwapchainDisposalVK swapchain;
         GPUSyncObjectDisposalVK sync_obj;
     };
@@ -138,8 +147,8 @@ struct GPURendererVK : public GPURenderer {
     Vector<GPUViewportDataVK*> added_viewports;
 
     GPUDescriptorStreamVK descriptor_stream;
-    std::optional<VkDescriptorSetLayout> texture_set_layout[4] {};
-    std::optional<VkDescriptorSetLayout> storage_buffer_set_layout[4] {};
+    VkDescriptorSetLayout texture_set_layout_ = VK_NULL_HANDLE;
+    VkDescriptorSetLayout storage_buffer_set_layout_ = VK_NULL_HANDLE;
     VkFence fences_[WB_GPU_RENDER_BUFFER_SIZE] {};
     VkSemaphore render_finished_semaphore_[WB_GPU_RENDER_BUFFER_SIZE] {};
     VkSemaphore current_render_finished_semaphore_ {};
@@ -156,6 +165,7 @@ struct GPURendererVK : public GPURenderer {
 
     Pool<GPUBufferVK> buffer_pool_ {};
     Pool<GPUTextureVK> texture_pool_ {};
+    Pool<GPUPipelineVK> pipeline_pool_ {};
     std::mutex mtx_;
     std::deque<GPUResourceDisposeItemVK> resource_disposal_;
 
@@ -172,8 +182,10 @@ struct GPURendererVK : public GPURenderer {
     bool init(SDL_Window* window) override;
     void shutdown() override;
 
-    GPUBuffer* create_buffer(GPUBufferUsageFlags usage, size_t buffer_size, size_t init_size, void* init_data) override;
-    GPUTexture* create_texture(GPUTextureUsageFlags usage, uint32_t w, uint32_t h, size_t init_size) override;
+    GPUBuffer* create_buffer(GPUBufferUsageFlags usage, size_t buffer_size, size_t init_size,
+                             const void* init_data) override;
+    GPUTexture* create_texture(GPUTextureUsageFlags usage, GPUFormat format, uint32_t w, uint32_t h, size_t init_size,
+                               const void* init_data) override;
     GPUPipeline* create_pipeline(const GPUPipelineDesc& desc) override;
     void destroy_buffer(GPUBuffer* buffer) override;
     void destroy_texture(GPUTexture* buffer) override;
@@ -197,6 +209,7 @@ struct GPURendererVK : public GPURenderer {
     bool create_or_recreate_swapchain_(GPUViewportDataVK* vp_data);
     void dispose_buffer_(GPUBufferVK* buffer);
     void dispose_texture_(GPUTextureVK* texture);
+    void dispose_pipeline_(GPUPipelineVK* pipeline);
     void dispose_viewport_data_(GPUViewportDataVK* vp_data, VkSurfaceKHR surface);
     void dispose_resources_(uint64_t frame_count);
 

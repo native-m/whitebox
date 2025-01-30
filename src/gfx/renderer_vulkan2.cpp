@@ -1,10 +1,41 @@
 #include "renderer_vulkan2.h"
 #include "core/bit_manipulation.h"
 #include "core/debug.h"
+#include "core/defer.h"
 #include <SDL_syswm.h>
 #include <imgui_impl_sdl2.h>
 
 namespace wb {
+
+static VkFormat get_vk_format(GPUFormat format) {
+    switch (format) {
+        case GPUFormat::UnormR8G8B8A8:
+            return VK_FORMAT_R8G8B8A8_UNORM;
+        case GPUFormat::UnormB8G8R8A8:
+            return VK_FORMAT_B8G8R8A8_UNORM;
+        case GPUFormat::FloatR32G32:
+            return VK_FORMAT_R32G32_SFLOAT;
+        case GPUFormat::FloatR32G32B32:
+            return VK_FORMAT_R32G32B32_SFLOAT;
+        default:
+            WB_UNREACHABLE();
+    }
+}
+
+static VkPrimitiveTopology get_vk_primitive_topology(GPUPrimitiveTopology topology) {
+    switch (topology) {
+        case GPUPrimitiveTopology::TriangleList:
+            return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        case GPUPrimitiveTopology::TriangleStrip:
+            return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+        case GPUPrimitiveTopology::LineList:
+            return VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+        case GPUPrimitiveTopology::LineStrip:
+            return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
+        default:
+            WB_UNREACHABLE();
+    }
+}
 
 static constexpr GPUTextureAccessVK get_texture_access(VkImageLayout layout) {
     switch (layout) {
@@ -169,6 +200,8 @@ GPURendererVK::GPURendererVK(VkInstance instance, VkPhysicalDevice physical_devi
     present_queue_index_(present_queue_index) {
     vkGetDeviceQueue(device_, graphics_queue_index_, 0, &graphics_queue_);
     vkGetDeviceQueue(device_, present_queue_index_, 0, &present_queue_);
+    draw_fn = (DrawFn)vkCmdDraw;
+    draw_indexed_fn = (DrawIndexedFn)vkCmdDrawIndexed;
 }
 
 bool GPURendererVK::init(SDL_Window* window) {
@@ -270,20 +303,49 @@ bool GPURendererVK::init(SDL_Window* window) {
         .commandBufferCount = 1,
     };
 
-    VkFenceCreateInfo fence_info {};
-    fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+    VkFenceCreateInfo fence_info {
+        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+        .flags = VK_FENCE_CREATE_SIGNALED_BIT,
+    };
+
+    VkSemaphoreCreateInfo semaphore_info {
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+    };
 
     for (uint32_t i = 0; i < num_inflight_frames_; i++) {
         VK_CHECK(vkCreateCommandPool(device_, &pool_info, nullptr, &cmd_pool_[i]));
         cmd_buf_info.commandPool = cmd_pool_[i];
         VK_CHECK(vkAllocateCommandBuffers(device_, &cmd_buf_info, &cmd_buf_[i]));
         VK_CHECK(vkCreateFence(device_, &fence_info, nullptr, &fences_[i]));
+        VK_CHECK(vkCreateSemaphore(device_, &semaphore_info, nullptr, &render_finished_semaphore_[i]));
     }
 
     VK_CHECK(vkCreateCommandPool(device_, &pool_info, nullptr, &imm_cmd_pool_));
     cmd_buf_info.commandPool = imm_cmd_pool_;
     VK_CHECK(vkAllocateCommandBuffers(device_, &cmd_buf_info, &imm_cmd_buf_));
+
+    VkDescriptorSetLayoutBinding bindings[4];
+    for (uint32_t i = 0; auto& binding : bindings) {
+        binding = {
+            .binding = i++,
+            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+        };
+    }
+
+    VkDescriptorSetLayoutCreateInfo layout_info {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .bindingCount = 4,
+        .pBindings = bindings,
+    };
+
+    VK_CHECK(vkCreateDescriptorSetLayout(device_, &layout_info, nullptr, &texture_set_layout_));
+
+    for (auto& binding : bindings)
+        binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+
+    VK_CHECK(vkCreateDescriptorSetLayout(device_, &layout_info, nullptr, &storage_buffer_set_layout_));
 
     GPUViewportDataVK* main_viewport = new GPUViewportDataVK();
     main_viewport->surface = main_surface_;
@@ -291,13 +353,15 @@ bool GPURendererVK::init(SDL_Window* window) {
     viewports.push_back(main_viewport);
     main_vp = main_viewport;
 
-    return true;
+    return GPURenderer::init(window);
 }
 
 void GPURendererVK::shutdown() {
+    GPURenderer::shutdown();
     vkDeviceWaitIdle(device_);
 
     for (uint32_t i = 0; i < num_inflight_frames_; i++) {
+        vkDestroySemaphore(device_, render_finished_semaphore_[i], nullptr);
         vkDestroyFence(device_, fences_[i], nullptr);
         vkDestroyCommandPool(device_, cmd_pool_[i], nullptr);
     }
@@ -308,19 +372,24 @@ void GPURendererVK::shutdown() {
             viewport->viewport = nullptr;
         }
         dispose_viewport_data_(viewport, viewport->surface);
+        texture_pool_.destroy(static_cast<GPUTextureVK*>(viewport->render_target));
         delete viewport;
     }
 
     dispose_resources_(~0ull);
 
+    if (allocator_)
+        vmaDestroyAllocator(allocator_);
+    if (texture_set_layout_)
+        vkDestroyDescriptorSetLayout(device_, texture_set_layout_, nullptr);
+    if (storage_buffer_set_layout_)
+        vkDestroyDescriptorSetLayout(device_, storage_buffer_set_layout_, nullptr);
     if (cmd_pool_)
         vkDestroyCommandPool(device_, imm_cmd_pool_, nullptr);
     if (common_sampler_)
         vkDestroySampler(device_, common_sampler_, nullptr);
     if (fb_render_pass_)
         vkDestroyRenderPass(device_, fb_render_pass_, nullptr);
-    if (main_surface_)
-        vkDestroySurfaceKHR(instance_, main_surface_, nullptr);
     if (device_)
         vkDestroyDevice(device_, nullptr);
     if (instance_)
@@ -328,28 +397,335 @@ void GPURendererVK::shutdown() {
 }
 
 GPUBuffer* GPURendererVK::create_buffer(GPUBufferUsageFlags usage, size_t buffer_size, size_t init_size,
-                                        void* init_data) {
-    return nullptr;
+                                        const void* init_data) {
+    void* buffer_ptr = buffer_pool_.allocate();
+    if (!buffer_ptr)
+        return nullptr;
+
+    bool cpu_access = false;
+    VkBufferUsageFlags vk_usage = 0;
+    if (contain_bit(usage, GPUBufferUsage::Vertex))
+        vk_usage |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    if (contain_bit(usage, GPUBufferUsage::Index))
+        vk_usage |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+    if (contain_bit(usage, GPUBufferUsage::Storage))
+        vk_usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    if (contain_bit(usage, GPUBufferUsage::CPUAccessible))
+        cpu_access = true;
+
+    GPUBufferVK* new_buffer = new (buffer_ptr) GPUBufferVK();
+    VkBufferCreateInfo buffer_info {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = buffer_size,
+        .usage = vk_usage,
+    };
+
+    VmaAllocationCreateInfo allocation_info {
+        .usage = VMA_MEMORY_USAGE_UNKNOWN,
+    };
+
+    if (cpu_access) {
+        allocation_info.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+        allocation_info.preferredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+        if (contain_bit(usage, GPUBufferUsage::Writeable))
+            allocation_info.flags |=
+                VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+    } else {
+        allocation_info.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+        allocation_info.preferredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    }
+
+    VmaAllocationInfo alloc_result;
+    if (contain_bit(usage, GPUBufferUsage::Writeable)) {
+        for (uint32_t i = 0; i < num_inflight_frames_; i++) {
+            VkResult result = vmaCreateBuffer(allocator_, &buffer_info, &allocation_info, &new_buffer->buffer[i],
+                                              &new_buffer->allocation[i], &alloc_result);
+            if (!VK_FAILED(result)) {
+                for (uint32_t j = 0; j < i; j++)
+                    vmaDestroyBuffer(allocator_, new_buffer->buffer[i], new_buffer->allocation[i]);
+                buffer_pool_.destroy(new_buffer);
+                return nullptr;
+            }
+            new_buffer->persistent_map_ptr[i] = alloc_result.pMappedData;
+            if (cpu_access && init_data && init_size)
+                std::memcpy(alloc_result.pMappedData, init_data, init_size);
+        }
+    } else {
+        VkBuffer buffer;
+        VmaAllocation allocation;
+        VkResult result = vmaCreateBuffer(allocator_, &buffer_info, &allocation_info, &buffer, &allocation, nullptr);
+        if (!VK_FAILED(result)) {
+            buffer_pool_.destroy(new_buffer);
+            return nullptr;
+        }
+
+        if (cpu_access && init_data && init_size) {
+            void* mapped_ptr;
+            vmaMapMemory(allocator_, allocation, &mapped_ptr);
+            std::memcpy(mapped_ptr, init_data, init_size);
+            vmaUnmapMemory(allocator_, allocation);
+        }
+
+        for (uint32_t i = 0; i < num_inflight_frames_; i++) {
+            new_buffer->buffer[i] = buffer;
+            new_buffer->allocation[i] = allocation;
+        }
+    }
+
+    return new_buffer;
 }
 
-GPUTexture* GPURendererVK::create_texture(GPUTextureUsageFlags usage, uint32_t w, uint32_t h, size_t init_size) {
-    return nullptr;
+GPUTexture* GPURendererVK::create_texture(GPUTextureUsageFlags usage, GPUFormat format, uint32_t w, uint32_t h,
+                                          size_t init_size, const void* init_data) {
+    void* texture_ptr = texture_pool_.allocate();
+    if (!texture_ptr)
+        return nullptr;
+
+    VkImageUsageFlags vk_usage = 0;
+    if (contain_bit(usage, GPUTextureUsage::RenderTarget))
+        vk_usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    if (contain_bit(usage, GPUTextureUsage::Sampled))
+        vk_usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+
+    GPUTextureVK* new_texture = new (texture_ptr) GPUTextureVK();
+    VkImageCreateInfo image_info {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .imageType = VK_IMAGE_TYPE_2D,
+        .format = get_vk_format(format),
+        .extent = {w, h, 1u},
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
+        .usage = vk_usage,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    };
+
+    VmaAllocationCreateInfo allocation_info {
+        .usage = VMA_MEMORY_USAGE_UNKNOWN,
+        .requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        .preferredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+    };
+
+    if (contain_bit(usage, GPUTextureUsage::RenderTarget)) {
+        for (uint32_t i = 0; i < num_inflight_frames_; i++) {
+            VkResult result = vmaCreateImage(allocator_, &image_info, &allocation_info, &new_texture->image[i],
+                                             &new_texture->allocation[i], nullptr);
+            if (!VK_FAILED(result)) {
+                for (uint32_t j = 0; j < i; j++)
+                    vmaDestroyImage(allocator_, new_texture->image[i], new_texture->allocation[i]);
+                texture_pool_.destroy(new_texture);
+                return nullptr;
+            }
+        }
+    } else {
+        VkImage image;
+        VmaAllocation allocation;
+        VkResult result = vmaCreateImage(allocator_, &image_info, &allocation_info, &image, &allocation, nullptr);
+
+        if (!VK_FAILED(result)) {
+            texture_pool_.destroy(new_texture);
+            return nullptr;
+        }
+
+        for (uint32_t i = 0; i < num_inflight_frames_; i++) {
+            new_texture->image[i] = image;
+            new_texture->allocation[i] = allocation;
+        }
+    }
+
+    return new_texture;
 }
 
 GPUPipeline* GPURendererVK::create_pipeline(const GPUPipelineDesc& desc) {
-    if (auto& set_layout = texture_set_layout[desc.num_texture_resources]; !set_layout) {
-        texture_set_layout[desc.num_texture_resources].emplace();
+    VkShaderModule vs_module;
+    VkShaderModule fs_module;
+
+    VkShaderModuleCreateInfo shader_module_info {};
+    shader_module_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    shader_module_info.codeSize = desc.vs_size;
+    shader_module_info.pCode = (const uint32_t*)desc.vs;
+    if (VK_FAILED(vkCreateShaderModule(device_, &shader_module_info, nullptr, &vs_module)))
+        return nullptr;
+    defer(vkDestroyShaderModule(device_, vs_module, nullptr));
+
+    shader_module_info.codeSize = desc.fs_size;
+    shader_module_info.pCode = (const uint32_t*)desc.fs;
+    if (VK_FAILED(vkCreateShaderModule(device_, &shader_module_info, nullptr, &fs_module)))
+        return nullptr;
+    defer(vkDestroyShaderModule(device_, fs_module, nullptr));
+
+    VkDescriptorSetLayout set_layouts[2] {texture_set_layout_, storage_buffer_set_layout_};
+    VkPushConstantRange push_constant_range {
+        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+        .offset = 0,
+        .size = desc.shader_parameter_size,
+    };
+
+    VkPipelineLayout pipeline_layout;
+    VkPipelineLayoutCreateInfo pipeline_layout_info {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .setLayoutCount = 2,
+        .pSetLayouts = set_layouts,
+        .pushConstantRangeCount = 1,
+        .pPushConstantRanges = &push_constant_range,
+    };
+    if (VK_FAILED(vkCreatePipelineLayout(device_, &pipeline_layout_info, nullptr, &pipeline_layout)))
+        return nullptr;
+
+    VkPipelineShaderStageCreateInfo stages[2] {
+        {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .stage = VK_SHADER_STAGE_VERTEX_BIT,
+            .module = vs_module,
+            .pName = "main",
+        },
+        {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+            .module = fs_module,
+            .pName = "main",
+        },
+    };
+
+    VkVertexInputBindingDescription vtx_binding {
+        .binding = 0,
+        .stride = desc.vertex_stride,
+        .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
+    };
+
+    VkVertexInputAttributeDescription vtx_attrs[8];
+    for (uint32_t i = 0; i < desc.num_vertex_attributes; i++) {
+        VkVertexInputAttributeDescription& vtx_attr = vtx_attrs[i];
+        const GPUVertexAttribute& attribute = desc.vertex_attributes[i];
+        vtx_attr.location = attribute.slot;
+        vtx_attr.binding = 0;
+        vtx_attr.format = get_vk_format(attribute.format);
+        vtx_attr.offset = attribute.offset;
     }
-    return nullptr;
+
+    VkPipelineVertexInputStateCreateInfo vertex_input {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+        .vertexBindingDescriptionCount = 1,
+        .pVertexBindingDescriptions = &vtx_binding,
+        .vertexAttributeDescriptionCount = desc.num_vertex_attributes,
+        .pVertexAttributeDescriptions = vtx_attrs,
+    };
+
+    VkPipelineInputAssemblyStateCreateInfo input_assembly {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+        .topology = get_vk_primitive_topology(desc.primitive_topology),
+    };
+
+    VkPipelineViewportStateCreateInfo viewport_state {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        .viewportCount = 1,
+        .scissorCount = 1,
+    };
+
+    VkPipelineRasterizationStateCreateInfo raster_state {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+        .depthClampEnable = VK_FALSE,
+        .rasterizerDiscardEnable = VK_FALSE,
+        .polygonMode = VK_POLYGON_MODE_FILL,
+        .cullMode = VK_CULL_MODE_NONE,
+        .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+        .lineWidth = 1.0f,
+    };
+
+    VkPipelineMultisampleStateCreateInfo multisample {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+    };
+
+    VkPipelineColorBlendAttachmentState color_attachment {
+        .blendEnable = desc.enable_blending,
+        .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
+        .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+        .colorBlendOp = VK_BLEND_OP_ADD,
+        .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+        .dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+        .alphaBlendOp = VK_BLEND_OP_ADD,
+        .colorWriteMask =
+            VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+    };
+
+    if (!desc.enable_color_write)
+        color_attachment.colorWriteMask = 0;
+
+    VkPipelineColorBlendStateCreateInfo blend {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+        .attachmentCount = 1,
+        .pAttachments = &color_attachment,
+    };
+
+    static const VkDynamicState dynamic_states[] = {
+        VK_DYNAMIC_STATE_VIEWPORT,
+        VK_DYNAMIC_STATE_SCISSOR,
+        VK_DYNAMIC_STATE_BLEND_CONSTANTS,
+        VK_DYNAMIC_STATE_STENCIL_REFERENCE,
+    };
+
+    VkPipelineDynamicStateCreateInfo dynamic_state {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+        .dynamicStateCount = IM_ARRAYSIZE(dynamic_states),
+        .pDynamicStates = dynamic_states,
+    };
+
+    VkGraphicsPipelineCreateInfo pipeline_info;
+    pipeline_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    pipeline_info.pNext = nullptr;
+    pipeline_info.flags = 0;
+    pipeline_info.stageCount = 2;
+    pipeline_info.pStages = stages;
+    pipeline_info.pVertexInputState = &vertex_input;
+    pipeline_info.pInputAssemblyState = &input_assembly;
+    pipeline_info.pTessellationState = nullptr;
+    pipeline_info.pViewportState = &viewport_state;
+    pipeline_info.pRasterizationState = &raster_state;
+    pipeline_info.pMultisampleState = &multisample;
+    pipeline_info.pDepthStencilState = nullptr;
+    pipeline_info.pColorBlendState = &blend;
+    pipeline_info.pDynamicState = &dynamic_state;
+    pipeline_info.layout = pipeline_layout;
+    pipeline_info.renderPass = fb_render_pass_;
+    pipeline_info.subpass = 0;
+    pipeline_info.basePipelineHandle = nullptr;
+    pipeline_info.basePipelineIndex = 0;
+
+    VkPipeline pipeline;
+    if (VK_FAILED(vkCreateGraphicsPipelines(device_, nullptr, 1, &pipeline_info, nullptr, &pipeline)))
+        return nullptr;
+
+    GPUPipelineVK* new_pipeline = (GPUPipelineVK*)pipeline_pool_.allocate();
+    if (!new_pipeline)
+        return nullptr;
+
+    new_pipeline->layout = pipeline_layout;
+    new_pipeline->pipeline = pipeline;
+
+    return new_pipeline;
 }
 
 void GPURendererVK::destroy_buffer(GPUBuffer* buffer) {
+    dispose_buffer_(static_cast<GPUBufferVK*>(buffer));
+    if (buffer->is_connected_to_list())
+        buffer->remove_from_list();
+    buffer->~GPUBuffer();
+    buffer_pool_.free(buffer);
 }
 
-void GPURendererVK::destroy_texture(GPUTexture* buffer) {
+void GPURendererVK::destroy_texture(GPUTexture* texture) {
+    dispose_texture_(static_cast<GPUTextureVK*>(texture));
+    if (texture->is_connected_to_list())
+        texture->remove_from_list();
+    texture->~GPUTexture();
+    texture_pool_.free(texture);
 }
 
-void GPURendererVK::destroy_pipeline(GPUPipeline* buffer) {
+void GPURendererVK::destroy_pipeline(GPUPipeline* pipeline) {
+    dispose_pipeline_(static_cast<GPUPipelineVK*>(pipeline));
+    pipeline_pool_.free(pipeline);
 }
 
 void GPURendererVK::add_viewport(ImGuiViewport* viewport) {
@@ -394,6 +770,7 @@ void GPURendererVK::begin_frame() {
     current_cb_ = cmd_buf_[frame_id];
     cmd_private_data = current_cb_;
     clear_state();
+    GPURenderer::begin_frame();
 }
 
 void GPURendererVK::end_frame() {
@@ -486,10 +863,14 @@ void GPURendererVK::present() {
 }
 
 void* GPURendererVK::map_buffer(GPUBuffer* buffer) {
-    return nullptr;
+    GPUBufferVK* impl = static_cast<GPUBufferVK*>(buffer);
+    return impl->persistent_map_ptr[impl->active_id];
 }
 
 void GPURendererVK::unmap_buffer(GPUBuffer* buffer) {
+    GPUBufferVK* impl = static_cast<GPUBufferVK*>(buffer);
+    VmaAllocation allocation = impl->allocation[impl->active_id];
+    vmaFlushAllocation(allocator_, allocation, 0, VK_WHOLE_SIZE);
 }
 
 void GPURendererVK::begin_render(GPUTexture* render_target, const ImVec4& clear_color) {
@@ -542,6 +923,8 @@ void GPURendererVK::begin_render(GPUTexture* render_target, const ImVec4& clear_
         active_resources_list_.push_item(render_target);
 
     inside_render_pass = true;
+    fb_w = rt->width;
+    fb_h = rt->height;
 }
 
 void GPURendererVK::end_render() {
@@ -550,6 +933,10 @@ void GPURendererVK::end_render() {
 }
 
 void GPURendererVK::set_shader_parameter(size_t size, const void* data) {
+    assert(current_pipeline && "A pipeline must be bound before calling set_shader_parameter");
+    GPUPipelineVK* pipeline = static_cast<GPUPipelineVK*>(current_pipeline);
+    vkCmdPushConstants(current_cb_, pipeline->layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                       (uint32_t)size, data);
 }
 
 void GPURendererVK::flush_state() {
@@ -571,13 +958,11 @@ void GPURendererVK::flush_state() {
             int slot = next_set_bits(dirty_bits);
             GPUTextureVK* tex = static_cast<GPUTextureVK*>(current_texture[slot]);
             uint32_t active_id = tex->active_id;
-
             descriptor[num_updates] = {
                 .sampler = common_sampler_,
                 .imageView = tex->view[active_id],
                 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             };
-
             write_set[num_updates] = {
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                 .dstSet = VK_NULL_HANDLE,
@@ -587,12 +972,11 @@ void GPURendererVK::flush_state() {
                 .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                 .pImageInfo = &descriptor[num_updates],
             };
-
             num_updates++;
 
             if (auto layout = tex->layout[active_id]; layout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
                 GPUTextureAccessVK src_access = get_texture_access(layout);
-                constexpr GPUTextureAccessVK dst_access = get_texture_access(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+                constexpr GPUTextureAccessVK dst_access = get_texture_access(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
                 barriers[num_barriers] = {
                     .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
                     .srcAccessMask = src_access.mask,
@@ -611,6 +995,7 @@ void GPURendererVK::flush_state() {
                             .layerCount = 1,
                         },
                 };
+                tex->layout[active_id] = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
                 num_barriers++;
             }
         }
@@ -621,8 +1006,32 @@ void GPURendererVK::flush_state() {
     }
 
     if (uint32_t dirty_bits = dirty_flags.storage_buf) {
+        VkDescriptorBufferInfo descriptor[4];
+        VkWriteDescriptorSet write_set[4];
+        uint32_t num_updates = 0;
+
         while (dirty_bits) {
             int slot = next_set_bits(dirty_bits);
+            GPUBufferVK* buf = static_cast<GPUBufferVK*>(current_storage_buf[slot]);
+            uint32_t active_id = buf->active_id;
+            descriptor[num_updates] = {
+                .buffer = buf->buffer[active_id],
+                .offset = 0,
+                .range = VK_WHOLE_SIZE,
+            };
+            write_set[num_updates] = {
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .dstSet = VK_NULL_HANDLE,
+                .dstBinding = WB_VULKAN_BUFFER_DESCRIPTOR_SET_SLOT,
+                .dstArrayElement = 0,
+                .descriptorCount = 1,
+                .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                .pBufferInfo = &descriptor[num_updates],
+            };
+            num_updates++;
+        }
+
+        if (num_updates > 0) {
         }
     }
 
@@ -805,6 +1214,14 @@ void GPURendererVK::dispose_texture_(GPUTextureVK* texture) {
     }
 }
 
+void GPURendererVK::dispose_pipeline_(GPUPipelineVK* pipeline) {
+    std::scoped_lock lock(mtx_);
+    GPUResourceDisposeItemVK& item = resource_disposal_.emplace_back();
+    item.type = GPUResourceDisposeItemVK::Pipeline;
+    item.frame_stamp = frame_count_;
+    item.pipeline = {pipeline->pipeline, pipeline->layout};
+}
+
 void GPURendererVK::dispose_viewport_data_(GPUViewportDataVK* vp_data, VkSurfaceKHR surface) {
     std::scoped_lock lock(mtx_);
     GPUTextureVK* vk_texture = static_cast<GPUTextureVK*>(vp_data->render_target);
@@ -847,6 +1264,10 @@ void GPURendererVK::dispose_resources_(uint64_t frame_count) {
                     vkDestroyImageView(device_, item.texture.view, nullptr);
                     if (item.texture.image && item.texture.allocation)
                         vmaDestroyImage(allocator_, item.texture.image, item.texture.allocation);
+                    break;
+                case GPUResourceDisposeItemVK::Pipeline:
+                    vkDestroyPipelineLayout(device_, item.pipeline.layout, nullptr);
+                    vkDestroyPipeline(device_, item.pipeline.pipeline, nullptr);
                     break;
                 case GPUResourceDisposeItemVK::Swapchain:
                     vkDestroySwapchainKHR(device_, item.swapchain.swapchain, nullptr);
@@ -956,6 +1377,7 @@ GPURenderer* GPURendererVK::create(SDL_Window* window) {
 
     VkPhysicalDevice selected_physical_device = physical_devices[0];
 
+#if 0
     // Prefer discrete gpu
     for (auto physical_device : physical_devices) {
         VkPhysicalDeviceProperties properties;
@@ -965,6 +1387,7 @@ GPURenderer* GPURendererVK::create(SDL_Window* window) {
             break;
         }
     }
+#endif
 
     VkSurfaceKHR surface;
     SDL_SysWMinfo wm_info {};
