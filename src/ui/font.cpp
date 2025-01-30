@@ -14,7 +14,8 @@ void init_font_assets() {
     ImGuiIO& io = ImGui::GetIO();
     io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
     config.SizePixels = 13.0f;
-    g_fonts[(uint32_t)FontType::Normal] = io.Fonts->AddFontFromFileTTF("assets/Rubik-Regular.ttf", 0.0f, &config);
+    config.OversampleV = 2.0f;
+    g_fonts[(uint32_t)FontType::Normal] = io.Fonts->AddFontFromFileTTF("assets/Inter-Regular.ttf", 0.0f, &config);
     config.RasterizerDensity = 1.0f;
     config.SizePixels = 24.0f;
     config.GlyphExtraSpacing.x = 0.0f;
@@ -23,6 +24,7 @@ void init_font_assets() {
         io.Fonts->AddFontFromFileTTF("assets/RobotoMono-Regular.ttf", 0.0f, &config);
     config.SizePixels = 24.0f;
     config.GlyphOffset.y = 0.0f;
+    config.FontBuilderFlags = 0;
     g_fonts[(uint32_t)FontType::Icon] =
         io.Fonts->AddFontFromFileTTF("assets/MaterialSymbolsRoundedInstanced.ttf", 0.0f, &config, icons_ranges);
     io.Fonts->Build();
