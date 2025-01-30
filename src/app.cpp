@@ -184,13 +184,6 @@ void app_init() {
     init_renderer2(wm_get_main_window());
     //init_renderer(wm_get_main_window());
 
-    ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
-    platform_io.Renderer_CreateWindow = imgui_renderer_create_window;
-    platform_io.Renderer_DestroyWindow = imgui_renderer_destroy_window;
-    platform_io.Renderer_SetWindowSize = imgui_renderer_set_window_size;
-    platform_io.Renderer_RenderWindow = imgui_renderer_render_window;
-    platform_io.Renderer_SwapBuffers = imgui_renderer_swap_buffers;
-
     g_cmd_manager.init(10);
     g_timeline.init();
     g_engine.set_bpm(150.0f);

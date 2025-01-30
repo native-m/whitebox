@@ -1,5 +1,6 @@
 #include "plugins.h"
 #include "core/debug.h"
+#include "controls.h"
 #include "plugin_mgr.h"
 #include "window.h"
 #include <algorithm>
@@ -25,8 +26,8 @@ void GuiPlugins::render() {
     }
 
     ImGui::SetNextWindowSize(ImVec2(300.0f, 500.0f), ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("Plugins", &g_plugins_window_open)) {
-        ImGui::End();
+    if (!controls::begin_window("Plugins", &g_plugins_window_open)) {
+        controls::end_window();
         return;
     }
 
@@ -102,7 +103,7 @@ void GuiPlugins::render() {
         ImGui::EndTable();
     }
 
-    ImGui::End();
+    controls::end_window();
     force_refresh = false;
     refit_table_column = false;
 }
