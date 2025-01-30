@@ -425,9 +425,12 @@ void GPURendererVK::end_frame() {
             };
             vkCmdPipelineBarrier(current_cb_, src_access.stages, dst_access.stages, 0, 0, nullptr, 0, nullptr, 1,
                                  &barrier);
+            rt->layout[image_id] = VK_IMAGE_LAYOUT_UNDEFINED;
         }
         image_acquired_semaphore.push_back(viewport->image_acquire_semaphore[viewport->sync_id]);
         swapchain_image_wait_stage.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+        swapchain_present.push_back(viewport->swapchain);
+        sc_image_index_present.push_back(rt->active_id);
         viewport->sync_id = (sync_id + 1) % viewport->num_sync;
     }
 
@@ -450,6 +453,7 @@ void GPURendererVK::end_frame() {
         resource->active_id = (resource->active_id + 1) % num_inflight_frames_;
     }
 
+    current_render_finished_semaphore_ = render_finished_semaphore_[frame_id];
     frame_id = (frame_id + 1) % num_inflight_frames_;
     frame_count_++;
     image_acquired_semaphore.resize(0);
@@ -457,18 +461,12 @@ void GPURendererVK::end_frame() {
 }
 
 void GPURendererVK::present() {
-    // NOTE(native-m): use arena allocator to allocate temporary data
-    for (auto viewport : viewports) {
-        GPUTextureVK* rt = static_cast<GPUTextureVK*>(viewport->render_target);
-        swapchain_present.push_back(viewport->swapchain);
-        sc_image_index_present.push_back(rt->active_id);
-    }
     swapchain_results.resize(viewports.size());
 
     VkPresentInfoKHR present_info {
         .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
         .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &render_finished_semaphore_[frame_id],
+        .pWaitSemaphores = &current_render_finished_semaphore_,
         .swapchainCount = (uint32_t)swapchain_present.size(),
         .pSwapchains = swapchain_present.data(),
         .pImageIndices = sc_image_index_present.data(),
@@ -496,6 +494,7 @@ void GPURendererVK::unmap_buffer(GPUBuffer* buffer) {
 
 void GPURendererVK::begin_render(GPUTexture* render_target, const ImVec4& clear_color) {
     assert(!inside_render_pass);
+    assert(render_target->usage & GPUTextureUsage::RenderTarget);
     GPUTextureVK* rt = static_cast<GPUTextureVK*>(render_target);
     uint32_t image_id = rt->active_id;
 
@@ -512,8 +511,8 @@ void GPURendererVK::begin_render(GPUTexture* render_target, const ImVec4& clear_
         .pClearValues = &vk_clear_color,
     };
 
-    if (rt->layout[image_id] != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
-        GPUTextureAccessVK src_access = get_texture_access(rt->layout[image_id]);
+    if (auto layout = rt->layout[image_id]; layout != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+        GPUTextureAccessVK src_access = get_texture_access(layout);
         constexpr GPUTextureAccessVK dst_access = get_texture_access(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
         VkImageMemoryBarrier barrier {
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -534,6 +533,7 @@ void GPURendererVK::begin_render(GPUTexture* render_target, const ImVec4& clear_
                 },
         };
         vkCmdPipelineBarrier(current_cb_, src_access.stages, dst_access.stages, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+        rt->layout[image_id] = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     }
 
     vkCmdBeginRenderPass(current_cb_, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
@@ -754,6 +754,7 @@ bool GPURendererVK::create_or_recreate_swapchain_(GPUViewportDataVK* vp_data) {
 
     render_target->parent_viewport = vp_data;
     render_target->active_id = 0;
+    render_target->usage = GPUTextureUsage::RenderTarget;
     render_target->width = fb_info.width;
     render_target->height = fb_info.height;
     vp_data->surface = surface;
@@ -767,6 +768,7 @@ bool GPURendererVK::create_or_recreate_swapchain_(GPUViewportDataVK* vp_data) {
 
     for (uint32_t i = 0; i < num_inflight_frames_; i++) {
         VK_CHECK(vkCreateSemaphore(device_, &semaphore, nullptr, &vp_data->image_acquire_semaphore[i]));
+        view_info.image = render_target->image[i];
         VK_CHECK(vkCreateImageView(device_, &view_info, nullptr, &render_target->view[i]));
         fb_info.pAttachments = &render_target->view[i];
         VK_CHECK(vkCreateFramebuffer(device_, &fb_info, nullptr, &render_target->fb[i]));

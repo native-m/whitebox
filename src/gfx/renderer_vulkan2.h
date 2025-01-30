@@ -142,6 +142,7 @@ struct GPURendererVK : public GPURenderer {
     std::optional<VkDescriptorSetLayout> storage_buffer_set_layout[4] {};
     VkFence fences_[WB_GPU_RENDER_BUFFER_SIZE] {};
     VkSemaphore render_finished_semaphore_[WB_GPU_RENDER_BUFFER_SIZE] {};
+    VkSemaphore current_render_finished_semaphore_ {};
     VkCommandPool cmd_pool_[WB_GPU_RENDER_BUFFER_SIZE] {};
     VkCommandBuffer cmd_buf_[WB_GPU_RENDER_BUFFER_SIZE] {};
     VkCommandBuffer current_cb_ {};

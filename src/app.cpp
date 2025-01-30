@@ -270,7 +270,10 @@ void app_run_loop() {
         while (SDL_PollEvent(&event))
             handle_events(event);
         g_renderer2->begin_frame();
+        g_renderer2->begin_render(g_renderer2->main_vp->render_target, ImVec4(1.0f, 0.0f, 0.0f, 0.0f));
+        g_renderer2->end_render();
         g_renderer2->end_frame();
+        g_renderer2->present();
         //app_render();
     }
 }
