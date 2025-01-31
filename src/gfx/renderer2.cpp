@@ -86,10 +86,16 @@ void GPURenderer::render_imgui_draw_data(ImDrawData* draw_data) {
     uint32_t new_total_vtx_count = immediate_vtx_offset + draw_data->TotalVtxCount;
     uint32_t new_total_idx_count = immediate_idx_offset + draw_data->TotalIdxCount;
 
+    if (new_total_vtx_count == 0)
+        new_total_vtx_count = 1024;
+    if (new_total_idx_count == 0)
+        new_total_idx_count = 1024;
+
     if (imm_vtx_buf == nullptr || new_total_vtx_count > total_vtx_count) {
         size_t vertex_size = new_total_vtx_count * sizeof(ImDrawVert);
         GPUBuffer* buffer = create_buffer(usage | GPUBufferUsage::Vertex, vertex_size, 0, nullptr);
-        destroy_buffer(imm_vtx_buf);
+        if (imm_vtx_buf)
+            destroy_buffer(imm_vtx_buf);
         total_vtx_count = new_total_vtx_count;
         imm_vtx_buf = buffer;
         immediate_vtx_offset = 0;
@@ -97,7 +103,8 @@ void GPURenderer::render_imgui_draw_data(ImDrawData* draw_data) {
     if (imm_idx_buf == nullptr || new_total_idx_count > total_idx_count) {
         size_t index_size = new_total_idx_count * sizeof(ImDrawIdx);
         GPUBuffer* buffer = create_buffer(usage | GPUBufferUsage::Index, index_size, 0, nullptr);
-        destroy_buffer(imm_idx_buf);
+        if (imm_idx_buf)
+            destroy_buffer(imm_idx_buf);
         imm_idx_buf = buffer;
         total_idx_count = new_total_idx_count;
         immediate_idx_offset = 0;

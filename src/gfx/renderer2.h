@@ -77,6 +77,7 @@ struct GPUPipelineDesc {
 struct GPUResource : public InplaceList<GPUResource> {
     // Some impls may require this to determine which internal resources to work on.
     uint32_t active_id = 0;
+    uint32_t num_resources = 0;
     virtual ~GPUResource() {};
 };
 
@@ -137,9 +138,10 @@ struct GPURenderer {
     StateUpdateFlags dirty_flags {};
     bool inside_render_pass = false;
 
+    GPUTexture* font_texture;
     GPUPipeline* imgui_pipeline;
-    GPUBuffer* imm_vtx_buf;
-    GPUBuffer* imm_idx_buf;
+    GPUBuffer* imm_vtx_buf {};
+    GPUBuffer* imm_idx_buf {};
     uint32_t immediate_vtx_offset = 0;
     uint32_t immediate_idx_offset = 0;
     uint32_t total_vtx_count = 0;
