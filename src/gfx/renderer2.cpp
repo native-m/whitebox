@@ -73,6 +73,12 @@ bool GPURenderer::init(SDL_Window* window) {
 }
 
 void GPURenderer::shutdown() {
+    if (font_texture)
+        destroy_texture(font_texture);
+    if (imm_vtx_buf)
+        destroy_buffer(imm_vtx_buf);
+    if (imm_idx_buf)
+        destroy_buffer(imm_idx_buf);
     if (imgui_pipeline)
         destroy_pipeline(imgui_pipeline);
 }
@@ -97,9 +103,9 @@ void GPURenderer::render_imgui_draw_data(ImDrawData* draw_data) {
         GPUBuffer* buffer = create_buffer(usage | GPUBufferUsage::Vertex, vertex_size, 0, nullptr);
         if (imm_vtx_buf)
             destroy_buffer(imm_vtx_buf);
-        total_vtx_count = new_total_vtx_count;
         imm_vtx_buf = buffer;
         immediate_vtx_offset = 0;
+        total_vtx_count = new_total_vtx_count;
     }
     if (imm_idx_buf == nullptr || new_total_idx_count > total_idx_count) {
         size_t index_size = new_total_idx_count * sizeof(ImDrawIdx);
@@ -107,8 +113,8 @@ void GPURenderer::render_imgui_draw_data(ImDrawData* draw_data) {
         if (imm_idx_buf)
             destroy_buffer(imm_idx_buf);
         imm_idx_buf = buffer;
-        total_idx_count = new_total_idx_count;
         immediate_idx_offset = 0;
+        total_idx_count = new_total_idx_count;
     }
 
     // Copy vertices and indices to the actual vertex & index buffer
@@ -136,8 +142,9 @@ void GPURenderer::render_imgui_draw_data(ImDrawData* draw_data) {
 
         bind_pipeline(imgui_pipeline);
         bind_vertex_buffer(imm_vtx_buf);
-        bind_index_buffer(imm_vtx_buf);
+        bind_index_buffer(imm_idx_buf);
         set_shader_parameter(sizeof(shader_param), shader_param);
+        set_viewport(0.0f, 0.0f, draw_data->DisplaySize.x, draw_data->DisplaySize.y);
     };
 
     setup_imgui_render_state();

@@ -138,8 +138,8 @@ struct GPURenderer {
     StateUpdateFlags dirty_flags {};
     bool inside_render_pass = false;
 
-    GPUTexture* font_texture;
-    GPUPipeline* imgui_pipeline;
+    GPUTexture* font_texture {};
+    GPUPipeline* imgui_pipeline {};
     GPUBuffer* imm_vtx_buf {};
     GPUBuffer* imm_idx_buf {};
     uint32_t immediate_vtx_offset = 0;
@@ -214,7 +214,7 @@ struct GPURenderer {
 
     void set_scissor(int32_t x, int32_t y, int32_t width, int32_t height) {
         sc_x = x;
-        sc_y = x;
+        sc_y = y;
         sc_w = width;
         sc_h = height;
         dirty_flags.scissor = 1;
@@ -222,7 +222,7 @@ struct GPURenderer {
 
     void set_viewport(float x, float y, float width, float height) {
         vp_x = x;
-        vp_y = x;
+        vp_y = y;
         vp_w = width;
         vp_h = height;
         dirty_flags.vp = 1;
