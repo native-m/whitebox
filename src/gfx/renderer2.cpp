@@ -67,6 +67,7 @@ bool GPURenderer::init(SDL_Window* window) {
     io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
     font_texture =
         create_texture(GPUTextureUsage::Sampled, GPUFormat::UnormR8G8B8A8, width, height, width, height, pixels);
+    io.Fonts->SetTexID((ImTextureID)font_texture);
 
     return true;
 }

@@ -229,13 +229,13 @@ struct GPURenderer {
     }
 
     inline void draw(uint32_t vtx_count, int32_t first_vtx) {
-        if (!dirty_flags.state_dirty())
+        if (dirty_flags.state_dirty())
             flush_state();
         draw_fn(cmd_private_data, vtx_count, 1, first_vtx, 0);
     }
 
     inline void draw_indexed(uint32_t idx_count, uint32_t first_idx, int32_t vtx_offset) {
-        if (!dirty_flags.state_dirty())
+        if (dirty_flags.state_dirty())
             flush_state();
         draw_indexed_fn(cmd_private_data, idx_count, 1, first_idx, vtx_offset, 0);
     }
