@@ -418,8 +418,8 @@ void GPURendererVK::shutdown() {
         vkDestroyInstance(instance_, nullptr);
 }
 
-GPUBuffer* GPURendererVK::create_buffer(GPUBufferUsageFlags usage, size_t buffer_size, size_t init_size,
-                                        const void* init_data) {
+GPUBuffer* GPURendererVK::create_buffer(GPUBufferUsageFlags usage, size_t buffer_size, bool dedicated_allocation,
+                                        size_t init_size, const void* init_data) {
     void* buffer_ptr = buffer_pool_.allocate();
     if (!buffer_ptr)
         return nullptr;
@@ -456,6 +456,9 @@ GPUBuffer* GPURendererVK::create_buffer(GPUBufferUsageFlags usage, size_t buffer
         allocation_info.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
         allocation_info.preferredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
     }
+
+    if (dedicated_allocation)
+        allocation_info.flags |= VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
 
     new_buffer->usage = usage;
     new_buffer->size = buffer_size;
@@ -505,7 +508,8 @@ GPUBuffer* GPURendererVK::create_buffer(GPUBufferUsageFlags usage, size_t buffer
 }
 
 GPUTexture* GPURendererVK::create_texture(GPUTextureUsageFlags usage, GPUFormat format, uint32_t w, uint32_t h,
-                                          uint32_t init_w, uint32_t init_h, const void* init_data) {
+                                          bool dedicated_allocation, uint32_t init_w, uint32_t init_h,
+                                          const void* init_data) {
     void* texture_ptr = texture_pool_.allocate();
     if (!texture_ptr)
         return nullptr;
@@ -535,6 +539,9 @@ GPUTexture* GPURendererVK::create_texture(GPUTextureUsageFlags usage, GPUFormat 
         .requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         .preferredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
     };
+
+    if (dedicated_allocation)
+        allocation_info.flags |= VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
 
     if (contain_bit(usage, GPUTextureUsage::RenderTarget)) {
         new_texture->num_resources = num_inflight_frames_;
@@ -1333,6 +1340,7 @@ void GPURendererVK::submit_pending_uploads_() {
         .signalSemaphoreCount = 1,
         .pSignalSemaphores = &upload_finished_semaphore_[upload_id_],
     };
+
     vkQueueSubmit(graphics_queue_, 1, &submit, VK_NULL_HANDLE);
 }
 
@@ -1533,17 +1541,20 @@ void GPURendererVK::dispose_resources_(uint64_t frame_count) {
                 case GPUResourceDisposeItemVK::Pipeline:
                     vkDestroyPipelineLayout(device_, item.pipeline.layout, nullptr);
                     vkDestroyPipeline(device_, item.pipeline.pipeline, nullptr);
-                    Log::debug("Pipeline destroyed {:x} on frame {}", (uintptr_t)item.pipeline.pipeline, item.frame_stamp);
+                    Log::debug("Pipeline destroyed {:x} on frame {}", (uintptr_t)item.pipeline.pipeline,
+                               item.frame_stamp);
                     break;
                 case GPUResourceDisposeItemVK::Swapchain:
                     vkDestroySwapchainKHR(device_, item.swapchain.swapchain, nullptr);
                     if (item.swapchain.surface)
                         vkDestroySurfaceKHR(instance_, item.swapchain.surface, nullptr);
-                    Log::debug("Swapchain destroyed {:x} on frame {}", (uintptr_t)item.swapchain.swapchain, item.frame_stamp);
+                    Log::debug("Swapchain destroyed {:x} on frame {}", (uintptr_t)item.swapchain.swapchain,
+                               item.frame_stamp);
                     break;
                 case GPUResourceDisposeItemVK::SyncObject:
                     vkDestroySemaphore(device_, item.sync_obj.semaphore, nullptr);
-                    Log::debug("Sync object destroyed {:x} on frame {}", (uintptr_t)item.sync_obj.semaphore, item.frame_stamp);
+                    Log::debug("Sync object destroyed {:x} on frame {}", (uintptr_t)item.sync_obj.semaphore,
+                               item.frame_stamp);
                     break;
             }
             resource_disposal_.pop_front();

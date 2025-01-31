@@ -66,7 +66,7 @@ bool GPURenderer::init(SDL_Window* window) {
     int width, height;
     io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
     font_texture =
-        create_texture(GPUTextureUsage::Sampled, GPUFormat::UnormR8G8B8A8, width, height, width, height, pixels);
+        create_texture(GPUTextureUsage::Sampled, GPUFormat::UnormR8G8B8A8, width, height, true, width, height, pixels);
     io.Fonts->SetTexID((ImTextureID)font_texture);
 
     return true;
@@ -100,7 +100,7 @@ void GPURenderer::render_imgui_draw_data(ImDrawData* draw_data) {
 
     if (imm_vtx_buf == nullptr || new_total_vtx_count > total_vtx_count) {
         size_t vertex_size = new_total_vtx_count * sizeof(ImDrawVert);
-        GPUBuffer* buffer = create_buffer(usage | GPUBufferUsage::Vertex, vertex_size, 0, nullptr);
+        GPUBuffer* buffer = create_buffer(usage | GPUBufferUsage::Vertex, vertex_size, true, 0, nullptr);
         if (imm_vtx_buf)
             destroy_buffer(imm_vtx_buf);
         imm_vtx_buf = buffer;
@@ -109,7 +109,7 @@ void GPURenderer::render_imgui_draw_data(ImDrawData* draw_data) {
     }
     if (imm_idx_buf == nullptr || new_total_idx_count > total_idx_count) {
         size_t index_size = new_total_idx_count * sizeof(ImDrawIdx);
-        GPUBuffer* buffer = create_buffer(usage | GPUBufferUsage::Index, index_size, 0, nullptr);
+        GPUBuffer* buffer = create_buffer(usage | GPUBufferUsage::Index, index_size, true, 0, nullptr);
         if (imm_idx_buf)
             destroy_buffer(imm_idx_buf);
         imm_idx_buf = buffer;
