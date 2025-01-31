@@ -81,7 +81,7 @@ VkDescriptorSet GPUDescriptorStreamVK::allocate_descriptor_set(VkDevice device, 
                                                                uint32_t num_sampled_images) {
     if (current_chunk == nullptr) {
         // First use case
-        chunk_list[current_frame_id] = create_chunk(device, 64, 64);
+        chunk_list[current_frame_id] = create_chunk(device, 64, 512);
         assert(chunk_list[current_frame_id]);
         current_chunk = chunk_list[current_frame_id];
     } else {
@@ -149,10 +149,8 @@ GPUDescriptorStreamChunkVK* GPUDescriptorStreamVK::create_chunk(VkDevice device,
 
     chunk->pool = pool;
     chunk->max_descriptors = max_descriptors;
-    chunk->num_uniform_buffers = 0;
     chunk->num_storage_buffers = 0;
     chunk->num_sampled_images = 0;
-    chunk->num_storage_images = 0;
     chunk->max_descriptor_sets = max_descriptor_sets;
     chunk->num_descriptor_sets = 0;
     chunk->next = nullptr;
@@ -166,10 +164,8 @@ void GPUDescriptorStreamVK::reset(VkDevice device, uint32_t frame_id) {
     GPUDescriptorStreamChunkVK* chunk = chunk_list[current_frame_id];
     while (chunk != nullptr) {
         vkResetDescriptorPool(device, chunk->pool, 0);
-        chunk->num_uniform_buffers = 0;
         chunk->num_storage_buffers = 0;
         chunk->num_sampled_images = 0;
-        chunk->num_storage_images = 0;
         chunk->num_descriptor_sets = 0;
         chunk = chunk->next;
     }
@@ -234,6 +230,29 @@ bool GPURendererVK::init(SDL_Window* window) {
         .instance = instance_,
     };
     VK_CHECK(vmaCreateAllocator(&allocator_info, &allocator_));
+
+    VkBufferCreateInfo staging_buffer_info {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = 0x10000,
+        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+    };
+
+    VmaAllocationCreateInfo staging_buffer_alloc_info {
+        .flags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+        .usage = VMA_MEMORY_USAGE_AUTO,
+        .requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+        .preferredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+    };
+
+    uint32_t memory_type_index;
+    VK_CHECK(vmaFindMemoryTypeIndexForBufferInfo(allocator_, &staging_buffer_info, &staging_buffer_alloc_info,
+                                                 &memory_type_index));
+
+    VmaPoolCreateInfo staging_pool_info {
+        .memoryTypeIndex = memory_type_index,
+        .flags = VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT,
+    };
+    VK_CHECK(vmaCreatePool(allocator_, &staging_pool_info, &staging_pool_));
 
     VkAttachmentDescription att_desc {
         .format = VK_FORMAT_B8G8R8A8_UNORM,
@@ -313,16 +332,16 @@ bool GPURendererVK::init(SDL_Window* window) {
     };
 
     for (uint32_t i = 0; i < num_inflight_frames_; i++) {
-        VK_CHECK(vkCreateCommandPool(device_, &pool_info, nullptr, &cmd_pool_[i]));
-        cmd_buf_info.commandPool = cmd_pool_[i];
-        VK_CHECK(vkAllocateCommandBuffers(device_, &cmd_buf_info, &cmd_buf_[i]));
         VK_CHECK(vkCreateFence(device_, &fence_info, nullptr, &fences_[i]));
         VK_CHECK(vkCreateSemaphore(device_, &semaphore_info, nullptr, &render_finished_semaphore_[i]));
+        VK_CHECK(vkCreateSemaphore(device_, &semaphore_info, nullptr, &upload_finished_semaphore_[i]));
+        VK_CHECK(vkCreateCommandPool(device_, &pool_info, nullptr, &cmd_pool_[i]));
+        VK_CHECK(vkCreateCommandPool(device_, &pool_info, nullptr, &upload_cmd_pool_[i]));
+        cmd_buf_info.commandPool = cmd_pool_[i];
+        VK_CHECK(vkAllocateCommandBuffers(device_, &cmd_buf_info, &cmd_buf_[i]));
+        cmd_buf_info.commandPool = upload_cmd_pool_[i];
+        VK_CHECK(vkAllocateCommandBuffers(device_, &cmd_buf_info, &upload_cmd_buf_[i]));
     }
-
-    VK_CHECK(vkCreateCommandPool(device_, &pool_info, nullptr, &imm_cmd_pool_));
-    cmd_buf_info.commandPool = imm_cmd_pool_;
-    VK_CHECK(vkAllocateCommandBuffers(device_, &cmd_buf_info, &imm_cmd_buf_));
 
     VkDescriptorSetLayoutBinding bindings[4];
     for (uint32_t i = 0; auto& binding : bindings) {
@@ -361,9 +380,11 @@ void GPURendererVK::shutdown() {
     vkDeviceWaitIdle(device_);
 
     for (uint32_t i = 0; i < num_inflight_frames_; i++) {
+        vkDestroySemaphore(device_, upload_finished_semaphore_[i], nullptr);
         vkDestroySemaphore(device_, render_finished_semaphore_[i], nullptr);
         vkDestroyFence(device_, fences_[i], nullptr);
         vkDestroyCommandPool(device_, cmd_pool_[i], nullptr);
+        vkDestroyCommandPool(device_, upload_cmd_pool_[i], nullptr);
     }
 
     for (auto viewport : viewports) {
@@ -376,16 +397,17 @@ void GPURendererVK::shutdown() {
         delete viewport;
     }
 
+    descriptor_stream_.destroy(device_);
     dispose_resources_(~0ull);
 
+    if (staging_pool_)
+        vmaDestroyPool(allocator_, staging_pool_);
     if (allocator_)
         vmaDestroyAllocator(allocator_);
     if (texture_set_layout_)
         vkDestroyDescriptorSetLayout(device_, texture_set_layout_, nullptr);
     if (storage_buffer_set_layout_)
         vkDestroyDescriptorSetLayout(device_, storage_buffer_set_layout_, nullptr);
-    if (cmd_pool_)
-        vkDestroyCommandPool(device_, imm_cmd_pool_, nullptr);
     if (common_sampler_)
         vkDestroySampler(device_, common_sampler_, nullptr);
     if (fb_render_pass_)
@@ -421,7 +443,7 @@ GPUBuffer* GPURendererVK::create_buffer(GPUBufferUsageFlags usage, size_t buffer
     };
 
     VmaAllocationCreateInfo allocation_info {
-        .usage = VMA_MEMORY_USAGE_UNKNOWN,
+        .usage = VMA_MEMORY_USAGE_AUTO,
     };
 
     if (cpu_access) {
@@ -435,18 +457,23 @@ GPUBuffer* GPURendererVK::create_buffer(GPUBufferUsageFlags usage, size_t buffer
         allocation_info.preferredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
     }
 
+    new_buffer->usage = usage;
+    new_buffer->size = buffer_size;
+
     VmaAllocationInfo alloc_result;
     if (contain_bit(usage, GPUBufferUsage::Writeable)) {
+        new_buffer->num_resources = num_inflight_frames_;
         for (uint32_t i = 0; i < num_inflight_frames_; i++) {
             VkResult result = vmaCreateBuffer(allocator_, &buffer_info, &allocation_info, &new_buffer->buffer[i],
                                               &new_buffer->allocation[i], &alloc_result);
-            if (!VK_FAILED(result)) {
+            if (VK_FAILED(result)) {
                 for (uint32_t j = 0; j < i; j++)
-                    vmaDestroyBuffer(allocator_, new_buffer->buffer[i], new_buffer->allocation[i]);
+                    vmaDestroyBuffer(allocator_, new_buffer->buffer[j], new_buffer->allocation[j]);
                 buffer_pool_.destroy(new_buffer);
                 return nullptr;
             }
-            new_buffer->persistent_map_ptr[i] = alloc_result.pMappedData;
+            if (cpu_access)
+                new_buffer->persistent_map_ptr[i] = alloc_result.pMappedData;
             if (cpu_access && init_data && init_size)
                 std::memcpy(alloc_result.pMappedData, init_data, init_size);
         }
@@ -454,7 +481,7 @@ GPUBuffer* GPURendererVK::create_buffer(GPUBufferUsageFlags usage, size_t buffer
         VkBuffer buffer;
         VmaAllocation allocation;
         VkResult result = vmaCreateBuffer(allocator_, &buffer_info, &allocation_info, &buffer, &allocation, nullptr);
-        if (!VK_FAILED(result)) {
+        if (VK_FAILED(result)) {
             buffer_pool_.destroy(new_buffer);
             return nullptr;
         }
@@ -470,6 +497,8 @@ GPUBuffer* GPURendererVK::create_buffer(GPUBufferUsageFlags usage, size_t buffer
             new_buffer->buffer[i] = buffer;
             new_buffer->allocation[i] = allocation;
         }
+
+        new_buffer->num_resources = 1;
     }
 
     return new_buffer;
@@ -485,7 +514,7 @@ GPUTexture* GPURendererVK::create_texture(GPUTextureUsageFlags usage, GPUFormat 
     if (contain_bit(usage, GPUTextureUsage::RenderTarget))
         vk_usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     if (contain_bit(usage, GPUTextureUsage::Sampled))
-        vk_usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+        vk_usage |= VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
     GPUTextureVK* new_texture = new (texture_ptr) GPUTextureVK();
     VkImageCreateInfo image_info {
@@ -508,30 +537,104 @@ GPUTexture* GPURendererVK::create_texture(GPUTextureUsageFlags usage, GPUFormat 
     };
 
     if (contain_bit(usage, GPUTextureUsage::RenderTarget)) {
+        new_texture->num_resources = num_inflight_frames_;
         for (uint32_t i = 0; i < num_inflight_frames_; i++) {
             VkResult result = vmaCreateImage(allocator_, &image_info, &allocation_info, &new_texture->image[i],
                                              &new_texture->allocation[i], nullptr);
-            if (!VK_FAILED(result)) {
+            if (VK_FAILED(result)) {
                 for (uint32_t j = 0; j < i; j++)
-                    vmaDestroyImage(allocator_, new_texture->image[i], new_texture->allocation[i]);
+                    vmaDestroyImage(allocator_, new_texture->image[j], new_texture->allocation[j]);
+                texture_pool_.destroy(new_texture);
+                return nullptr;
+            }
+
+            VkImageViewCreateInfo image_view {
+                .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+                .image = new_texture->image[i],
+                .viewType = VK_IMAGE_VIEW_TYPE_2D,
+                .format = get_vk_format(format),
+                .components =
+                    {
+                        .r = VK_COMPONENT_SWIZZLE_IDENTITY,
+                        .g = VK_COMPONENT_SWIZZLE_IDENTITY,
+                        .b = VK_COMPONENT_SWIZZLE_IDENTITY,
+                        .a = VK_COMPONENT_SWIZZLE_IDENTITY,
+                    },
+                .subresourceRange =
+                    {
+                        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                        .baseMipLevel = 0,
+                        .levelCount = 1,
+                        .baseArrayLayer = 0,
+                        .layerCount = 1,
+                    },
+            };
+
+            result = vkCreateImageView(device_, &image_view, nullptr, &new_texture->view[i]);
+            if (VK_FAILED(result)) {
+                for (uint32_t j = 0; j < i; j++) {
+                    vkDestroyImageView(device_, new_texture->view[j], nullptr);
+                    vmaDestroyImage(allocator_, new_texture->image[j], new_texture->allocation[j]);
+                }
+                vmaDestroyImage(allocator_, new_texture->image[i], new_texture->allocation[i]);
                 texture_pool_.destroy(new_texture);
                 return nullptr;
             }
         }
     } else {
         VkImage image;
+        VkImageView view;
         VmaAllocation allocation;
-        VkResult result = vmaCreateImage(allocator_, &image_info, &allocation_info, &image, &allocation, nullptr);
 
-        if (!VK_FAILED(result)) {
+        VkResult result = vmaCreateImage(allocator_, &image_info, &allocation_info, &image, &allocation, nullptr);
+        if (VK_FAILED(result)) {
             texture_pool_.destroy(new_texture);
             return nullptr;
         }
 
+        VkImageViewCreateInfo image_view {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .image = image,
+            .viewType = VK_IMAGE_VIEW_TYPE_2D,
+            .format = get_vk_format(format),
+            .components =
+                {
+                    .r = VK_COMPONENT_SWIZZLE_IDENTITY,
+                    .g = VK_COMPONENT_SWIZZLE_IDENTITY,
+                    .b = VK_COMPONENT_SWIZZLE_IDENTITY,
+                    .a = VK_COMPONENT_SWIZZLE_IDENTITY,
+                },
+            .subresourceRange =
+                {
+                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .baseMipLevel = 0,
+                    .levelCount = 1,
+                    .baseArrayLayer = 0,
+                    .layerCount = 1,
+                },
+        };
+
+        result = vkCreateImageView(device_, &image_view, nullptr, &view);
+        if (VK_FAILED(result)) {
+            vmaDestroyImage(allocator_, image, allocation);
+            texture_pool_.destroy(new_texture);
+            return nullptr;
+        }
+
+        VkImageLayout initial_layout = VK_IMAGE_LAYOUT_UNDEFINED;
+        if (init_w && init_h && init_data) {
+            initial_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            enqueue_resource_upload_(image, VK_IMAGE_LAYOUT_UNDEFINED, initial_layout, init_w, init_h, init_data);
+        }
+
         for (uint32_t i = 0; i < num_inflight_frames_; i++) {
             new_texture->image[i] = image;
+            new_texture->view[i] = view;
             new_texture->allocation[i] = allocation;
+            new_texture->layout[i] = initial_layout;
         }
+
+        new_texture->num_resources = 1;
     }
 
     return new_texture;
@@ -765,6 +868,7 @@ void GPURendererVK::begin_frame() {
     }
 
     dispose_resources_(frame_count_);
+    descriptor_stream_.reset(device_, frame_id);
     vkResetCommandPool(device_, cmd_pool_[frame_id], 0);
     vkBeginCommandBuffer(cmd_buf_[frame_id], &begin_info);
     current_cb_ = cmd_buf_[frame_id];
@@ -774,6 +878,12 @@ void GPURendererVK::begin_frame() {
 }
 
 void GPURendererVK::end_frame() {
+    if (!pending_uploads_.empty()) {
+        submit_pending_uploads_();
+        submit_wait_semaphores.push_back(upload_finished_semaphore_[frame_id]);
+        submit_wait_stages.push_back(VK_PIPELINE_STAGE_TRANSFER_BIT);
+    }
+
     // NOTE(native-m): use arena allocator to allocate temporary data
     for (auto viewport : viewports) {
         GPUTextureVK* rt = static_cast<GPUTextureVK*>(viewport->render_target);
@@ -804,8 +914,8 @@ void GPURendererVK::end_frame() {
                                  &barrier);
             rt->layout[image_id] = VK_IMAGE_LAYOUT_UNDEFINED;
         }
-        image_acquired_semaphore.push_back(viewport->image_acquire_semaphore[viewport->sync_id]);
-        swapchain_image_wait_stage.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+        submit_wait_semaphores.push_back(viewport->image_acquire_semaphore[viewport->sync_id]);
+        submit_wait_stages.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
         swapchain_present.push_back(viewport->swapchain);
         sc_image_index_present.push_back(rt->active_id);
         viewport->sync_id = (sync_id + 1) % viewport->num_sync;
@@ -815,9 +925,9 @@ void GPURendererVK::end_frame() {
 
     VkSubmitInfo submit {
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-        .waitSemaphoreCount = (uint32_t)image_acquired_semaphore.size(),
-        .pWaitSemaphores = image_acquired_semaphore.data(),
-        .pWaitDstStageMask = swapchain_image_wait_stage.data(),
+        .waitSemaphoreCount = (uint32_t)submit_wait_semaphores.size(),
+        .pWaitSemaphores = submit_wait_semaphores.data(),
+        .pWaitDstStageMask = submit_wait_stages.data(),
         .commandBufferCount = 1,
         .pCommandBuffers = &current_cb_,
         .signalSemaphoreCount = 1,
@@ -833,8 +943,8 @@ void GPURendererVK::end_frame() {
     current_render_finished_semaphore_ = render_finished_semaphore_[frame_id];
     frame_id = (frame_id + 1) % num_inflight_frames_;
     frame_count_++;
-    image_acquired_semaphore.resize(0);
-    swapchain_image_wait_stage.resize(0);
+    submit_wait_semaphores.resize(0);
+    submit_wait_stages.resize(0);
 }
 
 void GPURendererVK::present() {
@@ -940,6 +1050,9 @@ void GPURendererVK::set_shader_parameter(size_t size, const void* data) {
 }
 
 void GPURendererVK::flush_state() {
+    VkDescriptorSet descriptor_set_updates[2];
+    uint32_t num_descriptor_set_updates = 0;
+    uint32_t descriptor_set_first_slot = 0;
     VkCommandBuffer cb = current_cb_;
 
     if (dirty_flags.pipeline) {
@@ -948,6 +1061,7 @@ void GPURendererVK::flush_state() {
     }
 
     if (uint32_t dirty_bits = dirty_flags.texture) {
+        VkDescriptorSet descriptor_set = descriptor_stream_.allocate_descriptor_set(device_, texture_set_layout_, 4, 4);
         VkDescriptorImageInfo descriptor[4];
         VkWriteDescriptorSet write_set[4];
         VkImageMemoryBarrier barriers[4];
@@ -965,8 +1079,8 @@ void GPURendererVK::flush_state() {
             };
             write_set[num_updates] = {
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                .dstSet = VK_NULL_HANDLE,
-                .dstBinding = WB_VULKAN_IMAGE_DESCRIPTOR_SET_SLOT,
+                .dstSet = descriptor_set,
+                .dstBinding = (uint32_t)slot,
                 .dstArrayElement = 0,
                 .descriptorCount = 1,
                 .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -998,14 +1112,21 @@ void GPURendererVK::flush_state() {
                 tex->layout[active_id] = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
                 num_barriers++;
             }
+
+            if (!tex->is_connected_to_list())
+                active_resources_list_.push_item(tex);
         }
 
-        if (num_updates > 0) {
-            // descriptor_stream.allocate_descriptor_set(device_, )
-        }
+        vkUpdateDescriptorSets(device_, num_updates, write_set, 0, nullptr);
+        descriptor_set_updates[num_descriptor_set_updates] = descriptor_set;
+        num_descriptor_set_updates++;
+    } else {
+        descriptor_set_first_slot++;
     }
 
     if (uint32_t dirty_bits = dirty_flags.storage_buf) {
+        VkDescriptorSet descriptor_set =
+            descriptor_stream_.allocate_descriptor_set(device_, storage_buffer_set_layout_, 4, 4);
         VkDescriptorBufferInfo descriptor[4];
         VkWriteDescriptorSet write_set[4];
         uint32_t num_updates = 0;
@@ -1021,7 +1142,7 @@ void GPURendererVK::flush_state() {
             };
             write_set[num_updates] = {
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                .dstSet = VK_NULL_HANDLE,
+                .dstSet = descriptor_set,
                 .dstBinding = WB_VULKAN_BUFFER_DESCRIPTOR_SET_SLOT,
                 .dstArrayElement = 0,
                 .descriptorCount = 1,
@@ -1029,10 +1150,21 @@ void GPURendererVK::flush_state() {
                 .pBufferInfo = &descriptor[num_updates],
             };
             num_updates++;
+
+            if (!buf->is_connected_to_list())
+                active_resources_list_.push_item(buf);
         }
 
-        if (num_updates > 0) {
-        }
+        vkUpdateDescriptorSets(device_, num_updates, write_set, 0, nullptr);
+        descriptor_set_updates[num_descriptor_set_updates] = descriptor_set;
+        num_descriptor_set_updates++;
+    }
+
+    if (num_descriptor_set_updates > 0) {
+        GPUPipelineVK* pipeline = static_cast<GPUPipelineVK*>(current_pipeline);
+        vkCmdBindDescriptorSets(current_cb_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->layout,
+                                descriptor_set_first_slot, num_descriptor_set_updates, descriptor_set_updates, 0,
+                                nullptr);
     }
 
     if (dirty_flags.vtx_buf) {
@@ -1071,6 +1203,137 @@ void GPURendererVK::flush_state() {
     }
 
     dirty_flags.u32 = 0;
+}
+
+void GPURendererVK::enqueue_resource_upload_(VkImage image, VkImageLayout old_layout, VkImageLayout new_layout,
+                                             uint32_t w, uint32_t h, const void* data) {
+    VmaAllocationCreateInfo alloc_info {
+        .flags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+        .pool = staging_pool_,
+    };
+
+    VkBufferCreateInfo buffer_info {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = w * h * 4,
+        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+    };
+
+    VkBuffer buffer;
+    VmaAllocation allocation;
+    VmaAllocationInfo alloc_result;
+    VK_CHECK(vmaCreateBuffer(allocator_, &buffer_info, &alloc_info, &buffer, &allocation, &alloc_result));
+
+    void* mapped_ptr = alloc_result.pMappedData;
+    std::memcpy(alloc_result.pMappedData, data, buffer_info.size);
+    vmaFlushAllocation(allocator_, allocation, 0, VK_WHOLE_SIZE);
+
+    GPUUploadItemVK& upload = pending_uploads_.emplace_back();
+    upload.type = GPUUploadItemVK::Image;
+    upload.width = w;
+    upload.height = h;
+    upload.old_layout = old_layout;
+    upload.new_layout = new_layout;
+    upload.src_buffer = buffer;
+    upload.src_allocation = allocation;
+    upload.dst_image = image;
+}
+
+void GPURendererVK::submit_pending_uploads_() {
+    upload_id_ = (upload_id_ + 1) % num_inflight_frames_;
+
+    bool emit_memory_barrier = false;
+    VkCommandBuffer upload_cb = upload_cmd_buf_[upload_id_];
+    VkCommandBufferBeginInfo begin_info {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+    };
+
+    vkResetCommandPool(device_, upload_cmd_pool_[upload_id_], VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT);
+    vkBeginCommandBuffer(upload_cb, &begin_info);
+
+    while (!pending_uploads_.empty()) {
+        auto& item = pending_uploads_.front();
+        switch (item.type) {
+            case GPUUploadItemVK::Buffer: {
+                VkBufferCopy region {.size = item.width};
+                vkCmdCopyBuffer(upload_cb, item.src_buffer, item.dst_buffer, 1, &region);
+                emit_memory_barrier = true;
+                break;
+            }
+            case GPUUploadItemVK::Image: {
+                GPUTextureAccessVK old_access = get_texture_access(item.old_layout);
+                GPUTextureAccessVK new_access = get_texture_access(item.new_layout);
+
+                VkImageMemoryBarrier barrier;
+                barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+                barrier.pNext = nullptr;
+                barrier.srcAccessMask = old_access.mask;
+                barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+                barrier.oldLayout = old_access.layout;
+                barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+                barrier.srcQueueFamilyIndex = graphics_queue_index_;
+                barrier.dstQueueFamilyIndex = graphics_queue_index_;
+                barrier.image = item.dst_image;
+                barrier.subresourceRange = {
+                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .baseMipLevel = 0,
+                    .levelCount = 1,
+                    .baseArrayLayer = 0,
+                    .layerCount = 1,
+                };
+
+                vkCmdPipelineBarrier(upload_cb, old_access.stages, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
+                                     nullptr, 1, &barrier);
+
+                VkBufferImageCopy region {
+                    .imageSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .layerCount = 1},
+                    .imageExtent = {item.width, item.height, 1},
+                };
+                vkCmdCopyBufferToImage(upload_cb, item.src_buffer, item.dst_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                       1, &region);
+
+                barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+                barrier.dstAccessMask = new_access.mask;
+                barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+                barrier.newLayout = new_access.layout;
+
+                vkCmdPipelineBarrier(upload_cb, VK_PIPELINE_STAGE_TRANSFER_BIT, new_access.stages, 0, 0, nullptr, 0,
+                                     nullptr, 1, &barrier);
+                break;
+            }
+        }
+
+        GPUResourceDisposeItemVK& buf = resource_disposal_.emplace_back();
+        buf.type = GPUResourceDisposeItemVK::Buffer;
+        buf.frame_stamp = frame_count_;
+        buf.buffer = {
+            .buffer = item.src_buffer,
+            .allocation = item.src_allocation,
+        };
+
+        pending_uploads_.pop_front();
+    }
+
+    if (emit_memory_barrier) {
+        VkMemoryBarrier barrier;
+        barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+        barrier.pNext = nullptr;
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+        vkCmdPipelineBarrier(upload_cb, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, 1,
+                             &barrier, 0, nullptr, 0, nullptr);
+    }
+
+    vkEndCommandBuffer(upload_cb);
+
+    VkSubmitInfo submit {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &upload_cb,
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores = &upload_finished_semaphore_[upload_id_],
+    };
+    vkQueueSubmit(graphics_queue_, 1, &submit, VK_NULL_HANDLE);
 }
 
 bool GPURendererVK::create_or_recreate_swapchain_(GPUViewportDataVK* vp_data) {
@@ -1257,6 +1520,7 @@ void GPURendererVK::dispose_resources_(uint64_t frame_count) {
             switch (item.type) {
                 case GPUResourceDisposeItemVK::Buffer:
                     vmaDestroyBuffer(allocator_, item.buffer.buffer, item.buffer.allocation);
+                    Log::debug("Buffer destroyed {:x} on frame {}", (uintptr_t)item.buffer.buffer, item.frame_stamp);
                     break;
                 case GPUResourceDisposeItemVK::Texture:
                     if (item.texture.fb)
@@ -1264,18 +1528,22 @@ void GPURendererVK::dispose_resources_(uint64_t frame_count) {
                     vkDestroyImageView(device_, item.texture.view, nullptr);
                     if (item.texture.image && item.texture.allocation)
                         vmaDestroyImage(allocator_, item.texture.image, item.texture.allocation);
+                    Log::debug("Texture destroyed {:x} on frame {}", (uintptr_t)item.texture.image, item.frame_stamp);
                     break;
                 case GPUResourceDisposeItemVK::Pipeline:
                     vkDestroyPipelineLayout(device_, item.pipeline.layout, nullptr);
                     vkDestroyPipeline(device_, item.pipeline.pipeline, nullptr);
+                    Log::debug("Pipeline destroyed {:x} on frame {}", (uintptr_t)item.pipeline.pipeline, item.frame_stamp);
                     break;
                 case GPUResourceDisposeItemVK::Swapchain:
                     vkDestroySwapchainKHR(device_, item.swapchain.swapchain, nullptr);
                     if (item.swapchain.surface)
                         vkDestroySurfaceKHR(instance_, item.swapchain.surface, nullptr);
+                    Log::debug("Swapchain destroyed {:x} on frame {}", (uintptr_t)item.swapchain.swapchain, item.frame_stamp);
                     break;
                 case GPUResourceDisposeItemVK::SyncObject:
                     vkDestroySemaphore(device_, item.sync_obj.semaphore, nullptr);
+                    Log::debug("Sync object destroyed {:x} on frame {}", (uintptr_t)item.sync_obj.semaphore, item.frame_stamp);
                     break;
             }
             resource_disposal_.pop_front();

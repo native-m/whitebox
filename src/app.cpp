@@ -173,9 +173,9 @@ void app_init() {
     start_audio_engine();
 
     ImGuiIO& io = ImGui::GetIO();
-    // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     // io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    // io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     io.ConfigViewportsNoTaskBarIcon = false;
     io.IniFilename = ".whitebox/ui.ini";
 
@@ -263,7 +263,12 @@ void app_run_loop() {
         while (SDL_PollEvent(&event))
             handle_events(event);
         g_renderer2->begin_frame();
-        g_renderer2->begin_render(g_renderer2->main_vp->render_target, ImVec4(1.0f, 0.0f, 0.0f, 0.0f));
+        ImGui_ImplSDL2_NewFrame();
+        ImGui::NewFrame();
+        ImGui::ShowDemoWindow();
+        ImGui::Render();
+        g_renderer2->begin_render(g_renderer2->main_vp->render_target, ImVec4(0.0f, 0.0f, 0.0f, 1.0f));
+        g_renderer2->render_imgui_draw_data(ImGui::GetDrawData());
         g_renderer2->end_render();
         g_renderer2->end_frame();
         g_renderer2->present();

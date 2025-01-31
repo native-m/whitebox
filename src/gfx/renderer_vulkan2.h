@@ -54,6 +54,26 @@ struct GPUViewportDataVK : public GPUViewportData {
     VkResult acquire(VkDevice device);
 };
 
+struct GPUUploadItemVK {
+    enum {
+        Buffer,
+        Image
+    };
+
+    uint32_t type;
+    uint32_t width;
+    uint32_t height;
+    VkImageLayout old_layout;
+    VkImageLayout new_layout;
+    VkBuffer src_buffer;
+    VmaAllocation src_allocation;
+
+    union {
+        VkImage dst_image;
+        VkBuffer dst_buffer;
+    };
+};
+
 struct GPUBufferDisposalVK {
     VkBuffer buffer;
     VmaAllocation allocation;
@@ -104,10 +124,8 @@ struct GPUResourceDisposeItemVK {
 struct GPUDescriptorStreamChunkVK {
     VkDescriptorPool pool;
     uint32_t max_descriptors;
-    uint32_t num_uniform_buffers;
     uint32_t num_storage_buffers;
     uint32_t num_sampled_images;
-    uint32_t num_storage_images;
     uint32_t max_descriptor_sets;
     uint32_t num_descriptor_sets;
     GPUDescriptorStreamChunkVK* next;
@@ -141,10 +159,17 @@ struct GPURendererVK : public GPURenderer {
     VkRenderPass fb_render_pass_ {};
     VkSampler common_sampler_ {};
 
+    VmaPool staging_pool_ {};
+    std::deque<GPUUploadItemVK> pending_uploads_;
+    VkCommandPool upload_cmd_pool_[WB_GPU_RENDER_BUFFER_SIZE] {};
+    VkCommandBuffer upload_cmd_buf_[WB_GPU_RENDER_BUFFER_SIZE] {};
+    VkSemaphore upload_finished_semaphore_[WB_GPU_RENDER_BUFFER_SIZE] {};
+    uint32_t upload_id_ = WB_GPU_RENDER_BUFFER_SIZE - 1;
+
     Vector<GPUViewportDataVK*> viewports;
     Vector<GPUViewportDataVK*> added_viewports;
 
-    GPUDescriptorStreamVK descriptor_stream;
+    GPUDescriptorStreamVK descriptor_stream_;
     VkDescriptorSetLayout texture_set_layout_ = VK_NULL_HANDLE;
     VkDescriptorSetLayout storage_buffer_set_layout_ = VK_NULL_HANDLE;
     VkFence fences_[WB_GPU_RENDER_BUFFER_SIZE] {};
@@ -158,20 +183,17 @@ struct GPURendererVK : public GPURenderer {
     uint32_t num_inflight_frames_ = WB_GPU_RENDER_BUFFER_SIZE;
     InplaceList<GPUResource> active_resources_list_;
 
-    VkCommandPool imm_cmd_pool_ {};
-    VkCommandBuffer imm_cmd_buf_ {};
-
     Pool<GPUBufferVK> buffer_pool_ {};
     Pool<GPUTextureVK> texture_pool_ {};
     Pool<GPUPipelineVK> pipeline_pool_ {};
     std::mutex mtx_;
     std::deque<GPUResourceDisposeItemVK> resource_disposal_;
 
-    // TODO: Use arena allocator to allocate temporary data
+    // NOTE(native-m): Use arena allocator to allocate temporary data
     Vector<VkResult> swapchain_results;
-    Vector<VkSemaphore> image_acquired_semaphore;
+    Vector<VkSemaphore> submit_wait_semaphores;
     Vector<VkSwapchainKHR> swapchain_present;
-    Vector<VkPipelineStageFlags> swapchain_image_wait_stage;
+    Vector<VkPipelineStageFlags> submit_wait_stages;
     Vector<uint32_t> sc_image_index_present;
 
     GPURendererVK(VkInstance instance, VkPhysicalDevice physical_device, VkDevice device, VkSurfaceKHR main_surface,
@@ -204,6 +226,9 @@ struct GPURendererVK : public GPURenderer {
     void set_shader_parameter(size_t size, const void* data) override;
     void flush_state() override;
 
+    void enqueue_resource_upload_(VkImage image, VkImageLayout old_layout, VkImageLayout new_layout, uint32_t w,
+                                  uint32_t h, const void* data);
+    void submit_pending_uploads_();
     bool create_or_recreate_swapchain_(GPUViewportDataVK* vp_data);
     void dispose_buffer_(GPUBufferVK* buffer);
     void dispose_texture_(GPUTextureVK* texture);
