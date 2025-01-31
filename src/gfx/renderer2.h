@@ -154,7 +154,7 @@ struct GPURenderer {
     virtual GPUBuffer* create_buffer(GPUBufferUsageFlags usage, size_t buffer_size, size_t init_size,
                                      const void* init_data) = 0;
     virtual GPUTexture* create_texture(GPUTextureUsageFlags usage, GPUFormat format, uint32_t w, uint32_t h,
-                                       size_t init_size, const void* init_data) = 0;
+                                       uint32_t init_w, uint32_t init_h, const void* init_data) = 0;
     virtual GPUPipeline* create_pipeline(const GPUPipelineDesc& desc) = 0;
     virtual void destroy_buffer(GPUBuffer* buffer) = 0;
     virtual void destroy_texture(GPUTexture* buffer) = 0;

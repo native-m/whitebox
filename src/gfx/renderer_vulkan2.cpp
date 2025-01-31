@@ -476,7 +476,7 @@ GPUBuffer* GPURendererVK::create_buffer(GPUBufferUsageFlags usage, size_t buffer
 }
 
 GPUTexture* GPURendererVK::create_texture(GPUTextureUsageFlags usage, GPUFormat format, uint32_t w, uint32_t h,
-                                          size_t init_size, const void* init_data) {
+                                          uint32_t init_w, uint32_t init_h, const void* init_data) {
     void* texture_ptr = texture_pool_.allocate();
     if (!texture_ptr)
         return nullptr;

@@ -182,8 +182,8 @@ struct GPURendererVK : public GPURenderer {
 
     GPUBuffer* create_buffer(GPUBufferUsageFlags usage, size_t buffer_size, size_t init_size,
                              const void* init_data) override;
-    GPUTexture* create_texture(GPUTextureUsageFlags usage, GPUFormat format, uint32_t w, uint32_t h, size_t init_size,
-                               const void* init_data) override;
+    GPUTexture* create_texture(GPUTextureUsageFlags usage, GPUFormat format, uint32_t w, uint32_t h, uint32_t init_w,
+                               uint32_t init_h, const void* init_data) override;
     GPUPipeline* create_pipeline(const GPUPipelineDesc& desc) override;
     void destroy_buffer(GPUBuffer* buffer) override;
     void destroy_texture(GPUTexture* buffer) override;
