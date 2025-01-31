@@ -24,7 +24,6 @@ struct GPUBufferVK : public GPUBuffer {
     VkBuffer buffer[WB_GPU_RENDER_BUFFER_SIZE];
     VmaAllocation allocation[WB_GPU_RENDER_BUFFER_SIZE];
     void* persistent_map_ptr[WB_GPU_RENDER_BUFFER_SIZE];
-    uint32_t num_buffers {};
 };
 
 struct GPUTextureVK : public GPUTexture {
@@ -34,7 +33,6 @@ struct GPUTextureVK : public GPUTexture {
     VkFramebuffer fb[WB_GPU_RENDER_BUFFER_SIZE] {};
     VkImageLayout layout[WB_GPU_RENDER_BUFFER_SIZE] {};
     GPUViewportDataVK* parent_viewport {};
-    uint32_t num_buffers {};
     bool window_framebuffer {};
 };
 

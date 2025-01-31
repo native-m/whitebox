@@ -827,7 +827,7 @@ void GPURendererVK::end_frame() {
     vkQueueSubmit(graphics_queue_, 1, &submit, fences_[frame_id]);
 
     while (auto resource = static_cast<GPUResource*>(active_resources_list_.pop_next_item())) {
-        resource->active_id = (resource->active_id + 1) % num_inflight_frames_;
+        resource->active_id = (resource->active_id + 1) % resource->num_resources;
     }
 
     current_render_finished_semaphore_ = render_finished_semaphore_[frame_id];
@@ -1155,7 +1155,7 @@ bool GPURendererVK::create_or_recreate_swapchain_(GPUViewportDataVK* vp_data) {
         void* rt_mem = texture_pool_.allocate();
         GPUTextureVK* texture = new (rt_mem) GPUTextureVK();
         texture->window_framebuffer = true;
-        texture->num_buffers = num_inflight_frames_;
+        texture->num_resources = num_inflight_frames_;
         vp_data->render_target = render_target = texture;
     } else {
         render_target = static_cast<GPUTextureVK*>(vp_data->render_target);
@@ -1188,12 +1188,12 @@ bool GPURendererVK::create_or_recreate_swapchain_(GPUViewportDataVK* vp_data) {
 
 void GPURendererVK::dispose_buffer_(GPUBufferVK* buffer) {
     std::scoped_lock lock(mtx_);
-    for (uint32_t i = 0; i < buffer->num_buffers; i++) {
+    for (uint32_t i = 0; i < buffer->num_resources; i++) {
         GPUResourceDisposeItemVK& buf = resource_disposal_.emplace_back();
         buf.type = GPUResourceDisposeItemVK::Buffer;
         buf.frame_stamp = frame_count_;
         buf.buffer = {
-            .buffer = (VkBuffer)buffer->buffer[i],
+            .buffer = buffer->buffer[i],
             .allocation = buffer->allocation[i],
         };
     }
@@ -1201,7 +1201,7 @@ void GPURendererVK::dispose_buffer_(GPUBufferVK* buffer) {
 
 void GPURendererVK::dispose_texture_(GPUTextureVK* texture) {
     std::scoped_lock lock(mtx_);
-    for (uint32_t i = 0; i < texture->num_buffers; i++) {
+    for (uint32_t i = 0; i < texture->num_resources; i++) {
         GPUResourceDisposeItemVK& tex = resource_disposal_.emplace_back();
         tex.type = GPUResourceDisposeItemVK::Texture;
         tex.frame_stamp = frame_count_;
@@ -1225,7 +1225,7 @@ void GPURendererVK::dispose_pipeline_(GPUPipelineVK* pipeline) {
 void GPURendererVK::dispose_viewport_data_(GPUViewportDataVK* vp_data, VkSurfaceKHR surface) {
     std::scoped_lock lock(mtx_);
     GPUTextureVK* vk_texture = static_cast<GPUTextureVK*>(vp_data->render_target);
-    for (uint32_t i = 0; i < vk_texture->num_buffers; i++) {
+    for (uint32_t i = 0; i < vk_texture->num_resources; i++) {
         GPUResourceDisposeItemVK& tex = resource_disposal_.emplace_back();
         tex.type = GPUResourceDisposeItemVK::Texture;
         tex.frame_stamp = frame_count_;
