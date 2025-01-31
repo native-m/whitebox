@@ -455,6 +455,7 @@ GPUBuffer* GPURendererVK::create_buffer(GPUBufferUsageFlags usage, size_t buffer
     } else {
         allocation_info.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
         allocation_info.preferredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+        buffer_info.usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
     }
 
     if (dedicated_allocation)
@@ -489,11 +490,15 @@ GPUBuffer* GPURendererVK::create_buffer(GPUBufferUsageFlags usage, size_t buffer
             return nullptr;
         }
 
-        if (cpu_access && init_data && init_size) {
-            void* mapped_ptr;
-            vmaMapMemory(allocator_, allocation, &mapped_ptr);
-            std::memcpy(mapped_ptr, init_data, init_size);
-            vmaUnmapMemory(allocator_, allocation);
+        if (init_data && init_size) {
+            if (cpu_access) {
+                void* mapped_ptr;
+                vmaMapMemory(allocator_, allocation, &mapped_ptr);
+                std::memcpy(mapped_ptr, init_data, init_size);
+                vmaUnmapMemory(allocator_, allocation);
+            } else {
+                enqueue_resource_upload_(buffer, buffer_size, init_data);
+            }
         }
 
         for (uint32_t i = 0; i < num_inflight_frames_; i++) {
@@ -1067,6 +1072,7 @@ void GPURendererVK::flush_state() {
         vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
     }
 
+    // Update texture descriptors
     if (uint32_t dirty_bits = dirty_flags.texture) {
         VkDescriptorSet descriptor_set = descriptor_stream_.allocate_descriptor_set(device_, texture_set_layout_, 4, 4);
         VkDescriptorImageInfo descriptor[4];
@@ -1131,6 +1137,7 @@ void GPURendererVK::flush_state() {
         descriptor_set_first_slot++;
     }
 
+    // Update buffer descriptors
     if (uint32_t dirty_bits = dirty_flags.storage_buf) {
         VkDescriptorSet descriptor_set =
             descriptor_stream_.allocate_descriptor_set(device_, storage_buffer_set_layout_, 4, 4);
@@ -1210,6 +1217,35 @@ void GPURendererVK::flush_state() {
     }
 
     dirty_flags.u32 = 0;
+}
+
+void GPURendererVK::enqueue_resource_upload_(VkBuffer buffer, uint32_t size, const void* data) {
+    VmaAllocationCreateInfo alloc_info {
+        .flags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+        .pool = staging_pool_,
+    };
+
+    VkBufferCreateInfo buffer_info {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = (VkDeviceSize)size,
+        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+    };
+
+    VkBuffer staging_buffer;
+    VmaAllocation allocation;
+    VmaAllocationInfo alloc_result;
+    VK_CHECK(vmaCreateBuffer(allocator_, &buffer_info, &alloc_info, &staging_buffer, &allocation, &alloc_result));
+
+    void* mapped_ptr = alloc_result.pMappedData;
+    std::memcpy(alloc_result.pMappedData, data, buffer_info.size);
+    vmaFlushAllocation(allocator_, allocation, 0, VK_WHOLE_SIZE);
+
+    GPUUploadItemVK& upload = pending_uploads_.emplace_back();
+    upload.type = GPUUploadItemVK::Buffer;
+    upload.width = size;
+    upload.src_buffer = staging_buffer;
+    upload.src_allocation = allocation;
+    upload.dst_buffer = buffer;
 }
 
 void GPURendererVK::enqueue_resource_upload_(VkImage image, VkImageLayout old_layout, VkImageLayout new_layout,

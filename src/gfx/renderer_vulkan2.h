@@ -61,7 +61,7 @@ struct GPUUploadItemVK {
     };
 
     uint32_t type;
-    uint32_t width;
+    uint32_t width; // If this is a buffer upload, this will be the size of the buffer
     uint32_t height;
     VkImageLayout old_layout;
     VkImageLayout new_layout;
@@ -227,6 +227,7 @@ struct GPURendererVK : public GPURenderer {
     void set_shader_parameter(size_t size, const void* data) override;
     void flush_state() override;
 
+    void enqueue_resource_upload_(VkBuffer buffer, uint32_t size, const void* data);
     void enqueue_resource_upload_(VkImage image, VkImageLayout old_layout, VkImageLayout new_layout, uint32_t w,
                                   uint32_t h, const void* data);
     void submit_pending_uploads_();
