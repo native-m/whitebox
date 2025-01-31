@@ -61,6 +61,13 @@ bool GPURenderer::init(SDL_Window* window) {
         .enable_color_write = true,
     });
 
+    ImGuiIO& io = ImGui::GetIO();
+    unsigned char* pixels;
+    int width, height;
+    io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+    font_texture =
+        create_texture(GPUTextureUsage::Sampled, GPUFormat::UnormR8G8B8A8, width, height, width, height, pixels);
+
     return true;
 }
 

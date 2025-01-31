@@ -197,14 +197,14 @@ struct GPURenderer {
     }
 
     void bind_vertex_buffer(GPUBuffer* vtx_buf) {
-        if (vtx_buf != vtx_buf) {
+        if (vtx_buf != current_vtx_buf) {
             current_vtx_buf = vtx_buf;
             dirty_flags.vtx_buf = 1;
         }
     }
 
     void bind_index_buffer(GPUBuffer* idx_buf) {
-        if (idx_buf != idx_buf) {
+        if (idx_buf != current_idx_buf) {
             current_idx_buf = idx_buf;
             dirty_flags.idx_buf = 1;
         }

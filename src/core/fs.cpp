@@ -8,6 +8,20 @@
 #endif
 
 namespace wb {
+Vector<std::byte> read_file_content(const std::filesystem::path& path) {
+    File file;
+    Vector<std::byte> bytes;
+    if (!file.open(path, IOOpenMode::Read))
+        return {};
+    if (!file.seek(0, IOSeekMode::End))
+        return {};
+    uint64_t size = file.position();
+    file.seek(0, IOSeekMode::Begin);
+    bytes.resize(size);
+    if (file.read(bytes.data(), size) < size)
+        return {};
+    return bytes;
+}
 
 std::filesystem::path to_system_preferred_path(const std::filesystem::path& path) {
     return std::filesystem::path(path).make_preferred();

@@ -3,6 +3,7 @@
 #include "common.h"
 #include "types.h"
 #include "io_types.h"
+#include "vector.h"
 #include <filesystem>
 #include <optional>
 #include <bit>
@@ -75,6 +76,7 @@ consteval uint32_t fourcc(const char ch[5]) {
     return (ch[0] << 24) | (ch[1] << 16) | (ch[2] << 8) | ch[3];
 }
 
+Vector<std::byte> read_file_content(const std::filesystem::path& path);
 std::filesystem::path to_system_preferred_path(const std::filesystem::path& path);
 std::filesystem::path remove_filename_from_path(const std::filesystem::path& path);
 void explore_folder(const std::filesystem::path& path);
