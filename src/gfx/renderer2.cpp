@@ -1,21 +1,33 @@
 #include "renderer2.h"
+#include "core/bit_manipulation.h"
 #include "core/debug.h"
 #include "core/fs.h"
+#include "platform/platform.h"
 #include "renderer_vulkan2.h"
 
 namespace wb {
 
 static void imgui_renderer_create_window(ImGuiViewport* viewport) {
     SDL_Window* window = SDL_GetWindowFromID((uint32_t)(uint64_t)viewport->PlatformHandle);
+    wm_make_child_window(window, wm_get_main_window(), true);
+    g_renderer2->add_viewport(viewport);
 }
 
 static void imgui_renderer_destroy_window(ImGuiViewport* viewport) {
+    if (viewport->RendererUserData)
+        g_renderer2->remove_viewport(viewport);
 }
 
 static void imgui_renderer_set_window_size(ImGuiViewport* viewport, ImVec2 size) {
+    g_renderer2->resize_viewport(viewport, size);
 }
 
 static void imgui_renderer_render_window(ImGuiViewport* viewport, void* userdata) {
+    if (!has_bit(viewport->Flags, ImGuiViewportFlags_IsMinimized)) {
+        g_renderer2->begin_render((GPUTexture*)viewport->RendererUserData, {0.0f, 0.0f, 0.0f, 1.0f});
+        g_renderer2->render_imgui_draw_data(viewport->DrawData);
+        g_renderer2->end_render();
+    }
 }
 
 static void imgui_renderer_swap_buffers(ImGuiViewport* viewport, void* userdata) {
@@ -225,6 +237,13 @@ void init_renderer2(SDL_Window* window) {
     g_renderer2 = GPURendererVK::create(window);
     if (!g_renderer2)
         Log::error("Failed to create renderer");
+
+    ImGuiIO& io = ImGui::GetIO();
+    io.BackendRendererUserData = (void*)g_renderer2;
+    io.BackendRendererName = "imgui_impl_whitebox";
+    io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;
+    io.BackendFlags |= ImGuiBackendFlags_RendererHasViewports;
+
     ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
     platform_io.Renderer_CreateWindow = imgui_renderer_create_window;
     platform_io.Renderer_DestroyWindow = imgui_renderer_destroy_window;
@@ -236,6 +255,8 @@ void init_renderer2(SDL_Window* window) {
 void shutdown_renderer2() {
     g_renderer2->shutdown();
     delete g_renderer2;
+    ImGuiIO& io = ImGui::GetIO();
+    io.BackendRendererUserData = nullptr;
 }
 
 GPURenderer* g_renderer2;

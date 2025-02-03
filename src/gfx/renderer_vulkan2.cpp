@@ -2,6 +2,7 @@
 #include "core/bit_manipulation.h"
 #include "core/debug.h"
 #include "core/defer.h"
+#include "platform/platform.h"
 #include <SDL_syswm.h>
 #include <imgui_impl_sdl2.h>
 
@@ -435,7 +436,6 @@ GPUBuffer* GPURendererVK::create_buffer(GPUBufferUsageFlags usage, size_t buffer
     if (contain_bit(usage, GPUBufferUsage::CPUAccessible))
         cpu_access = true;
 
-    GPUBufferVK* new_buffer = new (buffer_ptr) GPUBufferVK();
     VkBufferCreateInfo buffer_info {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .size = buffer_size,
@@ -461,6 +461,7 @@ GPUBuffer* GPURendererVK::create_buffer(GPUBufferUsageFlags usage, size_t buffer
     if (dedicated_allocation)
         allocation_info.flags |= VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
 
+    GPUBufferVK* new_buffer = new (buffer_ptr) GPUBufferVK();
     new_buffer->usage = usage;
     new_buffer->size = buffer_size;
 
@@ -497,6 +498,7 @@ GPUBuffer* GPURendererVK::create_buffer(GPUBufferUsageFlags usage, size_t buffer
                 std::memcpy(mapped_ptr, init_data, init_size);
                 vmaUnmapMemory(allocator_, allocation);
             } else {
+                // Upload the resource indirectly
                 enqueue_resource_upload_(buffer, buffer_size, init_data);
             }
         }
@@ -844,9 +846,45 @@ void GPURendererVK::destroy_pipeline(GPUPipeline* pipeline) {
 }
 
 void GPURendererVK::add_viewport(ImGuiViewport* viewport) {
+    SDL_Window* window = SDL_GetWindowFromID((uint32_t)(uint64_t)viewport->PlatformHandle);
+    VkWin32SurfaceCreateInfoKHR surface_info {
+        .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
+        .hinstance = GetModuleHandle(nullptr),
+        .hwnd = (HWND)wm_get_native_window_handle(window),
+    };
+
+    VkSurfaceKHR surface;
+    if (VK_FAILED(vkCreateWin32SurfaceKHR(instance_, &surface_info, nullptr, &surface))) {
+        Log::error("Failed to create window surface");
+        return;
+    }
+
+    GPUViewportDataVK* vp_data = new GPUViewportDataVK();
+    vp_data->viewport = viewport;
+    vp_data->surface = surface;
+    create_or_recreate_swapchain_(vp_data);
+    viewport->RendererUserData = vp_data->render_target;
+    added_viewports.push_back(vp_data);
 }
 
 void GPURendererVK::remove_viewport(ImGuiViewport* viewport) {
+    GPUViewportDataVK* removed_viewport = nullptr;
+    Vector<GPUViewportDataVK*> old_viewports;
+    uint32_t index = 0;
+    for (auto vp_data : viewports) {
+        GPUTextureVK* texture = (GPUTextureVK*)viewport->RendererUserData;
+        if (vp_data == texture->parent_viewport) {
+            removed_viewport = vp_data;
+            continue;
+        }
+        old_viewports.push_back(vp_data);
+    }
+    if (removed_viewport) {
+        viewports = std::move(old_viewports);
+        dispose_viewport_data_(removed_viewport, removed_viewport->surface);
+        viewport->RendererUserData = nullptr;
+        delete removed_viewport;
+    }
 }
 
 void GPURendererVK::resize_viewport(ImGuiViewport* viewport, ImVec2 vec) {
@@ -866,15 +904,15 @@ void GPURendererVK::begin_frame() {
 
     vkWaitForFences(device_, 1, &fences_[frame_id], VK_TRUE, UINT64_MAX);
 
-    for (auto viewport : added_viewports)
-        viewports.push_back(viewport);
-
     bool been_waiting = false;
     for (auto viewport : viewports) {
         if (viewport->need_rebuild) {
-            if (!been_waiting)
+            if (!been_waiting) {
                 vkQueueWaitIdle(present_queue_);
+                been_waiting = true;
+            }
             create_or_recreate_swapchain_(viewport);
+            viewport->need_rebuild = false;
         }
         viewport->acquire(device_);
     }
@@ -896,11 +934,17 @@ void GPURendererVK::end_frame() {
         submit_wait_stages.push_back(VK_PIPELINE_STAGE_TRANSFER_BIT);
     }
 
+    for (auto viewport : added_viewports) {
+        viewport->acquire(device_);
+        viewports.push_back(viewport);
+    }
+
     // NOTE(native-m): use arena allocator to allocate temporary data
     for (auto viewport : viewports) {
         GPUTextureVK* rt = static_cast<GPUTextureVK*>(viewport->render_target);
         uint32_t sync_id = viewport->sync_id;
         uint32_t image_id = rt->active_id;
+        // Make it presentable
         if (auto layout = rt->layout[image_id]; layout != VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
             GPUTextureAccessVK src_access = get_texture_access(layout);
             constexpr GPUTextureAccessVK dst_access = get_texture_access(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
@@ -957,6 +1001,7 @@ void GPURendererVK::end_frame() {
     frame_count_++;
     submit_wait_semaphores.resize(0);
     submit_wait_stages.resize(0);
+    added_viewports.resize(0);
 }
 
 void GPURendererVK::present() {
@@ -1488,6 +1533,7 @@ bool GPURendererVK::create_or_recreate_swapchain_(GPUViewportDataVK* vp_data) {
         VK_CHECK(vkCreateImageView(device_, &view_info, nullptr, &render_target->view[i]));
         fb_info.pAttachments = &render_target->view[i];
         VK_CHECK(vkCreateFramebuffer(device_, &fb_info, nullptr, &render_target->fb[i]));
+        render_target->layout[i] = VK_IMAGE_LAYOUT_UNDEFINED;
     }
 
     return true;
@@ -1552,7 +1598,7 @@ void GPURendererVK::dispose_viewport_data_(GPUViewportDataVK* vp_data, VkSurface
     swapchain.frame_stamp = frame_count_;
     swapchain.swapchain = {
         .swapchain = vp_data->swapchain,
-        .surface = vp_data->surface,
+        .surface = surface,
     };
 }
 
