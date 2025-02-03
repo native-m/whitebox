@@ -892,8 +892,10 @@ void GPURendererVK::resize_viewport(ImGuiViewport* viewport, ImVec2 vec) {
         static_cast<GPUViewportDataVK*>(main_vp)->need_rebuild = true;
         return;
     }
-    GPUViewportDataVK* vp_data = static_cast<GPUViewportDataVK*>(viewport->RendererUserData);
-    vp_data->need_rebuild = true;
+    GPUTextureVK* texture = (GPUTextureVK*)viewport->RendererUserData;
+    vkDeviceWaitIdle(device_);
+    create_or_recreate_swapchain_(texture->parent_viewport);
+    texture->parent_viewport->acquire(device_);
 }
 
 void GPURendererVK::begin_frame() {
