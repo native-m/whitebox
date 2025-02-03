@@ -6,6 +6,8 @@
 #include <SDL_syswm.h>
 #include <imgui_impl_sdl2.h>
 
+#define WB_LOG_VULKAN_RESOURCE_DISPOSAL 0
+
 namespace wb {
 
 static VkFormat get_vk_format(GPUFormat format) {
@@ -893,7 +895,7 @@ void GPURendererVK::resize_viewport(ImGuiViewport* viewport, ImVec2 vec) {
         return;
     }
     GPUTextureVK* texture = (GPUTextureVK*)viewport->RendererUserData;
-    vkDeviceWaitIdle(device_);
+    vkQueueWaitIdle(graphics_queue_);
     create_or_recreate_swapchain_(texture->parent_viewport);
     texture->parent_viewport->acquire(device_);
 }
@@ -1612,7 +1614,9 @@ void GPURendererVK::dispose_resources_(uint64_t frame_count) {
             switch (item.type) {
                 case GPUResourceDisposeItemVK::Buffer:
                     vmaDestroyBuffer(allocator_, item.buffer.buffer, item.buffer.allocation);
+#if WB_LOG_VULKAN_RESOURCE_DISPOSAL
                     Log::debug("Buffer destroyed {:x} on frame {}", (uintptr_t)item.buffer.buffer, item.frame_stamp);
+#endif
                     break;
                 case GPUResourceDisposeItemVK::Texture:
                     if (item.texture.fb)
@@ -1620,25 +1624,33 @@ void GPURendererVK::dispose_resources_(uint64_t frame_count) {
                     vkDestroyImageView(device_, item.texture.view, nullptr);
                     if (item.texture.image && item.texture.allocation)
                         vmaDestroyImage(allocator_, item.texture.image, item.texture.allocation);
+#if WB_LOG_VULKAN_RESOURCE_DISPOSAL
                     Log::debug("Texture destroyed {:x} on frame {}", (uintptr_t)item.texture.image, item.frame_stamp);
+#endif
                     break;
                 case GPUResourceDisposeItemVK::Pipeline:
                     vkDestroyPipelineLayout(device_, item.pipeline.layout, nullptr);
                     vkDestroyPipeline(device_, item.pipeline.pipeline, nullptr);
+#if WB_LOG_VULKAN_RESOURCE_DISPOSAL
                     Log::debug("Pipeline destroyed {:x} on frame {}", (uintptr_t)item.pipeline.pipeline,
                                item.frame_stamp);
+#endif
                     break;
                 case GPUResourceDisposeItemVK::Swapchain:
                     vkDestroySwapchainKHR(device_, item.swapchain.swapchain, nullptr);
                     if (item.swapchain.surface)
                         vkDestroySurfaceKHR(instance_, item.swapchain.surface, nullptr);
+#if WB_LOG_VULKAN_RESOURCE_DISPOSAL
                     Log::debug("Swapchain destroyed {:x} on frame {}", (uintptr_t)item.swapchain.swapchain,
                                item.frame_stamp);
+#endif
                     break;
                 case GPUResourceDisposeItemVK::SyncObject:
                     vkDestroySemaphore(device_, item.sync_obj.semaphore, nullptr);
+#if WB_LOG_VULKAN_RESOURCE_DISPOSAL
                     Log::debug("Sync object destroyed {:x} on frame {}", (uintptr_t)item.sync_obj.semaphore,
                                item.frame_stamp);
+#endif
                     break;
             }
             resource_disposal_.pop_front();
