@@ -7,8 +7,6 @@
 #include <deque>
 #include <mutex>
 
-#define WB_VULKAN_IMAGE_DESCRIPTOR_SET_SLOT 0
-#define WB_VULKAN_BUFFER_DESCRIPTOR_SET_SLOT 1
 #define WB_VULKAN_SYNC_COUNT (WB_GPU_RENDER_BUFFER_SIZE)
 
 namespace wb {

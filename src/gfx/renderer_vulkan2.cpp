@@ -1120,8 +1120,12 @@ void GPURendererVK::set_shader_parameter(size_t size, const void* data) {
 
 void GPURendererVK::flush_state() {
     VkDescriptorSet descriptor_set_updates[2];
-    uint32_t num_descriptor_set_updates = 0;
+    VkDescriptorImageInfo image_descriptor[4];
+    VkDescriptorBufferInfo buffer_descriptor[4];
+    VkWriteDescriptorSet update_writes[8];
     uint32_t descriptor_set_first_slot = 0;
+    uint32_t num_descriptor_set_updates = 0;
+    uint32_t num_descriptor_writes = 0;
     VkCommandBuffer cb = current_cb_;
 
     if (dirty_flags.pipeline) {
@@ -1131,32 +1135,33 @@ void GPURendererVK::flush_state() {
 
     // Update texture descriptors
     if (uint32_t dirty_bits = dirty_flags.texture) {
-        VkDescriptorSet descriptor_set = descriptor_stream_.allocate_descriptor_set(device_, texture_set_layout_, 4, 4);
-        VkDescriptorImageInfo descriptor[4];
-        VkWriteDescriptorSet write_set[4];
+        VkDescriptorSet descriptor_set = descriptor_stream_.allocate_descriptor_set(device_, texture_set_layout_, 0, 4);
         VkImageMemoryBarrier barriers[4];
-        uint32_t num_updates = 0;
+        VkPipelineStageFlags src_stage = 0;
+        VkPipelineStageFlags dst_stage = 0;
         uint32_t num_barriers = 0;
 
         while (dirty_bits) {
             int slot = next_set_bits(dirty_bits);
             GPUTextureVK* tex = static_cast<GPUTextureVK*>(current_texture[slot]);
+            uint32_t num_descriptors = 0;
             uint32_t active_id = tex->active_id;
-            descriptor[num_updates] = {
+            image_descriptor[num_descriptors] = {
                 .sampler = common_sampler_,
                 .imageView = tex->view[active_id],
                 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             };
-            write_set[num_updates] = {
+            update_writes[num_descriptor_writes] = {
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                 .dstSet = descriptor_set,
                 .dstBinding = (uint32_t)slot,
                 .dstArrayElement = 0,
                 .descriptorCount = 1,
                 .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                .pImageInfo = &descriptor[num_updates],
+                .pImageInfo = &image_descriptor[num_descriptors],
             };
-            num_updates++;
+            num_descriptor_writes++;
+            num_descriptors++;
 
             if (auto layout = tex->layout[active_id]; layout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
                 GPUTextureAccessVK src_access = get_texture_access(layout);
@@ -1179,6 +1184,8 @@ void GPURendererVK::flush_state() {
                             .layerCount = 1,
                         },
                 };
+                src_stage |= src_access.stages;
+                dst_stage |= dst_access.stages;
                 tex->layout[active_id] = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
                 num_barriers++;
             }
@@ -1187,7 +1194,9 @@ void GPURendererVK::flush_state() {
                 active_resources_list_.push_item(tex);
         }
 
-        vkUpdateDescriptorSets(device_, num_updates, write_set, 0, nullptr);
+        if (num_barriers > 0)
+            vkCmdPipelineBarrier(cb, src_stage, dst_stage, 0, 0, nullptr, 0, nullptr, num_barriers, barriers);
+
         descriptor_set_updates[num_descriptor_set_updates] = descriptor_set;
         num_descriptor_set_updates++;
     } else {
@@ -1196,43 +1205,42 @@ void GPURendererVK::flush_state() {
 
     // Update buffer descriptors
     if (uint32_t dirty_bits = dirty_flags.storage_buf) {
+        uint32_t num_descriptors = 0;
         VkDescriptorSet descriptor_set =
-            descriptor_stream_.allocate_descriptor_set(device_, storage_buffer_set_layout_, 4, 4);
-        VkDescriptorBufferInfo descriptor[4];
-        VkWriteDescriptorSet write_set[4];
-        uint32_t num_updates = 0;
+            descriptor_stream_.allocate_descriptor_set(device_, storage_buffer_set_layout_, 4, 0);
 
         while (dirty_bits) {
             int slot = next_set_bits(dirty_bits);
             GPUBufferVK* buf = static_cast<GPUBufferVK*>(current_storage_buf[slot]);
             uint32_t active_id = buf->active_id;
-            descriptor[num_updates] = {
+            buffer_descriptor[num_descriptors] = {
                 .buffer = buf->buffer[active_id],
                 .offset = 0,
                 .range = VK_WHOLE_SIZE,
             };
-            write_set[num_updates] = {
+            update_writes[num_descriptor_writes] = {
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                 .dstSet = descriptor_set,
-                .dstBinding = WB_VULKAN_BUFFER_DESCRIPTOR_SET_SLOT,
+                .dstBinding = (uint32_t)slot,
                 .dstArrayElement = 0,
                 .descriptorCount = 1,
                 .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-                .pBufferInfo = &descriptor[num_updates],
+                .pBufferInfo = &buffer_descriptor[num_descriptors],
             };
-            num_updates++;
+            num_descriptor_writes++;
+            num_descriptors++;
 
             if (!buf->is_connected_to_list())
                 active_resources_list_.push_item(buf);
         }
 
-        vkUpdateDescriptorSets(device_, num_updates, write_set, 0, nullptr);
         descriptor_set_updates[num_descriptor_set_updates] = descriptor_set;
         num_descriptor_set_updates++;
     }
 
     if (num_descriptor_set_updates > 0) {
         GPUPipelineVK* pipeline = static_cast<GPUPipelineVK*>(current_pipeline);
+        vkUpdateDescriptorSets(device_, num_descriptor_writes, update_writes, 0, nullptr);
         vkCmdBindDescriptorSets(current_cb_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->layout,
                                 descriptor_set_first_slot, num_descriptor_set_updates, descriptor_set_updates, 0,
                                 nullptr);
