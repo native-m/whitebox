@@ -1,6 +1,5 @@
 #include "app.h"
 #include "config.h"
-#include "core/color.h"
 #include "core/debug.h"
 #include "engine/audio_io.h"
 #include "engine/engine.h"
@@ -12,7 +11,6 @@
 #include "ui/browser.h"
 #include "ui/command_manager.h"
 #include "ui/control_bar.h"
-#include "ui/dialogs.h"
 #include "ui/file_dialog.h"
 #include "ui/file_dropper.h"
 #include "ui/font.h"
@@ -133,7 +131,6 @@ static void imgui_renderer_set_window_size(ImGuiViewport* viewport, ImVec2 size)
 }
 
 static void imgui_renderer_render_window(ImGuiViewport* viewport, void* userdata) {
-    Framebuffer* fb = (Framebuffer*)viewport->RendererUserData;
     // Log::info("{} {}", fb->width, fb->height);
     if (!has_bit(viewport->Flags, ImGuiViewportFlags_IsMinimized)) {
         g_renderer->begin_draw((Framebuffer*)viewport->RendererUserData, {0.0f, 0.0f, 0.0f, 1.0f});
@@ -174,8 +171,8 @@ void app_init() {
 
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-    // io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
-    // io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     io.ConfigViewportsNoTaskBarIcon = false;
     io.IniFilename = ".whitebox/ui.ini";
 
@@ -257,21 +254,27 @@ void app_render() {
         g_file_drop.clear();
 }
 
+void app_render2() {
+    g_renderer2->begin_frame();
+    ImGui_ImplSDL2_NewFrame();
+    ImGui::NewFrame();
+    ImGui::ShowDemoWindow();
+    ImGui::Render();
+    g_renderer2->begin_render(g_renderer2->main_vp->render_target, ImVec4(0.0f, 0.0f, 0.0f, 1.0f));
+    g_renderer2->render_imgui_draw_data(ImGui::GetDrawData());
+    g_renderer2->end_render();
+    ImGui::UpdatePlatformWindows();
+    ImGui::RenderPlatformWindowsDefault();
+    g_renderer2->end_frame();
+    g_renderer2->present();
+}
+
 void app_run_loop() {
     while (is_running) {
         SDL_Event event;
         while (SDL_PollEvent(&event))
             handle_events(event);
-        g_renderer2->begin_frame();
-        ImGui_ImplSDL2_NewFrame();
-        ImGui::NewFrame();
-        ImGui::ShowDemoWindow();
-        ImGui::Render();
-        g_renderer2->begin_render(g_renderer2->main_vp->render_target, ImVec4(0.0f, 0.0f, 0.0f, 1.0f));
-        g_renderer2->render_imgui_draw_data(ImGui::GetDrawData());
-        g_renderer2->end_render();
-        g_renderer2->end_frame();
-        g_renderer2->present();
+        app_render2();
         //app_render();
     }
 }
@@ -310,7 +313,12 @@ static bool last_resized = false;
 int SDLCALL event_watcher(void* userdata, SDL_Event* event) {
     bool refresh = false;
     uint32_t main_window_id = wm_get_main_window_id();
-    switch (event->type) {
+    if (!GImGui)
+        return 0;
+    if (event->type == SDL_WINDOWEVENT && event->window.event == SDL_WINDOWEVENT_EXPOSED && main_window_id == event->window.windowID) {
+        app_render2();
+    }
+    /*switch (event->type) {
         case SDL_WINDOWEVENT: {
             int32_t w, h;
             switch (event->window.event) {
@@ -381,7 +389,7 @@ int SDLCALL event_watcher(void* userdata, SDL_Event* event) {
         }
         default:
             break;
-    }
+    }*/
     if (refresh)
         app_render();
     return 0;

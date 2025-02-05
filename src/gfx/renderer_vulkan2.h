@@ -6,10 +6,10 @@
 #include "vk_stub.h"
 #include <deque>
 #include <mutex>
-#include <optional>
 
 #define WB_VULKAN_IMAGE_DESCRIPTOR_SET_SLOT 0
 #define WB_VULKAN_BUFFER_DESCRIPTOR_SET_SLOT 1
+#define WB_VULKAN_SYNC_COUNT (WB_GPU_RENDER_BUFFER_SIZE)
 
 namespace wb {
 struct GPUViewportDataVK;
@@ -45,7 +45,7 @@ struct GPUViewportDataVK : public GPUViewportData {
     ImGuiViewport* viewport {};
     VkSwapchainKHR swapchain {};
     VkSurfaceKHR surface {};
-    VkSemaphore image_acquire_semaphore[WB_GPU_RENDER_BUFFER_SIZE];
+    VkSemaphore image_acquire_semaphore[WB_VULKAN_SYNC_COUNT];
     uint32_t sync_id;
     uint32_t image_id;
     uint32_t num_sync {};
@@ -173,13 +173,14 @@ struct GPURendererVK : public GPURenderer {
     VkDescriptorSetLayout texture_set_layout_ = VK_NULL_HANDLE;
     VkDescriptorSetLayout storage_buffer_set_layout_ = VK_NULL_HANDLE;
     VkFence fences_[WB_GPU_RENDER_BUFFER_SIZE] {};
-    VkSemaphore render_finished_semaphore_[WB_GPU_RENDER_BUFFER_SIZE] {};
+    VkSemaphore render_finished_semaphore_[WB_VULKAN_SYNC_COUNT] {};
     VkSemaphore current_render_finished_semaphore_ {};
     VkCommandPool cmd_pool_[WB_GPU_RENDER_BUFFER_SIZE] {};
     VkCommandBuffer cmd_buf_[WB_GPU_RENDER_BUFFER_SIZE] {};
     VkCommandBuffer current_cb_ {};
     uint32_t sync_id_ = 0;
     uint64_t frame_count_ = 0;
+    uint32_t num_sync_ = WB_VULKAN_SYNC_COUNT;
     uint32_t num_inflight_frames_ = WB_GPU_RENDER_BUFFER_SIZE;
     InplaceList<GPUResource> active_resources_list_;
 

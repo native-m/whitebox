@@ -66,6 +66,8 @@ static constexpr GPUTextureAccessVK get_texture_access(VkImageLayout layout) {
                 .mask = 0,
                 .layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
             };
+        default:
+            break;
     }
     return {};
 }
@@ -334,9 +336,11 @@ bool GPURendererVK::init(SDL_Window* window) {
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
     };
 
+    for (uint32_t i = 0; i < num_sync_; i++)
+        VK_CHECK(vkCreateSemaphore(device_, &semaphore_info, nullptr, &render_finished_semaphore_[i]));
+
     for (uint32_t i = 0; i < num_inflight_frames_; i++) {
         VK_CHECK(vkCreateFence(device_, &fence_info, nullptr, &fences_[i]));
-        VK_CHECK(vkCreateSemaphore(device_, &semaphore_info, nullptr, &render_finished_semaphore_[i]));
         VK_CHECK(vkCreateSemaphore(device_, &semaphore_info, nullptr, &upload_finished_semaphore_[i]));
         VK_CHECK(vkCreateCommandPool(device_, &pool_info, nullptr, &cmd_pool_[i]));
         VK_CHECK(vkCreateCommandPool(device_, &pool_info, nullptr, &upload_cmd_pool_[i]));
@@ -382,9 +386,12 @@ void GPURendererVK::shutdown() {
     GPURenderer::shutdown();
     vkDeviceWaitIdle(device_);
 
+    for (uint32_t i = 0; i < num_sync_; i++) {
+        vkDestroySemaphore(device_, render_finished_semaphore_[i], nullptr);
+    }
+
     for (uint32_t i = 0; i < num_inflight_frames_; i++) {
         vkDestroySemaphore(device_, upload_finished_semaphore_[i], nullptr);
-        vkDestroySemaphore(device_, render_finished_semaphore_[i], nullptr);
         vkDestroyFence(device_, fences_[i], nullptr);
         vkDestroyCommandPool(device_, cmd_pool_[i], nullptr);
         vkDestroyCommandPool(device_, upload_cmd_pool_[i], nullptr);
@@ -827,19 +834,19 @@ GPUPipeline* GPURendererVK::create_pipeline(const GPUPipelineDesc& desc) {
 }
 
 void GPURendererVK::destroy_buffer(GPUBuffer* buffer) {
-    dispose_buffer_(static_cast<GPUBufferVK*>(buffer));
-    if (buffer->is_connected_to_list())
-        buffer->remove_from_list();
-    buffer->~GPUBuffer();
-    buffer_pool_.free(buffer);
+    GPUBufferVK* impl = static_cast<GPUBufferVK*>(buffer);
+    dispose_buffer_(impl);
+    if (impl->is_connected_to_list())
+        impl->remove_from_list();
+    buffer_pool_.destroy(impl);
 }
 
 void GPURendererVK::destroy_texture(GPUTexture* texture) {
-    dispose_texture_(static_cast<GPUTextureVK*>(texture));
-    if (texture->is_connected_to_list())
-        texture->remove_from_list();
-    texture->~GPUTexture();
-    texture_pool_.free(texture);
+    GPUTextureVK* impl = static_cast<GPUTextureVK*>(texture);
+    dispose_texture_(impl);
+    if (impl->is_connected_to_list())
+        impl->remove_from_list();
+    texture_pool_.destroy(impl);
 }
 
 void GPURendererVK::destroy_pipeline(GPUPipeline* pipeline) {
@@ -975,7 +982,7 @@ void GPURendererVK::end_frame() {
             rt->layout[image_id] = VK_IMAGE_LAYOUT_UNDEFINED;
         }
         submit_wait_semaphores.push_back(viewport->image_acquire_semaphore[viewport->sync_id]);
-        submit_wait_stages.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+        submit_wait_stages.push_back(VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
         swapchain_present.push_back(viewport->swapchain);
         sc_image_index_present.push_back(rt->active_id);
         viewport->sync_id = (sync_id + 1) % viewport->num_sync;
@@ -991,7 +998,7 @@ void GPURendererVK::end_frame() {
         .commandBufferCount = 1,
         .pCommandBuffers = &current_cb_,
         .signalSemaphoreCount = 1,
-        .pSignalSemaphores = &render_finished_semaphore_[frame_id],
+        .pSignalSemaphores = &render_finished_semaphore_[sync_id_],
     };
     vkResetFences(device_, 1, &fences_[frame_id]);
     vkQueueSubmit(graphics_queue_, 1, &submit, fences_[frame_id]);
@@ -1000,8 +1007,9 @@ void GPURendererVK::end_frame() {
         resource->active_id = (resource->active_id + 1) % resource->num_resources;
     }
 
-    current_render_finished_semaphore_ = render_finished_semaphore_[frame_id];
+    current_render_finished_semaphore_ = render_finished_semaphore_[sync_id_];
     frame_id = (frame_id + 1) % num_inflight_frames_;
+    sync_id_ = (sync_id_ + 1) % num_sync_;
     frame_count_++;
     submit_wait_semaphores.resize(0);
     submit_wait_stages.resize(0);
@@ -1285,7 +1293,6 @@ void GPURendererVK::enqueue_resource_upload_(VkBuffer buffer, uint32_t size, con
     VmaAllocationInfo alloc_result;
     VK_CHECK(vmaCreateBuffer(allocator_, &buffer_info, &alloc_info, &staging_buffer, &allocation, &alloc_result));
 
-    void* mapped_ptr = alloc_result.pMappedData;
     std::memcpy(alloc_result.pMappedData, data, buffer_info.size);
     vmaFlushAllocation(allocator_, allocation, 0, VK_WHOLE_SIZE);
 
@@ -1315,7 +1322,6 @@ void GPURendererVK::enqueue_resource_upload_(VkImage image, VkImageLayout old_la
     VmaAllocationInfo alloc_result;
     VK_CHECK(vmaCreateBuffer(allocator_, &buffer_info, &alloc_info, &buffer, &allocation, &alloc_result));
 
-    void* mapped_ptr = alloc_result.pMappedData;
     std::memcpy(alloc_result.pMappedData, data, buffer_info.size);
     vmaFlushAllocation(allocator_, allocation, 0, VK_WHOLE_SIZE);
 
@@ -1524,15 +1530,18 @@ bool GPURendererVK::create_or_recreate_swapchain_(GPUViewportDataVK* vp_data) {
     render_target->height = fb_info.height;
     vp_data->surface = surface;
     vp_data->swapchain = vk_swapchain;
-    vp_data->num_sync = num_inflight_frames_;
+    vp_data->num_sync = num_sync_;
     vp_data->sync_id = 0;
 
     uint32_t swapchain_image_count;
     vkGetSwapchainImagesKHR(device_, vk_swapchain, &swapchain_image_count, nullptr);
     vkGetSwapchainImagesKHR(device_, vk_swapchain, &swapchain_image_count, render_target->image);
 
-    for (uint32_t i = 0; i < num_inflight_frames_; i++) {
+    for (uint32_t i = 0; i < num_sync_; i++) {
         VK_CHECK(vkCreateSemaphore(device_, &semaphore, nullptr, &vp_data->image_acquire_semaphore[i]));
+    }
+
+    for (uint32_t i = 0; i < num_inflight_frames_; i++) {
         view_info.image = render_target->image[i];
         VK_CHECK(vkCreateImageView(device_, &view_info, nullptr, &render_target->view[i]));
         fb_info.pAttachments = &render_target->view[i];
@@ -1684,7 +1693,6 @@ GPURenderer* GPURendererVK::create(SDL_Window* window) {
     };
 
     const char* instance_layer = "VK_LAYER_KHRONOS_validation";
-    const char* instance_ext = "VK_KHR_surface";
 
     Vector<VkExtensionProperties> extensions;
     uint32_t num_extensions;

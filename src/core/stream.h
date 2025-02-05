@@ -3,7 +3,6 @@
 #include "common.h"
 #include "types.h"
 #include "io_types.h"
-#include <utility>
 
 namespace wb {
 template <typename T>
