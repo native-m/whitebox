@@ -1028,7 +1028,7 @@ void GPURendererVK::present() {
         .pImageIndices = sc_image_index_present.data(),
         .pResults = swapchain_results.data(),
     };
-    vkQueuePresentKHR(graphics_queue_, &present_info);
+    vkQueuePresentKHR(present_queue_, &present_info);
 
     for (uint32_t i = 0; i < (uint32_t)viewports.size(); i++) {
         VkResult result = swapchain_results[i];
@@ -1445,8 +1445,9 @@ void GPURendererVK::submit_pending_uploads_() {
 
 bool GPURendererVK::create_or_recreate_swapchain_(GPUViewportDataVK* vp_data) {
     VkSurfaceKHR surface = vp_data->surface;
-    VkBool32 surface_supported;
-    vkGetPhysicalDeviceSurfaceSupportKHR(physical_device_, graphics_queue_index_, surface, &surface_supported);
+    VkBool32 surface_supported = VK_FALSE;
+    vkGetPhysicalDeviceSurfaceSupportKHR(physical_device_, present_queue_index_, surface, &surface_supported);
+    assert(surface_supported);
 
     VkSurfaceCapabilitiesKHR surface_caps;
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device_, surface, &surface_caps);
@@ -1463,6 +1464,8 @@ bool GPURendererVK::create_or_recreate_swapchain_(GPUViewportDataVK* vp_data) {
     uint32_t present_mode_count = 6;
     vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device_, surface, &present_mode_count, present_modes);
 
+    uint32_t queue_family_indicies[2] { graphics_queue_index_, present_queue_index_ };
+
     VkSwapchainCreateInfoKHR swapchain_info {
         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
         .surface = surface,
@@ -1473,9 +1476,11 @@ bool GPURendererVK::create_or_recreate_swapchain_(GPUViewportDataVK* vp_data) {
         .imageArrayLayers = 1,
         .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
         .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 2,
+        .pQueueFamilyIndices = queue_family_indicies,
         .preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
         .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-        .presentMode = VK_PRESENT_MODE_FIFO_KHR,
+        .presentMode = VK_PRESENT_MODE_FIFO_RELAXED_KHR,
         .clipped = VK_FALSE,
         .oldSwapchain = vp_data->swapchain,
     };
@@ -1833,19 +1838,38 @@ GPURenderer* GPURendererVK::create(SDL_Window* window) {
     queue_families.resize(queue_family_count);
     vkGetPhysicalDeviceQueueFamilyProperties(selected_physical_device, &queue_family_count, queue_families.data());
 
+    Vector<VkDeviceQueueCreateInfo> queue_info;
+
     // Find graphics queue and presentation queue
     uint32_t graphics_queue_index = (uint32_t)-1;
     uint32_t present_queue_index = (uint32_t)-1;
+    const float queue_priority = 1.0f;
     for (uint32_t i = 0; const auto& queue_family : queue_families) {
-        if (contain_bit(queue_family.queueFlags, VK_QUEUE_GRAPHICS_BIT))
+        if (graphics_queue_index == (uint32_t)-1 && contain_bit(queue_family.queueFlags, VK_QUEUE_GRAPHICS_BIT)) {
+            queue_info.push_back({
+                .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+                .queueFamilyIndex = i,
+                .queueCount = 1,
+                .pQueuePriorities = &queue_priority,
+            });
             graphics_queue_index = i;
+        }
         VkBool32 presentation_supported = VK_FALSE;
-        vkGetPhysicalDeviceSurfaceSupportKHR(selected_physical_device, graphics_queue_index, surface,
+        vkGetPhysicalDeviceSurfaceSupportKHR(selected_physical_device, i, surface,
                                              &presentation_supported);
-        if (presentation_supported)
+        if (presentation_supported && present_queue_index == (uint32_t)-1) {
+            if (graphics_queue_index != i) {
+                queue_info.push_back({
+                    .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+                    .queueFamilyIndex = i,
+                    .queueCount = 1,
+                    .pQueuePriorities = &queue_priority,
+                });
+            }
             present_queue_index = i;
-        if (graphics_queue_index != (uint32_t)-1 && present_queue_index != (uint32_t)-1)
-            break;
+        }
+        // if (graphics_queue_index != (uint32_t)-1 && present_queue_index != (uint32_t)-1)
+        //     break;
         i++;
     }
 
@@ -1857,22 +1881,14 @@ GPURenderer* GPURendererVK::create(SDL_Window* window) {
 
     assert(graphics_queue_index == present_queue_index && "Separate presentation queue is not supported at the moment");
 
-    const float queue_priority = 1.0f;
-    VkDeviceQueueCreateInfo queue_info {
-        .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-        .queueFamilyIndex = graphics_queue_index,
-        .queueCount = 1,
-        .pQueuePriorities = &queue_priority,
-    };
-
     VkPhysicalDeviceFeatures features {};
     vkGetPhysicalDeviceFeatures(selected_physical_device, &features);
 
     const char* extension_name = "VK_KHR_swapchain";
     VkDeviceCreateInfo device_info {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-        .queueCreateInfoCount = 1,
-        .pQueueCreateInfos = &queue_info,
+        .queueCreateInfoCount = (uint32_t)queue_info.size(),
+        .pQueueCreateInfos = queue_info.data(),
         .enabledExtensionCount = 1,
         .ppEnabledExtensionNames = &extension_name,
         .pEnabledFeatures = &features,
