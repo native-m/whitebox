@@ -22,7 +22,7 @@ struct SampleAsset {
     uint64_t hash;
     uint32_t ref_count = 1u;
     Sample sample_instance;
-    std::shared_ptr<SamplePeaks> peaks;
+    SamplePeaks* peaks {};
     bool keep_alive = false;
 
     inline void add_ref() noexcept { ++ref_count; }

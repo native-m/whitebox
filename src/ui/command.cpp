@@ -53,6 +53,8 @@ void TrackHistory::undo(Track* track) {
     track->clips = std::move(new_cliplist);
 }
 
+//
+
 void ClipAddFromFileCmd::execute() {
     Track* track = g_engine.tracks[track_id];
     auto result = g_engine.add_clip_from_file(track, file, cursor_pos);
@@ -67,6 +69,8 @@ void ClipAddFromFileCmd::undo() {
     track->update_clip_ordering();
     track->reset_playback_state(g_engine.playhead, true);
 }
+
+//
 
 void ClipMoveCmd::execute() {
     Track* src_track = g_engine.tracks[src_track_id];
@@ -100,6 +104,8 @@ void ClipMoveCmd::undo() {
     }
 }
 
+//
+
 void ClipShiftCmd::execute() {
     Track* track = g_engine.tracks[track_id];
     Clip* clip = track->clips[clip_id];
@@ -119,6 +125,8 @@ void ClipShiftCmd::undo() {
     g_engine.edit_unlock();
 }
 
+//
+
 void ClipResizeCmd::execute() {
     Track* track = g_engine.tracks[track_id];
     Clip* clip = track->clips[clip_id];
@@ -134,6 +142,8 @@ void ClipResizeCmd::undo() {
     track->update_clip_ordering();
     track->reset_playback_state(g_engine.playhead, true);
 }
+
+//
 
 void ClipDuplicateCmd::execute() {
     Track* src_track = g_engine.tracks[src_track_id];
@@ -157,6 +167,8 @@ void ClipDuplicateCmd::undo() {
     track->reset_playback_state(g_engine.playhead, true);
 }
 
+//
+
 void ClipDeleteCmd::execute() {
     Track* track = g_engine.tracks[track_id];
     Clip* clip = track->clips[clip_id];
@@ -171,6 +183,8 @@ void ClipDeleteCmd::undo() {
     track->update_clip_ordering();
     track->reset_playback_state(g_engine.playhead, true);
 }
+
+//
 
 void ClipDeleteRegionCmd::execute() {
     uint32_t first_track = first_track_id;

@@ -4,7 +4,6 @@
 #include "engine/audio_io.h"
 #include "engine/engine.h"
 #include "engine/project.h"
-#include "gfx/renderer.h"
 #include "gfx/renderer2.h"
 #include "platform/platform.h"
 #include "plughost/plugin_manager.h"
@@ -112,42 +111,12 @@ static void register_events() {
     AppEvent::audio_device_removed_event = SDL_RegisterEvents(1);
 }
 
-static void imgui_renderer_create_window(ImGuiViewport* viewport) {
-    SDL_Window* window = SDL_GetWindowFromID((uint32_t)(uint64_t)viewport->PlatformHandle);
-    /*if (!has_bit(viewport->Flags, ImGuiViewportFlags_NoDecoration)) {
-        setup_dark_mode(window);
-    }*/
-    wm_make_child_window(window, wm_get_main_window(), true);
-    g_renderer->add_viewport(viewport);
-}
-
-static void imgui_renderer_destroy_window(ImGuiViewport* viewport) {
-    if (viewport->RendererUserData)
-        g_renderer->remove_viewport(viewport);
-}
-
-static void imgui_renderer_set_window_size(ImGuiViewport* viewport, ImVec2 size) {
-    g_renderer->resize_viewport(viewport, size);
-}
-
-static void imgui_renderer_render_window(ImGuiViewport* viewport, void* userdata) {
-    // Log::info("{} {}", fb->width, fb->height);
-    if (!has_bit(viewport->Flags, ImGuiViewportFlags_IsMinimized)) {
-        g_renderer->begin_draw((Framebuffer*)viewport->RendererUserData, {0.0f, 0.0f, 0.0f, 1.0f});
-        g_renderer->render_imgui_draw_data(viewport->DrawData);
-        g_renderer->finish_draw();
-    }
-}
-
-static void imgui_renderer_swap_buffers(ImGuiViewport* viewport, void* userdata) {
-}
-
 void app_init() {
     init_platform();
 
     // Init SDL & create main window
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) < 0) {
-        Log::debug("{}", SDL_GetError());
+        Log::error("{}", SDL_GetError());
         std::abort();
     }
 
@@ -156,7 +125,7 @@ void app_init() {
     register_events();
 
     if (!wm_create_main_window()) {
-        Log::debug("Cannot create window");
+        Log::error("Cannot create window");
         std::abort();
     }
 
@@ -179,7 +148,6 @@ void app_init() {
     init_font_assets();
     apply_theme(ImGui::GetStyle());
     init_renderer2(wm_get_main_window());
-    //init_renderer(wm_get_main_window());
 
     g_cmd_manager.init(10);
     g_timeline.init();
@@ -187,7 +155,7 @@ void app_init() {
 }
 
 void app_render() {
-    g_renderer->new_frame();
+    g_renderer2->begin_frame();
     ImGui_ImplSDL2_NewFrame();
     ImGui::NewFrame();
 
@@ -242,31 +210,16 @@ void app_render() {
 
     ImGui::EndFrame();
     ImGui::Render();
-    g_renderer->begin_draw(nullptr, {0.0f, 0.0f, 0.0f, 1.0f});
-    g_renderer->render_imgui_draw_data(ImGui::GetDrawData());
-    g_renderer->finish_draw();
-    ImGui::UpdatePlatformWindows();
-    ImGui::RenderPlatformWindowsDefault();
-    g_renderer->end_frame();
-    g_renderer->present();
-
-    if (!g_file_drop.empty())
-        g_file_drop.clear();
-}
-
-void app_render2() {
-    g_renderer2->begin_frame();
-    ImGui_ImplSDL2_NewFrame();
-    ImGui::NewFrame();
-    ImGui::ShowDemoWindow();
-    ImGui::Render();
-    g_renderer2->begin_render(g_renderer2->main_vp->render_target, ImVec4(0.0f, 0.0f, 0.0f, 1.0f));
+    g_renderer2->begin_render(g_renderer2->main_vp->render_target, {0.0f, 0.0f, 0.0f, 1.0f});
     g_renderer2->render_imgui_draw_data(ImGui::GetDrawData());
     g_renderer2->end_render();
     ImGui::UpdatePlatformWindows();
     ImGui::RenderPlatformWindowsDefault();
     g_renderer2->end_frame();
     g_renderer2->present();
+
+    if (!g_file_drop.empty())
+        g_file_drop.clear();
 }
 
 void app_run_loop() {
@@ -274,8 +227,8 @@ void app_run_loop() {
         SDL_Event event;
         while (SDL_PollEvent(&event))
             handle_events(event);
-        app_render2();
-        //app_render();
+        app_render();
+        // app_render();
     }
 }
 
@@ -316,7 +269,7 @@ int SDLCALL event_watcher(void* userdata, SDL_Event* event) {
     if (!GImGui)
         return 0;
     if (event->type == SDL_WINDOWEVENT && event->window.event == SDL_WINDOWEVENT_EXPOSED && main_window_id == event->window.windowID) {
-        app_render2();
+        app_render();
     }
     /*switch (event->type) {
         case SDL_WINDOWEVENT: {

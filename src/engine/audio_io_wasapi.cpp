@@ -708,8 +708,8 @@ void AudioIOWASAPI::audio_thread_runner(AudioIOWASAPI* instance, AudioThreadPrio
         Log::debug("Splitting buffer");
 #endif
 
-        // WASAPI may use the default device buffer size instead of user-defined buffer size. If
-        // that's the case, we have to roll the buffer manually so that it fits into the default
+        // WASAPI may use the default device buffer size instead of the requested buffer size. If
+        // that's the case, we have to split the buffer manually so that it fits into the default
         // device buffer size.
         uint32_t output_offset = 0;
         hr = 0;

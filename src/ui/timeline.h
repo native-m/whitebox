@@ -2,7 +2,7 @@
 
 #include "core/common.h"
 #include "engine/track.h"
-#include "gfx/renderer.h"
+#include "gfx/renderer2.h"
 #include "ui/timeline_base.h"
 #include <imgui.h>
 #include <memory>
@@ -34,6 +34,18 @@ struct TargetSelectionRange {
     double max;
 };
 
+struct ClipContentDrawCmd2 {
+    SamplePeaks* peaks;
+    ImVec2 min_bb;
+    ImVec2 max_bb;
+    uint32_t color;
+    float scale_x;
+    int32_t mip_index;
+    uint32_t channel;
+    uint32_t start_idx;
+    uint32_t draw_count;
+};
+
 struct GuiTimeline : public TimelineBase {
     bool force_redraw = false;
     uint32_t color_spin = 0;
@@ -42,8 +54,8 @@ struct GuiTimeline : public TimelineBase {
     ImDrawList* layer2_draw_list {}; // Clip controls
     ImDrawList* layer3_draw_list {}; // Drag & drop
     ImDrawData layer_draw_data;
-    std::shared_ptr<Framebuffer> timeline_fb {};
-    ImVector<ClipContentDrawCmd> clip_content_cmds;
+    GPUTexture* timeline_fb {};
+    ImVector<ClipContentDrawCmd2> clip_content_cmds;
 
     ImVec2 window_origin;
     ImVec2 timeline_view_pos;

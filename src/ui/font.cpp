@@ -15,7 +15,10 @@ void init_font_assets() {
     io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
     config.SizePixels = 13.0f;
     config.OversampleV = 2.0f;
+    //config.FontBuilderFlags = ImGuiFreeTypeBuilderFlags_NoHinting;
     g_fonts[(uint32_t)FontType::Normal] = io.Fonts->AddFontFromFileTTF("assets/Inter-Regular.ttf", 0.0f, &config);
+    config.GlyphExtraSpacing.x = 0.0f;
+    config.FontBuilderFlags = 0;
     config.RasterizerDensity = 1.0f;
     config.SizePixels = 24.0f;
     config.GlyphExtraSpacing.x = 0.0f;

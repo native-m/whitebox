@@ -26,7 +26,7 @@
 namespace wb {
 
 void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
-               ImVector<ClipContentDrawCmd>& clip_content_cmds, const Clip* clip, float timeline_width, float offset_y,
+               ImVector<ClipContentDrawCmd2>& clip_content_cmds, const Clip* clip, float timeline_width, float offset_y,
                float min_draw_x, double min_x, double max_x, double clip_scale, double sample_scale,
                double start_offset, float track_pos_y, float track_height, const ImColor& track_color,
                const ImColor& text_color, ImFont* font) {
@@ -88,7 +88,9 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
         case ClipType::Audio: {
             SampleAsset* asset = clip->audio.asset;
             if (asset) [[likely]] {
-                SamplePeaks* sample_peaks = asset->peaks.get();
+                SamplePeaks* sample_peaks = asset->peaks;
+                if (!sample_peaks)
+                    break;
                 const double scale_x = sample_scale * (double)asset->sample_instance.sample_rate;
                 const double inv_scale_x = 1.0 / scale_x;
                 double mip_index = std::log(scale_x * 0.5) * log_base4; // Scale -> Index
@@ -288,16 +290,17 @@ void GuiTimeline::shutdown() {
     delete layer1_draw_list;
     delete layer2_draw_list;
     delete layer3_draw_list;
-    timeline_fb.reset();
+    if (timeline_fb)
+        g_renderer2->destroy_texture(timeline_fb);
 }
 
 Track* GuiTimeline::add_track() {
     g_engine.edit_lock();
     auto track = g_engine.add_track("New Track");
     float hue = (float)color_spin / 15.0f;
-    float sat_pos = std::pow(1.0 - math::abs(hue * 2.0f - 1.0f), 2.2f);
-    float saturation = sat_pos * (0.7f - 0.6f) + 0.6f;
-    track->color = ImColor::HSV(hue, saturation, 0.80f);
+    // float sat_pos = std::pow(1.0 - math::abs(hue * 2.0f - 1.0f), 2.2f);
+    // float saturation = sat_pos * (0.7f - 0.6f) + 0.6f;
+    track->color = ImColor::HSV(hue, 0.6472f, 0.788f);
     color_spin = (color_spin + 1) % 15;
     g_engine.edit_unlock();
     redraw = true;
@@ -711,7 +714,8 @@ void GuiTimeline::render_track_lanes() {
         int width = (int)math::max(timeline_width, 16.0f);
         int height = (int)math::max(area_size.y, 16.0f);
         Log::info("Resizing timeline framebuffer ({}x{})", (int)timeline_width, (int)area_size.y);
-        timeline_fb = g_renderer->create_framebuffer(width, height);
+        timeline_fb = g_renderer2->create_texture(GPUTextureUsage::Sampled | GPUTextureUsage::RenderTarget,
+                                                  GPUFormat::UnormB8G8R8A8, width, height, true, 0, 0, nullptr);
         old_timeline_size.x = timeline_width;
         old_timeline_size.y = area_size.y;
         redraw = redraw || true;
@@ -1039,9 +1043,6 @@ void GuiTimeline::render_track_lanes() {
             const ImVec2 min_bb(min_pos_x_in_pixel, track_pos_y);
             const ImVec2 max_bb(max_pos_x_in_pixel, track_pos_y + height);
             // ImVec4 fine_scissor_rect(min_bb.x, min_bb.y, max_bb.x, max_bb.y);
-            bool hovering_left_side = false;
-            bool hovering_right_side = false;
-            bool hovering_clip = false;
             ClipHover current_hover_state {};
 
             if (hovering_current_track && edit_action == TimelineEditAction::None && !holding_ctrl) {
@@ -1298,7 +1299,7 @@ void GuiTimeline::render_track_lanes() {
         ImGuiViewport* owner_viewport = ImGui::GetWindowViewport();
 
         // g_renderer->set_framebuffer(timeline_fb);
-        g_renderer->begin_draw(timeline_fb.get(), ImGui::GetStyleColorVec4(ImGuiCol_WindowBg));
+        g_renderer2->begin_render(timeline_fb, ImGui::GetStyleColorVec4(ImGuiCol_WindowBg));
 
         layer_draw_data.Clear();
         layer_draw_data.DisplayPos = view_min;
@@ -1307,8 +1308,8 @@ void GuiTimeline::render_track_lanes() {
         layer_draw_data.FramebufferScale.y = 1.0f;
         layer_draw_data.OwnerViewport = owner_viewport;
         layer_draw_data.AddDrawList(layer1_draw_list);
-        g_renderer->render_imgui_draw_data(&layer_draw_data);
-        g_renderer->draw_waveforms(clip_content_cmds);
+        g_renderer2->render_imgui_draw_data(&layer_draw_data);
+        // g_renderer->draw_waveforms(clip_content_cmds);
 
         layer_draw_data.Clear();
         layer_draw_data.DisplayPos = view_min;
@@ -1318,9 +1319,9 @@ void GuiTimeline::render_track_lanes() {
         layer_draw_data.OwnerViewport = owner_viewport;
         layer_draw_data.AddDrawList(layer2_draw_list);
         layer_draw_data.AddDrawList(layer3_draw_list);
-        g_renderer->render_imgui_draw_data(&layer_draw_data);
+        g_renderer2->render_imgui_draw_data(&layer_draw_data);
 
-        g_renderer->finish_draw();
+        g_renderer2->end_render();
     }
 
     // Release edit action
@@ -1454,7 +1455,7 @@ void GuiTimeline::render_track_lanes() {
         recalculate_timeline_length();
     }
 
-    ImTextureID tex_id = g_renderer->prepare_as_imgui_texture(timeline_fb);
+    ImTextureID tex_id = (ImTextureID)timeline_fb;
     const ImVec2 img_pos(timeline_view_pos.x, offset_y);
     main_draw_list->AddImage(tex_id, img_pos, img_pos + ImVec2(timeline_width, area_size.y));
 
