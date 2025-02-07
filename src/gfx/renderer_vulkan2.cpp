@@ -775,8 +775,8 @@ GPUPipeline* GPURendererVK::create_pipeline(const GPUPipelineDesc& desc) {
 
     VkPipelineVertexInputStateCreateInfo vertex_input {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-        .vertexBindingDescriptionCount = 1,
-        .pVertexBindingDescriptions = &vtx_binding,
+        .vertexBindingDescriptionCount = desc.num_vertex_attributes > 0 ? 1u : 0u,
+        .pVertexBindingDescriptions = desc.num_vertex_attributes > 0 ? &vtx_binding : nullptr,
         .vertexAttributeDescriptionCount = desc.num_vertex_attributes,
         .pVertexAttributeDescriptions = vtx_attrs,
     };
@@ -1508,6 +1508,7 @@ void GPURendererVK::begin_render_pass_() {
 
     render_pass_started_ = true;
 }
+
 void GPURendererVK::end_render_pass_() {
     vkCmdEndRenderPass(current_cb_);
     render_pass_started_ = false;

@@ -6,6 +6,7 @@
 #include "controls.h"
 #include "core/color.h"
 #include "core/core_math.h"
+#include "core/fs.h"
 #include "core/debug.h"
 #include "engine/clip_edit.h"
 #include "engine/engine.h"
@@ -278,12 +279,40 @@ static void add_track_plugin(Track* track, PluginUID uid) {
 }
 
 void GuiTimeline::init() {
+    g_engine.add_on_bpm_change_listener([this](double bpm, double beat_duration) { force_redraw = true; });
+    g_cmd_manager.add_on_history_update_listener([this] { force_redraw = true; });
     layer1_draw_list = new ImDrawList(ImGui::GetDrawListSharedData());
     layer2_draw_list = new ImDrawList(ImGui::GetDrawListSharedData());
     layer3_draw_list = new ImDrawList(ImGui::GetDrawListSharedData());
-    g_engine.add_on_bpm_change_listener([this](double bpm, double beat_duration) { force_redraw = true; });
-    g_cmd_manager.add_on_history_update_listener([this] { force_redraw = true; });
     min_track_control_size = 100.0f;
+
+    auto waveform_aa_vs = read_file_content("assets/waveform_aa.vs.spv");
+    auto waveform_aa_fs = read_file_content("assets/waveform_aa.fs.spv");
+    auto waveform_fill_vs = read_file_content("assets/waveform_fill.vs.spv");
+
+    waveform_aa = g_renderer2->create_pipeline({
+        .vs = waveform_aa_vs.data(),
+        .vs_size = (uint32_t)waveform_aa_vs.size(),
+        .fs = waveform_aa_fs.data(),
+        .fs_size = (uint32_t)waveform_aa_fs.size(),
+        .shader_parameter_size = sizeof(ClipContentDrawData),
+        .primitive_topology = GPUPrimitiveTopology::TriangleList,
+        .enable_blending = true,
+        .enable_color_write = true,
+    });
+
+    waveform_fill = g_renderer2->create_pipeline({
+        .vs = waveform_fill_vs.data(),
+        .vs_size = (uint32_t)waveform_fill_vs.size(),
+        .fs = waveform_aa_fs.data(),
+        .fs_size = (uint32_t)waveform_aa_fs.size(),
+        .shader_parameter_size = sizeof(ClipContentDrawData),
+        .primitive_topology = GPUPrimitiveTopology::TriangleStrip,
+        .enable_blending = false,
+        .enable_color_write = true,
+    });
+
+    assert(waveform_aa && waveform_fill);
 }
 
 void GuiTimeline::shutdown() {
@@ -292,6 +321,10 @@ void GuiTimeline::shutdown() {
     delete layer3_draw_list;
     if (timeline_fb)
         g_renderer2->destroy_texture(timeline_fb);
+    if (waveform_aa)
+        g_renderer2->destroy_pipeline(waveform_aa);
+    if (waveform_fill)
+        g_renderer2->destroy_pipeline(waveform_fill);
 }
 
 Track* GuiTimeline::add_track() {

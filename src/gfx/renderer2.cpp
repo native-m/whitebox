@@ -36,7 +36,6 @@ static void imgui_renderer_swap_buffers(ImGuiViewport* viewport, void* userdata)
 bool GPURenderer::init(SDL_Window* window) {
     auto imgui_vs = read_file_content("assets/imgui.vert.spv");
     auto imgui_fs = read_file_content("assets/imgui.frag.spv");
-    assert((imgui_vs.size() > 0 || imgui_fs.size() > 0) && "Cannot load shader assets");
 
     GPUVertexAttribute imgui_pipeline_attributes[3] {
         {

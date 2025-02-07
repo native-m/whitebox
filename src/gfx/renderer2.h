@@ -139,8 +139,10 @@ struct GPURenderer {
     StateUpdateFlags dirty_flags {};
     bool inside_render_pass = false;
 
-    GPUTexture* font_texture {};
     GPUPipeline* imgui_pipeline {};
+    GPUPipeline* waveform {};
+
+    GPUTexture* font_texture {};
     GPUBuffer* imm_vtx_buf {};
     GPUBuffer* imm_idx_buf {};
     uint32_t immediate_vtx_offset = 0;
