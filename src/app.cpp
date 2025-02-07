@@ -208,7 +208,6 @@ void app_render() {
     render_control_bar();
     render_windows();
 
-    ImGui::EndFrame();
     ImGui::Render();
     g_renderer2->begin_render(g_renderer2->main_vp->render_target, {0.0f, 0.0f, 0.0f, 1.0f});
     g_renderer2->render_imgui_draw_data(ImGui::GetDrawData());

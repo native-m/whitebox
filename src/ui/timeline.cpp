@@ -713,9 +713,11 @@ void GuiTimeline::render_track_lanes() {
         // Sometimes the window can have negative size, clamp the size
         int width = (int)math::max(timeline_width, 16.0f);
         int height = (int)math::max(area_size.y, 16.0f);
-        Log::info("Resizing timeline framebuffer ({}x{})", (int)timeline_width, (int)area_size.y);
+        if (timeline_fb)
+            g_renderer2->destroy_texture(timeline_fb);
         timeline_fb = g_renderer2->create_texture(GPUTextureUsage::Sampled | GPUTextureUsage::RenderTarget,
                                                   GPUFormat::UnormB8G8R8A8, width, height, true, 0, 0, nullptr);
+        Log::info("Timeline framebuffer resized ({}x{})", (int)timeline_width, (int)area_size.y);
         old_timeline_size.x = timeline_width;
         old_timeline_size.y = area_size.y;
         redraw = redraw || true;

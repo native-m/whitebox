@@ -77,6 +77,7 @@ struct GPUPipelineDesc {
 struct GPUResource : public InplaceList<GPUResource> {
     // Some impls may require this to determine which internal resources to work on.
     uint32_t active_id = 0;
+    uint32_t read_id = 0;
     uint32_t num_resources = 0;
     virtual ~GPUResource() {};
 };

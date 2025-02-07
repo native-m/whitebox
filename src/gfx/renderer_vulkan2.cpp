@@ -6,7 +6,7 @@
 #include <SDL_syswm.h>
 #include <imgui_impl_sdl2.h>
 
-#define WB_LOG_VULKAN_RESOURCE_DISPOSAL 0
+#define WB_LOG_VULKAN_RESOURCE_DISPOSAL 1
 
 namespace wb {
 
@@ -51,7 +51,7 @@ static constexpr GPUTextureAccessVK get_texture_access(VkImageLayout layout) {
         case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
             return {
                 .stages = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                .mask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                .mask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
                 .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             };
         case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
@@ -70,6 +70,56 @@ static constexpr GPUTextureAccessVK get_texture_access(VkImageLayout layout) {
             break;
     }
     return {};
+}
+
+static VkRenderPass create_render_pass_for_format(VkDevice device, GPUFormat format) {
+    VkAttachmentDescription att_desc {
+        .format = get_vk_format(format),
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    };
+
+    VkAttachmentReference att_ref {
+        .attachment = 0,
+        .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    };
+
+    VkSubpassDescription subpass {
+        .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &att_ref,
+    };
+
+    VkSubpassDependency subpass_dependency {
+        .srcSubpass = 0,
+        .dstSubpass = 0,
+        .srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        .dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        .srcAccessMask =
+            VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+        .dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT,
+    };
+
+    VkRenderPass render_pass;
+    VkRenderPassCreateInfo rp_info {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+        .attachmentCount = 1,
+        .pAttachments = &att_desc,
+        .subpassCount = 1,
+        .pSubpasses = &subpass,
+        .dependencyCount = 1,
+        .pDependencies = &subpass_dependency,
+    };
+    if (VK_FAILED(vkCreateRenderPass(device, &rp_info, nullptr, &render_pass)))
+        return VK_NULL_HANDLE;
+
+    return render_pass;
 }
 
 VkResult GPUViewportDataVK::acquire(VkDevice device) {
@@ -259,48 +309,9 @@ bool GPURendererVK::init(SDL_Window* window) {
     };
     VK_CHECK(vmaCreatePool(allocator_, &staging_pool_info, &staging_pool_));
 
-    VkAttachmentDescription att_desc {
-        .format = VK_FORMAT_B8G8R8A8_UNORM,
-        .samples = VK_SAMPLE_COUNT_1_BIT,
-        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-        .initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-    };
-
-    VkAttachmentReference att_ref {
-        .attachment = 0,
-        .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-    };
-
-    VkSubpassDescription subpass {
-        .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
-        .colorAttachmentCount = 1,
-        .pColorAttachments = &att_ref,
-    };
-
-    VkSubpassDependency subpass_dependency {
-        .srcSubpass = 0,
-        .dstSubpass = 0,
-        .srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-        .dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-        .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-        .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
-        .dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT,
-    };
-
-    VkRenderPassCreateInfo rp_info {
-        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-        .attachmentCount = 1,
-        .pAttachments = &att_desc,
-        .subpassCount = 1,
-        .pSubpasses = &subpass,
-        .dependencyCount = 1,
-        .pDependencies = &subpass_dependency,
-    };
-    VK_CHECK(vkCreateRenderPass(device_, &rp_info, nullptr, &fb_render_pass_));
+    fb_rp_rgba_ = create_render_pass_for_format(device_, GPUFormat::UnormR8G8B8A8);
+    fb_rp_bgra_ = create_render_pass_for_format(device_, GPUFormat::UnormB8G8R8A8);
+    assert(fb_rp_rgba_ && fb_rp_bgra_);
 
     VkSamplerCreateInfo sampler_info {
         .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
@@ -420,8 +431,10 @@ void GPURendererVK::shutdown() {
         vkDestroyDescriptorSetLayout(device_, storage_buffer_set_layout_, nullptr);
     if (common_sampler_)
         vkDestroySampler(device_, common_sampler_, nullptr);
-    if (fb_render_pass_)
-        vkDestroyRenderPass(device_, fb_render_pass_, nullptr);
+    if (fb_rp_bgra_)
+        vkDestroyRenderPass(device_, fb_rp_bgra_, nullptr);
+    if (fb_rp_rgba_)
+        vkDestroyRenderPass(device_, fb_rp_rgba_, nullptr);
     if (device_)
         vkDestroyDevice(device_, nullptr);
     if (instance_)
@@ -537,6 +550,11 @@ GPUTexture* GPURendererVK::create_texture(GPUTextureUsageFlags usage, GPUFormat 
         vk_usage |= VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
     GPUTextureVK* new_texture = new (texture_ptr) GPUTextureVK();
+    new_texture->usage = usage;
+    new_texture->format = format;
+    new_texture->width = w;
+    new_texture->height = h;
+
     VkImageCreateInfo image_info {
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .imageType = VK_IMAGE_TYPE_2D,
@@ -550,6 +568,27 @@ GPUTexture* GPURendererVK::create_texture(GPUTextureUsageFlags usage, GPUFormat 
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
 
+    VkImageViewCreateInfo image_view {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .format = get_vk_format(format),
+        .components =
+            {
+                .r = VK_COMPONENT_SWIZZLE_IDENTITY,
+                .g = VK_COMPONENT_SWIZZLE_IDENTITY,
+                .b = VK_COMPONENT_SWIZZLE_IDENTITY,
+                .a = VK_COMPONENT_SWIZZLE_IDENTITY,
+            },
+        .subresourceRange =
+            {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+    };
+
     VmaAllocationCreateInfo allocation_info {
         .usage = VMA_MEMORY_USAGE_UNKNOWN,
         .requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
@@ -560,7 +599,17 @@ GPUTexture* GPURendererVK::create_texture(GPUTextureUsageFlags usage, GPUFormat 
         allocation_info.flags |= VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
 
     if (contain_bit(usage, GPUTextureUsage::RenderTarget)) {
+        VkFramebufferCreateInfo fb_info {
+            .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+            .renderPass = fb_rp_bgra_,
+            .attachmentCount = 1,
+            .width = w,
+            .height = h,
+            .layers = 1,
+        };
+
         new_texture->num_resources = num_inflight_frames_;
+
         for (uint32_t i = 0; i < num_inflight_frames_; i++) {
             VkResult result = vmaCreateImage(allocator_, &image_info, &allocation_info, &new_texture->image[i],
                                              &new_texture->allocation[i], nullptr);
@@ -571,27 +620,7 @@ GPUTexture* GPURendererVK::create_texture(GPUTextureUsageFlags usage, GPUFormat 
                 return nullptr;
             }
 
-            VkImageViewCreateInfo image_view {
-                .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-                .image = new_texture->image[i],
-                .viewType = VK_IMAGE_VIEW_TYPE_2D,
-                .format = get_vk_format(format),
-                .components =
-                    {
-                        .r = VK_COMPONENT_SWIZZLE_IDENTITY,
-                        .g = VK_COMPONENT_SWIZZLE_IDENTITY,
-                        .b = VK_COMPONENT_SWIZZLE_IDENTITY,
-                        .a = VK_COMPONENT_SWIZZLE_IDENTITY,
-                    },
-                .subresourceRange =
-                    {
-                        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                        .baseMipLevel = 0,
-                        .levelCount = 1,
-                        .baseArrayLayer = 0,
-                        .layerCount = 1,
-                    },
-            };
+            image_view.image = new_texture->image[i],
 
             result = vkCreateImageView(device_, &image_view, nullptr, &new_texture->view[i]);
             if (VK_FAILED(result)) {
@@ -599,6 +628,20 @@ GPUTexture* GPURendererVK::create_texture(GPUTextureUsageFlags usage, GPUFormat 
                     vkDestroyImageView(device_, new_texture->view[j], nullptr);
                     vmaDestroyImage(allocator_, new_texture->image[j], new_texture->allocation[j]);
                 }
+                vmaDestroyImage(allocator_, new_texture->image[i], new_texture->allocation[i]);
+                texture_pool_.destroy(new_texture);
+                return nullptr;
+            }
+
+            fb_info.pAttachments = &new_texture->view[i];
+            result = vkCreateFramebuffer(device_, &fb_info, nullptr, &new_texture->fb[i]);
+            if (VK_FAILED(result)) {
+                for (uint32_t j = 0; j < i; j++) {
+                    vkDestroyFramebuffer(device_, new_texture->fb[j], nullptr);
+                    vkDestroyImageView(device_, new_texture->view[j], nullptr);
+                    vmaDestroyImage(allocator_, new_texture->image[j], new_texture->allocation[j]);
+                }
+                vkDestroyImageView(device_, new_texture->view[i], nullptr);
                 vmaDestroyImage(allocator_, new_texture->image[i], new_texture->allocation[i]);
                 texture_pool_.destroy(new_texture);
                 return nullptr;
@@ -814,7 +857,7 @@ GPUPipeline* GPURendererVK::create_pipeline(const GPUPipelineDesc& desc) {
     pipeline_info.pColorBlendState = &blend;
     pipeline_info.pDynamicState = &dynamic_state;
     pipeline_info.layout = pipeline_layout;
-    pipeline_info.renderPass = fb_render_pass_;
+    pipeline_info.renderPass = fb_rp_bgra_;
     pipeline_info.subpass = 0;
     pipeline_info.basePipelineHandle = nullptr;
     pipeline_info.basePipelineIndex = 0;
@@ -1043,6 +1086,10 @@ void GPURendererVK::present() {
 
 void* GPURendererVK::map_buffer(GPUBuffer* buffer) {
     GPUBufferVK* impl = static_cast<GPUBufferVK*>(buffer);
+    if (!impl->is_connected_to_list()) {
+        impl->read_id = impl->active_id;
+        active_resources_list_.push_item(impl);
+    }
     return impl->persistent_map_ptr[impl->active_id];
 }
 
@@ -1057,19 +1104,6 @@ void GPURendererVK::begin_render(GPUTexture* render_target, const ImVec4& clear_
     assert(render_target->usage & GPUTextureUsage::RenderTarget);
     GPUTextureVK* rt = static_cast<GPUTextureVK*>(render_target);
     uint32_t image_id = rt->active_id;
-
-    VkClearValue vk_clear_color {
-        .color = {clear_color.x, clear_color.y, clear_color.z, clear_color.w},
-    };
-
-    VkRenderPassBeginInfo rp_begin {
-        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-        .renderPass = fb_render_pass_,
-        .framebuffer = rt->fb[image_id],
-        .renderArea = {0, 0, rt->width, rt->height},
-        .clearValueCount = 1,
-        .pClearValues = &vk_clear_color,
-    };
 
     if (auto layout = rt->layout[image_id]; layout != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
         GPUTextureAccessVK src_access = get_texture_access(layout);
@@ -1096,18 +1130,22 @@ void GPURendererVK::begin_render(GPUTexture* render_target, const ImVec4& clear_
         rt->layout[image_id] = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     }
 
-    vkCmdBeginRenderPass(current_cb_, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
-
-    if (!render_target->is_connected_to_list())
-        active_resources_list_.push_item(render_target);
-
     inside_render_pass = true;
+    should_clear_fb_ = true;
+    std::memcpy(&rp_clear_color_, &clear_color, sizeof(VkClearValue));
+    current_rt_ = rt;
+    current_fb_ = rt->fb[image_id];
     fb_w = rt->width;
     fb_h = rt->height;
 }
 
 void GPURendererVK::end_render() {
-    vkCmdEndRenderPass(current_cb_);
+    if (render_pass_started_)
+        end_render_pass_();
+    if (!current_rt_->is_connected_to_list()) {
+        current_rt_->read_id = current_rt_->active_id;
+        active_resources_list_.push_item(current_rt_);
+    }
     inside_render_pass = false;
 }
 
@@ -1128,11 +1166,6 @@ void GPURendererVK::flush_state() {
     uint32_t num_descriptor_writes = 0;
     VkCommandBuffer cb = current_cb_;
 
-    if (dirty_flags.pipeline) {
-        GPUPipelineVK* pipeline = static_cast<GPUPipelineVK*>(current_pipeline);
-        vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
-    }
-
     // Update texture descriptors
     if (uint32_t dirty_bits = dirty_flags.texture) {
         VkDescriptorSet descriptor_set = descriptor_stream_.allocate_descriptor_set(device_, texture_set_layout_, 0, 4);
@@ -1144,8 +1177,8 @@ void GPURendererVK::flush_state() {
         while (dirty_bits) {
             int slot = next_set_bits(dirty_bits);
             GPUTextureVK* tex = static_cast<GPUTextureVK*>(current_texture[slot]);
+            uint32_t active_id = tex->read_id;
             uint32_t num_descriptors = 0;
-            uint32_t active_id = tex->active_id;
             image_descriptor[num_descriptors] = {
                 .sampler = common_sampler_,
                 .imageView = tex->view[active_id],
@@ -1189,13 +1222,15 @@ void GPURendererVK::flush_state() {
                 tex->layout[active_id] = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
                 num_barriers++;
             }
-
-            if (!tex->is_connected_to_list())
-                active_resources_list_.push_item(tex);
         }
 
-        if (num_barriers > 0)
-            vkCmdPipelineBarrier(cb, src_stage, dst_stage, 0, 0, nullptr, 0, nullptr, num_barriers, barriers);
+        if (num_barriers > 0) {
+            // Need to pause the render pass before transitioning images
+            if (render_pass_started_)
+                end_render_pass_();
+            vkCmdPipelineBarrier(cb, src_stage, dst_stage, VK_DEPENDENCY_BY_REGION_BIT, 0, nullptr, 0, nullptr,
+                                 num_barriers, barriers);
+        }
 
         descriptor_set_updates[num_descriptor_set_updates] = descriptor_set;
         num_descriptor_set_updates++;
@@ -1229,13 +1264,18 @@ void GPURendererVK::flush_state() {
             };
             num_descriptor_writes++;
             num_descriptors++;
-
-            if (!buf->is_connected_to_list())
-                active_resources_list_.push_item(buf);
         }
 
         descriptor_set_updates[num_descriptor_set_updates] = descriptor_set;
         num_descriptor_set_updates++;
+    }
+
+    if (!render_pass_started_)
+        begin_render_pass_();
+
+    if (dirty_flags.pipeline) {
+        GPUPipelineVK* pipeline = static_cast<GPUPipelineVK*>(current_pipeline);
+        vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
     }
 
     if (num_descriptor_set_updates > 0) {
@@ -1250,15 +1290,11 @@ void GPURendererVK::flush_state() {
         GPUBufferVK* vtx_buf = static_cast<GPUBufferVK*>(current_vtx_buf);
         VkDeviceSize vtx_offset = 0;
         vkCmdBindVertexBuffers(cb, 0, 1, &vtx_buf->buffer[vtx_buf->active_id], &vtx_offset);
-        if (!vtx_buf->is_connected_to_list())
-            active_resources_list_.push_item(vtx_buf);
     }
 
     if (dirty_flags.idx_buf) {
         GPUBufferVK* idx_buf = static_cast<GPUBufferVK*>(current_idx_buf);
         vkCmdBindIndexBuffer(cb, idx_buf->buffer[idx_buf->active_id], 0, VK_INDEX_TYPE_UINT32);
-        if (!idx_buf->is_connected_to_list())
-            active_resources_list_.push_item(idx_buf);
     }
 
     if (dirty_flags.scissor) {
@@ -1443,6 +1479,40 @@ void GPURendererVK::submit_pending_uploads_() {
     vkQueueSubmit(graphics_queue_, 1, &submit, VK_NULL_HANDLE);
 }
 
+void GPURendererVK::begin_render_pass_() {
+    VkRenderPassBeginInfo rp_begin {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+        .renderPass = fb_rp_bgra_,
+        .framebuffer = current_fb_,
+        .renderArea = {0, 0, fb_w, fb_h},
+    };
+
+    vkCmdBeginRenderPass(current_cb_, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
+
+    if (should_clear_fb_) {
+        VkClearAttachment clear_attachment {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .colorAttachment = 0,
+            .clearValue = rp_clear_color_,
+        };
+
+        VkClearRect clear_rect {
+            .rect = {0, 0, fb_w, fb_h},
+            .baseArrayLayer = 0,
+            .layerCount = 1,
+        };
+
+        vkCmdClearAttachments(current_cb_, 1, &clear_attachment, 1, &clear_rect);
+        should_clear_fb_ = false;
+    }
+
+    render_pass_started_ = true;
+}
+void GPURendererVK::end_render_pass_() {
+    vkCmdEndRenderPass(current_cb_);
+    render_pass_started_ = false;
+}
+
 bool GPURendererVK::create_or_recreate_swapchain_(GPUViewportDataVK* vp_data) {
     VkSurfaceKHR surface = vp_data->surface;
     VkBool32 surface_supported = VK_FALSE;
@@ -1464,7 +1534,7 @@ bool GPURendererVK::create_or_recreate_swapchain_(GPUViewportDataVK* vp_data) {
     uint32_t present_mode_count = 6;
     vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device_, surface, &present_mode_count, present_modes);
 
-    uint32_t queue_family_indicies[2] { graphics_queue_index_, present_queue_index_ };
+    uint32_t queue_family_indicies[2] {graphics_queue_index_, present_queue_index_};
 
     VkSwapchainCreateInfoKHR swapchain_info {
         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
@@ -1495,7 +1565,7 @@ bool GPURendererVK::create_or_recreate_swapchain_(GPUViewportDataVK* vp_data) {
 
     VkFramebufferCreateInfo fb_info {
         .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-        .renderPass = fb_render_pass_,
+        .renderPass = fb_rp_bgra_,
         .attachmentCount = 1,
         .width = surface_caps.currentExtent.width,
         .height = surface_caps.currentExtent.height,
@@ -1855,8 +1925,7 @@ GPURenderer* GPURendererVK::create(SDL_Window* window) {
             graphics_queue_index = i;
         }
         VkBool32 presentation_supported = VK_FALSE;
-        vkGetPhysicalDeviceSurfaceSupportKHR(selected_physical_device, i, surface,
-                                             &presentation_supported);
+        vkGetPhysicalDeviceSurfaceSupportKHR(selected_physical_device, i, surface, &presentation_supported);
         if (presentation_supported && present_queue_index == (uint32_t)-1) {
             if (graphics_queue_index != i) {
                 queue_info.push_back({

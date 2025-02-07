@@ -154,7 +154,8 @@ struct GPURendererVK : public GPURenderer {
     VkQueue present_queue_ {};
 
     VkSurfaceKHR main_surface_ {};
-    VkRenderPass fb_render_pass_ {};
+    VkRenderPass fb_rp_rgba_{};
+    VkRenderPass fb_rp_bgra_{};
     VkSampler common_sampler_ {};
 
     VmaPool staging_pool_ {};
@@ -181,6 +182,13 @@ struct GPURendererVK : public GPURenderer {
     uint32_t num_sync_ = WB_VULKAN_SYNC_COUNT;
     uint32_t num_inflight_frames_ = WB_GPU_RENDER_BUFFER_SIZE;
     InplaceList<GPUResource> active_resources_list_;
+
+    GPUTextureVK* current_rt_ = {};
+    bool render_pass_started_ = false;
+    bool should_clear_fb_ = false;
+    VkRenderPass current_render_pass_;
+    VkFramebuffer current_fb_;
+    VkClearValue rp_clear_color_;
 
     Pool<GPUBufferVK> buffer_pool_ {};
     Pool<GPUTextureVK> texture_pool_ {};
@@ -229,7 +237,10 @@ struct GPURendererVK : public GPURenderer {
     void enqueue_resource_upload_(VkBuffer buffer, uint32_t size, const void* data);
     void enqueue_resource_upload_(VkImage image, VkImageLayout old_layout, VkImageLayout new_layout, uint32_t w,
                                   uint32_t h, const void* data);
+
     void submit_pending_uploads_();
+    void begin_render_pass_();
+    void end_render_pass_();
     bool create_or_recreate_swapchain_(GPUViewportDataVK* vp_data);
     void dispose_buffer_(GPUBufferVK* buffer);
     void dispose_texture_(GPUTextureVK* texture);
