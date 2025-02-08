@@ -173,6 +173,8 @@ struct GPURenderer {
 
     virtual void* map_buffer(GPUBuffer* buffer) = 0;
     virtual void unmap_buffer(GPUBuffer* buffer) = 0;
+    virtual void* begin_upload_data(GPUBuffer* buffer, size_t upload_size) = 0;
+    virtual void end_upload_data() = 0;
 
     virtual void begin_render(GPUTexture* render_target, const ImVec4& clear_color) = 0;
     virtual void end_render() = 0;

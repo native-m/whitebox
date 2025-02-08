@@ -1099,6 +1099,49 @@ void GPURendererVK::unmap_buffer(GPUBuffer* buffer) {
     vmaFlushAllocation(allocator_, allocation, 0, VK_WHOLE_SIZE);
 }
 
+void* GPURendererVK::begin_upload_data(GPUBuffer* buffer, size_t upload_size) {
+    assert(!inside_render_pass);
+    assert(buffer->size <= upload_size);
+
+    VmaAllocationCreateInfo alloc_info {
+        .flags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+        .pool = staging_pool_,
+    };
+
+    VkBufferCreateInfo buffer_info {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = (VkDeviceSize)upload_size,
+        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+    };
+
+    VkBuffer staging_buffer;
+    VmaAllocation allocation;
+    VmaAllocationInfo alloc_result;
+    VK_CHECK(vmaCreateBuffer(allocator_, &buffer_info, &alloc_info, &staging_buffer, &allocation, &alloc_result));
+    
+    GPUBufferVK* impl = static_cast<GPUBufferVK*>(buffer);
+    GPUUploadItemVK& upload = pending_uploads_.emplace_back();
+    upload.type = GPUUploadItemVK::Buffer;
+    upload.width = upload_size;
+    upload.src_buffer = staging_buffer;
+    upload.src_allocation = allocation;
+    upload.dst_buffer = impl->buffer[impl->active_id];
+    upload.should_stall = contain_bit(buffer->usage, GPUBufferUsage::Writeable) ? VK_FALSE : VK_TRUE;
+    current_upload_item_ = &upload;
+
+    if (!impl->is_connected_to_list()) {
+        impl->read_id = impl->active_id;
+        active_resources_list_.push_item(impl);
+    }
+    
+    return alloc_result.pMappedData;
+}
+
+void GPURendererVK::end_upload_data() {
+    assert(!inside_render_pass);
+    vmaFlushAllocation(allocator_, current_upload_item_->src_allocation, 0, VK_WHOLE_SIZE);
+}
+
 void GPURendererVK::begin_render(GPUTexture* render_target, const ImVec4& clear_color) {
     assert(!inside_render_pass);
     assert(render_target->usage & GPUTextureUsage::RenderTarget);
@@ -1393,11 +1436,18 @@ void GPURendererVK::submit_pending_uploads_() {
     vkResetCommandPool(device_, upload_cmd_pool_[upload_id_], VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT);
     vkBeginCommandBuffer(upload_cb, &begin_info);
 
+    bool been_stalled = false;
     while (!pending_uploads_.empty()) {
         auto& item = pending_uploads_.front();
+        
+        if (item.should_stall && !been_stalled) {
+            vkQueueWaitIdle(graphics_queue_);
+            been_stalled = true;
+        }
+
         switch (item.type) {
             case GPUUploadItemVK::Buffer: {
-                VkBufferCopy region {.size = item.width};
+                VkBufferCopy region {.size = (VkDeviceSize)item.width};
                 vkCmdCopyBuffer(upload_cb, item.src_buffer, item.dst_buffer, 1, &region);
                 emit_memory_barrier = true;
                 break;
@@ -1429,7 +1479,7 @@ void GPURendererVK::submit_pending_uploads_() {
 
                 VkBufferImageCopy region {
                     .imageSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .layerCount = 1},
-                    .imageExtent = {item.width, item.height, 1},
+                    .imageExtent = {(uint32_t)item.width, item.height, 1},
                 };
                 vkCmdCopyBufferToImage(upload_cb, item.src_buffer, item.dst_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                                        1, &region);

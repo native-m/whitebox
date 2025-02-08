@@ -58,9 +58,10 @@ struct GPUUploadItemVK {
         Image
     };
 
-    uint32_t type;
-    uint32_t width; // If this is a buffer upload, this will be the size of the buffer
+    size_t width; // If this is a buffer upload, this will be the size of the buffer
     uint32_t height;
+    uint32_t type;
+    VkBool32 should_stall;
     VkImageLayout old_layout;
     VkImageLayout new_layout;
     VkBuffer src_buffer;
@@ -164,6 +165,7 @@ struct GPURendererVK : public GPURenderer {
     VkCommandBuffer upload_cmd_buf_[WB_GPU_RENDER_BUFFER_SIZE] {};
     VkSemaphore upload_finished_semaphore_[WB_GPU_RENDER_BUFFER_SIZE] {};
     uint32_t upload_id_ = WB_GPU_RENDER_BUFFER_SIZE - 1;
+    GPUUploadItemVK* current_upload_item_ {};
 
     Vector<GPUViewportDataVK*> viewports;
     Vector<GPUViewportDataVK*> added_viewports;
@@ -228,6 +230,8 @@ struct GPURendererVK : public GPURenderer {
 
     void* map_buffer(GPUBuffer* buffer) override;
     void unmap_buffer(GPUBuffer* buffer) override;
+    void* begin_upload_data(GPUBuffer* buffer, size_t upload_size) override;
+    void end_upload_data() override;
 
     void begin_render(GPUTexture* render_target, const ImVec4& clear_color) override;
     void end_render() override;
