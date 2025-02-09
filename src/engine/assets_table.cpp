@@ -7,11 +7,14 @@
 namespace wb {
 static constexpr XXH64_hash_t sample_hash_seed = 69420;
 
+SampleAsset::~SampleAsset() {
+    delete peaks;
+}
+
 void SampleAsset::release() {
     if (ref_count == 0)
         return;
     if (ref_count-- == 1 && !keep_alive) {
-        delete peaks;
         sample_table->destroy_sample(hash);
     }
 }

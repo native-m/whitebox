@@ -26,6 +26,7 @@ struct SampleAsset {
     WaveformVisual* peaks {};
     bool keep_alive = false;
 
+    ~SampleAsset();
     inline void add_ref() noexcept { ++ref_count; }
     void release();
 };

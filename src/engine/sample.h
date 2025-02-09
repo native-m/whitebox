@@ -2,7 +2,6 @@
 
 #include "core/audio_format.h"
 #include "core/vector.h"
-#include "engine/sample_peaks.h"
 #include <filesystem>
 #include <optional>
 #include <string>
