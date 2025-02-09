@@ -6,6 +6,7 @@
 #include "vk_stub.h"
 #include <deque>
 #include <mutex>
+#include <unordered_map>
 
 #define WB_VULKAN_SYNC_COUNT (WB_GPU_RENDER_BUFFER_SIZE + 1)
 
@@ -158,6 +159,7 @@ struct GPURendererVK : public GPURenderer {
     VkRenderPass fb_rp_rgba_{};
     VkRenderPass fb_rp_bgra_{};
     VkSampler common_sampler_ {};
+    std::unordered_map<uint32_t, VkPipelineLayout> pipeline_layout_cache_;
 
     VmaPool staging_pool_ {};
     std::deque<GPUUploadItemVK> pending_uploads_;
@@ -173,6 +175,9 @@ struct GPURendererVK : public GPURenderer {
     GPUDescriptorStreamVK descriptor_stream_;
     VkDescriptorSetLayout texture_set_layout_ = VK_NULL_HANDLE;
     VkDescriptorSetLayout storage_buffer_set_layout_ = VK_NULL_HANDLE;
+    VkDescriptorSet current_descriptor_sets_[2] {};
+    VkPipelineLayout current_pipeline_layout_ {};
+
     VkFence fences_[WB_GPU_RENDER_BUFFER_SIZE] {};
     VkSemaphore render_finished_semaphore_[WB_VULKAN_SYNC_COUNT] {};
     VkSemaphore current_render_finished_semaphore_ {};

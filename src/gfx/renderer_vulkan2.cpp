@@ -421,6 +421,10 @@ void GPURendererVK::shutdown() {
     descriptor_stream_.destroy(device_);
     dispose_resources_(~0ull);
 
+    for (auto layout : pipeline_layout_cache_) {
+        vkDestroyPipelineLayout(device_, layout.second, nullptr);
+    }
+
     if (staging_pool_)
         vmaDestroyPool(allocator_, staging_pool_);
     if (allocator_)
@@ -724,23 +728,31 @@ GPUPipeline* GPURendererVK::create_pipeline(const GPUPipelineDesc& desc) {
         return nullptr;
     defer(vkDestroyShaderModule(device_, fs_module, nullptr));
 
-    VkDescriptorSetLayout set_layouts[2] {texture_set_layout_, storage_buffer_set_layout_};
-    VkPushConstantRange push_constant_range {
-        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-        .offset = 0,
-        .size = desc.shader_parameter_size,
-    };
-
     VkPipelineLayout pipeline_layout;
-    VkPipelineLayoutCreateInfo pipeline_layout_info {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-        .setLayoutCount = 2,
-        .pSetLayouts = set_layouts,
-        .pushConstantRangeCount = 1,
-        .pPushConstantRanges = &push_constant_range,
-    };
-    if (VK_FAILED(vkCreatePipelineLayout(device_, &pipeline_layout_info, nullptr, &pipeline_layout)))
-        return nullptr;
+    auto existing_layout = pipeline_layout_cache_.find(desc.shader_parameter_size);
+    if (existing_layout == pipeline_layout_cache_.end()) {
+        VkDescriptorSetLayout set_layouts[2] {texture_set_layout_, storage_buffer_set_layout_};
+        VkPushConstantRange push_constant_range {
+            .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+            .offset = 0,
+            .size = desc.shader_parameter_size,
+        };
+
+        VkPipelineLayoutCreateInfo pipeline_layout_info {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+            .setLayoutCount = 2,
+            .pSetLayouts = set_layouts,
+            .pushConstantRangeCount = 1,
+            .pPushConstantRanges = &push_constant_range,
+        };
+
+        if (VK_FAILED(vkCreatePipelineLayout(device_, &pipeline_layout_info, nullptr, &pipeline_layout)))
+            return nullptr;
+
+        pipeline_layout_cache_.insert_or_assign(desc.shader_parameter_size, pipeline_layout);
+    } else {
+        pipeline_layout = existing_layout->second;
+    }
 
     VkPipelineShaderStageCreateInfo stages[2] {
         {
@@ -870,6 +882,7 @@ GPUPipeline* GPURendererVK::create_pipeline(const GPUPipelineDesc& desc) {
     if (!new_pipeline)
         return nullptr;
 
+    new_pipeline->shader_parameter_size = desc.shader_parameter_size;
     new_pipeline->layout = pipeline_layout;
     new_pipeline->pipeline = pipeline;
 
@@ -977,14 +990,16 @@ void GPURendererVK::begin_frame() {
     vkBeginCommandBuffer(cmd_buf_[frame_id], &begin_info);
     current_cb_ = cmd_buf_[frame_id];
     cmd_private_data = current_cb_;
+
     clear_state();
+    std::memset(current_descriptor_sets_, 0, sizeof(current_descriptor_sets_));
     GPURenderer::begin_frame();
 }
 
 void GPURendererVK::end_frame() {
     if (!pending_uploads_.empty()) {
         submit_pending_uploads_();
-        submit_wait_semaphores.push_back(upload_finished_semaphore_[frame_id]);
+        submit_wait_semaphores.push_back(upload_finished_semaphore_[upload_id_]);
         submit_wait_stages.push_back(VK_PIPELINE_STAGE_TRANSFER_BIT);
     }
 
@@ -1101,6 +1116,7 @@ void GPURendererVK::unmap_buffer(GPUBuffer* buffer) {
 
 void* GPURendererVK::begin_upload_data(GPUBuffer* buffer, size_t upload_size) {
     assert(!inside_render_pass);
+    assert(current_upload_item_ == nullptr);
     assert(buffer->size <= upload_size);
 
     VmaAllocationCreateInfo alloc_info {
@@ -1118,7 +1134,7 @@ void* GPURendererVK::begin_upload_data(GPUBuffer* buffer, size_t upload_size) {
     VmaAllocation allocation;
     VmaAllocationInfo alloc_result;
     VK_CHECK(vmaCreateBuffer(allocator_, &buffer_info, &alloc_info, &staging_buffer, &allocation, &alloc_result));
-    
+
     GPUBufferVK* impl = static_cast<GPUBufferVK*>(buffer);
     GPUUploadItemVK& upload = pending_uploads_.emplace_back();
     upload.type = GPUUploadItemVK::Buffer;
@@ -1133,13 +1149,15 @@ void* GPURendererVK::begin_upload_data(GPUBuffer* buffer, size_t upload_size) {
         impl->read_id = impl->active_id;
         active_resources_list_.push_item(impl);
     }
-    
+
     return alloc_result.pMappedData;
 }
 
 void GPURendererVK::end_upload_data() {
     assert(!inside_render_pass);
+    assert(current_upload_item_);
     vmaFlushAllocation(allocator_, current_upload_item_->src_allocation, 0, VK_WHOLE_SIZE);
+    current_upload_item_ = nullptr;
 }
 
 void GPURendererVK::begin_render(GPUTexture* render_target, const ImVec4& clear_color) {
@@ -1275,7 +1293,7 @@ void GPURendererVK::flush_state() {
                                  num_barriers, barriers);
         }
 
-        descriptor_set_updates[num_descriptor_set_updates] = descriptor_set;
+        current_descriptor_sets_[0] = descriptor_set;
         num_descriptor_set_updates++;
     } else {
         descriptor_set_first_slot++;
@@ -1290,7 +1308,7 @@ void GPURendererVK::flush_state() {
         while (dirty_bits) {
             int slot = next_set_bits(dirty_bits);
             GPUBufferVK* buf = static_cast<GPUBufferVK*>(current_storage_buf[slot]);
-            uint32_t active_id = buf->active_id;
+            uint32_t active_id = buf->read_id;
             buffer_descriptor[num_descriptors] = {
                 .buffer = buf->buffer[active_id],
                 .offset = 0,
@@ -1309,7 +1327,7 @@ void GPURendererVK::flush_state() {
             num_descriptors++;
         }
 
-        descriptor_set_updates[num_descriptor_set_updates] = descriptor_set;
+        current_descriptor_sets_[1] = descriptor_set;
         num_descriptor_set_updates++;
     }
 
@@ -1325,8 +1343,23 @@ void GPURendererVK::flush_state() {
         GPUPipelineVK* pipeline = static_cast<GPUPipelineVK*>(current_pipeline);
         vkUpdateDescriptorSets(device_, num_descriptor_writes, update_writes, 0, nullptr);
         vkCmdBindDescriptorSets(current_cb_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->layout,
-                                descriptor_set_first_slot, num_descriptor_set_updates, descriptor_set_updates, 0,
-                                nullptr);
+                                descriptor_set_first_slot, num_descriptor_set_updates,
+                                &current_descriptor_sets_[descriptor_set_first_slot], 0, nullptr);
+        current_pipeline_layout_ = pipeline->layout;
+    } else if (auto pipeline = static_cast<GPUPipelineVK*>(current_pipeline);
+               pipeline->layout != current_pipeline_layout_) {
+        if (current_pipeline_layout_ != VK_NULL_HANDLE) {
+            // Re-establish descriptor sets when pipeline layout is changed
+            if (current_descriptor_sets_[0]) {
+                vkCmdBindDescriptorSets(current_cb_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->layout, 0, 1,
+                                        &current_descriptor_sets_[0], 0, nullptr);
+            }
+            if (current_descriptor_sets_[1]) {
+                vkCmdBindDescriptorSets(current_cb_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->layout, 1, 1,
+                                        &current_descriptor_sets_[1], 0, nullptr);
+            }
+        }
+        current_pipeline_layout_ = pipeline->layout;
     }
 
     if (dirty_flags.vtx_buf) {
@@ -1439,7 +1472,7 @@ void GPURendererVK::submit_pending_uploads_() {
     bool been_stalled = false;
     while (!pending_uploads_.empty()) {
         auto& item = pending_uploads_.front();
-        
+
         if (item.should_stall && !been_stalled) {
             vkQueueWaitIdle(graphics_queue_);
             been_stalled = true;
@@ -1774,7 +1807,6 @@ void GPURendererVK::dispose_resources_(uint64_t frame_count) {
 #endif
                     break;
                 case GPUResourceDisposeItemVK::Pipeline:
-                    vkDestroyPipelineLayout(device_, item.pipeline.layout, nullptr);
                     vkDestroyPipeline(device_, item.pipeline.pipeline, nullptr);
 #if WB_LOG_VULKAN_RESOURCE_DISPOSAL
                     Log::debug("Pipeline destroyed {:x} on frame {}", (uintptr_t)item.pipeline.pipeline,
