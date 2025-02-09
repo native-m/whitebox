@@ -34,16 +34,10 @@ struct TargetSelectionRange {
     double max;
 };
 
-struct ClipContentDrawCmd2 {
-    SamplePeaks* peaks;
-    ImVec2 min_bb;
-    ImVec2 max_bb;
-    uint32_t color;
-    float scale_x;
-    int32_t mip_index;
-    uint32_t channel;
-    uint32_t start_idx;
-    uint32_t draw_count;
+struct SelectedClipRange {
+    uint32_t track_id;
+    float track_y;
+    ClipQueryResult range;
 };
 
 struct GuiTimeline : public TimelineBase {
@@ -54,9 +48,9 @@ struct GuiTimeline : public TimelineBase {
     ImDrawList* layer2_draw_list {}; // Clip controls
     ImDrawList* layer3_draw_list {}; // Drag & drop
     ImDrawData layer_draw_data;
+    Vector<WaveformDrawCmd> clip_content_cmds;
     GPUTexture* timeline_fb {};
-    ImVector<ClipContentDrawCmd2> clip_content_cmds;
-
+    
     ImVec2 window_origin;
     ImVec2 timeline_view_pos;
     ImVec2 content_min;

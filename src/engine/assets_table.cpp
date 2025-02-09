@@ -10,8 +10,10 @@ static constexpr XXH64_hash_t sample_hash_seed = 69420;
 void SampleAsset::release() {
     if (ref_count == 0)
         return;
-    if (ref_count-- == 1 && !keep_alive)
+    if (ref_count-- == 1 && !keep_alive) {
+        delete peaks;
         sample_table->destroy_sample(hash);
+    }
 }
 
 SampleAsset* SampleTable::create_from_existing_sample(Sample&& sample) {
@@ -24,9 +26,9 @@ SampleAsset* SampleTable::create_from_existing_sample(Sample&& sample) {
         return &item->second;
     }
 
-    /*auto sample_peaks {g_renderer->create_sample_peaks(sample, SamplePeaksPrecision::High)};
-    if (!sample_peaks)
-        return {};*/
+    auto sample_peaks {WaveformVisual::create(&sample, WaveformVisualQuality::High)};
+    if (sample_peaks)
+        return {};
 
     auto asset = samples.try_emplace(hash, this, hash, 1u, std::move(sample));
     return &asset.first->second;
@@ -46,7 +48,11 @@ SampleAsset* SampleTable::load_from_file(const std::filesystem::path& path) {
     if (!new_sample)
         return {};
 
-    auto asset = samples.try_emplace(hash, this, hash, 1u, std::move(*new_sample));
+    auto sample_peaks {WaveformVisual::create(&new_sample.value(), WaveformVisualQuality::High)};
+    if (sample_peaks == nullptr)
+        return {};
+
+    auto asset = samples.try_emplace(hash, this, hash, 1u, std::move(*new_sample), sample_peaks);
     return &asset.first->second;
 }
 

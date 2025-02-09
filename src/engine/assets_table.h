@@ -6,6 +6,7 @@
 #include "core/midi.h"
 #include "core/vector.h"
 #include "sample.h"
+#include "gfx/waveform_visual.h"
 #include <array>
 #include <filesystem>
 #include <optional>
@@ -22,7 +23,7 @@ struct SampleAsset {
     uint64_t hash;
     uint32_t ref_count = 1u;
     Sample sample_instance;
-    SamplePeaks* peaks {};
+    WaveformVisual* peaks {};
     bool keep_alive = false;
 
     inline void add_ref() noexcept { ++ref_count; }

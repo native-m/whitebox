@@ -27,7 +27,7 @@
 namespace wb {
 
 void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
-               ImVector<ClipContentDrawCmd2>& clip_content_cmds, const Clip* clip, float timeline_width, float offset_y,
+               Vector<WaveformDrawCmd>& clip_content_cmds, const Clip* clip, float timeline_width, float offset_y,
                float min_draw_x, double min_x, double max_x, double clip_scale, double sample_scale,
                double start_offset, float track_pos_y, float track_height, const ImColor& track_color,
                const ImColor& text_color, ImFont* font) {
@@ -89,7 +89,7 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
         case ClipType::Audio: {
             SampleAsset* asset = clip->audio.asset;
             if (asset) [[likely]] {
-                SamplePeaks* sample_peaks = asset->peaks;
+                WaveformVisual* sample_peaks = asset->peaks;
                 if (!sample_peaks)
                     break;
                 const double scale_x = sample_scale * (double)asset->sample_instance.sample_rate;
@@ -125,9 +125,11 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
                         const float height = std::floor((clip_content_max.y - clip_content_min.y) * 0.5f);
                         const float pos_y = clip_content_min.y - offset_y;
                         clip_content_cmds.push_back({
-                            .peaks = sample_peaks,
-                            .min_bb = ImVec2(min_bb_x, pos_y),
-                            .max_bb = ImVec2(max_bb_x, pos_y + height),
+                            .waveform_vis = sample_peaks,
+                            .min_x = min_bb_x,
+                            .min_y = pos_y,
+                            .max_x = max_bb_x,
+                            .max_y = pos_y + height,
                             .color = content_color,
                             .scale_x = (float)mip_scale,
                             .mip_index = index,
@@ -136,9 +138,11 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
                             .draw_count = (uint32_t)draw_count + 2,
                         });
                         clip_content_cmds.push_back({
-                            .peaks = sample_peaks,
-                            .min_bb = ImVec2(min_bb_x, pos_y + height),
-                            .max_bb = ImVec2(max_bb_x, pos_y + height * 2.0f),
+                            .waveform_vis = sample_peaks,
+                            .min_x = min_bb_x,
+                            .min_y = pos_y + height,
+                            .max_x = max_bb_x,
+                            .max_y = pos_y + height * 2.0f,
                             .color = content_color,
                             .scale_x = (float)mip_scale,
                             .mip_index = index,
@@ -148,9 +152,11 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
                         });
                     } else {
                         clip_content_cmds.push_back({
-                            .peaks = sample_peaks,
-                            .min_bb = ImVec2(min_pos_x, clip_content_min.y - offset_y),
-                            .max_bb = ImVec2(max_pos_x, clip_content_max.y - offset_y),
+                            .waveform_vis = sample_peaks,
+                            .min_x = min_bb_x,
+                            .min_y = clip_content_min.y - offset_y,
+                            .max_x = max_bb_x,
+                            .max_y = clip_content_max.y - offset_y,
                             .color = content_color,
                             .scale_x = (float)mip_scale,
                             .mip_index = index,
@@ -285,34 +291,6 @@ void GuiTimeline::init() {
     layer2_draw_list = new ImDrawList(ImGui::GetDrawListSharedData());
     layer3_draw_list = new ImDrawList(ImGui::GetDrawListSharedData());
     min_track_control_size = 100.0f;
-
-    auto waveform_aa_vs = read_file_content("assets/waveform_aa.vs.spv");
-    auto waveform_aa_fs = read_file_content("assets/waveform_aa.fs.spv");
-    auto waveform_fill_vs = read_file_content("assets/waveform_fill.vs.spv");
-
-    waveform_aa = g_renderer2->create_pipeline({
-        .vs = waveform_aa_vs.data(),
-        .vs_size = (uint32_t)waveform_aa_vs.size(),
-        .fs = waveform_aa_fs.data(),
-        .fs_size = (uint32_t)waveform_aa_fs.size(),
-        .shader_parameter_size = sizeof(ClipContentDrawData),
-        .primitive_topology = GPUPrimitiveTopology::TriangleList,
-        .enable_blending = true,
-        .enable_color_write = true,
-    });
-
-    waveform_fill = g_renderer2->create_pipeline({
-        .vs = waveform_fill_vs.data(),
-        .vs_size = (uint32_t)waveform_fill_vs.size(),
-        .fs = waveform_aa_fs.data(),
-        .fs_size = (uint32_t)waveform_aa_fs.size(),
-        .shader_parameter_size = sizeof(ClipContentDrawData),
-        .primitive_topology = GPUPrimitiveTopology::TriangleStrip,
-        .enable_blending = false,
-        .enable_color_write = true,
-    });
-
-    assert(waveform_aa && waveform_fill);
 }
 
 void GuiTimeline::shutdown() {
@@ -321,10 +299,6 @@ void GuiTimeline::shutdown() {
     delete layer3_draw_list;
     if (timeline_fb)
         g_renderer2->destroy_texture(timeline_fb);
-    if (waveform_aa)
-        g_renderer2->destroy_pipeline(waveform_aa);
-    if (waveform_fill)
-        g_renderer2->destroy_pipeline(waveform_fill);
 }
 
 Track* GuiTimeline::add_track() {
@@ -1344,6 +1318,7 @@ void GuiTimeline::render_track_lanes() {
         layer_draw_data.OwnerViewport = owner_viewport;
         layer_draw_data.AddDrawList(layer1_draw_list);
         g_renderer2->render_imgui_draw_data(&layer_draw_data);
+        gfx_draw_waveform_batch(clip_content_cmds, 0, 0, (int32_t)timeline_area.x, (int32_t)timeline_area.y);
         // g_renderer->draw_waveforms(clip_content_cmds);
 
         layer_draw_data.Clear();
