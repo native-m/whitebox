@@ -6,7 +6,7 @@
 #include <SDL_syswm.h>
 #include <imgui_impl_sdl2.h>
 
-#define WB_LOG_VULKAN_RESOURCE_DISPOSAL 1
+#define WB_LOG_VULKAN_RESOURCE_DISPOSAL 0
 
 namespace wb {
 
@@ -958,7 +958,7 @@ void GPURendererVK::resize_viewport(ImGuiViewport* viewport, ImVec2 vec) {
         return;
     }
     GPUTextureVK* texture = (GPUTextureVK*)viewport->RendererUserData;
-    vkQueueWaitIdle(graphics_queue_);
+    // vkQueueWaitIdle(graphics_queue_);
     create_or_recreate_swapchain_(texture->parent_viewport);
     texture->parent_viewport->acquire(device_);
 }
@@ -975,7 +975,7 @@ void GPURendererVK::begin_frame() {
     for (auto viewport : viewports) {
         if (viewport->need_rebuild) {
             if (!been_waiting) {
-                vkQueueWaitIdle(present_queue_);
+                // vkQueueWaitIdle(present_queue_);
                 been_waiting = true;
             }
             create_or_recreate_swapchain_(viewport);
@@ -983,6 +983,8 @@ void GPURendererVK::begin_frame() {
         }
         viewport->acquire(device_);
     }
+
+    vkQueueWaitIdle(graphics_queue_);
 
     dispose_resources_(frame_count_);
     descriptor_stream_.reset(device_, frame_id);
@@ -1218,149 +1220,33 @@ void GPURendererVK::set_shader_parameter(size_t size, const void* data) {
 }
 
 void GPURendererVK::flush_state() {
-    VkDescriptorSet descriptor_set_updates[2];
-    VkDescriptorImageInfo image_descriptor[4];
-    VkDescriptorBufferInfo buffer_descriptor[4];
-    VkWriteDescriptorSet update_writes[8];
-    uint32_t descriptor_set_first_slot = 0;
-    uint32_t num_descriptor_set_updates = 0;
-    uint32_t num_descriptor_writes = 0;
     VkCommandBuffer cb = current_cb_;
-
-    // Update texture descriptors
-    if (uint32_t dirty_bits = dirty_flags.texture) {
-        VkDescriptorSet descriptor_set = descriptor_stream_.allocate_descriptor_set(device_, texture_set_layout_, 0, 4);
-        VkImageMemoryBarrier barriers[4];
-        VkPipelineStageFlags src_stage = 0;
-        VkPipelineStageFlags dst_stage = 0;
-        uint32_t num_barriers = 0;
-
-        while (dirty_bits) {
-            int slot = next_set_bits(dirty_bits);
-            GPUTextureVK* tex = static_cast<GPUTextureVK*>(current_texture[slot]);
-            uint32_t active_id = tex->read_id;
-            uint32_t num_descriptors = 0;
-            image_descriptor[num_descriptors] = {
-                .sampler = common_sampler_,
-                .imageView = tex->view[active_id],
-                .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            };
-            update_writes[num_descriptor_writes] = {
-                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                .dstSet = descriptor_set,
-                .dstBinding = (uint32_t)slot,
-                .dstArrayElement = 0,
-                .descriptorCount = 1,
-                .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                .pImageInfo = &image_descriptor[num_descriptors],
-            };
-            num_descriptor_writes++;
-            num_descriptors++;
-
-            if (auto layout = tex->layout[active_id]; layout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-                GPUTextureAccessVK src_access = get_texture_access(layout);
-                constexpr GPUTextureAccessVK dst_access = get_texture_access(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-                barriers[num_barriers] = {
-                    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-                    .srcAccessMask = src_access.mask,
-                    .dstAccessMask = dst_access.mask,
-                    .oldLayout = src_access.layout,
-                    .newLayout = dst_access.layout,
-                    .srcQueueFamilyIndex = graphics_queue_index_,
-                    .dstQueueFamilyIndex = graphics_queue_index_,
-                    .image = tex->image[active_id],
-                    .subresourceRange =
-                        {
-                            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                            .baseMipLevel = 0,
-                            .levelCount = 1,
-                            .baseArrayLayer = 0,
-                            .layerCount = 1,
-                        },
-                };
-                src_stage |= src_access.stages;
-                dst_stage |= dst_access.stages;
-                tex->layout[active_id] = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-                num_barriers++;
-            }
-        }
-
-        if (num_barriers > 0) {
-            // Need to pause the render pass before transitioning images
-            if (render_pass_started_)
-                end_render_pass_();
-            vkCmdPipelineBarrier(cb, src_stage, dst_stage, VK_DEPENDENCY_BY_REGION_BIT, 0, nullptr, 0, nullptr,
-                                 num_barriers, barriers);
-        }
-
-        current_descriptor_sets_[0] = descriptor_set;
-        num_descriptor_set_updates++;
-    } else {
-        descriptor_set_first_slot++;
-    }
-
-    // Update buffer descriptors
-    if (uint32_t dirty_bits = dirty_flags.storage_buf) {
-        uint32_t num_descriptors = 0;
-        VkDescriptorSet descriptor_set =
-            descriptor_stream_.allocate_descriptor_set(device_, storage_buffer_set_layout_, 4, 0);
-
-        while (dirty_bits) {
-            int slot = next_set_bits(dirty_bits);
-            GPUBufferVK* buf = static_cast<GPUBufferVK*>(current_storage_buf[slot]);
-            uint32_t active_id = buf->read_id;
-            buffer_descriptor[num_descriptors] = {
-                .buffer = buf->buffer[active_id],
-                .offset = 0,
-                .range = VK_WHOLE_SIZE,
-            };
-            update_writes[num_descriptor_writes] = {
-                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                .dstSet = descriptor_set,
-                .dstBinding = (uint32_t)slot,
-                .dstArrayElement = 0,
-                .descriptorCount = 1,
-                .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-                .pBufferInfo = &buffer_descriptor[num_descriptors],
-            };
-            num_descriptor_writes++;
-            num_descriptors++;
-        }
-
-        current_descriptor_sets_[1] = descriptor_set;
-        num_descriptor_set_updates++;
-    }
-
-    if (!render_pass_started_)
-        begin_render_pass_();
 
     if (dirty_flags.pipeline) {
         GPUPipelineVK* pipeline = static_cast<GPUPipelineVK*>(current_pipeline);
         vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
     }
 
-    if (num_descriptor_set_updates > 0) {
-        GPUPipelineVK* pipeline = static_cast<GPUPipelineVK*>(current_pipeline);
-        vkUpdateDescriptorSets(device_, num_descriptor_writes, update_writes, 0, nullptr);
-        vkCmdBindDescriptorSets(current_cb_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->layout,
-                                descriptor_set_first_slot, num_descriptor_set_updates,
-                                &current_descriptor_sets_[descriptor_set_first_slot], 0, nullptr);
-        current_pipeline_layout_ = pipeline->layout;
+    if (dirty_flags.texture != 0 || dirty_flags.storage_buf != 0) {
+        bind_resources_(cb);
     } else if (auto pipeline = static_cast<GPUPipelineVK*>(current_pipeline);
                pipeline->layout != current_pipeline_layout_) {
         if (current_pipeline_layout_ != VK_NULL_HANDLE) {
             // Re-establish descriptor sets when pipeline layout is changed
             if (current_descriptor_sets_[0]) {
-                vkCmdBindDescriptorSets(current_cb_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->layout, 0, 1,
+                vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->layout, 0, 1,
                                         &current_descriptor_sets_[0], 0, nullptr);
             }
             if (current_descriptor_sets_[1]) {
-                vkCmdBindDescriptorSets(current_cb_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->layout, 1, 1,
+                vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->layout, 1, 1,
                                         &current_descriptor_sets_[1], 0, nullptr);
             }
         }
         current_pipeline_layout_ = pipeline->layout;
     }
+
+    if (!render_pass_started_)
+        begin_render_pass_();
 
     if (dirty_flags.vtx_buf) {
         GPUBufferVK* vtx_buf = static_cast<GPUBufferVK*>(current_vtx_buf);
@@ -1562,6 +1448,129 @@ void GPURendererVK::submit_pending_uploads_() {
     };
 
     vkQueueSubmit(graphics_queue_, 1, &submit, VK_NULL_HANDLE);
+}
+
+void GPURendererVK::bind_resources_(VkCommandBuffer cmd_buf) {
+    VkDescriptorSet descriptor_set_updates[2];
+    VkDescriptorImageInfo image_descriptor[4];
+    VkDescriptorBufferInfo buffer_descriptor[4];
+    VkWriteDescriptorSet update_writes[8];
+    uint32_t descriptor_set_first_slot = 0;
+    uint32_t num_descriptor_set_updates = 0;
+    uint32_t num_descriptor_writes = 0;
+
+    // Update texture descriptors
+    if (uint32_t dirty_bits = dirty_flags.texture) {
+        VkDescriptorSet descriptor_set = descriptor_stream_.allocate_descriptor_set(device_, texture_set_layout_, 0, 4);
+        VkImageMemoryBarrier barriers[4];
+        VkPipelineStageFlags src_stage = 0;
+        VkPipelineStageFlags dst_stage = 0;
+        uint32_t num_barriers = 0;
+
+        while (dirty_bits) {
+            int slot = next_set_bits(dirty_bits);
+            GPUTextureVK* tex = static_cast<GPUTextureVK*>(current_texture[slot]);
+            uint32_t active_id = tex->read_id;
+            uint32_t num_descriptors = 0;
+            image_descriptor[num_descriptors] = {
+                .sampler = common_sampler_,
+                .imageView = tex->view[active_id],
+                .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            };
+            update_writes[num_descriptor_writes] = {
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .dstSet = descriptor_set,
+                .dstBinding = (uint32_t)slot,
+                .dstArrayElement = 0,
+                .descriptorCount = 1,
+                .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                .pImageInfo = &image_descriptor[num_descriptors],
+            };
+            num_descriptor_writes++;
+            num_descriptors++;
+
+            if (auto layout = tex->layout[active_id]; layout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+                GPUTextureAccessVK src_access = get_texture_access(layout);
+                constexpr GPUTextureAccessVK dst_access = get_texture_access(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                barriers[num_barriers] = {
+                    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                    .srcAccessMask = src_access.mask,
+                    .dstAccessMask = dst_access.mask,
+                    .oldLayout = src_access.layout,
+                    .newLayout = dst_access.layout,
+                    .srcQueueFamilyIndex = graphics_queue_index_,
+                    .dstQueueFamilyIndex = graphics_queue_index_,
+                    .image = tex->image[active_id],
+                    .subresourceRange =
+                        {
+                            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                            .baseMipLevel = 0,
+                            .levelCount = 1,
+                            .baseArrayLayer = 0,
+                            .layerCount = 1,
+                        },
+                };
+                src_stage |= src_access.stages;
+                dst_stage |= dst_access.stages;
+                tex->layout[active_id] = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                num_barriers++;
+            }
+        }
+
+        if (num_barriers > 0) {
+            // Need to pause the render pass before transitioning images
+            if (render_pass_started_)
+                end_render_pass_();
+            vkCmdPipelineBarrier(cmd_buf, src_stage, dst_stage, VK_DEPENDENCY_BY_REGION_BIT, 0, nullptr, 0, nullptr,
+                                 num_barriers, barriers);
+        }
+
+        current_descriptor_sets_[0] = descriptor_set;
+        num_descriptor_set_updates++;
+    } else {
+        descriptor_set_first_slot++;
+    }
+
+    // Update buffer descriptors
+    if (uint32_t dirty_bits = dirty_flags.storage_buf) {
+        uint32_t num_descriptors = 0;
+        VkDescriptorSet descriptor_set =
+            descriptor_stream_.allocate_descriptor_set(device_, storage_buffer_set_layout_, 4, 0);
+
+        while (dirty_bits) {
+            int slot = next_set_bits(dirty_bits);
+            GPUBufferVK* buf = static_cast<GPUBufferVK*>(current_storage_buf[slot]);
+            uint32_t active_id = buf->read_id;
+            buffer_descriptor[num_descriptors] = {
+                .buffer = buf->buffer[active_id],
+                .offset = 0,
+                .range = VK_WHOLE_SIZE,
+            };
+            update_writes[num_descriptor_writes] = {
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .dstSet = descriptor_set,
+                .dstBinding = (uint32_t)slot,
+                .dstArrayElement = 0,
+                .descriptorCount = 1,
+                .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                .pBufferInfo = &buffer_descriptor[num_descriptors],
+            };
+            num_descriptor_writes++;
+            num_descriptors++;
+        }
+
+        current_descriptor_sets_[1] = descriptor_set;
+        num_descriptor_set_updates++;
+    }
+
+    if (num_descriptor_set_updates > 0) {
+        GPUPipelineVK* pipeline = static_cast<GPUPipelineVK*>(current_pipeline);
+        vkUpdateDescriptorSets(device_, num_descriptor_writes, update_writes, 0, nullptr);
+        vkCmdBindDescriptorSets(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->layout, descriptor_set_first_slot,
+                                num_descriptor_set_updates, &current_descriptor_sets_[descriptor_set_first_slot], 0,
+                                nullptr);
+        current_pipeline_layout_ = pipeline->layout;
+    }
 }
 
 void GPURendererVK::begin_render_pass_() {

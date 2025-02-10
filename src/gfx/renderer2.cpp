@@ -4,6 +4,7 @@
 #include "core/fs.h"
 #include "platform/platform.h"
 #include "renderer_vulkan2.h"
+#include "waveform_visual.h"
 
 namespace wb {
 
@@ -36,6 +37,32 @@ static void imgui_renderer_swap_buffers(ImGuiViewport* viewport, void* userdata)
 bool GPURenderer::init(SDL_Window* window) {
     auto imgui_vs = read_file_content("assets/imgui.vert.spv");
     auto imgui_fs = read_file_content("assets/imgui.frag.spv");
+    auto waveform_aa_vs = read_file_content("assets/waveform_aa.vs.spv");
+    auto waveform_aa_fs = read_file_content("assets/waveform_aa.fs.spv");
+    auto waveform_fill_vs = read_file_content("assets/waveform_fill.vs.spv");
+
+    waveform_aa = create_pipeline({
+        .vs = waveform_aa_vs.data(),
+        .vs_size = (uint32_t)waveform_aa_vs.size(),
+        .fs = waveform_aa_fs.data(),
+        .fs_size = (uint32_t)waveform_aa_fs.size(),
+        .shader_parameter_size = sizeof(WaveformDrawParam),
+        .primitive_topology = GPUPrimitiveTopology::TriangleList,
+        .enable_blending = true,
+        .enable_color_write = true,
+    });
+
+    waveform_fill = create_pipeline({
+        .vs = waveform_fill_vs.data(),
+        .vs_size = (uint32_t)waveform_fill_vs.size(),
+        .fs = waveform_aa_fs.data(),
+        .fs_size = (uint32_t)waveform_aa_fs.size(),
+        .shader_parameter_size = sizeof(WaveformDrawParam),
+        .primitive_topology = GPUPrimitiveTopology::TriangleStrip,
+        .enable_blending = false,
+        .enable_color_write = true,
+    });
+    assert(waveform_aa && waveform_fill);
 
     GPUVertexAttribute imgui_pipeline_attributes[3] {
         {
@@ -84,6 +111,11 @@ bool GPURenderer::init(SDL_Window* window) {
 }
 
 void GPURenderer::shutdown() {
+    if (waveform_aa)
+        destroy_pipeline(waveform_aa);
+    if (waveform_fill)
+        destroy_pipeline(waveform_fill);
+
     if (font_texture)
         destroy_texture(font_texture);
     if (imm_vtx_buf)

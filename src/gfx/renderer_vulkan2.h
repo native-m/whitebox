@@ -8,7 +8,7 @@
 #include <mutex>
 #include <unordered_map>
 
-#define WB_VULKAN_SYNC_COUNT (WB_GPU_RENDER_BUFFER_SIZE + 1)
+#define WB_VULKAN_SYNC_COUNT (WB_GPU_RENDER_BUFFER_SIZE)
 
 namespace wb {
 struct GPUViewportDataVK;
@@ -248,6 +248,7 @@ struct GPURendererVK : public GPURenderer {
                                   uint32_t h, const void* data);
 
     void submit_pending_uploads_();
+    void bind_resources_(VkCommandBuffer cmd_buf);
     void begin_render_pass_();
     void end_render_pass_();
     bool create_or_recreate_swapchain_(GPUViewportDataVK* vp_data);

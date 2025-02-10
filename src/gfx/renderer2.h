@@ -98,7 +98,9 @@ struct GPUViewportData {
     GPUTexture* render_target;
 };
 
-struct GPUPipeline {};
+struct GPUPipeline {
+    uint32_t shader_parameter_size;
+};
 
 struct GPURenderer {
     using DrawFn = void (*)(void* private_data, uint32_t vtx_count, uint32_t instance_count, uint32_t first_vtx,
@@ -140,7 +142,8 @@ struct GPURenderer {
     bool inside_render_pass = false;
 
     GPUPipeline* imgui_pipeline {};
-    GPUPipeline* waveform {};
+    GPUPipeline* waveform_aa {};
+    GPUPipeline* waveform_fill {};
 
     GPUTexture* font_texture {};
     GPUBuffer* imm_vtx_buf {};
@@ -200,7 +203,7 @@ struct GPURenderer {
         assert(index < 4 && "Index out of range");
         if (buf != current_storage_buf[index]) {
             current_storage_buf[index] = buf;
-            dirty_flags.vtx_buf |= 1 << index;
+            dirty_flags.storage_buf |= 1 << index;
         }
     }
 
