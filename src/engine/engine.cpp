@@ -236,6 +236,16 @@ void Engine::solo_track(uint32_t slot) {
     }
 }
 
+void Engine::preview_sample(const std::filesystem::path& path) {
+    auto sample {Sample::load_file(path)};
+    if (!sample) {
+        Log::error("Cannot open sample file {}", path.string());
+        return;
+    }
+
+    
+}
+
 TrackEditResult Engine::add_clip_from_file(Track* track, const std::filesystem::path& path, double min_time) {
     bool is_midi = false;
     Clip* clip = nullptr;

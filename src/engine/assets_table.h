@@ -5,7 +5,7 @@
 #include "core/memory.h"
 #include "core/midi.h"
 #include "core/vector.h"
-#include "sample.h"
+#include "dsp/sample.h"
 #include "gfx/waveform_visual.h"
 #include <array>
 #include <filesystem>

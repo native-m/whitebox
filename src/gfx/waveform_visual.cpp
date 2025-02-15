@@ -1,6 +1,6 @@
 #include "waveform_visual.h"
 #include "core/debug.h"
-#include "engine/sample.h"
+#include "dsp/sample.h"
 #include "renderer2.h"
 
 namespace wb {

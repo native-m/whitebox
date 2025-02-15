@@ -21,6 +21,7 @@ struct Sample {
     uint32_t channels {};
     uint32_t sample_rate {};
     size_t count {};
+    size_t capacity {};
     Vector<std::byte*> sample_data;
 
     Sample(AudioFormat format, uint32_t sample_rate);
@@ -46,11 +47,9 @@ struct Sample {
         return (T* const*)sample_data.data();
     }
 
+    void set_channel_count(uint32_t count);
+    void reserve(size_t count);
     void resize(size_t count, uint32_t channels, bool discard = false);
-
-    // Summarize sample for visualization mipmap
-    bool summarize_for_mipmaps(SamplePeaksPrecision precision, uint32_t channel, uint32_t mip_level,
-                               size_t output_offset, size_t* output_count, void* output_data) const;
 
     static std::optional<Sample> load_file(const std::filesystem::path& path) noexcept;
 

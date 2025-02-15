@@ -2,7 +2,7 @@
 #include "controls.h"
 #include "core/algorithm.h"
 #include "core/fs.h"
-#include "engine/sample.h"
+#include "dsp/sample.h"
 #include "file_dropper.h"
 #include "window.h"
 #include <nfd.hpp>

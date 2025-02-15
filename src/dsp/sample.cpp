@@ -10,7 +10,7 @@
 
 namespace wb {
 
-AudioFormat from_sf_format(int sf_format) {
+static AudioFormat from_sf_format(int sf_format) {
     // Only supports uncompressed format
     switch (sf_format) {
         case SF_FORMAT_PCM_16:
@@ -39,24 +39,6 @@ static sf_count_t deinterleave_samples(Vector<std::byte*>& dst, const T* src, sf
             channel_data[num_frames_written + j] = src[channels * j + i];
     }
     return num_frames_written + num_read;
-}
-
-Sample::Sample(AudioFormat format, uint32_t sample_rate) : format(format), sample_rate(sample_rate) {
-}
-
-Sample::Sample(Sample&& other) noexcept :
-    name(std::move(other.name)),
-    path(std::move(other.path)),
-    format(std::exchange(other.format, AudioFormat::Unknown)),
-    channels(std::exchange(other.channels, 0)),
-    sample_rate(std::exchange(other.sample_rate, 0)),
-    count(std::exchange(other.count, 0)),
-    sample_data(std::move(other.sample_data)) {
-}
-
-Sample::~Sample() {
-    for (auto sample : sample_data)
-        std::free(sample);
 }
 
 template <typename T>
@@ -221,6 +203,31 @@ static void summarize_for_mipmaps_impl(AudioFormat sample_format, size_t sample_
     }
 }
 
+Sample::Sample(AudioFormat format, uint32_t sample_rate) : format(format), sample_rate(sample_rate) {
+}
+
+Sample::Sample(Sample&& other) noexcept :
+    name(std::move(other.name)),
+    path(std::move(other.path)),
+    format(std::exchange(other.format, AudioFormat::Unknown)),
+    channels(std::exchange(other.channels, 0)),
+    sample_rate(std::exchange(other.sample_rate, 0)),
+    count(std::exchange(other.count, 0)),
+    sample_data(std::move(other.sample_data)) {
+}
+
+Sample::~Sample() {
+    for (auto sample : sample_data)
+        std::free(sample);
+}
+
+void Sample::set_channel_count(uint32_t count) {
+
+}
+
+void Sample::reserve(size_t new_sample_count) {
+}
+
 void Sample::resize(size_t new_sample_count, uint32_t new_channels, bool discard) {
     assert(new_sample_count != 0);
     assert(new_channels != 0);
@@ -262,40 +269,6 @@ void Sample::resize(size_t new_sample_count, uint32_t new_channels, bool discard
             sample_data[i] = (std::byte*)std::malloc(byte_size);
         channels = new_channels;
     }
-}
-
-bool Sample::summarize_for_mipmaps(SamplePeaksPrecision precision, uint32_t channel, uint32_t mip_level,
-                                   size_t output_offset, size_t* output_count, void* output_data) const {
-    size_t chunk_count = 1ull << mip_level;
-    size_t block_count = 1ull << (mip_level - 1);
-    size_t mip_data_count = count / block_count;
-    mip_data_count += mip_data_count % 2;
-
-    if (output_data == nullptr) {
-        *output_count = mip_data_count;
-        return true;
-    }
-
-    // Output count must be multiple of two
-    if ((*output_count & 1) == 1)
-        return false;
-    if (*output_count < mip_data_count)
-        mip_data_count = *output_count;
-
-    std::byte* sample = sample_data[channel];
-
-    switch (precision) {
-        case SamplePeaksPrecision::Low:
-            summarize_for_mipmaps_impl(format, count, sample, chunk_count, block_count, mip_data_count,
-                                       (int8_t*)output_data + output_offset);
-            break;
-        case SamplePeaksPrecision::High:
-            summarize_for_mipmaps_impl(format, count, sample, chunk_count, block_count, mip_data_count,
-                                       (int16_t*)output_data + output_offset);
-            break;
-    }
-
-    return true;
 }
 
 std::optional<Sample> Sample::load_file(const std::filesystem::path& path) noexcept {
