@@ -6,8 +6,8 @@
 #include "controls.h"
 #include "core/color.h"
 #include "core/core_math.h"
-#include "core/fs.h"
 #include "core/debug.h"
+#include "core/fs.h"
 #include "engine/clip_edit.h"
 #include "engine/engine.h"
 #include "engine/track.h"
@@ -16,6 +16,7 @@
 #include "plugins.h"
 #include "window.h"
 #include <fmt/format.h>
+#include <fmt/ranges.h>
 
 #define DEBUG_MIDI_CLIPS 0
 
@@ -26,11 +27,10 @@
 
 namespace wb {
 
-void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
-               Vector<WaveformDrawCmd>& clip_content_cmds, const Clip* clip, float timeline_width, float offset_y,
-               float min_draw_x, double min_x, double max_x, double clip_scale, double sample_scale,
-               double start_offset, float track_pos_y, float track_height, const ImColor& track_color,
-               const ImColor& text_color, ImFont* font) {
+void draw_clip(ImDrawList* layer1_dl, ImDrawList* layer2_dl, Vector<WaveformDrawCmd>& clip_content_cmds,
+               const Clip* clip, float timeline_width, float offset_y, float min_draw_x, double min_x, double max_x,
+               double clip_scale, double sample_scale, double start_offset, float track_pos_y, float track_height,
+               const ImColor& track_color, const ImColor& text_color, ImFont* font) {
     constexpr ImDrawListFlags draw_list_aa_flags =
         ImDrawListFlags_AntiAliasedFill | ImDrawListFlags_AntiAliasedLinesUseTex | ImDrawListFlags_AntiAliasedLines;
 
@@ -45,7 +45,7 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
                                       : text_color;
 
     const bool is_active = clip->is_active();
-    const ImVec4& rect = layer1_draw_list->_ClipRectStack.back();
+    const ImVec4& rect = layer1_dl->_ClipRectStack.back();
     const float min_pos_x = (float)math::round(min_x);
     const float max_pos_x = (float)math::round(max_x);
     const float min_pos_clamped_x = math::max(min_pos_x, rect.x - 3.0f);
@@ -66,9 +66,9 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
     // Draw clip background and its header
     /*layer1_draw_list->AddRectFilled(clip_title_min_bb, clip_title_max_bb, bg_color, 2.5f,
                                     ImDrawFlags_RoundCornersTopLeft | ImDrawFlags_RoundCornersTopRight);*/
-    layer1_draw_list->AddRectFilled(clip_title_min_bb, clip_content_max, color_adjust_alpha(bg_color, 0.70f), 2.5f,
-                                    ImDrawFlags_RoundCornersAll);
-    layer1_draw_list->AddRect(clip_title_min_bb, clip_content_max, color_adjust_alpha(color, 0.62f), 2.5f);
+    layer1_dl->AddRectFilled(clip_title_min_bb, clip_content_max, color_adjust_alpha(bg_color, 0.70f), 2.5f,
+                             ImDrawFlags_RoundCornersAll);
+    layer1_dl->AddRect(clip_title_min_bb, clip_content_max, color_adjust_alpha(color, 0.62f), 2.5f);
 
     if (!is_active) {
         text_color_adjusted = color_adjust_alpha(text_color_adjusted, 0.75f);
@@ -77,11 +77,11 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
     // Draw clip label
     if (clip->name.size() != 0) {
         const char* str = clip->name.c_str();
+        const ImVec2 label_pos(std::max(clip_title_min_bb.x, min_draw_x) + 4.0f, track_pos_y + 2.0f);
         const ImVec4 clip_label_rect(clip_title_min_bb.x, clip_title_min_bb.y, clip_title_max_bb.x - 6.0f,
                                      clip_title_max_y);
-        layer1_draw_list->AddText(font, font_size,
-                                  ImVec2(std::max(clip_title_min_bb.x, min_draw_x) + 4.0f, track_pos_y + 2.0f),
-                                  0xFFFFFFFF, str, str + clip->name.size(), 0.0f, &clip_label_rect);
+        layer1_dl->AddText(font, font_size, label_pos, 0xFFFFFFFF, str, str + clip->name.size(), 0.0f,
+                           &clip_label_rect);
     }
 
     static constexpr double log_base4 = 1.0 / 1.3862943611198906; // 1.0 / log(4.0)
@@ -218,11 +218,11 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
                         fmt::format_to_n(c, std::size(c), "ID: {}", j);
                         layer2_draw_list->AddText(a - ImVec2(0.0f, 13.0f), 0xFFFFFFFF, c);
 #endif
-                        layer1_draw_list->PathLineTo(a);
-                        layer1_draw_list->PathLineTo(ImVec2(b.x, a.y));
-                        layer1_draw_list->PathLineTo(b);
-                        layer1_draw_list->PathLineTo(ImVec2(a.x, b.y));
-                        layer1_draw_list->PathFillConvex(content_color);
+                        layer1_dl->PathLineTo(a);
+                        layer1_dl->PathLineTo(ImVec2(b.x, a.y));
+                        layer1_dl->PathLineTo(b);
+                        layer1_dl->PathLineTo(ImVec2(a.x, b.y));
+                        layer1_dl->PathFillConvex(content_color);
                     }
                 }
             }
@@ -238,7 +238,7 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
     layer2_draw_list->AddText(clip_content_min, 0xFFFFFFFF, id);
 #endif
 
-    layer2_draw_list->PushClipRect(clip_content_min, clip_content_max, true);
+    layer2_dl->PushClipRect(clip_content_min, clip_content_max, true);
     // layer2_draw_list->AddLine(clip_content_min, clip_content_max,
     // border_color, 3.5f); layer2_draw_list->AddLine(clip_content_min,
     // clip_content_max, content_color, 1.5f);
@@ -246,28 +246,28 @@ void draw_clip(ImDrawList* layer1_draw_list, ImDrawList* layer2_draw_list,
     if (clip->hover_state == ClipHover::All) {
         const ImVec2 start_fade_pos(min_pos_x, clip_title_max_y);
         const ImVec2 end_fade_pos(max_pos_x, clip_content_min.y);
-        layer2_draw_list->AddCircle(start_fade_pos, 6.0f, border_color, 0, 3.5f);
-        layer2_draw_list->AddCircleFilled(start_fade_pos, 6.0f, content_color);
-        layer2_draw_list->AddCircle(end_fade_pos, 6.0f, border_color, 0, 3.5f);
-        layer2_draw_list->AddCircleFilled(end_fade_pos, 6.0f, content_color);
+        layer2_dl->AddCircle(start_fade_pos, 6.0f, border_color, 0, 3.5f);
+        layer2_dl->AddCircleFilled(start_fade_pos, 6.0f, content_color);
+        layer2_dl->AddCircle(end_fade_pos, 6.0f, border_color, 0, 3.5f);
+        layer2_dl->AddCircleFilled(end_fade_pos, 6.0f, content_color);
     }
 
-    layer2_draw_list->PopClipRect();
+    layer2_dl->PopClipRect();
 
     if (clip->hover_state != ClipHover::None) {
         switch (clip->hover_state) {
             case ClipHover::LeftHandle: {
                 ImVec2 min_bb(min_pos_x, track_pos_y);
                 ImVec2 max_bb(max_pos_x, track_pos_y + track_height);
-                layer2_draw_list->AddLine(ImVec2(min_bb.x + 1.0f, min_bb.y), ImVec2(min_bb.x + 1.0f, max_bb.y),
-                                          ImGui::GetColorU32(ImGuiCol_ButtonActive), 3.0f);
+                layer2_dl->AddLine(ImVec2(min_bb.x + 1.0f, min_bb.y), ImVec2(min_bb.x + 1.0f, max_bb.y),
+                                   ImGui::GetColorU32(ImGuiCol_ButtonActive), 3.0f);
                 break;
             }
             case ClipHover::RightHandle: {
                 ImVec2 min_bb(min_pos_x, track_pos_y);
                 ImVec2 max_bb(max_pos_x, track_pos_y + track_height);
-                layer2_draw_list->AddLine(ImVec2(max_bb.x - 2.0f, min_bb.y), ImVec2(max_bb.x - 2.0f, max_bb.y),
-                                          ImGui::GetColorU32(ImGuiCol_ButtonActive), 3.0f);
+                layer2_dl->AddLine(ImVec2(max_bb.x - 2.0f, min_bb.y), ImVec2(max_bb.x - 2.0f, max_bb.y),
+                                   ImGui::GetColorU32(ImGuiCol_ButtonActive), 3.0f);
                 break;
             }
             default:
@@ -596,7 +596,9 @@ void GuiTimeline::render_track_controls() {
             }
 
             if (ImGui::BeginPopup("track_context_menu")) {
-                track_context_menu(track, i, &tmp_name, &tmp_color);
+                if (track_context_menu(track, i, &tmp_name, &tmp_color)) {
+                    redraw = true;
+                }
                 ImGui::EndPopup();
             }
 
@@ -1127,11 +1129,10 @@ void GuiTimeline::render_track_lanes() {
                     ? samples_to_beat(drop_payload_data->content_length, drop_payload_data->sample_rate, beat_duration)
                     : 1.0;
 
-            double min_pos = highlight_pos * clip_scale;
-            double max_pos = (highlight_pos + length) * clip_scale;
-            layer3_draw_list->AddRectFilled(ImVec2(timeline_scroll_offset_x_f32 + (float)min_pos, track_pos_y),
-                                            ImVec2(timeline_scroll_offset_x_f32 + (float)max_pos, track_pos_y + height),
-                                            highlight_color);
+            const double min_pos = highlight_pos * clip_scale;
+            const double max_pos = (highlight_pos + length) * clip_scale;
+            im_draw_rect_filled(layer3_draw_list, timeline_scroll_offset_x_f32 + (float)min_pos, track_pos_y,
+                                timeline_scroll_offset_x_f32 + (float)max_pos, track_pos_y + height, highlight_color);
 
             // We have file dropped
             if (item_dropped) {
@@ -1150,8 +1151,8 @@ void GuiTimeline::render_track_lanes() {
             const double max_pos_x = math::round(timeline_scroll_offset_x + track->record_max_time * clip_scale);
             const float min_clamped_pos_x = (float)math::max(min_pos_x, (double)timeline_view_pos.x);
             const float max_clamped_pos_x = (float)math::min(max_pos_x, (double)timeline_end_x);
-            layer2_draw_list->AddRectFilled(ImVec2(min_clamped_pos_x, track_pos_y),
-                                            ImVec2(max_clamped_pos_x, next_pos_y), highlight_color);
+            im_draw_rect_filled(layer3_draw_list, min_clamped_pos_x, track_pos_y, max_clamped_pos_x, next_pos_y,
+                                highlight_color);
             layer2_draw_list->AddText(ImVec2(min_clamped_pos_x + 4.0f, track_pos_y + 2.0f), text_color_transparent,
                                       "Recording...");
         }
