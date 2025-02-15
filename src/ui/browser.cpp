@@ -113,13 +113,21 @@ void GuiBrowser::render_item(const std::filesystem::path& root_path, BrowserItem
         }
         ImGui::PopID();
     } else {
-        constexpr ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen |
-                                             ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_FramePadding |
-                                             ImGuiTreeNodeFlags_SpanAllColumns;
+        ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen |
+                                   ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_FramePadding |
+                                   ImGuiTreeNodeFlags_SpanAllColumns;
+
+        if (&item == selected_item)
+            flags |= ImGuiTreeNodeFlags_Selected;
+
         ImGui::PushID((const void*)item.name.data());
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(GImGui->Style.FramePadding.x, 2.0f));
         ImGui::TreeNodeEx("##browser_item", flags, (const char*)item.name.data());
         ImGui::PopStyleVar();
+
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
+            selected_item = &item;
+        }
 
         if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
             context_menu_path = item.get_file_path(root_path);
