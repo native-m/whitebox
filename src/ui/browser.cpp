@@ -152,7 +152,7 @@ void GuiBrowser::render_item(const std::filesystem::path& root_path, BrowserItem
 
             BrowserFilePayload* payload = &drop_payload;
             ImGui::SetDragDropPayload("WB_FILEDROP", &payload, sizeof(BrowserFilePayload*), ImGuiCond_Once);
-            ImGui::Text((const char*)item.name.data());
+            ImGui::TextUnformatted((const char*)item.name.c_str(), (const char*)item.name.c_str() + item.name.size());
             ImGui::EndDragDropSource();
         }
 

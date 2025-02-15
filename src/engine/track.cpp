@@ -3,15 +3,15 @@
 #include "clip_edit.h"
 #include "core/core_math.h"
 #include "core/debug.h"
-#include "core/dsp_ops.h"
 #include "core/panning_law.h"
 #include "core/queue.h"
+#include "dsp/dsp_ops.h"
 #include "plughost/plugin_manager.h"
 #include <algorithm>
 
 #ifndef _NDEBUG
 #define WB_DBG_LOG_CLIP_ORDERING 1
-#define WB_DBG_LOG_NOTE_ON_EVENT 0
+#define WB_DBG_LOG_NOTE_ON_EVENT 1
 #define WB_DBG_LOG_AUDIO_EVENT 1
 #define WB_DBG_LOG_PARAMETER_UPDATE 1
 #endif
@@ -624,7 +624,7 @@ void Track::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>& 
         }
     }
 
-    //process_test_synth(write_buffer, sample_rate, playing);
+    // process_test_synth(write_buffer, sample_rate, playing);
 
     if (plugin_instance) {
         PluginProcessInfo process_info;

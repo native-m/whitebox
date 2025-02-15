@@ -40,9 +40,9 @@ static FormResult color_picker_form(ImColor* color, const ImColor& previous_colo
     ImGui::SameLine();
 
     ImGui::BeginGroup();
-    ImGui::Text("Current");
+    ImGui::TextUnformatted("Current");
     ImGui::ColorButton("##current", *color, ImGuiColorEditFlags_NoPicker, ImVec2(60, 40));
-    ImGui::Text("Previous");
+    ImGui::TextUnformatted("Previous");
     if (ImGui::ColorButton("##previous", previous_color, ImGuiColorEditFlags_NoPicker, ImVec2(60, 40))) {
         *color = previous_color;
         ret = FormResult::ValueChanged;

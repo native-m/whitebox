@@ -436,6 +436,8 @@ void GuiTimeline::render_track_controls() {
         const ImVec2 track_color_min = ImGui::GetCursorScreenPos();
         const ImVec2 track_color_max = ImVec2(track_color_min.x + track_color_width, track_color_min.y + height);
         const ImVec4 muted_color(0.951f, 0.322f, 0.322f, 1.000f);
+        const char* begin_name_str = track->name.c_str();
+        const char* end_name_str = begin_name_str + track->name.size();
 
         // Draw track color
         if (ImGui::IsRectVisible(track_color_min, track_color_max)) {
@@ -464,10 +466,10 @@ void GuiTimeline::render_track_controls() {
 
             ImGui::SameLine(0.0f, 5.0f);
             if (track->name.size() > 0) {
-                ImGui::Text(track->name.c_str(), nullptr, false, false);
+                ImGui::TextUnformatted(begin_name_str, end_name_str);
             } else {
                 ImGui::BeginDisabled();
-                ImGui::TextEx("(unnamed)", nullptr, 0);
+                ImGui::TextUnformatted("(unnamed)");
                 ImGui::EndDisabled();
             }
 

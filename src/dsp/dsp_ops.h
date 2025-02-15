@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core/common.h"
-//#include "intrinsics.h"
+//#include "core/intrinsics.h"
 #include "core/types.h"
 
 namespace wb::dsp {
