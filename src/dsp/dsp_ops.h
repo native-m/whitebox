@@ -1,8 +1,8 @@
 #pragma once
 
-#include "common.h"
+#include "core/common.h"
 //#include "intrinsics.h"
-#include "types.h"
+#include "core/types.h"
 
 namespace wb::dsp {
 template <std::floating_point T>
