@@ -423,6 +423,9 @@ void GuiTimeline::render_track_controls() {
     const ImVec2 screen_pos = ImGui::GetCursorScreenPos();
     const auto& style = ImGui::GetStyle();
     const bool is_recording = g_engine.is_recording();
+    bool move_track = false;
+    uint32_t move_track_src = 0;
+    uint32_t move_track_dst = 0;
 
     ImGui::PushClipRect(screen_pos, ImVec2(screen_pos.x + clamped_separator_pos, screen_pos.y + area_size.y + vscroll),
                         true);
@@ -457,6 +460,8 @@ void GuiTimeline::render_track_controls() {
         {
             bool parameter_updated = false;
             ImGuiSliderFlags slider_flags = ImGuiSliderFlags_Vertical;
+            float volume = track->ui_parameter_state.volume_db;
+            bool mute = track->ui_parameter_state.mute;
 
             ImGui::PopStyleVar();
             ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, tmp_item_spacing);
@@ -473,10 +478,14 @@ void GuiTimeline::render_track_controls() {
                 ImGui::EndDisabled();
             }
 
+            if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
+                ImGui::SetDragDropPayload("WB_MOVE_TRACK", &i, sizeof(uint32_t), ImGuiCond_Once);
+                ImGui::Text("Move track: %s", begin_name_str);
+                ImGui::EndDragDropSource();
+            }
+
             ImVec2 free_region = ImGui::GetContentRegionAvail();
             float item_height = controls::get_item_height();
-            float volume = track->ui_parameter_state.volume_db;
-            bool mute = track->ui_parameter_state.mute;
 
             if (free_region.y < item_height * 1.5f) [[likely]] {
                 if (free_region.y < (item_height - style.ItemSpacing.y)) {
@@ -611,12 +620,26 @@ void GuiTimeline::render_track_controls() {
 
         if (ImGui::BeginDragDropTarget()) {
             static constexpr auto drag_drop_flags = ImGuiDragDropFlags_AcceptNoDrawDefaultRect;
-            if (ImGui::GetDragDropPayload()) // Workaround for overlapped drag-drop highlighter
+
+            // Custom highlighter
+            if (auto payload = ImGui::AcceptDragDropPayload("WB_MOVE_TRACK", ImGuiDragDropFlags_AcceptPeekOnly))
+                main_draw_list->AddLine(pos_start, ImVec2(pos_end.x, pos_start.y),
+                                        ImGui::GetColorU32(ImGuiCol_DragDropTarget), 2.0f);
+            else if (ImGui::GetDragDropPayload())
                 main_draw_list->AddRect(pos_start, pos_end, ImGui::GetColorU32(ImGuiCol_DragDropTarget), 0.0f, 0, 2.0f);
+
             if (auto payload = ImGui::AcceptDragDropPayload("WB_PLUGINDROP", drag_drop_flags)) {
                 PluginItem* item;
                 std::memcpy(&item, payload->Data, payload->DataSize);
                 add_track_plugin(track, item->uid);
+            } else if (auto payload = ImGui::AcceptDragDropPayload("WB_MOVE_TRACK", drag_drop_flags)) {
+                assert(payload->DataSize == sizeof(uint32_t));
+                uint32_t* source = (uint32_t*)payload->Data;
+                if (i != *source) {
+                    move_track = true;
+                    move_track_src = *source;
+                    move_track_dst = i;
+                }
             }
             ImGui::EndDragDropTarget();
         }
@@ -632,6 +655,11 @@ void GuiTimeline::render_track_controls() {
             redraw = true;
 
         ImGui::PopStyleVar();
+    }
+
+    if (move_track) {
+        g_cmd_manager.execute("Move track", TrackMoveCmd {move_track_src, move_track_dst});
+        redraw = true;
     }
 
     if (ImGui::Button("Add Track")) {

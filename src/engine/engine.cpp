@@ -204,6 +204,7 @@ void Engine::move_track(uint32_t from_slot, uint32_t to_slot) {
     if (from_slot == to_slot)
         return;
 
+    std::unique_lock lock(editor_lock);
     Track* tmp = tracks[from_slot];
 
     if (from_slot < to_slot) {
@@ -211,7 +212,7 @@ void Engine::move_track(uint32_t from_slot, uint32_t to_slot) {
             tracks[i] = tracks[i + 1];
     } else {
         for (uint32_t i = from_slot; i > to_slot; i--)
-            tracks[i + 1] = tracks[i];
+            tracks[i] = tracks[i - 1];
     }
 
     tracks[to_slot] = tmp;

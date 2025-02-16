@@ -8,22 +8,18 @@
 
 namespace wb {
 
+using HistoryVariant = std::variant<EmptyCmd, TrackMoveCmd, ClipAddFromFileCmd, ClipMoveCmd, ClipShiftCmd,
+                                    ClipResizeCmd, ClipDuplicateCmd, ClipDeleteCmd, ClipDeleteRegionCmd>;
+
 template <typename T>
 concept CommandType = requires(T cmd) {
     cmd.execute();
     cmd.undo();
 };
 
-struct EmptyCmd {
-    void execute() {}
-    void undo() {}
-};
-
 struct HistoryItem {
     std::string name;
-    std::variant<EmptyCmd, ClipAddFromFileCmd, ClipMoveCmd, ClipShiftCmd, ClipResizeCmd, ClipDuplicateCmd,
-                 ClipDeleteCmd, ClipDeleteRegionCmd>
-        data;
+    HistoryVariant data;
 
     template <CommandType T>
     void set(const std::string& new_name, T&& new_data) {

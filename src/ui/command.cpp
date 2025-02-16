@@ -55,6 +55,16 @@ void TrackHistory::undo(Track* track) {
 
 //
 
+void TrackMoveCmd::execute() {
+    g_engine.move_track(src_slot, dst_slot);
+}
+
+void TrackMoveCmd::undo() {
+    g_engine.move_track(dst_slot, src_slot);
+}
+
+//
+
 void ClipAddFromFileCmd::execute() {
     Track* track = g_engine.tracks[track_id];
     auto result = g_engine.add_clip_from_file(track, file, cursor_pos);

@@ -81,6 +81,8 @@ struct Engine {
     void move_track(uint32_t from_slot, uint32_t to_slot);
     void solo_track(uint32_t slot);
 
+    void preview_sample(const std::filesystem::path& path);
+
     TrackEditResult add_clip_from_file(Track* track, const std::filesystem::path& path, double min_time);
     TrackEditResult add_audio_clip(Track* track, const std::string& name, double min_time, double max_time,
                                    double start_offset, const AudioClip& clip_info, bool active = true);

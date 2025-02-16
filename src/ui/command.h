@@ -17,6 +17,19 @@ struct TrackHistory {
     void undo(Track* track);
 };
 
+struct EmptyCmd {
+    void execute() {}
+    void undo() {}
+};
+
+struct TrackMoveCmd {
+    uint32_t src_slot;
+    uint32_t dst_slot;
+
+    void execute();
+    void undo();
+};
+
 struct ClipAddFromFileCmd {
     uint32_t track_id;
     double cursor_pos;
@@ -94,4 +107,14 @@ struct ClipDeleteRegionCmd {
     void execute();
     void undo();
 };
+
+struct TrackParameterChangeCmd {
+    uint32_t track_id;
+    uint16_t param_id;
+    uint16_t plugin_id;
+    uint32_t plugin_param_id;
+    double old_value;
+    double new_value;
+};
+
 } // namespace wb
