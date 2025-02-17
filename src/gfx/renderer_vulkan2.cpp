@@ -6,6 +6,16 @@
 #include <SDL_syswm.h>
 #include <imgui_impl_sdl2.h>
 
+#ifdef VK_USE_PLATFORM_XCB_KHR
+#include <X11/Xlib-xcb.h>
+#endif
+
+#ifdef VK_USE_PLATFORM_XLIB_KHR
+extern "C" {
+#include <X11/Xutil.h>
+}
+#endif
+
 #define WB_LOG_VULKAN_RESOURCE_DISPOSAL 0
 
 namespace wb {
