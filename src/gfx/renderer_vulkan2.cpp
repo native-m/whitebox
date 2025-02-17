@@ -122,6 +122,54 @@ static VkRenderPass create_render_pass_for_format(VkDevice device, GPUFormat for
     return render_pass;
 }
 
+static VkSurfaceKHR create_surface(VkInstance instance, SDL_Window* window) {
+    VkSurfaceKHR surface;
+    SDL_SysWMinfo wm_info {};
+    SDL_VERSION(&wm_info.version);
+    SDL_GetWindowWMInfo(window, &wm_info);
+
+#if defined(WB_PLATFORM_WINDOWS)
+    VkWin32SurfaceCreateInfoKHR surface_info {
+        .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
+        .hinstance = GetModuleHandle(nullptr),
+        .hwnd = (HWND)wm_info.info.win.window,
+    };
+
+    if (VK_FAILED(vkCreateWin32SurfaceKHR(instance, &surface_info, nullptr, &surface))) {
+        Log::error("Failed to create window surface");
+        return VK_NULL_HANDLE;
+    }
+#elif defined(WB_PLATFORM_LINUX)
+#ifdef VK_USE_PLATFORM_XLIB_KHR
+    Display* display = wm_info.info.x11.display;
+
+    VkXlibSurfaceCreateInfoKHR surface_info {
+        .sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
+        .dpy = display,
+        .window = wm_info.info.x11.window,
+    };
+
+    if (VK_FAILED(vkCreateXlibSurfaceKHR(instance, &surface_info, nullptr, &surface))) {
+        Log::error("Failed to create window surface");
+        return VK_NULL_HANDLE;
+    }
+#else
+    VkXcbSurfaceCreateInfoKHR surface_info {
+        .sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
+        .connection = XGetXCBConnection(wm_info.info.x11.display),
+        .window = static_cast<xcb_window_t>(wm_info.info.x11.window),
+    };
+
+    if (VK_FAILED(vkCreateXcbSurfaceKHR(instance, &surface_info, nullptr, &surface))) {
+        Log::error("Failed to create window surface");
+        return VK_NULL_HANDLE;
+    }
+#endif
+#endif
+
+    return surface;
+}
+
 VkResult GPUViewportDataVK::acquire(VkDevice device) {
     GPUTextureVK* rt = static_cast<GPUTextureVK*>(render_target);
     VkResult err =
@@ -912,17 +960,8 @@ void GPURendererVK::destroy_pipeline(GPUPipeline* pipeline) {
 
 void GPURendererVK::add_viewport(ImGuiViewport* viewport) {
     SDL_Window* window = SDL_GetWindowFromID((uint32_t)(uint64_t)viewport->PlatformHandle);
-    VkWin32SurfaceCreateInfoKHR surface_info {
-        .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
-        .hinstance = GetModuleHandle(nullptr),
-        .hwnd = (HWND)wm_get_native_window_handle(window),
-    };
-
-    VkSurfaceKHR surface;
-    if (VK_FAILED(vkCreateWin32SurfaceKHR(instance_, &surface_info, nullptr, &surface))) {
-        Log::error("Failed to create window surface");
-        return;
-    }
+    VkSurfaceKHR surface = create_surface(instance_, window);
+    assert(surface != VK_NULL_HANDLE);
 
     GPUViewportDataVK* vp_data = new GPUViewportDataVK();
     vp_data->viewport = viewport;
@@ -1949,52 +1988,11 @@ GPURenderer* GPURendererVK::create(SDL_Window* window) {
     }
 #endif
 
-    VkSurfaceKHR surface;
-    SDL_SysWMinfo wm_info {};
-    SDL_VERSION(&wm_info.version);
-    SDL_GetWindowWMInfo(window, &wm_info);
-
-#if defined(WB_PLATFORM_WINDOWS)
-    VkWin32SurfaceCreateInfoKHR surface_info {
-        .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
-        .hinstance = GetModuleHandle(nullptr),
-        .hwnd = (HWND)wm_info.info.win.window,
-    };
-
-    if (VK_FAILED(vkCreateWin32SurfaceKHR(instance, &surface_info, nullptr, &surface))) {
-        Log::error("Failed to create window surface");
+    VkSurfaceKHR surface = create_surface(instance, window);
+    if (!surface) {
         vkDestroyInstance(instance, nullptr);
         return nullptr;
     }
-#elif defined(WB_PLATFORM_LINUX)
-#ifdef VK_USE_PLATFORM_XLIB_KHR
-    Display* display = wm_info.info.x11.display;
-
-    VkXlibSurfaceCreateInfoKHR surface_info {
-        .sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
-        .dpy = display,
-        .window = wm_info.info.x11.window,
-    };
-
-    if (VK_FAILED(vkCreateXlibSurfaceKHR(instance, &surface_info, nullptr, &surface))) {
-        Log::error("Failed to create window surface");
-        vkDestroyInstance(instance, nullptr);
-        return nullptr;
-    }
-#else
-    VkXcbSurfaceCreateInfoKHR surface_info {
-        .sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
-        .connection = XGetXCBConnection(wm_info.info.x11.display),
-        .window = static_cast<xcb_window_t>(wm_info.info.x11.window),
-    };
-
-    if (VK_FAILED(vkCreateXcbSurfaceKHR(instance, &surface_info, nullptr, &surface))) {
-        Log::error("Failed to create window surface");
-        vkb::destroy_instance(instance);
-        return nullptr;
-    }
-#endif
-#endif
 
     Vector<VkQueueFamilyProperties> queue_families;
     uint32_t queue_family_count;
