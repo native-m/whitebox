@@ -2,10 +2,11 @@ layout(push_constant) uniform DrawCmd {
     vec2 origin;
     float scale_x;
     float scale_y;
-    uint color;
+    float gain;
     float vp_width;
     float vp_height;
     int is_min;
+    uint color;
     uint channel;
     uint start_idx;
     uint sample_count;

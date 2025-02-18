@@ -64,6 +64,7 @@ struct alignas(8) PFAudioClip {
     double fade_start;
     double fade_end;
     uint32_t asset_index;
+    float gain;
 };
 
 struct alignas(8) PFMidiClip {

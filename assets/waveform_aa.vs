@@ -17,10 +17,11 @@ void main() {
     float y0 = draw_cmd.is_min == 1 ? minmax0.x : minmax0.y;
     float y1 = draw_cmd.is_min == 1 ? minmax1.x : minmax1.y;
     
-    float height_y = draw_cmd.scale_y * 0.5;
-    vec2 offset = vec2(draw_cmd.origin.x, draw_cmd.origin.y + height_y);
-    vec2 pos0 = vec2(float(peak_pos), -y0 * height_y) + offset;
-    vec2 pos1 = vec2((float(peak_pos) + 1), -y1 * height_y) + offset;
+    float max_height_y = draw_cmd.scale_y * 0.5;
+    float height = max_height_y * draw_cmd.gain;
+    vec2 offset = vec2(draw_cmd.origin.x, draw_cmd.origin.y + max_height_y);
+    vec2 pos0 = vec2(float(peak_pos), -y0 * height) + offset;
+    vec2 pos1 = vec2((float(peak_pos) + 1), -y1 * height) + offset;
     
     vec2 t0 = normalize(pos1 - pos0);
     vec2 n0 = vec2(t0.y, -t0.x);

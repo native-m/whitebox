@@ -14,7 +14,7 @@ static constexpr uint32_t project_info_version = 1;
 static constexpr uint32_t project_sample_table_version = 1;
 static constexpr uint32_t project_midi_table_version = 1;
 static constexpr uint32_t project_track_version = 1;
-static constexpr uint32_t project_clip_version = 1;
+static constexpr uint32_t project_clip_version = 2;
 
 ProjectFileResult read_project_file(const std::filesystem::path& path, Engine& engine, SampleTable& sample_table,
                                     MidiTable& midi_table, GuiTimeline& timeline) {
@@ -190,10 +190,12 @@ ProjectFileResult read_project_file(const std::filesystem::path& path, Engine& e
             switch (clip_header.type) {
                 case ClipType::Audio: {
                     SampleAsset* asset = sample_assets[clip_header.audio.asset_index];
+                    float gain = clip_header.version < 2 ? 1.0f : clip_header.audio.gain;
                     clip->init_as_audio_clip({
                         .asset = asset,
                         .fade_start = clip_header.audio.fade_start,
                         .fade_end = clip_header.audio.fade_end,
+                        .gain = gain,
                     });
                     asset->add_ref();
                     break;
@@ -359,6 +361,7 @@ ProjectFileResult write_project_file(const std::filesystem::path& path, Engine& 
                         .fade_start = clip->audio.fade_start,
                         .fade_end = clip->audio.fade_end,
                         .asset_index = sample_index_map[hash],
+                        .gain = clip->audio.gain,
                     };
                     break;
                 }

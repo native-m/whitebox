@@ -13,12 +13,13 @@ void main() {
     vec2 minmax = get_minmax_value(sample_pos);
     
     //uint dir = (vertex_idx >> (vertex_idx < 3 ? 1 : 2)) & 1;
-    float offset_y = draw_cmd.scale_y * 0.5;
+    float max_height_y = draw_cmd.scale_y * 0.5;
+    float height = max_height_y * draw_cmd.gain;
     float y = vertex_idx == 1 ? minmax.y : minmax.x;
     
     vec2 pos;
     pos.x = draw_cmd.origin.x + float(peak_pos);
-    pos.y = draw_cmd.origin.y + offset_y + -y * offset_y;
+    pos.y = draw_cmd.origin.y + max_height_y + -y * height;
     
     gl_Position.x = pos.x * draw_cmd.vp_width - 1.0f;
     gl_Position.y = pos.y * draw_cmd.vp_height - 1.0f;

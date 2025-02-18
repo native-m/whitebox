@@ -6,6 +6,8 @@
 
 namespace wb {
 
+struct Clip;
+
 enum class EventType {
     None,
     StopSample,
@@ -66,6 +68,7 @@ struct AudioEvent {
     uint32_t buffer_offset;
     double time;
     size_t sample_offset;
+    Clip* clip;
     Sample* sample;
 };
 

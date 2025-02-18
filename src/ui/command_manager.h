@@ -8,8 +8,9 @@
 
 namespace wb {
 
-using HistoryVariant = std::variant<EmptyCmd, TrackMoveCmd, ClipAddFromFileCmd, ClipMoveCmd, ClipShiftCmd,
-                                    ClipResizeCmd, ClipDuplicateCmd, ClipDeleteCmd, ClipDeleteRegionCmd>;
+using HistoryVariant =
+    std::variant<EmptyCmd, TrackMoveCmd, ClipAddFromFileCmd, ClipMoveCmd, ClipShiftCmd, ClipResizeCmd, ClipDuplicateCmd,
+                 ClipDeleteCmd, ClipDeleteRegionCmd, ClipAdjustGainCmd>;
 
 template <typename T>
 concept CommandType = requires(T cmd) {

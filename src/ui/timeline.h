@@ -18,6 +18,7 @@ enum class TimelineEditAction {
     ClipShiftRight,
     ClipShift,
     ClipDuplicate,
+    ClipAdjustGain,
     ShowClipContextMenu,
 };
 
@@ -50,7 +51,7 @@ struct GuiTimeline : public TimelineBase {
     ImDrawData layer_draw_data;
     Vector<WaveformDrawCmd> clip_content_cmds;
     GPUTexture* timeline_fb {};
-    
+
     ImVec2 window_origin;
     ImVec2 timeline_view_pos;
     ImVec2 content_min;
@@ -60,12 +61,14 @@ struct GuiTimeline : public TimelineBase {
     ImVec2 last_mouse_pos;
 
     double initial_time_pos = 0.0;
+    float current_value = 0.0f;
+    uint32_t initial_track_id = 0;
     float vscroll = 0.0f;
     float last_vscroll = 0.0f;
     float scroll_delta_y = 0.0f;
 
-    Vector<SelectionRange> selection_ranges;
     TargetSelectionRange target_sel_range;
+    Vector<SelectedClipRange> selected_clips;
     TimelineEditAction edit_action;
     bool scrolling = false;
     bool zooming = false;
@@ -102,8 +105,15 @@ struct GuiTimeline : public TimelineBase {
     void render_track_controls();
     void clip_context_menu();
     void render_track_lanes();
+    void select_range();
     void finish_edit_action();
     void recalculate_timeline_length();
+
+    void draw_clip(const Clip* clip, float timeline_width, float offset_y, float min_draw_x, double min_x, double max_x,
+                   double clip_scale, double sample_scale, double start_offset, float track_pos_y, float track_height,
+                   float gain, const ImColor& track_color, const ImColor& text_color, ImFont* font);
+
+    void draw_clip_overlay();
 
     inline void redraw_screen() { force_redraw = true; }
 };

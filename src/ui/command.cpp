@@ -227,4 +227,16 @@ void ClipDeleteRegionCmd::undo() {
     }
 }
 
+//
+
+void ClipAdjustGainCmd::execute() {
+    Track* track = g_engine.tracks[track_id];
+    g_engine.set_clip_gain(track, clip_id, gain_after);
+}
+
+void ClipAdjustGainCmd::undo() {
+    Track* track = g_engine.tracks[track_id];
+    g_engine.set_clip_gain(track, clip_id, gain_before);
+}
+
 } // namespace wb

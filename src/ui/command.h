@@ -108,6 +108,16 @@ struct ClipDeleteRegionCmd {
     void undo();
 };
 
+struct ClipAdjustGainCmd {
+    uint32_t track_id;
+    uint32_t clip_id;
+    float gain_before;
+    float gain_after;
+
+    void execute();
+    void undo();
+};
+
 struct TrackParameterChangeCmd {
     uint32_t track_id;
     uint16_t param_id;

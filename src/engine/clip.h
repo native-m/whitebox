@@ -29,6 +29,7 @@ struct AudioClip {
     SampleAsset* asset;
     double fade_start;
     double fade_end;
+    float gain;
 };
 
 struct MidiClip {

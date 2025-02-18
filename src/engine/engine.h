@@ -100,6 +100,8 @@ struct Engine {
     TrackEditResult reserve_track_region(Track* track, uint32_t first_clip, uint32_t last_clip, double min, double max,
                                          bool dont_sort, Clip* ignore_clip);
 
+    void set_clip_gain(Track* track, uint32_t clip_id, float gain);
+
     PluginInterface* add_plugin_to_track(Track* track, PluginUID uid);
     void delete_plugin_from_track(Track* track);
 

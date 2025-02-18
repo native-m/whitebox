@@ -198,10 +198,10 @@ struct Track {
     void process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>& output_buffer, double sample_rate,
                  double beat_duration, double playhead_pos, int64_t playhead_in_samples, bool playing);
 
-    void render_sample(AudioBuffer<float>& output_buffer, uint32_t buffer_offset, uint32_t num_samples,
+    void render_sample(AudioBuffer<float>& output_buffer, float gain, uint32_t buffer_offset, uint32_t num_samples,
                        double sample_rate);
-    void stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, uint32_t buffer_offset, uint32_t num_samples,
-                       size_t sample_offset);
+    void stream_sample(AudioBuffer<float>& output_buffer, Sample* sample, float gain, uint32_t buffer_offset,
+                       uint32_t num_samples, size_t sample_offset);
     void process_test_synth(AudioBuffer<float>& output_buffer, double sample_rate, bool playing);
 
     void flush_deleted_clips(double time_pos);

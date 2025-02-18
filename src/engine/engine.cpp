@@ -243,8 +243,6 @@ void Engine::preview_sample(const std::filesystem::path& path) {
         Log::error("Cannot open sample file {}", path.string());
         return;
     }
-
-    
 }
 
 TrackEditResult Engine::add_clip_from_file(Track* track, const std::filesystem::path& path, double min_time) {
@@ -255,7 +253,8 @@ TrackEditResult Engine::add_clip_from_file(Track* track, const std::filesystem::
         double sample_rate = (double)sample_asset->sample_instance.sample_rate;
         double clip_length = samples_to_beat(sample_asset->sample_instance.count, sample_rate, beat_duration);
         double max_time = min_time + math::uround(clip_length * ppq) / ppq;
-        return add_audio_clip(track, path.filename().string(), min_time, max_time, 0.0, {.asset = sample_asset});
+        return add_audio_clip(track, path.filename().string(), min_time, max_time, 0.0,
+                              {.asset = sample_asset, .gain = 1.0f});
     }
 
     if (MidiAsset* midi_asset = g_midi_table.load_from_file(path)) {
@@ -513,6 +512,12 @@ TrackEditResult Engine::reserve_track_region(Track* track, uint32_t first_clip, 
         .deleted_clips = std::move(deleted_clips),
         .modified_clips = std::move(modified_clips),
     };
+}
+
+void Engine::set_clip_gain(Track* track, uint32_t clip_id, float gain) {
+    Clip* clip = track->clips[clip_id];
+    if (clip->is_audio())
+        clip->audio.gain = gain;
 }
 
 PluginInterface* Engine::add_plugin_to_track(Track* track, PluginUID uid) {
