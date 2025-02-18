@@ -6,11 +6,11 @@
 #include "core/bit_manipulation.h"
 #include "core/memory.h"
 #include "core/vector.h"
+#include "dsp/param_queue.h"
 #include "etypes.h"
 #include "event.h"
 #include "event_list.h"
 #include "midi_voice.h"
-#include "param_changes.h"
 #include "plughost/plugin_interface.h"
 #include "test_synth.h"
 #include "track_input.h"
@@ -57,6 +57,12 @@ struct TrackAutomation {
     double value;
 };
 
+struct TrackParamTransfer {
+    uint32_t id;
+    PluginInterface* plugin;
+    double value;
+};
+
 struct Track {
     std::string name;
     ImColor color {0.3f, 0.3f, 0.3f, 1.0f};
@@ -97,10 +103,9 @@ struct Track {
 
     TrackParameterState ui_parameter_state {}; // UI-side state
     TrackParameterState parameter_state {};    // Audio-side state
-    ParamChanges param_changes;
+    dsp::ParamQueue param_queue;
     // This handles parameter state transfer from UI to audio thread
-    ConcurrentRingBuffer<ParamChange> ui_param_changes;
-    ConcurrentRingBuffer<PluginParamTransfer> ui_plugin_param_changes;
+    ConcurrentRingBuffer<TrackParamTransfer> ui_param_transfer;
 
     Track();
     Track(const std::string& name, const ImColor& color, float height, bool shown,
@@ -206,7 +211,7 @@ struct Track {
 
     void flush_deleted_clips(double time_pos);
 
-    void transfer_plugin_param_changes();
+    void transfer_param_changes();
 
     static PluginResult plugin_begin_edit(void* userdata, PluginInterface* plugin, uint32_t param_id);
     static PluginResult plugin_perform_edit(void* userdata, PluginInterface* plugin, uint32_t param_id,

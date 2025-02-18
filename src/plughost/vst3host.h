@@ -4,7 +4,6 @@
 #include "core/span.h"
 #include "core/vector.h"
 #include "engine/event_list.h"
-#include "engine/param_changes.h"
 #include "plugin_manager.h"
 #include <optional>
 #include <pluginterfaces/gui/iplugview.h>
@@ -37,9 +36,7 @@ class VST3HostApplication : public Steinberg::Vst::HostApplication {
 
 class VST3ParameterChanges : public Steinberg::Vst::IParameterChanges {
   public:
-    ParamChanges param_changes;
-
-    Steinberg::int32 PLUGIN_API getParameterCount() override { return param_changes.changes_count; }
+    Steinberg::int32 PLUGIN_API getParameterCount() override { return 0; }
     Steinberg::Vst::IParamValueQueue* PLUGIN_API getParameterData(Steinberg::int32 index) override { return nullptr; }
     Steinberg::Vst::IParamValueQueue* PLUGIN_API addParameterData(const Steinberg::Vst::ParamID& id,
                                                                   Steinberg::int32& index) override {

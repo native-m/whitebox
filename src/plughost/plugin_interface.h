@@ -3,7 +3,6 @@
 #include "core/audio_buffer.h"
 #include "core/common.h"
 #include "engine/event_list.h"
-#include "engine/param_changes.h"
 
 #ifdef WB_PLATFORM_WINDOWS
 #define WB_PLUG_API __stdcall

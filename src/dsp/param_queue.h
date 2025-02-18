@@ -31,9 +31,9 @@ struct ParamQueue {
         }
 
         if (dest_idx == values.size()) {
-            values.emplace_back(value, sample_offset);
+            values.emplace_back(sample_offset, id, value);
         } else {
-            values.emplace_at(dest_idx, value, sample_offset);
+            values.emplace_at(dest_idx, sample_offset, id, value);
         }
 
         return dest_idx;

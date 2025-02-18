@@ -113,7 +113,7 @@ struct GuiTimeline : public TimelineBase {
                    double clip_scale, double sample_scale, double start_offset, float track_pos_y, float track_height,
                    float gain, const ImColor& track_color, const ImColor& text_color, ImFont* font);
 
-    void draw_clip_overlay();
+    void draw_clip_overlay(ImVec2 pos, float size, float alpha, const ImColor& col, const char* caption);
 
     inline void redraw_screen() { force_redraw = true; }
 };

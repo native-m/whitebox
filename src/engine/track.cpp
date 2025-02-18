@@ -21,22 +21,17 @@ Track::Track() {
     ui_parameter_state.volume = 1.0f;
     ui_parameter_state.pan = 0.0f;
     ui_parameter_state.mute = false;
-    param_changes.set_max_params(TrackParameter_Max);
-    ui_plugin_param_changes.set_capacity(64);
-    ui_param_changes.set_capacity(64);
-    ui_param_changes.push({
+    ui_param_transfer.set_capacity(64);
+    ui_param_transfer.push({
         .id = TrackParameter_Volume,
-        .sample_offset = 0,
         .value = 1.0,
     });
-    ui_param_changes.push({
+    ui_param_transfer.push({
         .id = TrackParameter_Pan,
-        .sample_offset = 0,
         .value = 0.0,
     });
-    ui_param_changes.push({
+    ui_param_transfer.push({
         .id = TrackParameter_Mute,
-        .sample_offset = 0,
         .value = 0.0,
     });
 }
@@ -45,22 +40,17 @@ Track::Track(const std::string& name, const ImColor& color, float height, bool s
              const TrackParameterState& track_param) :
     name(name), color(color), height(height), shown(shown), ui_parameter_state(track_param) {
     ui_parameter_state.volume_db = math::linear_to_db(track_param.volume);
-    param_changes.set_max_params(TrackParameter_Max);
-    ui_plugin_param_changes.set_capacity(64);
-    ui_param_changes.set_capacity(64);
-    ui_param_changes.push({
+    ui_param_transfer.set_capacity(64);
+    ui_param_transfer.push({
         .id = TrackParameter_Volume,
-        .sample_offset = 0,
         .value = (double)ui_parameter_state.volume,
     });
-    ui_param_changes.push({
+    ui_param_transfer.push({
         .id = TrackParameter_Pan,
-        .sample_offset = 0,
         .value = (double)ui_parameter_state.pan,
     });
-    ui_param_changes.push({
+    ui_param_transfer.push({
         .id = TrackParameter_Mute,
-        .sample_offset = 0,
         .value = (double)ui_parameter_state.mute,
     });
 }
@@ -75,27 +65,24 @@ Track::~Track() {
 void Track::set_volume(float db) {
     ui_parameter_state.volume_db = db;
     ui_parameter_state.volume = math::db_to_linear(db);
-    ui_param_changes.push({
+    ui_param_transfer.push({
         .id = TrackParameter_Volume,
-        .sample_offset = 0,
         .value = (double)ui_parameter_state.volume,
     });
 }
 
 void Track::set_pan(float pan) {
     ui_parameter_state.pan = pan;
-    ui_param_changes.push({
+    ui_param_transfer.push({
         .id = TrackParameter_Pan,
-        .sample_offset = 0,
         .value = (double)ui_parameter_state.pan,
     });
 }
 
 void Track::set_mute(bool mute) {
     ui_parameter_state.mute = mute;
-    ui_param_changes.push({
+    ui_param_transfer.push({
         .id = TrackParameter_Mute,
-        .sample_offset = 0,
         .value = (double)ui_parameter_state.mute,
     });
 }
@@ -555,25 +542,19 @@ void Track::stop_midi_notes(uint32_t buffer_offset, double time_pos) {
 void Track::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>& output_buffer, double sample_rate,
                     double beat_duration, double playhead_pos, int64_t playhead_in_samples, bool playing) {
     AudioBuffer<float>& write_buffer = plugin_instance ? effect_buffer : output_buffer;
-    param_changes.transfer_changes_from(ui_param_changes);
-    transfer_plugin_param_changes();
+    transfer_param_changes();
 
-    for (uint32_t i = 0; i < param_changes.changes_count; i++) {
-        ParamValueQueue& queue = param_changes.queues[i];
-        if (queue.points.size() == 0) {
-            continue;
-        }
-        size_t last_idx = queue.points.size() - 1;
-        double last_value = queue.points[last_idx].value;
-        switch (queue.id) {
+    for (uint32_t i = 0; i < param_queue.values.size(); i++) {
+        dsp::ParamValue& value = param_queue.values[i];
+        switch (value.id) {
             case TrackParameter_Volume:
-                parameter_state.volume = (float)last_value;
+                parameter_state.volume = (float)value.value;
 #ifdef WB_DBG_LOG_PARAMETER_UPDATE
                 Log::debug("Volume changed: {} {}", parameter_state.volume, math::linear_to_db(parameter_state.volume));
 #endif
                 break;
-            case TrackParameter_Pan: {
-                parameter_state.pan = (float)last_value;
+            case TrackParameter_Pan:
+                parameter_state.pan = (float)value.value;
                 PanningCoefficient pan = calculate_panning_coefs(parameter_state.pan, PanningLaw::ConstantPower_3db);
                 parameter_state.pan_coeffs[0] = pan.left;
                 parameter_state.pan_coeffs[1] = pan.right;
@@ -582,9 +563,8 @@ void Track::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>& 
                            parameter_state.pan_coeffs[1]);
 #endif
                 break;
-            }
             case TrackParameter_Mute:
-                parameter_state.mute = last_value > 0.0 ? 1.0f : 0.0f;
+                parameter_state.mute = value.value > 0.0 ? 1.0f : 0.0f;
 #ifdef WB_DBG_LOG_PARAMETER_UPDATE
                 Log::debug("Mute changed: {}", parameter_state.mute);
 #endif
@@ -653,7 +633,7 @@ void Track::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>& 
         level_meter[i].push_samples(output_buffer, i);
     }
 
-    param_changes.clear_changes();
+    param_queue.clear();
 
     if (deleted_clips.size() > 0) {
         for (auto deleted_clip : deleted_clips) {
@@ -676,7 +656,8 @@ void Track::render_sample(AudioBuffer<float>& output_buffer, float gain, uint32_
             if (sample_offset >= sample->count)
                 break;
             uint32_t min_num_samples = std::min(num_samples, (uint32_t)(sample->count - sample_offset));
-            stream_sample(output_buffer, current_audio_event.sample, gain, buffer_offset, min_num_samples, sample_offset);
+            stream_sample(output_buffer, current_audio_event.sample, gain, buffer_offset, min_num_samples,
+                          sample_offset);
             samples_processed += min_num_samples;
             break;
         }
@@ -805,10 +786,15 @@ void Track::flush_deleted_clips(double time_pos) {
     clips = std::move(new_clip_list);
 }
 
-void Track::transfer_plugin_param_changes() {
-    PluginParamTransfer tf;
-    while (ui_plugin_param_changes.pop(tf))
-        tf.plugin->transfer_param(tf.param_id, tf.normalized_value);
+void Track::transfer_param_changes() {
+    TrackParamTransfer tf;
+    while (ui_param_transfer.pop(tf)) {
+        if (tf.plugin) {
+            tf.plugin->transfer_param(tf.id, tf.value);
+        } else {
+            param_queue.push_back_value(0, tf.id, tf.value);
+        }
+    }
 }
 
 PluginResult Track::plugin_begin_edit(void* userdata, PluginInterface* plugin, uint32_t param_id) {
@@ -820,12 +806,11 @@ PluginResult Track::plugin_begin_edit(void* userdata, PluginInterface* plugin, u
 PluginResult Track::plugin_perform_edit(void* userdata, PluginInterface* plugin, uint32_t param_id,
                                         double normalized_value) {
     Track* track = (Track*)userdata;
-    track->ui_plugin_param_changes.push({
+    track->ui_param_transfer.push({
+        .id = param_id,
         .plugin = plugin,
-        .param_id = param_id,
-        .normalized_value = normalized_value,
+        .value = normalized_value,
     });
-    // Log::debug("plugin_perform_edit called ({}, {})", param_id, normalized_value);
     return PluginResult::Ok;
 }
 

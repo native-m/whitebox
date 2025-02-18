@@ -672,12 +672,13 @@ void GuiTimeline::render_track_lanes() {
             if (ImGui::IsKeyPressed(ImGuiKey_Delete, false)) {
                 uint32_t first_track = target_sel_range.first_track;
                 uint32_t last_track = target_sel_range.last_track;
-                g_cmd_manager.execute("Delete Selected Region", ClipDeleteRegionCmd {
-                                                                    .first_track_id = target_sel_range.first_track,
-                                                                    .last_track_id = target_sel_range.last_track,
-                                                                    .min_time = target_sel_range.min,
-                                                                    .max_time = target_sel_range.max,
-                                                                });
+                ClipDeleteRegionCmd cmd {
+                    .first_track_id = target_sel_range.first_track,
+                    .last_track_id = target_sel_range.last_track,
+                    .min_time = target_sel_range.min,
+                    .max_time = target_sel_range.max,
+                };
+                g_cmd_manager.execute("Delete Selected Region", std::move(cmd));
                 recalculate_timeline_length();
                 redraw = true;
             }
@@ -885,7 +886,8 @@ void GuiTimeline::render_track_lanes() {
                 } else if (clip_rect.Contains(mouse_pos)) {
                     float gain_ctrl_pos_x = math::max(min_pos_x_in_pixel, timeline_view_pos.x) + 4.0f;
                     float gain_ctrl_pos_y = track_pos_y + height - 17.0f;
-                    ImRect gain_ctrl(gain_ctrl_pos_x, gain_ctrl_pos_y, gain_ctrl_pos_x + 50.0f, gain_ctrl_pos_y + 13.0f);
+                    ImRect gain_ctrl(gain_ctrl_pos_x, gain_ctrl_pos_y, gain_ctrl_pos_x + 50.0f,
+                                     gain_ctrl_pos_y + 13.0f);
 
                     if (clip->is_audio() && gain_ctrl.Contains(mouse_pos)) {
                         if (left_mouse_clicked) {
@@ -1614,7 +1616,7 @@ void GuiTimeline::draw_clip(const Clip* clip, float timeline_width, float offset
 
             float alpha = (width >= 60.0f) ? 1.0f : width / 60.0f;
             ImVec2 ctrl_pos(ctrl_pos_x + 4.0f, clip_content_max.y - 16.0f);
-            draw_clip_ctrl(layer2_draw_list, ctrl_pos, 50.0f, alpha, bg_color, gain_str);
+            draw_clip_overlay(ctrl_pos, 50.0f, alpha, bg_color, gain_str);
         }
     }
 
@@ -1649,6 +1651,16 @@ void GuiTimeline::draw_clip(const Clip* clip, float timeline_width, float offset
                 break;
         }
     }
+}
+
+void GuiTimeline::draw_clip_overlay(ImVec2 pos, float size, float alpha, const ImColor& col, const char* caption) {
+    ImU32 ctrl_bg = color_darken(col, 0.8f);
+    ImVec2 text_size = ImGui::CalcTextSize(caption);
+    float text_offset_x = 0.5f * (size - text_size.x);
+    uint32_t bg_alpha = (uint32_t)(199.0f * alpha) << 24;
+    uint32_t caption_alpha = (uint32_t)(255.0f * alpha) << 24;
+    im_draw_box_filled(layer2_draw_list, pos.x, pos.y, size, 13.0f, (ctrl_bg & 0x00FF'FFFF) | bg_alpha, 3.0f);
+    layer2_draw_list->AddText(ImVec2(pos.x + text_offset_x, pos.y), 0x00FF'FFFF | caption_alpha, caption);
 }
 
 GuiTimeline g_timeline;
