@@ -27,12 +27,15 @@
 
 namespace wb {
 
-static void draw_clip_ctrl(ImDrawList* dl, ImVec2 pos, float size, const ImColor& col, const char* caption) {
+static void draw_clip_ctrl(ImDrawList* dl, ImVec2 pos, float size, float alpha, const ImColor& col,
+                           const char* caption) {
     ImU32 ctrl_bg = color_darken(col, 0.8f);
     ImVec2 text_size = ImGui::CalcTextSize(caption);
     float text_offset_x = 0.5f * (size - text_size.x);
-    im_draw_box_filled(dl, pos.x, pos.y, size, 13.0f, (ctrl_bg & 0x00FF'FFFF) | 0xC700'0000, 3.0f);
-    dl->AddText(ImVec2(pos.x + text_offset_x, pos.y), 0xFFFF'FFFF, caption);
+    uint32_t bg_alpha = (uint32_t)(199.0f * alpha) << 24;
+    uint32_t caption_alpha = (uint32_t)(255.0f * alpha) << 24;
+    im_draw_box_filled(dl, pos.x, pos.y, size, 13.0f, (ctrl_bg & 0x00FF'FFFF) | bg_alpha, 3.0f);
+    dl->AddText(ImVec2(pos.x + text_offset_x, pos.y), 0x00FF'FFFF | caption_alpha, caption);
 }
 
 static void add_track_plugin(Track* track, PluginUID uid) {
@@ -600,8 +603,7 @@ void GuiTimeline::render_track_lanes() {
     bool dragging = false;
 
     if ((edit_action != TimelineEditAction::None && edit_action != TimelineEditAction::ClipAdjustGain) ||
-        dragging_file ||
-        selecting_range) {
+        dragging_file || selecting_range) {
         static constexpr float speed = 0.25f;
         static constexpr float drag_offset_x = 20.0f;
         static constexpr float drag_offset_y = 40.0f;
@@ -798,7 +800,7 @@ void GuiTimeline::render_track_lanes() {
         bool hovering_current_track = timeline_hovered && hovering_track_rect;
 
         if (!any_of(edit_action, TimelineEditAction::ClipResizeLeft, TimelineEditAction::ClipResizeRight,
-                    TimelineEditAction::ClipShift)) {
+                    TimelineEditAction::ClipShift, TimelineEditAction::ClipAdjustGain)) {
             if (left_mouse_down && hovering_track_rect) {
                 hovered_track = track;
                 hovered_track_id = i;
@@ -881,10 +883,11 @@ void GuiTimeline::render_track_lanes() {
                     ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
                     current_hover_state = ClipHover::RightHandle;
                 } else if (clip_rect.Contains(mouse_pos)) {
-                    float vol_ctrl_pos_x = math::max(min_pos_x_in_pixel, timeline_view_pos.x) + 4.0f;
-                    float vol_ctrl_pos_y = track_pos_y + height - 17.0f;
-                    ImRect vol_ctrl(vol_ctrl_pos_x, vol_ctrl_pos_y, vol_ctrl_pos_x + 50.0f, vol_ctrl_pos_y + 13.0f);
-                    if (vol_ctrl.Contains(mouse_pos) && clip->is_audio()) {
+                    float gain_ctrl_pos_x = math::max(min_pos_x_in_pixel, timeline_view_pos.x) + 4.0f;
+                    float gain_ctrl_pos_y = track_pos_y + height - 17.0f;
+                    ImRect gain_ctrl(gain_ctrl_pos_x, gain_ctrl_pos_y, gain_ctrl_pos_x + 50.0f, gain_ctrl_pos_y + 13.0f);
+
+                    if (clip->is_audio() && gain_ctrl.Contains(mouse_pos)) {
                         if (left_mouse_clicked) {
                             if (!ImGui::IsKeyDown(ImGuiKey_ModAlt)) {
                                 current_value = math::linear_to_db(clip->audio.gain);
@@ -914,8 +917,9 @@ void GuiTimeline::render_track_lanes() {
                             edit_action = TimelineEditAction::ShowClipContextMenu;
                         }
                         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
-                        current_hover_state = ClipHover::All;
                     }
+
+                    current_hover_state = ClipHover::All;
                 }
 
                 if (edit_action != TimelineEditAction::None) {
@@ -1051,11 +1055,11 @@ void GuiTimeline::render_track_lanes() {
             case TimelineEditAction::ClipAdjustGain: {
                 ImVec2 drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left, 0.0f);
                 current_value += drag_delta.y * -0.1f;
-                g_engine.set_clip_gain(edited_track, edited_clip->id, math::db_to_linear(current_value));
-                Log::debug("{} {}", current_value, drag_delta.y);
                 ImGui::ResetMouseDragDelta(ImGuiMouseButton_Left);
-                hovered_track_y = edited_track_pos_y;
+                float gain_value = math::db_to_linear(current_value);
+                g_engine.set_clip_gain(edited_track, edited_clip->id, gain_value);
                 hovered_track_height = edited_track->height;
+                hovered_track_y = edited_track_pos_y;
                 break;
             }
             default:
@@ -1066,7 +1070,7 @@ void GuiTimeline::render_track_lanes() {
         const double max_pos_x = timeline_scroll_offset_x + max_time * clip_scale;
 
         if (min_pos_x < timeline_end_x && max_pos_x > timeline_view_pos.x) {
-            float gain = edited_clip->is_midi() ? 0.0f : math::db_to_linear(current_value);
+            float gain = edited_clip->is_audio() ? edited_clip->audio.gain : 0.0f;
             draw_clip(edited_clip, timeline_width, offset_y, timeline_view_pos.x, min_pos_x, max_pos_x, clip_scale,
                       sample_scale, content_offset, hovered_track_y, hovered_track_height, gain, edited_track->color,
                       text_color, font);
@@ -1597,19 +1601,22 @@ void GuiTimeline::draw_clip(const Clip* clip, float timeline_width, float offset
 #endif
 
     layer2_draw_list->PushClipRect(clip_content_min, clip_content_max, true);
-    // layer2_draw_list->AddLine(clip_content_min, clip_content_max,
-    // border_color, 3.5f); layer2_draw_list->AddLine(clip_content_min,
-    // clip_content_max, content_color, 1.5f);
 
-    // ImFormatStringV
-    const char* gain_str = "-INFdb";
-    float gain_db = math::linear_to_db(gain);
-    ImFormatStringToTempBuffer(&gain_str, nullptr, "%.1fdb", gain_db);
+    if (clip->is_audio()) {
+        ImVec2 content_rect_min = layer2_draw_list->GetClipRectMin();
+        float ctrl_pos_x = math::max(clip_content_min.x, content_rect_min.x);
+        float width = max_pos_clamped_x - ctrl_pos_x;
 
-    ImVec2 content_rect_min = layer2_draw_list->GetClipRectMin();
-    float ctrl_pos_x = math::max(clip_content_min.x, content_rect_min.x);
-    ImVec2 ctrl_pos(ctrl_pos_x + 4.0f, clip_content_max.y - 16.0f);
-    draw_clip_ctrl(layer2_draw_list, ctrl_pos, 50.0f, bg_color, gain_str);
+        if (!math::near_equal(gain, 1.0f) || clip->hover_state == ClipHover::All) {
+            const char* gain_str = "-INFdb";
+            float gain_db = math::linear_to_db(gain);
+            ImFormatStringToTempBuffer(&gain_str, nullptr, "%.1fdb", gain_db);
+
+            float alpha = (width >= 60.0f) ? 1.0f : width / 60.0f;
+            ImVec2 ctrl_pos(ctrl_pos_x + 4.0f, clip_content_max.y - 16.0f);
+            draw_clip_ctrl(layer2_draw_list, ctrl_pos, 50.0f, alpha, bg_color, gain_str);
+        }
+    }
 
     if (clip->hover_state == ClipHover::All) {
         const ImVec2 start_fade_pos(min_pos_x, clip_title_max_y);
