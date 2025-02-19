@@ -2,14 +2,14 @@
 #include "core/color.h"
 #include "engine/engine.h"
 #include "engine/project.h"
-#include "ui/IconsMaterialSymbols.h"
-#include "ui/dialogs.h"
-#include "ui/command_manager.h"
-#include "ui/controls.h"
-#include "ui/file_dialog.h"
-#include "ui/font.h"
-#include "ui/timeline.h"
-#include "ui/window.h"
+#include "IconsMaterialSymbols.h"
+#include "dialogs.h"
+#include "command_manager.h"
+#include "controls.h"
+#include "file_dialog.h"
+#include "font.h"
+#include "timeline.h"
+#include "window.h"
 
 #include <imgui.h>
 #include "control_bar.h"
@@ -41,6 +41,7 @@ void main_control_bar() {
     bool new_project = false;
     bool open_project = false;
     bool save_project = false;
+    bool export_audio_dialog = false;
 
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_TitleBg));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 4.0f));
@@ -138,7 +139,10 @@ void main_control_bar() {
             ImGui::MenuItem("Open recent");
             ImGui::Separator();
             ImGui::MenuItem("Save", "Ctrl+S");
-            save_project = ImGui::MenuItem("Save as...", "Shift+Ctrl+S");
+            save_project = ImGui::MenuItem("Save as...", "Ctrl+Shift+S");
+            if (ImGui::MenuItem("Export...", "Ctrl+R")) {
+                export_audio_dialog = true;
+            }
             ImGui::Separator();
             ImGui::MenuItem("Project info...", nullptr, &g_project_info_window_open);
             /*ImGui::Separator();
@@ -205,6 +209,10 @@ void main_control_bar() {
             }
             start_audio_engine();
         }
+    } else if (export_audio_dialog) {
+        ImGui::OpenPopup("Export audio", ImGuiPopupFlags_AnyPopup);
     }
+
+    export_audio();
 }
 } // namespace wb

@@ -81,6 +81,11 @@ void song_position() {
     draw_list->AddText(text_pos, ImGui::GetColorU32(ImGuiCol_Text), buf);
 }
 
+void tooltip(const char* str) {
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay))
+        ImGui::SetTooltip(str);
+}
+
 bool toggle_button(const char* str, bool* value, const ImVec4& toggled_color, const ImVec2& size) {
     if (*value)
         ImGui::PushStyleColor(ImGuiCol_Button, toggled_color);

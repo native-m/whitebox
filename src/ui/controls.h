@@ -379,6 +379,7 @@ static bool knob(const KnobProperties& props, const char* str_id, const ImVec2& 
 bool begin_window(const char* title, bool* p_open = nullptr, ImGuiWindowFlags flags = 0);
 void end_window();
 void song_position();
+void tooltip(const char* str);
 bool toggle_button(const char* str, bool* value, const ImVec4& toggled_color, const ImVec2& size = ImVec2());
 bool small_toggle_button(const char* str, bool* value, const ImVec4& toggled_color);
 bool param_drag_db(const char* str_id, float* value, float speed = 0.1f, float min_db = -72.0f, float max_db = 6.0f,

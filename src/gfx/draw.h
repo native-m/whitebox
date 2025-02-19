@@ -86,6 +86,10 @@ inline void im_draw_box_filled(ImDrawList* dl, float x, float y, float w, float 
     dl->AddRectFilled(ImVec2(x, y), ImVec2(x + w, y + h), col, rounding);
 }
 
+inline void im_draw_box(ImDrawList* dl, float x, float y, float w, float h, ImU32 col, float rounding = 0.0f) {
+    dl->AddRect(ImVec2(x, y), ImVec2(x + w, y + h), col, rounding);
+}
+
 ImVec2 im_draw_simple_text(ImDrawList* draw_list, const char* text, ImVec2 pos, ImU32 text_color);
 void im_draw_vertical_text(ImDrawList* DrawList, const char* text, ImVec2 pos, ImVec4 rect, ImU32 text_color);
 void im_draw_line_segment(ImDrawList* draw_list, const ImVec2& p0, const ImVec2& p1, ImU32 col, float thickness);
