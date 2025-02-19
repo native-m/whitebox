@@ -27,17 +27,6 @@
 
 namespace wb {
 
-static void draw_clip_ctrl(ImDrawList* dl, ImVec2 pos, float size, float alpha, const ImColor& col,
-                           const char* caption) {
-    ImU32 ctrl_bg = color_darken(col, 0.8f);
-    ImVec2 text_size = ImGui::CalcTextSize(caption);
-    float text_offset_x = 0.5f * (size - text_size.x);
-    uint32_t bg_alpha = (uint32_t)(199.0f * alpha) << 24;
-    uint32_t caption_alpha = (uint32_t)(255.0f * alpha) << 24;
-    im_draw_box_filled(dl, pos.x, pos.y, size, 13.0f, (ctrl_bg & 0x00FF'FFFF) | bg_alpha, 3.0f);
-    dl->AddText(ImVec2(pos.x + text_offset_x, pos.y), 0x00FF'FFFF | caption_alpha, caption);
-}
-
 static void add_track_plugin(Track* track, PluginUID uid) {
     PluginInterface* plugin = g_engine.add_plugin_to_track(track, uid);
     if (!plugin)
@@ -1605,14 +1594,14 @@ void GuiTimeline::draw_clip(const Clip* clip, float timeline_width, float offset
     layer2_draw_list->PushClipRect(clip_content_min, clip_content_max, true);
 
     if (clip->is_audio()) {
+        char gain_str[8] {};
         ImVec2 content_rect_min = layer2_draw_list->GetClipRectMin();
         float ctrl_pos_x = math::max(clip_content_min.x, content_rect_min.x);
         float width = max_pos_clamped_x - ctrl_pos_x;
 
         if (!math::near_equal(gain, 1.0f) || clip->hover_state == ClipHover::All) {
-            const char* gain_str = "-INFdb";
             float gain_db = math::linear_to_db(gain);
-            ImFormatStringToTempBuffer(&gain_str, nullptr, "%.1fdb", gain_db);
+            fmt::format_to(gain_str, "{:.1f}db", gain_db);
 
             float alpha = (width >= 60.0f) ? 1.0f : width / 60.0f;
             ImVec2 ctrl_pos(ctrl_pos_x + 4.0f, clip_content_max.y - 16.0f);
