@@ -13,9 +13,7 @@ class Log {
     Log(const std::string& logger_name) {
         /*auto file_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
             "logs/imdev-log.txt", 1048576, 3, false, spdlog::file_event_handlers{});*/
-
         auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-
         logger.emplace(logger_name, spdlog::sinks_init_list{console_sink});
         logger->set_level(spdlog::level::trace);
     }
@@ -24,96 +22,36 @@ class Log {
 
     template <typename... Args>
     static void trace(spdlog::format_string_t<Args...> str, Args&&... args) {
-        if (!g_main_logger) {
-            return;
-        }
-
-        auto& log_instance = g_main_logger.value();
-
-        if (!log_instance.logger) {
-            return;
-        }
-
-        log_instance.logger->trace(str, std::forward<Args>(args)...);
+        g_main_logger.logger->trace(str, std::forward<Args>(args)...);
     }
 
     template <typename... Args>
     static void debug(spdlog::format_string_t<Args...> str, Args&&... args) {
-        if (!g_main_logger) {
-            return;
-        }
-
-        auto& log_instance = g_main_logger.value();
-
-        if (!log_instance.logger) {
-            return;
-        }
-
-        log_instance.logger->debug(str, std::forward<Args>(args)...);
+        g_main_logger.logger->debug(str, std::forward<Args>(args)...);
     }
 
     template <typename... Args>
     static void info(spdlog::format_string_t<Args...> str, Args&&... args) {
-        if (!g_main_logger) {
-            return;
-        }
-
-        auto& log_instance = g_main_logger.value();
-
-        if (!log_instance.logger) {
-            return;
-        }
-
-        log_instance.logger->info(str, std::forward<Args>(args)...);
+        g_main_logger.logger->info(str, std::forward<Args>(args)...);
     }
 
     template <typename... Args>
     static void warn(spdlog::format_string_t<Args...> str, Args&&... args) {
-        if (!g_main_logger) {
-            return;
-        }
-
-        auto& log_instance = g_main_logger.value();
-
-        if (!log_instance.logger) {
-            return;
-        }
-
-        log_instance.logger->warn(str, std::forward<Args>(args)...);
+        g_main_logger.logger->warn(str, std::forward<Args>(args)...);
     }
 
     template <typename... Args>
     static void error(spdlog::format_string_t<Args...> str, Args&&... args) {
-        if (!g_main_logger) {
-            return;
-        }
-
-        auto& log_instance = g_main_logger.value();
-
-        if (!log_instance.logger) {
-            return;
-        }
-
-        log_instance.logger->error(str, std::forward<Args>(args)...);
+        g_main_logger.logger->error(str, std::forward<Args>(args)...);
     }
 
     template <typename... Args>
     static void critical(spdlog::format_string_t<Args...> str, Args&&... args) {
-        if (!g_main_logger) {
-            return;
-        }
-
-        auto& log_instance = g_main_logger.value();
-
-        if (!log_instance.logger) {
-            return;
-        }
-
-        log_instance.logger->critical(str, std::forward<Args>(args)...);
+        g_main_logger.logger->critical(str, std::forward<Args>(args)...);
     }
 
   private:
-    static std::optional<Log> g_main_logger;
+    static Log g_main_logger;
 };
 
 static void report_check(const char* expr_str, const char* file, const char* func,
