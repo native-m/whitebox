@@ -28,6 +28,7 @@ static int32_t main_window_x;
 static int32_t main_window_y;
 static int32_t main_window_width;
 static int32_t main_window_height;
+static ImVec2 scroll_acc;
 static bool is_running = true;
 static std::unordered_map<uint32_t, SDL_Window*> plugin_windows;
 uint32_t AppEvent::audio_device_removed_event;
@@ -64,6 +65,8 @@ static void handle_events(SDL_Event& event) {
     if (wm_process_plugin_window_event(&event))
         return;
 
+    ImGuiIO& io = GImGui->IO;
+
     switch (event.type) {
         case SDL_WINDOWEVENT: {
             if (event.window.windowID == wm_get_main_window_id()) {
@@ -81,6 +84,13 @@ static void handle_events(SDL_Event& event) {
                 }
             }
             break;
+        }
+        case SDL_MOUSEWHEEL: {
+            float wheel_x = event.wheel.preciseX;
+            float wheel_y = event.wheel.preciseY;
+            scroll_acc.x += wheel_x;
+            scroll_acc.y += wheel_y;
+            return;
         }
         case SDL_DROPFILE:
             g_file_drop.push_back(event.drop.file);
@@ -105,6 +115,29 @@ static void handle_events(SDL_Event& event) {
     }
 
     ImGui_ImplSDL2_ProcessEvent(&event);
+}
+
+static void handle_scroll() {
+    ImGuiIO& io = GImGui->IO;
+    ImVec2 scroll_speed;
+    if (math::abs(scroll_acc.x) > 0.00001f) {
+        scroll_speed.x = scroll_acc.x * io.DeltaTime * 36.0f;
+        scroll_acc.x -= scroll_speed.x;
+    } else {
+        scroll_acc.x = 0.0f;
+    }
+
+    if (math::abs(scroll_acc.y) > 0.00001f) {
+        scroll_speed.y = scroll_acc.y * io.DeltaTime * 36.0f;
+        scroll_acc.y -= scroll_speed.y;
+    } else {
+        scroll_acc.y = 0.0f;
+    }
+
+    if (math::abs(scroll_speed.x) > 0.0f || math::abs(scroll_speed.y) > 0.0f) {
+        io.AddMouseSourceEvent(ImGuiMouseSource_Mouse);
+        io.AddMouseWheelEvent(-scroll_speed.x, scroll_speed.y);
+    }
 }
 
 static void register_events() {
@@ -155,6 +188,7 @@ void app_init() {
 }
 
 void app_render() {
+    handle_scroll();
     g_renderer2->begin_frame();
     ImGui_ImplSDL2_NewFrame();
     ImGui::NewFrame();

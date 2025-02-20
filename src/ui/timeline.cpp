@@ -1316,7 +1316,7 @@ void GuiTimeline::render_track_lanes() {
     }
 
     if (timeline_hovered && holding_ctrl && mouse_wheel != 0.0f) {
-        zoom(mouse_pos.x, timeline_view_pos.x, view_scale, mouse_wheel);
+        zoom(mouse_pos.x, timeline_view_pos.x, view_scale, mouse_wheel * 0.25f);
         force_redraw = true;
         zooming = true;
     }

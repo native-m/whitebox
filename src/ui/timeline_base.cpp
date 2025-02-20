@@ -172,7 +172,7 @@ bool TimelineBase::render_time_ruler(double* time_value) {
     // Handle zoom scrolling on ruler
     float mouse_wheel = ImGui::GetIO().MouseWheel;
     if (hovered && mouse_wheel != 0.0f) {
-        zoom(mouse_pos.x, cursor_pos.x, view_scale, mouse_wheel);
+        zoom(mouse_pos.x, cursor_pos.x, view_scale, mouse_wheel * 0.25f);
         view_scale = calc_view_scale();
     }
 
@@ -192,7 +192,7 @@ bool TimelineBase::render_time_ruler(double* time_value) {
         int x, y;
         wm_get_relative_mouse_state(&x, &y);
         if (y != 0) {
-            zoom(mouse_pos.x, cursor_pos.x, view_scale, (float)y * 0.1f);
+            zoom(mouse_pos.x, cursor_pos.x, view_scale, (float)y * 0.01f);
             view_scale = calc_view_scale();
         }
     }
@@ -285,7 +285,6 @@ void TimelineBase::zoom(float mouse_pos_x, float cursor_pos_x, double view_scale
     double zoom_position = ((double)(mouse_pos_x - cursor_pos_x) / song_length * view_scale) + min_hscroll;
     double dist_from_start = zoom_position - min_hscroll;
     double dist_to_end = max_hscroll - zoom_position;
-    mouse_wheel *= 0.1f;
     min_hscroll = math::clamp(min_hscroll + dist_from_start * (double)mouse_wheel, 0.0, max_hscroll);
     max_hscroll = math::clamp(max_hscroll - dist_to_end * (double)mouse_wheel, min_hscroll, 1.0);
     redraw = true;
