@@ -7,12 +7,10 @@
 #include "core/color.h"
 #include "core/core_math.h"
 #include "core/debug.h"
-#include "core/fs.h"
 #include "engine/clip_edit.h"
 #include "engine/engine.h"
 #include "engine/track.h"
 #include "forms.h"
-#include "layout.h"
 #include "plugins.h"
 #include "window.h"
 #include <fmt/format.h>
@@ -131,8 +129,9 @@ void GuiTimeline::render() {
 
 // Render separator (resizer) between the track control and the track lane
 void GuiTimeline::render_separator() {
-    Layout layout;
-    ImVec2 pos = layout.next(LayoutPosition::Fixed, ImVec2(separator_pos - 2.0f, 0.0f));
+    ImVec2 current_cursor_pos = ImGui::GetCursorScreenPos();
+    ImVec2 pos(current_cursor_pos.x + separator_pos - 2.0f, current_cursor_pos.y + vscroll);
+    ImGui::SetCursorScreenPos(pos);
 
     ImGui::InvisibleButton("##timeline_separator", ImVec2(4.0f, area_size.y));
     bool is_separator_active = ImGui::IsItemActive();
@@ -154,14 +153,14 @@ void GuiTimeline::render_separator() {
     }
 
     const float clamped_separator_pos = std::max(separator_pos, min_track_control_size);
-    const float separator_x = layout.main_pos.x + clamped_separator_pos + 0.5f;
+    const float separator_x = current_cursor_pos.x + clamped_separator_pos + 0.5f;
     main_draw_list->AddLine(ImVec2(separator_x, pos.y), ImVec2(separator_x, pos.y + area_size.y),
                             ImGui::GetColorU32(ImGuiCol_Separator), 2.0f);
 
-    layout.end();
+    ImGui::SetCursorScreenPos(current_cursor_pos);
 
-    timeline_view_pos.x = layout.main_pos.x + clamped_separator_pos + 2.0f;
-    timeline_view_pos.y = layout.main_pos.y;
+    timeline_view_pos.x = current_cursor_pos.x + clamped_separator_pos + 2.0f;
+    timeline_view_pos.y = current_cursor_pos.y;
 }
 
 void GuiTimeline::render_track_controls() {
@@ -275,7 +274,7 @@ void GuiTimeline::render_track_controls() {
 
                     ImGui::SameLine(0.0f, 2.0f);
                     ImVec2 pos = ImGui::GetCursorPos();
-                    ImGui::SetNextItemWidth(free_region.x - pos.x);
+                    ImGui::SetNextItemWidth(-FLT_MIN);
                     if (controls::param_drag_db("##Vol.", &volume))
                         track->set_volume(volume);
                 }
@@ -1594,12 +1593,12 @@ void GuiTimeline::draw_clip(const Clip* clip, float timeline_width, float offset
     layer2_draw_list->PushClipRect(clip_content_min, clip_content_max, true);
 
     if (clip->is_audio()) {
-        char gain_str[8] {};
         ImVec2 content_rect_min = layer2_draw_list->GetClipRectMin();
         float ctrl_pos_x = math::max(clip_content_min.x, content_rect_min.x);
         float width = max_pos_clamped_x - ctrl_pos_x;
 
         if (!math::near_equal(gain, 1.0f) || clip->hover_state == ClipHover::All) {
+            char gain_str[8] {};
             float gain_db = math::linear_to_db(gain);
             fmt::format_to(gain_str, "{:.1f}db", gain_db);
 
