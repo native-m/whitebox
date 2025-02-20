@@ -213,6 +213,6 @@ void main_control_bar() {
         ImGui::OpenPopup("Export audio", ImGuiPopupFlags_AnyPopup);
     }
 
-    export_audio();
+    export_audio_dialog();
 }
 } // namespace wb

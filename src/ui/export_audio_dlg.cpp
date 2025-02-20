@@ -14,8 +14,8 @@ static void bitrate_selectable(const char* str, uint32_t bitrate, uint32_t* valu
 }
 
 static void bitrate_combo_box(const char* str, uint32_t* bitrate, bool vorbis = false) {
-    const char* preview;
-    ImFormatStringToTempBuffer(&preview, nullptr, "%d kbps", *bitrate);
+    char preview[10] {};
+    ImFormatString(preview, sizeof(preview), "%d kbps", *bitrate);
     if (ImGui::BeginCombo(str, preview)) {
         bitrate_selectable("32 kbps", 32, bitrate);
         bitrate_selectable("40 kbps", 40, bitrate);
@@ -40,20 +40,26 @@ static void bitrate_combo_box(const char* str, uint32_t* bitrate, bool vorbis = 
 }
 
 void export_audio() {
+    static bool is_rendering = false;
     ImGui::SetNextWindowPos(ImGui::GetWindowViewport()->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
     if (ImGui::BeginPopupModal("Export audio", nullptr,
                                ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
         ImGui::Checkbox("WAV", &export_prop.enable_wav);
+        controls::item_tooltip("Export to WAV");
         ImGui::SameLine();
         ImGui::Checkbox("AIFF", &export_prop.enable_aiff);
+        controls::item_tooltip("Export to AIFF");
         ImGui::SameLine();
         ImGui::Checkbox("MP3", &export_prop.enable_mp3);
+        controls::item_tooltip("Export to MP3");
         ImGui::SameLine();
         ImGui::Checkbox("Ogg Vorbis", &export_prop.enable_vorbis);
+        controls::item_tooltip("Export to Ogg Vorbis");
         ImGui::SameLine();
         ImGui::Checkbox("FLAC", &export_prop.enable_flac);
+        controls::item_tooltip("Export to FLAC");
 
-        ImGui::Checkbox("Export project info to file metadata", &export_prop.mp3_create_id3_tag);
+        ImGui::Checkbox("Export project info to file metadata", &export_prop.export_metadata);
 
         ImGui::BeginDisabled(!export_prop.enable_wav);
         {
@@ -88,17 +94,17 @@ void export_audio() {
             ImGui::SeparatorText("MP3");
             if (ImGui::RadioButton("CBR##mp3", export_prop.mp3_bitrate_mode == ExportBitrateMode::CBR))
                 export_prop.mp3_bitrate_mode = ExportBitrateMode::CBR;
-            controls::tooltip("Constant bitrate");
+            controls::item_tooltip("Constant bitrate");
 
             ImGui::SameLine();
             if (ImGui::RadioButton("ABR##mp3", export_prop.mp3_bitrate_mode == ExportBitrateMode::ABR))
                 export_prop.mp3_bitrate_mode = ExportBitrateMode::ABR;
-            controls::tooltip("Average bitrate");
+            controls::item_tooltip("Average bitrate");
 
             ImGui::SameLine();
             if (ImGui::RadioButton("VBR##mp3", export_prop.mp3_bitrate_mode == ExportBitrateMode::VBR))
                 export_prop.mp3_bitrate_mode = ExportBitrateMode::VBR;
-            controls::tooltip("Variable bitrate");
+            controls::item_tooltip("Variable bitrate");
 
             switch (export_prop.mp3_bitrate_mode) {
                 case ExportBitrateMode::CBR:
@@ -115,6 +121,8 @@ void export_audio() {
                     bitrate_combo_box("Min. bitrate##mp3", &export_prop.mp3_min_bitrate);
                     bitrate_combo_box("Max. bitrate##mp3", &export_prop.mp3_max_bitrate);
                     break;
+                default:
+                    break;
             }
         }
         ImGui::EndDisabled();
@@ -124,17 +132,17 @@ void export_audio() {
             ImGui::SeparatorText("Ogg Vorbis");
             if (ImGui::RadioButton("CBR##vorbis", export_prop.vorbis_bitrate_mode == ExportBitrateMode::CBR))
                 export_prop.vorbis_bitrate_mode = ExportBitrateMode::CBR;
-            controls::tooltip("Constant bitrate");
+            controls::item_tooltip("Constant bitrate");
 
             ImGui::SameLine();
             if (ImGui::RadioButton("ABR##vorbis", export_prop.vorbis_bitrate_mode == ExportBitrateMode::ABR))
                 export_prop.vorbis_bitrate_mode = ExportBitrateMode::ABR;
-            controls::tooltip("Average bitrate");
+            controls::item_tooltip("Average bitrate");
 
             ImGui::SameLine();
             if (ImGui::RadioButton("VBR##vorbis", export_prop.vorbis_bitrate_mode == ExportBitrateMode::VBR))
                 export_prop.vorbis_bitrate_mode = ExportBitrateMode::VBR;
-            controls::tooltip("Variable bitrate");
+            controls::item_tooltip("Variable bitrate");
 
             switch (export_prop.vorbis_bitrate_mode) {
                 case ExportBitrateMode::CBR:
@@ -149,13 +157,15 @@ void export_audio() {
                     ImGui::SliderFloat("Quality##vorbis", &export_prop.vorbis_vbr_quality, 0.0f, 100.0f, "%.3f",
                                        ImGuiSliderFlags_AlwaysClamp);
                     break;
+                default:
+                    break;
             }
         }
         ImGui::EndDisabled();
 
         ImGui::BeginDisabled(!export_prop.enable_flac);
         {
-            ImGui::SeparatorText("FLAC properties");
+            ImGui::SeparatorText("FLAC");
             if (ImGui::RadioButton("16-bit##flac", export_prop.flac_bit_depth == AudioFormat::I16))
                 export_prop.flac_bit_depth = AudioFormat::I16;
             ImGui::SameLine();
@@ -163,17 +173,28 @@ void export_audio() {
                 export_prop.flac_bit_depth = AudioFormat::I24;
             ImGui::SliderInt("Compression level", &export_prop.flac_compression_level, 0, 8, "%d",
                              ImGuiSliderFlags_AlwaysClamp);
+            controls::item_tooltip("0-4: Faster compression speed, large file size.\n"
+                                   "5-8: Slower compression speed, small file size.\n");
         }
         ImGui::EndDisabled();
 
         ImGui::Separator();
+        
+        ImGui::ProgressBar(0.9f, ImVec2(-FLT_MIN, 0.0f), nullptr);
 
-        if (ImGui::Button("Start")) {
-            ImGui::CloseCurrentPopup();
+        if (!is_rendering) {
+            if (ImGui::Button("Start")) {
+                is_rendering = true;
+            }
+        } else {
+            if (ImGui::Button("Abort")) {
+                is_rendering = false;
+            }
         }
 
         ImGui::SameLine();
         if (ImGui::Button("Cancel")) {
+            is_rendering = false;
             ImGui::CloseCurrentPopup();
         }
 

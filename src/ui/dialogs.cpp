@@ -3,7 +3,7 @@
 
 namespace wb {
 
-bool popup_confirm(const char* str, const char* msg) {
+bool popup_confirm_dialog(const char* str, const char* msg) {
     bool ret = false;
     ImGuiWindowClass window_class;
     window_class.ViewportFlagsOverrideSet |= ImGuiViewportFlags_TopMost; // This popup should be the top-most window
