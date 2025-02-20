@@ -39,7 +39,7 @@ static void bitrate_combo_box(const char* str, uint32_t* bitrate, bool vorbis = 
     }
 }
 
-void export_audio() {
+void export_audio_dialog() {
     static bool is_rendering = false;
     ImGui::SetNextWindowPos(ImGui::GetWindowViewport()->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
     if (ImGui::BeginPopupModal("Export audio", nullptr,

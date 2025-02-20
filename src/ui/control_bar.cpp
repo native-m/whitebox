@@ -41,7 +41,7 @@ void main_control_bar() {
     bool new_project = false;
     bool open_project = false;
     bool save_project = false;
-    bool export_audio_dialog = false;
+    bool export_audio = false;
 
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_TitleBg));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 4.0f));
@@ -141,7 +141,7 @@ void main_control_bar() {
             ImGui::MenuItem("Save", "Ctrl+S");
             save_project = ImGui::MenuItem("Save as...", "Ctrl+Shift+S");
             if (ImGui::MenuItem("Export...", "Ctrl+R")) {
-                export_audio_dialog = true;
+                export_audio = true;
             }
             ImGui::Separator();
             ImGui::MenuItem("Project info...", nullptr, &g_project_info_window_open);
@@ -209,7 +209,7 @@ void main_control_bar() {
             }
             start_audio_engine();
         }
-    } else if (export_audio_dialog) {
+    } else if (export_audio) {
         ImGui::OpenPopup("Export audio", ImGuiPopupFlags_AnyPopup);
     }
 
