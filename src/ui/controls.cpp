@@ -81,7 +81,7 @@ void song_position() {
     draw_list->AddText(text_pos, ImGui::GetColorU32(ImGuiCol_Text), buf);
 }
 
-void tooltip(const char* str) {
+void item_tooltip(const char* str) {
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay))
         ImGui::SetTooltip(str);
 }

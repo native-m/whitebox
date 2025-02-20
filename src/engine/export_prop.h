@@ -17,6 +17,7 @@ struct ExportAudioProperties {
     bool enable_mp3 = false;
     bool enable_vorbis = false;
     bool enable_flac = false;
+    bool export_metadata = true;
 
     // Uncompressed WAV properties
     AudioFormat wav_bit_depth = AudioFormat::I24;
@@ -30,7 +31,6 @@ struct ExportAudioProperties {
     uint32_t mp3_max_bitrate = 320;
     uint32_t mp3_bitrate = 320;
     float mp3_vbr_quality = 100.0f;
-    bool mp3_create_id3_tag = true;
 
     // Ogg Vorbis properties
     ExportBitrateMode vorbis_bitrate_mode = ExportBitrateMode::CBR;
