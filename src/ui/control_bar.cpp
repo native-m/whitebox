@@ -181,6 +181,7 @@ void main_control_bar() {
     if (new_project) {
         shutdown_audio_io();
         g_engine.clear_all();
+        g_cmd_manager.reset();
         g_timeline.reset();
         g_timeline.add_track();
         g_timeline.recalculate_timeline_length();
@@ -190,6 +191,7 @@ void main_control_bar() {
         if (auto file = open_file_dialog({{"Whitebox Project File", "wb"}})) {
             shutdown_audio_io();
             g_engine.clear_all();
+            g_cmd_manager.reset();
             auto result = read_project_file(file.value(), g_engine, g_sample_table, g_midi_table, g_timeline);
             if (result != ProjectFileResult::Ok) {
                 Log::error("Failed to open project {}", (uint32_t)result);

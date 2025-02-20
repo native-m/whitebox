@@ -80,9 +80,12 @@ void GuiPluginManager::render() {
             ImGui::OpenPopup("Delete##delete_plugin_conf");
     }
 
-    if (popup_confirm_dialog("Delete##delete_plugin_conf", "Are you sure you want to delete the selected plugins?")) {
-        delete_selected();
-        force_refresh = true;
+    if (auto ret = confirm_dialog("Delete##delete_plugin_conf", "Are you sure you want to delete the selected plugins?",
+                                  ConfirmDialog::OkCancel)) {
+        if (ret == ConfirmDialog::Ok) {
+            delete_selected();
+            force_refresh = true;
+        }
     }
 
     if (search_timeout > 0.0f) {

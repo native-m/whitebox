@@ -36,11 +36,13 @@ struct ParamValueQueue {
                 break;
             }
         }
+
         if (dest_idx == points.size()) {
             points.emplace_back(value, sample_offset);
         } else {
             points.emplace_at(dest_idx, value, sample_offset);
         }
+
         return dest_idx;
     }
 

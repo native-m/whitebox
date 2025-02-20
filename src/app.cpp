@@ -7,9 +7,9 @@
 #include "gfx/renderer2.h"
 #include "platform/platform.h"
 #include "plughost/plugin_manager.h"
-#include "ui/browser.h"
 #include "ui/command_manager.h"
 #include "ui/control_bar.h"
+#include "ui/dialogs.h"
 #include "ui/file_dialog.h"
 #include "ui/file_dropper.h"
 #include "ui/font.h"
@@ -30,6 +30,7 @@ static int32_t main_window_width;
 static int32_t main_window_height;
 static ImVec2 scroll_acc;
 static bool is_running = true;
+static bool request_quit = false;
 static std::unordered_map<uint32_t, SDL_Window*> plugin_windows;
 uint32_t AppEvent::audio_device_removed_event;
 
@@ -71,11 +72,13 @@ static void handle_events(SDL_Event& event) {
         case SDL_WINDOWEVENT: {
             if (event.window.windowID == wm_get_main_window_id()) {
                 switch (event.window.event) {
+                    case SDL_WINDOWEVENT_EXPOSED:
+                        break;
                     case SDL_WINDOWEVENT_RESIZED:
                         // g_renderer->resize_viewport();
                         break;
                     case SDL_WINDOWEVENT_CLOSE:
-                        is_running = false;
+                        request_quit = true;
                         break;
                     case SDL_WINDOWEVENT_MINIMIZED: {
                         wait_until_restored();
@@ -103,7 +106,7 @@ static void handle_events(SDL_Event& event) {
             Log::debug("Drop complete");
             break;
         case SDL_QUIT:
-            is_running = false;
+            request_quit = true;
             break;
         default: {
             if (event.type == AppEvent::audio_device_removed_event) {
@@ -241,6 +244,42 @@ void app_render() {
     g_engine.update_audio_visualization(GImGui->IO.Framerate);
     render_control_bar();
     render_windows();
+
+    if (request_quit) {
+        if (g_cmd_manager.size > 0) {
+            ImGui::OpenPopup("Exit##confirm_exit");
+        } else {
+            is_running = false;
+        }
+    }
+
+    if (auto ret = confirm_dialog("Exit##confirm_exit",
+                                  "You have unsaved changes in your file.\n"
+                                  "If you close the application now, any unsaved work will be lost.\n\n"
+                                  "Save changes to untitled.wb?",
+                                        ConfirmDialog::YesNoCancel)) {
+        switch (ret) {
+            case ConfirmDialog::Yes:
+                if (auto file = save_file_dialog({{"Whitebox Project File", "wb"}})) {
+                    shutdown_audio_io();
+                    auto result = write_project_file(file.value(), g_engine, g_sample_table, g_midi_table, g_timeline);
+                    if (result != ProjectFileResult::Ok) {
+                        Log::error("Failed to open project {}", (uint32_t)result);
+                        assert(false);
+                    }
+                }
+                is_running = false;
+                break;
+            case ConfirmDialog::No:
+                is_running = false;
+                break;
+            case ConfirmDialog::Cancel:
+                request_quit = false;
+                break;
+            default:
+                break;
+        }
+    }
 
     ImGui::Render();
     g_renderer2->begin_render(g_renderer2->main_vp->render_target, {0.0f, 0.0f, 0.0f, 1.0f});

@@ -392,6 +392,8 @@ bool mixer_label(const char* caption, const float height, const ImColor& color);
 void level_meter_options();
 void level_meter(const char* str_id, const ImVec2& size, uint32_t count, VUMeter* channels,
                  LevelMeterColorMode color_mode, bool border = true);
+
+
 void render_test_controls();
 extern bool g_test_control_shown;
 

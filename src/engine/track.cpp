@@ -553,7 +553,7 @@ void Track::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>& 
                 Log::debug("Volume changed: {} {}", parameter_state.volume, math::linear_to_db(parameter_state.volume));
 #endif
                 break;
-            case TrackParameter_Pan:
+            case TrackParameter_Pan: {
                 parameter_state.pan = (float)value.value;
                 PanningCoefficient pan = calculate_panning_coefs(parameter_state.pan, PanningLaw::ConstantPower_3db);
                 parameter_state.pan_coeffs[0] = pan.left;
@@ -563,6 +563,7 @@ void Track::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>& 
                            parameter_state.pan_coeffs[1]);
 #endif
                 break;
+            }
             case TrackParameter_Mute:
                 parameter_state.mute = value.value > 0.0 ? 1.0f : 0.0f;
 #ifdef WB_DBG_LOG_PARAMETER_UPDATE
