@@ -42,8 +42,6 @@ class VST3ParameterChanges : public Steinberg::Vst::IParameterChanges {
                                                                   Steinberg::int32& index) override {
         return nullptr;
     }
-
-    // Steinberg::Vst::IParamValueQueue* PLUGIN_API getParameterData()
 };
 
 class VST3InputEventList : public Steinberg::Vst::IEventList {
@@ -57,8 +55,7 @@ class VST3InputEventList : public Steinberg::Vst::IEventList {
     Steinberg::tresult PLUGIN_API addEvent(Steinberg::Vst::Event& e) SMTG_OVERRIDE;
 
     Steinberg::tresult PLUGIN_API queryInterface(const Steinberg::TUID iid, void** obj) override;
-    // we do not care here of the ref-counting. A plug-in call of release should not destroy this
-    // class!
+
     Steinberg::uint32 PLUGIN_API addRef() override { return 1000; }
     Steinberg::uint32 PLUGIN_API release() override { return 1000; }
 };

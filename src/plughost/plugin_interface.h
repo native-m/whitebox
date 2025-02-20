@@ -89,22 +89,12 @@ struct PluginProcessInfo {
     bool playing;
 };
 
-struct PluginParamTransfer {
-    PluginInterface* plugin;
-    uint32_t param_id;
-    double normalized_value;
-};
-
 struct PluginParameterFn {
     void* userdata;
     double(WB_PLUG_API* plain_to_normalized_value)(void* userdata, uint32_t id, double plain);
     double(WB_PLUG_API* normalized_to_plain_value)(void* userdata, uint32_t id, double normalized);
     PluginResult(WB_PLUG_API* set_normalized_value)(void* userdata, uint32_t id, double normalized);
     double(WB_PLUG_API* get_normalized_value)(void* userdata, uint32_t id);
-};
-
-struct PluginUIDHash {
-    size_t operator()(PluginUID uid) const;
 };
 
 struct PluginHandler {

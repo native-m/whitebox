@@ -4,17 +4,7 @@
 #include <imgui.h>
 
 namespace wb {
-static ExportAudioProperties export_prop {
-    .enable_wav = true,
-    .mp3_min_bitrate = 32,
-    .mp3_max_bitrate = 320,
-    .mp3_bitrate = 320,
-    .mp3_vbr_quality = 100.0f,
-    .vorbis_min_bitrate = 32,
-    .vorbis_max_bitrate = 320,
-    .vorbis_bitrate = 320,
-    .vorbis_vbr_quality = 100.0f,
-};
+static ExportAudioProperties export_prop {};
 
 static void bitrate_selectable(const char* str, uint32_t bitrate, uint32_t* value) {
     if (ImGui::Selectable(str, *value == bitrate))
