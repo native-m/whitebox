@@ -7,6 +7,7 @@
 #include "core/color.h"
 #include "core/core_math.h"
 #include "core/debug.h"
+#include "dialogs.h"
 #include "engine/clip_edit.h"
 #include "engine/engine.h"
 #include "engine/track.h"
@@ -422,22 +423,12 @@ void GuiTimeline::render_track_controls() {
 }
 
 void GuiTimeline::clip_context_menu() {
+    bool open_rename_popup = false;
+    bool open_change_color_popup = false;
+
     if (ImGui::BeginPopup("clip_context_menu")) {
-        if (ImGui::BeginMenu("Rename")) {
-            FormResult result = rename_form(&context_menu_clip->name, &tmp_name);
-            switch (result) {
-                case FormResult::ValueChanged:
-                    force_redraw = true;
-                    break;
-                case FormResult::Close:
-                    ImGui::CloseCurrentPopup();
-                    force_redraw = true;
-                    break;
-                default:
-                    break;
-            }
-            ImGui::EndMenu();
-        }
+        if (ImGui::MenuItem("Rename"))
+            open_rename_popup = true;
 
         if (ImGui::BeginMenu("Change Color")) {
             FormResult result = color_picker_form(&context_menu_clip->color, tmp_color);
@@ -483,6 +474,22 @@ void GuiTimeline::clip_context_menu() {
         }
 
         ImGui::EndPopup();
+    }
+
+    if (open_rename_popup) {
+        ImGui::OpenPopup("rename_clip");
+    }
+
+    if (context_menu_clip) {
+        if (auto ret = rename_dialog("rename_clip", tmp_name, &context_menu_clip->name)) {
+            switch (ret) {
+                case ConfirmDialog::None:
+                    break;
+                default:
+                    force_redraw = true;
+                    break;
+            }
+        }
     }
 }
 

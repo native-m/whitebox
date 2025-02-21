@@ -1,8 +1,16 @@
 #include "dialogs.h"
 #include "core/bit_manipulation.h"
-#include <imgui.h>
+#include "core/debug.h"
+#include <imgui_stdlib.h>
 
 namespace wb {
+
+static bool is_mouse_clicked_outside_popup() {
+    return !ImGui::IsAnyItemActive() &&
+           (ImGui::IsMouseClicked(ImGuiMouseButton_Left) || ImGui::IsMouseClicked(ImGuiMouseButton_Right)) &&
+           !ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByPopup |
+                                   ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
+}
 
 ConfirmDialogFlags confirm_dialog(const char* str, const char* msg, ConfirmDialogFlags flags) {
     ConfirmDialogFlags ret {};
@@ -43,6 +51,49 @@ ConfirmDialogFlags confirm_dialog(const char* str, const char* msg, ConfirmDialo
             }
             ImGui::SameLine();
         }
+        ImGui::EndPopup();
+    }
+
+    return ret;
+}
+
+ConfirmDialogFlags change_color_dialog(const char* str, const ImColor& previous, ImColor* color) {
+    return 0;
+}
+
+ConfirmDialogFlags rename_dialog(const char* str, const std::string& previous, std::string* name) {
+    ConfirmDialogFlags ret = ConfirmDialog::None;
+
+    if (ImGui::BeginPopup(str, ImGuiWindowFlags_NoMove)) {
+        bool is_enter_pressed = ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter);
+
+        ImGui::TextUnformatted("Rename");
+
+        if (ImGui::InputTextWithHint("##new_clip_name", "New name", name))
+            ret = ConfirmDialog::ValueChanged;
+
+        if (ImGui::IsItemDeactivated() && is_enter_pressed) {
+            ImGui::CloseCurrentPopup();
+            ret = ConfirmDialog::Ok;
+        }
+
+        if (ImGui::Button("Ok")) {
+            ImGui::CloseCurrentPopup();
+            ret = ConfirmDialog::Ok;
+        }
+
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel")) {
+            ImGui::CloseCurrentPopup();
+            ret = ConfirmDialog::Cancel;
+            *name = previous;
+        }
+
+        if (is_mouse_clicked_outside_popup()) {
+            ret = ConfirmDialog::Cancel;
+            *name = previous;
+        }
+
         ImGui::EndPopup();
     }
 
