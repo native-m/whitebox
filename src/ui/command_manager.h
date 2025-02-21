@@ -9,7 +9,7 @@
 namespace wb {
 
 using HistoryVariant =
-    std::variant<EmptyCmd, TrackMoveCmd, ClipAddFromFileCmd, ClipMoveCmd, ClipShiftCmd, ClipResizeCmd, ClipDuplicateCmd,
+    std::variant<EmptyCmd, TrackAddCmd, TrackMoveCmd, ClipAddFromFileCmd, ClipMoveCmd, ClipShiftCmd, ClipResizeCmd, ClipDuplicateCmd,
                  ClipDeleteCmd, ClipDeleteRegionCmd, ClipAdjustGainCmd>;
 
 template <typename T>

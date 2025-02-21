@@ -183,8 +183,10 @@ void Engine::set_track_input(uint32_t slot, TrackInputType type, uint32_t index,
 Track* Engine::add_track(const std::string& name) {
     Track* new_track = new Track();
     new_track->name = name;
-    tracks.push_back(new_track);
     new_track->prepare_effect_buffer(num_output_channels, audio_buffer_size);
+    editor_lock.lock();
+    tracks.push_back(new_track);
+    editor_lock.unlock();
     return new_track;
 }
 

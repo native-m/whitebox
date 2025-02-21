@@ -50,17 +50,14 @@ void GuiTimeline::shutdown() {
         g_renderer2->destroy_texture(timeline_fb);
 }
 
-Track* GuiTimeline::add_track() {
-    g_engine.edit_lock();
-    auto track = g_engine.add_track("New Track");
+void GuiTimeline::add_track() {
     float hue = (float)color_spin / 15.0f;
-    // float sat_pos = std::pow(1.0 - math::abs(hue * 2.0f - 1.0f), 2.2f);
-    // float saturation = sat_pos * (0.7f - 0.6f) + 0.6f;
-    track->color = ImColor::HSV(hue, 0.6472f, 0.788f);
+    TrackAddCmd cmd {
+        .color = ImColor::HSV(hue, 0.6472f, 0.788f),
+    };
+    g_cmd_manager.execute("Add track", std::move(cmd));
     color_spin = (color_spin + 1) % 15;
-    g_engine.edit_unlock();
     redraw = true;
-    return track;
 }
 
 void GuiTimeline::reset() {

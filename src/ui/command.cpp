@@ -55,6 +55,18 @@ void TrackHistory::undo(Track* track) {
 
 //
 
+void TrackAddCmd::execute() {
+    Track* track = g_engine.add_track("New track");
+    track->color = color;
+    track_id = g_engine.tracks.size() - 1;
+}
+
+void TrackAddCmd::undo() {
+    g_engine.delete_track(track_id);
+}
+
+//
+
 void TrackMoveCmd::execute() {
     g_engine.move_track(src_slot, dst_slot);
 }

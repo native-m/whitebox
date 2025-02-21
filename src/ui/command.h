@@ -22,6 +22,19 @@ struct EmptyCmd {
     void undo() {}
 };
 
+struct TrackAddCmd {
+    ImColor color;
+    uint32_t track_id;
+
+    void execute();
+    void undo();
+};
+
+struct TrackDeleteCmd
+{
+
+};
+
 struct TrackMoveCmd {
     uint32_t src_slot;
     uint32_t dst_slot;

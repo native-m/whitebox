@@ -98,7 +98,7 @@ struct GuiTimeline : public TimelineBase {
 
     void init();
     void shutdown();
-    Track* add_track();
+    void add_track();
     void reset();
     void render();
     void render_separator();
