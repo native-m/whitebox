@@ -9,8 +9,8 @@
 namespace wb {
 
 using HistoryVariant =
-    std::variant<EmptyCmd, TrackAddCmd, TrackMoveCmd, ClipAddFromFileCmd, ClipMoveCmd, ClipShiftCmd, ClipResizeCmd, ClipDuplicateCmd,
-                 ClipDeleteCmd, ClipDeleteRegionCmd, ClipAdjustGainCmd>;
+    std::variant<EmptyCmd, TrackAddCmd, TrackMoveCmd, ClipAddFromFileCmd, ClipRenameCmd, ClipMoveCmd, ClipShiftCmd,
+                 ClipResizeCmd, ClipDuplicateCmd, ClipDeleteCmd, ClipDeleteRegionCmd, ClipAdjustGainCmd>;
 
 template <typename T>
 concept CommandType = requires(T cmd) {
@@ -42,11 +42,12 @@ struct CommandManager {
     uint32_t max_history = 0;
     uint32_t size = 0;
     uint32_t pos = 0;
+    bool is_modified = false;
 
     void init(uint32_t max_items);
     void undo();
     void redo();
-    void reset();
+    void reset(bool empty_project = false);
     void signal_all_update_listeners();
 
     template <CommandType T>
@@ -60,6 +61,7 @@ struct CommandManager {
         }
         pos = new_pos % max_history;
         signal_all_update_listeners();
+        is_modified = true;
     }
 
     template <typename Fn>

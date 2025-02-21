@@ -26,7 +26,10 @@ void CommandManager::redo() {
     signal_all_update_listeners();
 }
 
-void CommandManager::reset() {
+void CommandManager::reset(bool empty_project) {
+    if (empty_project) {
+        is_modified = false;
+    }
     for (uint32_t i = 0; i < size; i++) {
         items[i].unset();
     }

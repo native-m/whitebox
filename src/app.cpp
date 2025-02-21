@@ -246,7 +246,7 @@ void app_render() {
     render_windows();
 
     if (request_quit) {
-        if (g_cmd_manager.size > 0) {
+        if (g_cmd_manager.is_modified) {
             ImGui::OpenPopup("Exit##confirm_exit");
         } else {
             is_running = false;

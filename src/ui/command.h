@@ -30,10 +30,7 @@ struct TrackAddCmd {
     void undo();
 };
 
-struct TrackDeleteCmd
-{
-
-};
+struct TrackDeleteCmd {};
 
 struct TrackMoveCmd {
     uint32_t src_slot;
@@ -49,6 +46,16 @@ struct ClipAddFromFileCmd {
     std::filesystem::path file;
     TrackHistory history;
     Clip new_clip;
+
+    void execute();
+    void undo();
+};
+
+struct ClipRenameCmd {
+    uint32_t track_id;
+    uint32_t clip_id;
+    std::string old_name;
+    std::string new_name;
 
     void execute();
     void undo();

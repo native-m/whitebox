@@ -483,6 +483,17 @@ void GuiTimeline::clip_context_menu() {
     if (context_menu_clip) {
         if (auto ret = rename_dialog("rename_clip", tmp_name, &context_menu_clip->name)) {
             switch (ret) {
+                case ConfirmDialog::Ok: {
+                    ClipRenameCmd cmd {
+                        .track_id = context_menu_track_id.value(),
+                        .clip_id = context_menu_clip->id,
+                        .old_name = tmp_name,
+                        .new_name = context_menu_clip->name,
+                    };
+                    g_cmd_manager.execute("Rename clip", std::move(cmd));
+                    force_redraw = true;
+                    break;
+                }
                 case ConfirmDialog::None:
                     break;
                 default:

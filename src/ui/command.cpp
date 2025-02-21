@@ -94,6 +94,20 @@ void ClipAddFromFileCmd::undo() {
 
 //
 
+void ClipRenameCmd::execute() {
+    Track* track = g_engine.tracks[track_id];
+    Clip* clip = track->clips[clip_id];
+    clip->name = new_name;
+}
+
+void ClipRenameCmd::undo() {
+    Track* track = g_engine.tracks[track_id];
+    Clip* clip = track->clips[clip_id];
+    clip->name = old_name;
+}
+
+//
+
 void ClipMoveCmd::execute() {
     Track* src_track = g_engine.tracks[src_track_id];
     Clip* clip = src_track->clips[clip_id];
