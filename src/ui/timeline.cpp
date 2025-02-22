@@ -430,21 +430,10 @@ void GuiTimeline::clip_context_menu() {
         if (ImGui::MenuItem("Rename"))
             open_rename_popup = true;
 
-        if (ImGui::BeginMenu("Change Color")) {
-            FormResult result = color_picker_form(&context_menu_clip->color, tmp_color);
-            switch (result) {
-                case FormResult::ValueChanged:
-                    force_redraw = true;
-                    break;
-                case FormResult::Close:
-                    ImGui::CloseCurrentPopup();
-                    force_redraw = true;
-                    break;
-                default:
-                    break;
-            }
-            ImGui::EndMenu();
-        }
+        if (ImGui::MenuItem("Change color"))
+            open_change_color_popup = true;
+
+        ImGui::Separator();
 
         if (!context_menu_clip->is_active()) {
             if (ImGui::MenuItem("Activate Clip")) {
@@ -480,9 +469,18 @@ void GuiTimeline::clip_context_menu() {
         ImGui::OpenPopup("rename_clip");
     }
 
+    if (open_change_color_popup) {
+        ImGui::OpenPopup("change_clip_color");
+    }
+
     if (context_menu_clip) {
+        bool cleanup = false;
+
         if (auto ret = rename_dialog("rename_clip", tmp_name, &context_menu_clip->name)) {
             switch (ret) {
+                case ConfirmDialog::ValueChanged:
+                    force_redraw = true;
+                    break;
                 case ConfirmDialog::Ok: {
                     ClipRenameCmd cmd {
                         .track_id = context_menu_track_id.value(),
@@ -492,14 +490,52 @@ void GuiTimeline::clip_context_menu() {
                     };
                     g_cmd_manager.execute("Rename clip", std::move(cmd));
                     force_redraw = true;
+                    cleanup = true;
                     break;
                 }
+                case ConfirmDialog::Cancel:
+                    force_redraw = true;
+                    cleanup = true;
+                    break;
                 case ConfirmDialog::None:
                     break;
                 default:
-                    force_redraw = true;
                     break;
             }
+        }
+
+        if (auto ret = color_picker_dialog("change_clip_color", tmp_color, &context_menu_clip->color)) {
+            switch (ret) {
+                case ConfirmDialog::ValueChanged:
+                    force_redraw = true;
+                    break;
+                case ConfirmDialog::Ok: {
+                    ClipChangeColorCmd cmd {
+                        .track_id = context_menu_track_id.value(),
+                        .clip_id = context_menu_clip->id,
+                        .old_color = tmp_color,
+                        .new_color = context_menu_clip->color,
+                    };
+                    g_cmd_manager.execute("Change clip color", std::move(cmd));
+                    force_redraw = true;
+                    cleanup = true;
+                    break;
+                }
+                case ConfirmDialog::Cancel:
+                    force_redraw = true;
+                    cleanup = true;
+                    break;
+                case ConfirmDialog::None:
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        if (cleanup) {
+            context_menu_clip = nullptr;
+            context_menu_track = nullptr;
+            context_menu_track_id.reset();
         }
     }
 }

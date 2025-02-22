@@ -145,9 +145,6 @@ void main_control_bar() {
             }
             ImGui::Separator();
             ImGui::MenuItem("Project info...", nullptr, &g_project_info_window_open);
-            /*ImGui::Separator();
-            if (ImGui::MenuItem("Quit"))
-                is_running = false;*/
             ImGui::EndMenu();
         }
 

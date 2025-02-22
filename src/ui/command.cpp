@@ -108,6 +108,20 @@ void ClipRenameCmd::undo() {
 
 //
 
+void ClipChangeColorCmd::execute() {
+    Track* track = g_engine.tracks[track_id];
+    Clip* clip = track->clips[clip_id];
+    clip->color = new_color;
+}
+
+void ClipChangeColorCmd::undo() {
+    Track* track = g_engine.tracks[track_id];
+    Clip* clip = track->clips[clip_id];
+    clip->color = old_color;
+}
+
+//
+
 void ClipMoveCmd::execute() {
     Track* src_track = g_engine.tracks[src_track_id];
     Clip* clip = src_track->clips[clip_id];

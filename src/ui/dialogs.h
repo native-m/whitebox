@@ -23,7 +23,7 @@ struct ConfirmDialog {
 using ConfirmDialogFlags = uint32_t;
 
 ConfirmDialogFlags confirm_dialog(const char* str, const char* msg, ConfirmDialogFlags flags);
-ConfirmDialogFlags change_color_dialog(const char* str, const ImColor& previous, ImColor* color);
 ConfirmDialogFlags rename_dialog(const char* str, const std::string& previous, std::string* name);
+ConfirmDialogFlags color_picker_dialog(const char* str, const ImColor& previous, ImColor* color);
 void export_audio_dialog();
 } // namespace wb

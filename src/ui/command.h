@@ -1,9 +1,9 @@
 #pragma once
 
 #include "core/common.h"
-#include "engine/assets_table.h"
 #include "engine/clip.h"
 #include "engine/etypes.h"
+#include <imgui.h>
 #include <string>
 
 namespace wb {
@@ -56,6 +56,16 @@ struct ClipRenameCmd {
     uint32_t clip_id;
     std::string old_name;
     std::string new_name;
+
+    void execute();
+    void undo();
+};
+
+struct ClipChangeColorCmd {
+    uint32_t track_id;
+    uint32_t clip_id;
+    ImColor old_color;
+    ImColor new_color;
 
     void execute();
     void undo();
