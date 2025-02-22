@@ -3,7 +3,12 @@
 #include <bit>
 
 namespace wb {
-bool MidiVoiceState::add_voice2(MidiVoice&& voice) {
+
+MidiVoiceState::MidiVoiceState() {
+    voices.resize(max_voices);
+}
+
+bool MidiVoiceState::add_voice(MidiVoice&& voice) {
     if (used_voices == max_voices)
         return false;
 
@@ -14,10 +19,10 @@ bool MidiVoiceState::add_voice2(MidiVoice&& voice) {
         *free_voice = std::move(voice);
         allocated_voices.push_item(free_voice);
     } else {
-        voices[current_max_voices] = std::move(voice);
-        allocated_voices.push_item(&voices[current_max_voices]);
-        if (current_max_voices != max_voices)
-            current_max_voices++;
+        voices[max_used_voices] = std::move(voice);
+        allocated_voices.push_item(&voices[max_used_voices]);
+        if (max_used_voices != max_voices)
+            max_used_voices++;
     }
     least_maximum_time = math::max(least_maximum_time, max_time);
     used_voices++;

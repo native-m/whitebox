@@ -461,7 +461,7 @@ void Track::process_midi_event(Clip* clip, double start_time, double end_time, d
         double sample_offset = sample_position + offset_from_start;
         uint32_t buffer_offset = (uint32_t)((uint64_t)sample_offset % (uint64_t)buffer_size);
 
-        bool voice_added = midi_voice_state.add_voice2({
+        bool voice_added = midi_voice_state.add_voice({
             .max_time = max_time,
             .velocity = note.velocity * 0.5f,
             .channel = 0,

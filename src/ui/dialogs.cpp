@@ -99,7 +99,7 @@ ConfirmDialogFlags rename_dialog(const char* str, const std::string& previous, s
     return ret;
 }
 
-ConfirmDialogFlags change_color_dialog(const char* str, const ImColor& previous, ImColor* color) {
+ConfirmDialogFlags color_picker_dialog(const char* str, const ImColor& previous, ImColor* color) {
     ConfirmDialogFlags ret = ConfirmDialog::None;
     constexpr ImGuiColorEditFlags color_picker_flags =
         ImGuiColorEditFlags_NoSidePreview | ImGuiColorEditFlags_NoSmallPreview;
