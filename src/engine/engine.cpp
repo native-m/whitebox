@@ -6,6 +6,9 @@
 #include "track.h"
 #include <fmt/chrono.h>
 #include <numbers>
+#include <SDL_timer.h>
+
+using namespace std::chrono_literals;
 
 namespace wb {
 
@@ -634,6 +637,7 @@ void Engine::update_audio_visualization(float frame_rate) {
 }
 
 void Engine::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>& output_buffer, double sample_rate) {
+    ScopedPerformanceCounter counter;
     double buffer_duration = (double)output_buffer.n_samples / sample_rate;
     double current_beat_duration = beat_duration.load(std::memory_order_relaxed);
     double current_playhead_position = playhead;
@@ -717,6 +721,8 @@ void Engine::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>&
         delete_lock.unlock();
         has_deleted_clips.store(false, std::memory_order_relaxed);
     }
+
+    perf_measurer.update(tm_ticks_to_ms(counter.duration()), audio_buffer_duration_ms);
 }
 
 void Engine::write_recorded_samples_(uint32_t num_samples) {

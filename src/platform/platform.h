@@ -28,4 +28,5 @@ void wm_set_mouse_pos(int x, int y);
 void wm_enable_relative_mouse_mode(bool relative_mode);
 void wm_get_relative_mouse_state(int* x, int* y);
 void wm_reset_relative_mouse_state();
+
 }; // namespace wb

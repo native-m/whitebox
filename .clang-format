@@ -5,6 +5,7 @@ UseTab: Never
 ContinuationIndentWidth: 4
 IndentWidth: 4
 IndentCaseLabels: true
+SortIncludes: Never
 ColumnLimit: 120
 AllowShortEnumsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: InlineOnly

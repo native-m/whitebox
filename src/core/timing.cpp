@@ -7,14 +7,6 @@
 #endif
 
 namespace wb {
-#if defined(WB_PLATFORM_WINDOWS)
-static uint64_t get_performance_freq() {
-    LARGE_INTEGER perf_freq;
-    QueryPerformanceFrequency(&perf_freq);
-    return perf_freq.QuadPart;
-}
-#endif
-
 uint64_t tm_get_ticks() {
 #if defined(WB_PLATFORM_WINDOWS)
     LARGE_INTEGER perf_count;
