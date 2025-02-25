@@ -70,6 +70,8 @@ set(WB_SOURCES
     "src/core/list.h"
     "src/core/memory.cpp"
     "src/core/memory.h"
+    "src/core/mem_info.cpp"
+    "src/core/mem_info.h"
     "src/core/midi.cpp"
     "src/core/midi.h"
     "src/core/panning_law.cpp"
@@ -80,9 +82,11 @@ set(WB_SOURCES
     "src/core/stream.h"
     "src/core/thread.cpp"
     "src/core/thread.h"
+    "src/core/timing.cpp"
+    "src/core/timing.h"
     "src/core/types.h"
     "src/core/vector.h"
-    
+
     "src/dsp/dsp_ops.h"
     "src/dsp/param_queue.h"
     "src/dsp/sample.cpp"

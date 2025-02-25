@@ -6,6 +6,7 @@
 #include "core/audio_buffer.h"
 #include "core/common.h"
 #include "core/thread.h"
+#include "core/timing.h"
 #include "plughost/plugin_manager.h"
 #include "etypes.h"
 #include <functional>
@@ -58,6 +59,8 @@ struct Engine {
     AudioRecordQueue recorder_queue;
     Vector<Sample> recorded_samples;
     std::thread recorder_thread;
+
+    PerformanceMeasurer perf_measurer;
 
     ~Engine();
 

@@ -1,18 +1,19 @@
+#include "IconsMaterialSymbols.h"
+#include "command_manager.h"
 #include "config.h"
+#include "controls.h"
 #include "core/color.h"
+#include "core/mem_info.h"
+#include "dialogs.h"
 #include "engine/engine.h"
 #include "engine/project.h"
-#include "IconsMaterialSymbols.h"
-#include "dialogs.h"
-#include "command_manager.h"
-#include "controls.h"
 #include "file_dialog.h"
 #include "font.h"
 #include "timeline.h"
 #include "window.h"
 
-#include <imgui.h>
 #include "control_bar.h"
+#include <imgui.h>
 
 namespace wb {
 void render_control_bar() {
@@ -29,6 +30,51 @@ void render_control_bar() {
         main_control_bar();
         ImGui::EndMainMenuBar();
     }
+}
+
+void perf_counter_display() {
+    const ImGuiStyle& style = GImGui->Style;
+    ImGuiID id = ImGui::GetID("##perf_counter_disp");
+    ImVec2 size = ImVec2(95.0f, ImGui::GetFontSize() + style.FramePadding.y * 2.0f);
+    ImVec2 pos = ImGui::GetCursorScreenPos();
+
+    const ImRect bb(pos, pos + size);
+    ImGui::ItemSize(size, style.FramePadding.y);
+    if (!ImGui::ItemAdd(bb, id))
+        return;
+
+    static double perf_counter_timeout = 0.0;
+    static double cpu_usage = 0.0;
+    static uint64_t mem_usage = 0.0;
+    if (perf_counter_timeout == 0.0) {
+        MemoryInfo mem_info = get_app_memory_info();
+        perf_counter_timeout = tm_ms_to_sec(100.0);
+        cpu_usage = g_engine.perf_measurer.get_usage() * 100.0;
+        mem_usage = mem_info.overall_usage;
+    } else {
+        perf_counter_timeout = math::max(perf_counter_timeout - GImGui->IO.DeltaTime, 0.0);
+    }
+
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    ImU32 text_col = ImGui::GetColorU32(ImGuiCol_Text);
+    dl->AddRectFilled(bb.Min, bb.Max, ImGui::GetColorU32(ImGuiCol_FrameBg), style.FrameRounding);
+    
+    const char* cpu_usage_begin;
+    const char* cpu_usage_end;
+    ImFormatStringToTempBuffer(&cpu_usage_begin, &cpu_usage_end, "%.1f%%", cpu_usage);
+    ImVec2 cpu_usage_size = ImGui::CalcTextSize(cpu_usage_begin, cpu_usage_end);
+    
+    dl->AddText(bb.Min + ImVec2(4.0f, 2.0f), text_col, "CPU");
+    dl->AddText(ImVec2(bb.Max.x - cpu_usage_size.x - 4.0f, bb.Min.y + 2.0f), text_col, cpu_usage_begin, cpu_usage_end);
+    
+    const char* mem_usage_begin;
+    const char* mem_usage_end;
+    ImFormatStringToTempBuffer(&mem_usage_begin, &mem_usage_end, "%.1f% MB", (double)mem_usage / 1000000.0);
+    ImVec2 mem_usage_size = ImGui::CalcTextSize(mem_usage_begin, mem_usage_end);
+
+    dl->AddText(bb.Min + ImVec2(4.0f, cpu_usage_size.y + 2.0f), text_col, "Mem");
+    dl->AddText(ImVec2(bb.Max.x - mem_usage_size.x - 4.0f, bb.Min.y + cpu_usage_size.y + 2.0f), text_col, mem_usage_begin,
+                mem_usage_end);
 }
 
 void main_control_bar() {
@@ -120,6 +166,9 @@ void main_control_bar() {
     }
     ImGui::PopItemWidth();
 
+    ImGui::SameLine(0.0f, 12.0f);
+    perf_counter_display();
+    
     // ImGui::SameLine(0.0f, 12.0f);
     // float playhead_pos = g_engine.playhead_ui.load(std::memory_order_relaxed);
     // ImGui::Text("Playhead: %f", playhead_pos);
