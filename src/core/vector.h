@@ -131,6 +131,12 @@ struct Vector {
 
     template <typename... Args>
     inline T& emplace_at(size_t idx, Args&&... args) {
+        assert(idx >= 0 && idx <= intern_.size);
+
+        if (idx == intern_.size) {
+            return emplace_back(std::forward<Args>(args)...);
+        }
+
         if (intern_.size == intern_.capacity) [[unlikely]] {
             size_t new_capacity = grow_capacity_();
             T* new_data = (T*)std::malloc(new_capacity * sizeof(T));
