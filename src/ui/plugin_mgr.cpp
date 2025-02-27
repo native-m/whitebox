@@ -73,6 +73,7 @@ void GuiPluginManager::render() {
         ImGui::SameLine();
         if (ImGui::Button("Deselect All")) {
             selected_plugins.clear();
+            selected_plugin_set.clear();
             num_selected_plugins = 0;
         }
         ImGui::SameLine();

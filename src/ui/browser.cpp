@@ -5,6 +5,7 @@
 #include "dsp/sample.h"
 #include "file_dropper.h"
 #include "window.h"
+#include "dialogs.h"
 #include <nfd.hpp>
 
 namespace fs = std::filesystem;
@@ -232,6 +233,8 @@ void GuiBrowser::render() {
         open_context_menu = false;
     }
 
+    bool confirm_remove_directory = false;
+
     if (ImGui::BeginPopup("browser_context_menu")) {
         ImGui::MenuItem("Copy path");
 
@@ -252,14 +255,25 @@ void GuiBrowser::render() {
         if (context_menu_item->root_dir) {
             ImGui::Separator();
             if (ImGui::MenuItem("Remove from browser")) {
-                // TODO: Add confirmation dialog before removing
-                remove_directory(directories.begin() + selected_root_dir);
+                confirm_remove_directory = true;
             }
         }
 
         ImGui::EndPopup();
     } else {
         context_menu_item = nullptr;
+    }
+
+    if (confirm_remove_directory) {
+        ImGui::OpenPopup("Remove from browser##remove_from_browser");
+    }
+
+    if (auto ret =
+            confirm_dialog("Remove from browser##remove_from_browser",
+                           "Are you sure you want to remove this directory from browser?", ConfirmDialog::YesNo)) {
+        if (ret == ConfirmDialog::Yes) {
+            remove_directory(directories.begin() + selected_root_dir);
+        }
     }
 
     controls::end_window();
