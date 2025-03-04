@@ -51,13 +51,20 @@ void history_window() {
     ImVec2 space = ImGui::GetContentRegionAvail();
 
     if (ImGui::BeginListBox("##history_listbox", ImVec2(-FLT_MIN, space.y))) {
-        uint32_t start = g_cmd_manager.pos;
-        uint32_t end = g_cmd_manager.pos + g_cmd_manager.size;
-        for (uint32_t i = start; i < end; i++) {
-            HistoryItem& item = g_cmd_manager.items[i % g_cmd_manager.size];
-            ImGui::PushID(i);
-            ImGui::Selectable(item.name.c_str());
+        auto cmd = g_cmd_manager.commands.next();
+        uint32_t id = 0;
+        while (cmd != nullptr) {
+            Command* item = static_cast<Command*>(cmd);
+            bool is_current_command = item == g_cmd_manager.current_command;
+            ImGui::PushID(id);
+            if (id >= g_cmd_manager.num_history)
+                ImGui::PushStyleVar(ImGuiStyleVar_Alpha, GImGui->Style.DisabledAlpha);
+            ImGui::Selectable(item->name.c_str(), is_current_command);
+            if (id >= g_cmd_manager.num_history)
+                ImGui::PopStyleVar();
             ImGui::PopID();
+            cmd = cmd->next();
+            id++;
         }
         ImGui::EndListBox();
     }

@@ -52,11 +52,9 @@ void GuiTimeline::shutdown() {
 }
 
 void GuiTimeline::add_track() {
-    float hue = (float)color_spin / 15.0f;
-    TrackAddCmd cmd {
-        .color = ImColor::HSV(hue, 0.6472f, 0.788f),
-    };
-    g_cmd_manager.execute("Add track", std::move(cmd));
+    TrackAddCmd* cmd = new TrackAddCmd();
+    cmd->color = ImColor::HSV((float)color_spin / 15.0f, 0.6472f, 0.788f);
+    g_cmd_manager.execute("Add track", cmd);
     color_spin = (color_spin + 1) % 15;
     redraw = true;
 }
@@ -408,7 +406,10 @@ void GuiTimeline::render_track_controls() {
     }
 
     if (move_track) {
-        g_cmd_manager.execute("Move track", TrackMoveCmd {move_track_src, move_track_dst});
+        TrackMoveCmd* cmd = new TrackMoveCmd();
+        cmd->src_slot = move_track_src;
+        cmd->dst_slot = move_track_dst;
+        g_cmd_manager.execute("Move track", cmd);
         redraw = true;
     }
 
@@ -449,10 +450,10 @@ void GuiTimeline::clip_context_menu() {
 
         if (ImGui::MenuItem("Delete")) {
             double beat_duration = g_engine.get_beat_duration();
-            g_cmd_manager.execute("Delete Clip", ClipDeleteCmd {
-                                                     .track_id = context_menu_track_id.value(),
-                                                     .clip_id = context_menu_clip->id,
-                                                 });
+            ClipDeleteCmd* cmd = new ClipDeleteCmd();
+            cmd->track_id = context_menu_track_id.value();
+            cmd->clip_id = context_menu_clip->id;
+            g_cmd_manager.execute("Delete Clip", cmd);
             recalculate_timeline_length();
             force_redraw = true;
         }
@@ -482,13 +483,12 @@ void GuiTimeline::clip_context_menu() {
                     force_redraw = true;
                     break;
                 case ConfirmDialog::Ok: {
-                    ClipRenameCmd cmd {
-                        .track_id = context_menu_track_id.value(),
-                        .clip_id = context_menu_clip->id,
-                        .old_name = tmp_name,
-                        .new_name = context_menu_clip->name,
-                    };
-                    g_cmd_manager.execute("Rename clip", std::move(cmd));
+                    ClipRenameCmd* cmd = new ClipRenameCmd();
+                    cmd->track_id = context_menu_track_id.value();
+                    cmd->clip_id = context_menu_clip->id;
+                    cmd->old_name = tmp_name;
+                    cmd->new_name = context_menu_clip->name;
+                    g_cmd_manager.execute("Rename clip", cmd);
                     force_redraw = true;
                     cleanup = true;
                     break;
@@ -510,13 +510,12 @@ void GuiTimeline::clip_context_menu() {
                     force_redraw = true;
                     break;
                 case ConfirmDialog::Ok: {
-                    ClipChangeColorCmd cmd {
-                        .track_id = context_menu_track_id.value(),
-                        .clip_id = context_menu_clip->id,
-                        .old_color = tmp_color,
-                        .new_color = context_menu_clip->color,
-                    };
-                    g_cmd_manager.execute("Change clip color", std::move(cmd));
+                    ClipChangeColorCmd* cmd = new ClipChangeColorCmd();
+                    cmd->track_id = context_menu_track_id.value();
+                    cmd->clip_id = context_menu_clip->id;
+                    cmd->old_color = tmp_color;
+                    cmd->new_color = context_menu_clip->color;
+                    g_cmd_manager.execute("Change clip color", cmd);
                     force_redraw = true;
                     cleanup = true;
                     break;
@@ -711,13 +710,12 @@ void GuiTimeline::render_track_lanes() {
             if (ImGui::IsKeyPressed(ImGuiKey_Delete, false)) {
                 uint32_t first_track = target_sel_range.first_track;
                 uint32_t last_track = target_sel_range.last_track;
-                ClipDeleteRegionCmd cmd {
-                    .first_track_id = target_sel_range.first_track,
-                    .last_track_id = target_sel_range.last_track,
-                    .min_time = target_sel_range.min,
-                    .max_time = target_sel_range.max,
-                };
-                g_cmd_manager.execute("Delete Selected Region", std::move(cmd));
+                ClipDeleteRegionCmd* cmd = new ClipDeleteRegionCmd();
+                cmd->first_track_id = target_sel_range.first_track;
+                cmd->last_track_id = target_sel_range.last_track;
+                cmd->min_time = target_sel_range.min;
+                cmd->max_time = target_sel_range.max;
+                g_cmd_manager.execute("Delete Selected Region", cmd);
                 recalculate_timeline_length();
                 redraw = true;
             }
@@ -1216,13 +1214,12 @@ void GuiTimeline::render_track_lanes() {
         switch (edit_action) {
             case TimelineEditAction::ClipMove:
                 if (!left_mouse_down) {
-                    ClipMoveCmd cmd {
-                        .src_track_id = edited_track_id.value(),
-                        .dst_track_id = hovered_track_id.value(),
-                        .clip_id = edited_clip->id,
-                        .relative_pos = relative_pos,
-                    };
-                    g_cmd_manager.execute("Move Clip", std::move(cmd));
+                    ClipMoveCmd* cmd = new ClipMoveCmd();
+                    cmd->src_track_id = edited_track_id.value();
+                    cmd->dst_track_id = hovered_track_id.value();
+                    cmd->clip_id = edited_clip->id;
+                    cmd->relative_pos = relative_pos;
+                    g_cmd_manager.execute("Move Clip", cmd);
                     finish_edit_action();
                     force_redraw = true;
                 }
@@ -1230,15 +1227,14 @@ void GuiTimeline::render_track_lanes() {
                 break;
             case TimelineEditAction::ClipResizeLeft:
                 if (!left_mouse_down) {
-                    ClipResizeCmd cmd {
-                        .track_id = edited_track_id.value(),
-                        .clip_id = edited_clip->id,
-                        .left_side = true,
-                        .relative_pos = relative_pos,
-                        .min_length = 1.0 / grid_scale,
-                        .last_beat_duration = beat_duration,
-                    };
-                    g_cmd_manager.execute("Resize clip", std::move(cmd));
+                    ClipResizeCmd* cmd = new ClipResizeCmd();
+                    cmd->track_id = edited_track_id.value();
+                    cmd->clip_id = edited_clip->id;
+                    cmd->left_side = true;
+                    cmd->relative_pos = relative_pos;
+                    cmd->min_length = 1.0 / grid_scale;
+                    cmd->last_beat_duration = beat_duration;
+                    g_cmd_manager.execute("Resize clip", cmd);
                     finish_edit_action();
                     force_redraw = true;
                 }
@@ -1246,15 +1242,14 @@ void GuiTimeline::render_track_lanes() {
                 break;
             case TimelineEditAction::ClipResizeRight:
                 if (!left_mouse_down) {
-                    ClipResizeCmd cmd {
-                        .track_id = edited_track_id.value(),
-                        .clip_id = edited_clip->id,
-                        .left_side = false,
-                        .relative_pos = relative_pos,
-                        .min_length = 1.0 / grid_scale,
-                        .last_beat_duration = beat_duration,
-                    };
-                    g_cmd_manager.execute("Resize clip", std::move(cmd));
+                    ClipResizeCmd* cmd = new ClipResizeCmd();
+                    cmd->track_id = edited_track_id.value();
+                    cmd->clip_id = edited_clip->id;
+                    cmd->left_side = false;
+                    cmd->relative_pos = relative_pos;
+                    cmd->min_length = 1.0 / grid_scale;
+                    cmd->last_beat_duration = beat_duration;
+                    g_cmd_manager.execute("Resize clip", cmd);
                     finish_edit_action();
                     force_redraw = true;
                 }
@@ -1262,16 +1257,15 @@ void GuiTimeline::render_track_lanes() {
                 break;
             case TimelineEditAction::ClipShiftLeft:
                 if (!left_mouse_down) {
-                    ClipResizeCmd cmd {
-                        .track_id = edited_track_id.value(),
-                        .clip_id = edited_clip->id,
-                        .left_side = true,
-                        .shift = true,
-                        .relative_pos = relative_pos,
-                        .min_length = 1.0 / grid_scale,
-                        .last_beat_duration = beat_duration,
-                    };
-                    g_cmd_manager.execute("Resize and shift clip", std::move(cmd));
+                    ClipResizeCmd* cmd = new ClipResizeCmd();
+                    cmd->track_id = edited_track_id.value();
+                    cmd->clip_id = edited_clip->id;
+                    cmd->left_side = true;
+                    cmd->shift = true;
+                    cmd->relative_pos = relative_pos;
+                    cmd->min_length = 1.0 / grid_scale;
+                    cmd->last_beat_duration = beat_duration;
+                    g_cmd_manager.execute("Resize and shift clip", cmd);
                     finish_edit_action();
                     force_redraw = true;
                 }
@@ -1279,16 +1273,15 @@ void GuiTimeline::render_track_lanes() {
                 break;
             case TimelineEditAction::ClipShiftRight:
                 if (!left_mouse_down) {
-                    ClipResizeCmd cmd {
-                        .track_id = edited_track_id.value(),
-                        .clip_id = edited_clip->id,
-                        .left_side = false,
-                        .shift = true,
-                        .relative_pos = relative_pos,
-                        .min_length = 1.0 / grid_scale,
-                        .last_beat_duration = beat_duration,
-                    };
-                    g_cmd_manager.execute("Resize and shift clip", std::move(cmd));
+                    ClipResizeCmd* cmd = new ClipResizeCmd();
+                    cmd->track_id = edited_track_id.value();
+                    cmd->clip_id = edited_clip->id;
+                    cmd->left_side = false;
+                    cmd->shift = true;
+                    cmd->relative_pos = relative_pos;
+                    cmd->min_length = 1.0 / grid_scale;
+                    cmd->last_beat_duration = beat_duration;
+                    g_cmd_manager.execute("Resize and shift clip", cmd);
                     finish_edit_action();
                     force_redraw = true;
                 }
@@ -1296,13 +1289,12 @@ void GuiTimeline::render_track_lanes() {
                 break;
             case TimelineEditAction::ClipShift:
                 if (!left_mouse_down) {
-                    ClipShiftCmd cmd {
-                        .track_id = edited_track_id.value(),
-                        .clip_id = edited_clip->id,
-                        .relative_pos = relative_pos,
-                        .last_beat_duration = beat_duration,
-                    };
-                    g_cmd_manager.execute("Shift clip", std::move(cmd));
+                    ClipShiftCmd* cmd = new ClipShiftCmd();
+                    cmd->track_id = edited_track_id.value();
+                    cmd->clip_id = edited_clip->id;
+                    cmd->relative_pos = relative_pos;
+                    cmd->last_beat_duration = beat_duration;
+                    g_cmd_manager.execute("Shift clip", cmd);
                     finish_edit_action();
                     force_redraw = true;
                 }
@@ -1310,26 +1302,24 @@ void GuiTimeline::render_track_lanes() {
                 break;
             case TimelineEditAction::ClipDuplicate:
                 if (!left_mouse_down) {
-                    ClipDuplicateCmd cmd {
-                        .src_track_id = edited_track_id.value(),
-                        .dst_track_id = hovered_track_id.value(),
-                        .clip_id = edited_clip->id,
-                        .relative_pos = relative_pos,
-                    };
-                    g_cmd_manager.execute("Duplicate clip", std::move(cmd));
+                    ClipDuplicateCmd* cmd = new ClipDuplicateCmd();
+                    cmd->src_track_id = edited_track_id.value();
+                    cmd->dst_track_id = hovered_track_id.value();
+                    cmd->clip_id = edited_clip->id;
+                    cmd->relative_pos = relative_pos;
+                    g_cmd_manager.execute("Duplicate clip", cmd);
                     finish_edit_action();
+                break;
                     force_redraw = true;
                 }
-                break;
             case TimelineEditAction::ClipAdjustGain:
                 if (!left_mouse_down) {
-                    ClipAdjustGainCmd cmd {
-                        .track_id = edited_track_id.value(),
-                        .clip_id = edited_clip->id,
-                        .gain_before = edited_clip->audio.gain,
-                        .gain_after = math::db_to_linear(current_value),
-                    };
-                    g_cmd_manager.execute("Adjust clip gain", std::move(cmd));
+                    ClipAdjustGainCmd* cmd = new ClipAdjustGainCmd();
+                    cmd->track_id = edited_track_id.value();
+                    cmd->clip_id = edited_clip->id;
+                    cmd->gain_before = edited_clip->audio.gain;
+                    cmd->gain_after = math::db_to_linear(current_value);
+                    g_cmd_manager.execute("Adjust clip gain", cmd);
                     finish_edit_action();
                     force_redraw = redraw;
                 }

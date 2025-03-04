@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/common.h"
+#include "core/list.h"
 #include "engine/clip.h"
 #include "engine/etypes.h"
 #include <imgui.h>
@@ -17,61 +18,63 @@ struct TrackHistory {
     void undo(Track* track);
 };
 
-struct EmptyCmd {
-    void execute() {}
-    void undo() {}
+struct Command : public InplaceList<Command> {
+    std::string name;
+    virtual ~Command() {}
+    virtual void execute() = 0;
+    virtual void undo() = 0;
 };
 
-struct TrackAddCmd {
+struct TrackAddCmd : public Command {
     ImColor color;
     uint32_t track_id;
 
-    void execute();
-    void undo();
+    void execute() override;
+    void undo() override;
 };
 
 struct TrackDeleteCmd {};
 
-struct TrackMoveCmd {
+struct TrackMoveCmd : public Command {
     uint32_t src_slot;
     uint32_t dst_slot;
 
-    void execute();
-    void undo();
+    void execute() override;
+    void undo() override;
 };
 
-struct ClipAddFromFileCmd {
+struct ClipAddFromFileCmd : public Command {
     uint32_t track_id;
     double cursor_pos;
     std::filesystem::path file;
     TrackHistory history;
     Clip new_clip;
 
-    void execute();
-    void undo();
+    void execute() override;
+    void undo() override;
 };
 
-struct ClipRenameCmd {
+struct ClipRenameCmd : public Command {
     uint32_t track_id;
     uint32_t clip_id;
     std::string old_name;
     std::string new_name;
 
-    void execute();
-    void undo();
+    void execute() override;
+    void undo() override;
 };
 
-struct ClipChangeColorCmd {
+struct ClipChangeColorCmd : public Command {
     uint32_t track_id;
     uint32_t clip_id;
     ImColor old_color;
     ImColor new_color;
 
-    void execute();
-    void undo();
+    void execute() override;
+    void undo() override;
 };
 
-struct ClipMoveCmd {
+struct ClipMoveCmd : public Command {
     uint32_t src_track_id;
     uint32_t dst_track_id;
     uint32_t clip_id;
@@ -79,21 +82,21 @@ struct ClipMoveCmd {
     TrackHistory src_track_history;
     TrackHistory dst_track_history;
 
-    void execute();
-    void undo();
+    void execute() override;
+    void undo() override;
 };
 
-struct ClipShiftCmd {
+struct ClipShiftCmd : public Command {
     uint32_t track_id;
     uint32_t clip_id;
     double relative_pos;
     double last_beat_duration;
 
-    void execute();
-    void undo();
+    void execute() override;
+    void undo() override;
 };
 
-struct ClipResizeCmd {
+struct ClipResizeCmd : public Command {
     uint32_t track_id;
     uint32_t clip_id;
     bool left_side;
@@ -103,49 +106,49 @@ struct ClipResizeCmd {
     double last_beat_duration;
     TrackHistory history;
 
-    void execute();
-    void undo();
+    void execute() override;
+    void undo() override;
 };
 
-struct ClipDuplicateCmd {
+struct ClipDuplicateCmd : public Command {
     uint32_t src_track_id;
     uint32_t dst_track_id;
     uint32_t clip_id;
     double relative_pos;
     TrackHistory track_history;
 
-    void execute();
-    void undo();
+    void execute() override;
+    void undo() override;
 };
 
-struct ClipDeleteCmd {
+struct ClipDeleteCmd : public Command {
     uint32_t track_id;
     uint32_t clip_id;
     TrackHistory history;
 
-    void execute();
-    void undo();
+    void execute() override;
+    void undo() override;
 };
 
-struct ClipDeleteRegionCmd {
+struct ClipDeleteRegionCmd : public Command {
     uint32_t first_track_id;
     uint32_t last_track_id;
     double min_time;
     double max_time;
     Vector<TrackHistory> histories;
 
-    void execute();
-    void undo();
+    void execute() override;
+    void undo() override;
 };
 
-struct ClipAdjustGainCmd {
+struct ClipAdjustGainCmd : public Command {
     uint32_t track_id;
     uint32_t clip_id;
     float gain_before;
     float gain_after;
 
-    void execute();
-    void undo();
+    void execute() override;
+    void undo() override;
 };
 
 struct TrackParameterChangeCmd {

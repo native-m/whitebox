@@ -79,7 +79,6 @@ struct GPUResource : public InplaceList<GPUResource> {
     uint32_t active_id = 0;
     uint32_t read_id = 0;
     uint32_t num_resources = 0;
-    virtual ~GPUResource() {};
 };
 
 struct GPUBuffer : public GPUResource {

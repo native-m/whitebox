@@ -379,8 +379,8 @@ int SDLCALL event_watcher(void* userdata, SDL_Event* event) {
                         if (main_window_width != event->window.data1 || main_window_height != event->window.data2) {
                             main_window_width = event->window.data1;
                             main_window_height = event->window.data2;
-                            g_renderer->resize_viewport(ImGui::GetMainViewport(),
-                                                        ImVec2((float)main_window_width, (float)main_window_height));
+                            g_renderer2->resize_viewport(ImGui::GetMainViewport(),
+                                                         ImVec2((float)main_window_width, (float)main_window_height));
                             refresh = true;
                             last_resized = true;
                         }

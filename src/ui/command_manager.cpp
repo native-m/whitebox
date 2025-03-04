@@ -6,38 +6,70 @@ namespace wb {
 CommandManager g_cmd_manager;
 
 void CommandManager::init(uint32_t max_items) {
-    items.resize(max_items);
     max_history = max_items;
 }
 
+void CommandManager::execute(const std::string& name, Command* cmd) {
+    if (num_history == max_history) {
+        if (Command* cmd = static_cast<Command*>(commands.pop_next_item())) {
+            delete cmd;
+        }
+    }
+
+    cmd->name = name;
+    cmd->execute();
+
+    if (current_command == nullptr) {
+        commands.push_item(cmd);
+    } else {
+        while (Command* cmd = static_cast<Command*>(current_command->pop_next_item())) {
+            delete cmd;
+        }
+        current_command->push_item(cmd);
+    }
+
+    current_command = cmd;
+    last_command = cmd;
+    is_modified = true;
+
+    if (num_history < max_history) {
+        ++num_history;
+    }
+}
+
 void CommandManager::undo() {
-    if (pos == 0)
+    if (num_history == 0)
         return;
-    HistoryItem& item = items[--pos];
-    std::visit([](auto&& data) { data.undo(); }, item.data);
-    signal_all_update_listeners();
+    current_command->undo();
+    current_command = current_command->prev();
+    is_modified = true;
+    --num_history;
+    signal_history_update_listeners();
 }
 
 void CommandManager::redo() {
-    if (pos == size)
+    if (num_history == max_history || current_command == last_command)
         return;
-    HistoryItem& item = items[pos++];
-    std::visit([](auto&& data) { data.execute(); }, item.data);
-    signal_all_update_listeners();
+    current_command = current_command->next();
+    current_command->execute();
+    is_modified = true;
+    ++num_history;
+    signal_history_update_listeners();
 }
 
 void CommandManager::reset(bool empty_project) {
     if (empty_project) {
         is_modified = false;
     }
-    for (uint32_t i = 0; i < size; i++) {
-        items[i].unset();
+    while (Command* cmd = static_cast<Command*>(commands.pop_next_item())) {
+        delete cmd;
     }
-    pos = 0;
-    size = 0;
+    num_history = 0;
+    current_command = nullptr;
+    last_command = nullptr;
 }
 
-void CommandManager::signal_all_update_listeners() {
+void CommandManager::signal_history_update_listeners() {
     for (auto& listener : on_history_update_listener) {
         listener();
     }
