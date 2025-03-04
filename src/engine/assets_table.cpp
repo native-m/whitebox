@@ -30,10 +30,10 @@ SampleAsset* SampleTable::create_from_existing_sample(Sample&& sample) {
     }
 
     auto sample_peaks {WaveformVisual::create(&sample, WaveformVisualQuality::High)};
-    if (sample_peaks)
+    if (sample_peaks == nullptr)
         return {};
 
-    auto asset = samples.try_emplace(hash, this, hash, 1u, std::move(sample));
+    auto asset = samples.try_emplace(hash, this, hash, 1u, std::move(sample), sample_peaks);
     return &asset.first->second;
 }
 
