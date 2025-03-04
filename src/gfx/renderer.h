@@ -254,7 +254,7 @@ struct GPURenderer {
     void clear_state(); // Must be called in begin_frame() by the implementation!
 };
 
-extern GPURenderer* g_renderer2;
+extern GPURenderer* g_renderer;
 void init_renderer2(SDL_Window* window);
 void shutdown_renderer2();
 

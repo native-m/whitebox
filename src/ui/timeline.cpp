@@ -48,7 +48,7 @@ void GuiTimeline::shutdown() {
     delete layer2_draw_list;
     delete layer3_draw_list;
     if (timeline_fb)
-        g_renderer2->destroy_texture(timeline_fb);
+        g_renderer->destroy_texture(timeline_fb);
 }
 
 void GuiTimeline::add_track() {
@@ -559,8 +559,8 @@ void GuiTimeline::render_track_lanes() {
         int width = (int)math::max(timeline_width, 16.0f);
         int height = (int)math::max(area_size.y, 16.0f);
         if (timeline_fb)
-            g_renderer2->destroy_texture(timeline_fb);
-        timeline_fb = g_renderer2->create_texture(GPUTextureUsage::Sampled | GPUTextureUsage::RenderTarget,
+            g_renderer->destroy_texture(timeline_fb);
+        timeline_fb = g_renderer->create_texture(GPUTextureUsage::Sampled | GPUTextureUsage::RenderTarget,
                                                   GPUFormat::UnormB8G8R8A8, width, height, true, 0, 0, nullptr);
         Log::info("Timeline framebuffer resized ({}x{})", (int)timeline_width, (int)area_size.y);
         old_timeline_size.x = timeline_width;
@@ -1030,7 +1030,7 @@ void GuiTimeline::render_track_lanes() {
 
         ImGuiViewport* owner_viewport = ImGui::GetWindowViewport();
 
-        g_renderer2->begin_render(timeline_fb, ImGui::GetStyleColorVec4(ImGuiCol_WindowBg));
+        g_renderer->begin_render(timeline_fb, ImGui::GetStyleColorVec4(ImGuiCol_WindowBg));
 
         layer_draw_data.Clear();
         layer_draw_data.DisplayPos = view_min;
@@ -1039,7 +1039,7 @@ void GuiTimeline::render_track_lanes() {
         layer_draw_data.FramebufferScale.y = 1.0f;
         layer_draw_data.OwnerViewport = owner_viewport;
         layer_draw_data.AddDrawList(layer1_draw_list);
-        g_renderer2->render_imgui_draw_data(&layer_draw_data);
+        g_renderer->render_imgui_draw_data(&layer_draw_data);
         gfx_draw_waveform_batch(clip_content_cmds, 0, 0, (int32_t)timeline_area.x, (int32_t)timeline_area.y);
         // g_renderer->draw_waveforms(clip_content_cmds);
 
@@ -1051,9 +1051,9 @@ void GuiTimeline::render_track_lanes() {
         layer_draw_data.OwnerViewport = owner_viewport;
         layer_draw_data.AddDrawList(layer2_draw_list);
         layer_draw_data.AddDrawList(layer3_draw_list);
-        g_renderer2->render_imgui_draw_data(&layer_draw_data);
+        g_renderer->render_imgui_draw_data(&layer_draw_data);
 
-        g_renderer2->end_render();
+        g_renderer->end_render();
     }
 
     // Release edit action

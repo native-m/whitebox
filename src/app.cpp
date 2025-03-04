@@ -4,7 +4,7 @@
 #include "engine/audio_io.h"
 #include "engine/engine.h"
 #include "engine/project.h"
-#include "gfx/renderer2.h"
+#include "gfx/renderer.h"
 #include "platform/platform.h"
 #include "plughost/plugin_manager.h"
 #include "ui/command_manager.h"
@@ -192,7 +192,7 @@ void app_init() {
 
 void app_render() {
     handle_scroll();
-    g_renderer2->begin_frame();
+    g_renderer->begin_frame();
     ImGui_ImplSDL2_NewFrame();
     ImGui::NewFrame();
 
@@ -282,13 +282,13 @@ void app_render() {
     }
 
     ImGui::Render();
-    g_renderer2->begin_render(g_renderer2->main_vp->render_target, {0.0f, 0.0f, 0.0f, 1.0f});
-    g_renderer2->render_imgui_draw_data(ImGui::GetDrawData());
-    g_renderer2->end_render();
+    g_renderer->begin_render(g_renderer->main_vp->render_target, {0.0f, 0.0f, 0.0f, 1.0f});
+    g_renderer->render_imgui_draw_data(ImGui::GetDrawData());
+    g_renderer->end_render();
     ImGui::UpdatePlatformWindows();
     ImGui::RenderPlatformWindowsDefault();
-    g_renderer2->end_frame();
-    g_renderer2->present();
+    g_renderer->end_frame();
+    g_renderer->present();
 
     if (!g_file_drop.empty())
         g_file_drop.clear();
@@ -379,7 +379,7 @@ int SDLCALL event_watcher(void* userdata, SDL_Event* event) {
                         if (main_window_width != event->window.data1 || main_window_height != event->window.data2) {
                             main_window_width = event->window.data1;
                             main_window_height = event->window.data2;
-                            g_renderer2->resize_viewport(ImGui::GetMainViewport(),
+                            g_renderer->resize_viewport(ImGui::GetMainViewport(),
                                                          ImVec2((float)main_window_width, (float)main_window_height));
                             refresh = true;
                             last_resized = true;

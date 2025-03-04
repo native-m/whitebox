@@ -1,7 +1,7 @@
 #include "waveform_visual.h"
 #include "core/debug.h"
 #include "dsp/sample.h"
-#include "renderer2.h"
+#include "renderer.h"
 
 namespace wb {
 
@@ -169,7 +169,7 @@ static void summarize_for_mipmaps_impl(AudioFormat sample_format, size_t sample_
 
 WaveformVisual::~WaveformVisual() {
     for (auto& mipmap : mipmaps) {
-        g_renderer2->destroy_buffer(mipmap.data);
+        g_renderer->destroy_buffer(mipmap.data);
     }
 }
 
@@ -201,11 +201,11 @@ WaveformVisual* WaveformVisual::create(Sample* sample, WaveformVisualQuality qua
 
         size_t total_count = mip_data_count * sample->channels;
         size_t buffer_size = total_count * elem_size;
-        GPUBuffer* buffer = g_renderer2->create_buffer(GPUBufferUsage::Storage, buffer_size, false);
+        GPUBuffer* buffer = g_renderer->create_buffer(GPUBufferUsage::Storage, buffer_size, false);
         assert(buffer && "Cannot create buffer");
 
         // Upload/copy peak data to the buffer
-        void* upload_ptr = g_renderer2->begin_upload_data(buffer, buffer_size);
+        void* upload_ptr = g_renderer->begin_upload_data(buffer, buffer_size);
         switch (quality) {
             case WaveformVisualQuality::Low:
                 for (uint32_t i = 0; i < sample->channels; i++) {
@@ -224,7 +224,7 @@ WaveformVisual* WaveformVisual::create(Sample* sample, WaveformVisualQuality qua
                 }
                 break;
         }
-        g_renderer2->end_upload_data();
+        g_renderer->end_upload_data();
 
         mipmaps.push_back({
             .data = buffer,
@@ -259,7 +259,7 @@ void gfx_draw_waveform_batch(const Vector<WaveformDrawCmd>& commands, int32_t cl
     float vp_width = 2.0f / fb_width;
     float vp_height = 2.0f / fb_height;
 
-    g_renderer2->set_viewport((float)clip_x0, (float)clip_y0, fb_width, fb_height);
+    g_renderer->set_viewport((float)clip_x0, (float)clip_y0, fb_width, fb_height);
 
     for (auto& cmd : commands) {
         if (cmd.draw_count == 0)
@@ -291,22 +291,22 @@ void gfx_draw_waveform_batch(const Vector<WaveformDrawCmd>& commands, int32_t cl
             .sample_count = mip.count,
         };
 
-        g_renderer2->set_scissor(x0, y0, x1 - x0, y1 - y0);
-        g_renderer2->bind_storage_buffer(0, mip.data);
+        g_renderer->set_scissor(x0, y0, x1 - x0, y1 - y0);
+        g_renderer->bind_storage_buffer(0, mip.data);
 
         // Draw filling
-        g_renderer2->bind_pipeline(g_renderer2->waveform_fill);
-        g_renderer2->set_shader_parameter(sizeof(draw_cmd), &draw_cmd);
-        g_renderer2->draw(vertex_count, 0);
+        g_renderer->bind_pipeline(g_renderer->waveform_fill);
+        g_renderer->set_shader_parameter(sizeof(draw_cmd), &draw_cmd);
+        g_renderer->draw(vertex_count, 0);
 
         // Draw anti-aliasing fringe (maximum part)
-        g_renderer2->bind_pipeline(g_renderer2->waveform_aa);
-        g_renderer2->draw(vertex_count * 3, 0);
+        g_renderer->bind_pipeline(g_renderer->waveform_aa);
+        g_renderer->draw(vertex_count * 3, 0);
 
         // Draw anti-aliasing fringe (minimum part)
         draw_cmd.is_min = 1;
-        g_renderer2->set_shader_parameter(sizeof(draw_cmd), &draw_cmd);
-        g_renderer2->draw(vertex_count * 3, 0);
+        g_renderer->set_shader_parameter(sizeof(draw_cmd), &draw_cmd);
+        g_renderer->draw(vertex_count * 3, 0);
     }
 }
 
