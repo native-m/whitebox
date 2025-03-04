@@ -82,8 +82,8 @@ void GuiPluginManager::render() {
     }
 
     if (auto ret = confirm_dialog("Delete##delete_plugin_conf", "Are you sure you want to delete the selected plugins?",
-                                  ConfirmDialog::OkCancel)) {
-        if (ret == ConfirmDialog::Ok) {
+                                  ConfirmDialog::YesNo)) {
+        if (ret == ConfirmDialog::Yes) {
             delete_selected();
             force_refresh = true;
         }

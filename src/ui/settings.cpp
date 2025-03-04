@@ -23,7 +23,7 @@ static const char* buffer_sizes[] = {
 namespace wb {
 void GuiSettings::render() {
     ImGui::SetNextWindowSize(ImVec2(300.0f, 200.0f), ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("Settings", &g_timeline_window_open, ImGuiWindowFlags_NoDocking)) {
+    if (!ImGui::Begin("Settings", &g_settings_window_open, ImGuiWindowFlags_NoDocking)) {
         ImGui::End();
         return;
     }
