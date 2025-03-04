@@ -3,11 +3,11 @@
 template <typename Fn>
 struct __WBDefer {
     Fn defer_fn;
+    constexpr __WBDefer(Fn&& fn) : defer_fn(fn) {}
     constexpr __WBDefer(__WBDefer&&) = delete;
     constexpr __WBDefer(const __WBDefer&) = delete;
     constexpr __WBDefer& operator=(__WBDefer&&) = delete;
     constexpr __WBDefer& operator=(const __WBDefer&) = delete;
-    constexpr __WBDefer(Fn&& fn) : defer_fn(fn) {}
     constexpr ~__WBDefer() { defer_fn(); }
 };
 

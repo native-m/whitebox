@@ -9,6 +9,8 @@
 
 namespace wb {
 
+struct BrowserFilePayload;
+
 enum class TimelineEditAction {
     None,
     ClipMove,
@@ -41,6 +43,15 @@ struct SelectedClipRange {
     ClipQueryResult range;
 };
 
+struct ClipDrawCmd {
+    Clip* clip;
+    double min_pos_x;
+    double max_pos_x;
+    double content_offset;
+    float min_pos_y;
+    float max_pos_y;
+};
+
 struct GuiTimeline : public TimelineBase {
     bool force_redraw = false;
     uint32_t color_spin = 0;
@@ -49,6 +60,7 @@ struct GuiTimeline : public TimelineBase {
     ImDrawList* layer2_draw_list {}; // Clip controls
     ImDrawList* layer3_draw_list {}; // Drag & drop
     ImDrawData layer_draw_data;
+    Vector<ClipDrawCmd> clip_draw_cmd;
     Vector<WaveformDrawCmd> clip_content_cmds;
     GPUTexture* timeline_fb {};
 
@@ -66,6 +78,16 @@ struct GuiTimeline : public TimelineBase {
     float vscroll = 0.0f;
     float last_vscroll = 0.0f;
     float scroll_delta_y = 0.0f;
+
+    double beat_duration = 0.0;
+    double clip_scale = 0.0;
+    double sample_scale = 0.0;
+    double timeline_scroll_offset_x = 0.0;
+    float timeline_scroll_offset_x_f32 = 0.0;
+    bool has_deleted_clips = false;
+    bool dragging_file = false;
+    bool item_dropped = false;
+    BrowserFilePayload* drop_payload_data = {};
 
     TargetSelectionRange target_sel_range;
     Vector<SelectedClipRange> selected_clips;
@@ -105,6 +127,9 @@ struct GuiTimeline : public TimelineBase {
     void render_track_controls();
     void clip_context_menu();
     void render_track_lanes();
+    void render_track(Track* track, uint32_t id, bool hovering_track_rect, bool hovering_current_track,
+                      bool left_clicked, bool right_clicked, float offset_y, float track_pos_y, float next_pos_y,
+                      float timeline_end_x, double mouse_at_gridline);
     void select_range();
     void finish_edit_action();
     void recalculate_timeline_length();

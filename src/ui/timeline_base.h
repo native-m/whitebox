@@ -4,6 +4,7 @@
 
 namespace wb {
 struct TimelineBase {
+    double ppq = 0.0;
     double inv_ppq = 0.0;
     double playhead = 0.0;
     double last_hscroll = 0.0;
