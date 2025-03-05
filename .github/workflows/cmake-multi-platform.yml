@@ -107,6 +107,7 @@ jobs:
       run: >
         cmake --install ${{ steps.strings.outputs.build-output-dir }}
         --prefix ${{ github.workspace }}/install
+        --config ${{ matrix.build_type }}
         --component whitebox
 
     - name: Archive build artifact
