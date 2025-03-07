@@ -263,7 +263,7 @@ void GPURenderer::clear_state() {
     std::memset(current_texture, 0, sizeof(current_texture));
 }
 
-void init_renderer2(SDL_Window* window) {
+void init_renderer(SDL_Window* window) {
     Log::info("Initializing renderer...");
     g_renderer = GPURendererVK::create(window);
     if (!g_renderer)
@@ -283,7 +283,7 @@ void init_renderer2(SDL_Window* window) {
     platform_io.Renderer_SwapBuffers = imgui_renderer_swap_buffers;
 }
 
-void shutdown_renderer2() {
+void shutdown_renderer() {
     g_renderer->shutdown();
     delete g_renderer;
     ImGuiIO& io = ImGui::GetIO();

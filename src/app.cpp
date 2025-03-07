@@ -183,7 +183,7 @@ void app_init() {
 
     init_font_assets();
     apply_theme(ImGui::GetStyle());
-    init_renderer2(wm_get_main_window());
+    init_renderer(wm_get_main_window());
 
     g_cmd_manager.init(10);
     g_timeline.init();
@@ -325,7 +325,7 @@ void app_shutdown() {
     g_engine.clear_all();
     g_sample_table.shutdown();
     g_midi_table.shutdown();
-    shutdown_renderer2();
+    shutdown_renderer();
     shutdown_plugin_manager();
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
