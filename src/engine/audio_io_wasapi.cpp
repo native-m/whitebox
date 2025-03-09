@@ -326,8 +326,8 @@ bool ActiveDeviceWASAPI::init_stream(bool exclusive_mode, AudioDevicePeriod peri
         }
     } else {
         uint32_t buffer_size = period_to_buffer_size(period, sample_rate_value.first);
-        if (in_range(buffer_size, min_low_latency_buffer_size, max_low_latency_buffer_size) &&
-            is_multiple_of(buffer_size, low_latency_buffer_alignment)) {
+        if (math::in_range(buffer_size, min_low_latency_buffer_size, max_low_latency_buffer_size) &&
+            math::is_multiple_of(buffer_size, low_latency_buffer_alignment)) {
             // Use low-latency shared mode
             HRESULT result = client->InitializeSharedAudioStream(stream_flags, buffer_size,
                                                                  (const WAVEFORMATEX*)&shared_format, nullptr);

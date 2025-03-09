@@ -111,6 +111,16 @@ inline static constexpr bool near_equal_to_zero(T value, T eps = small_value<T>)
     return abs(value) < eps;
 }
 
+template <typename T>
+inline static constexpr bool in_range(T x, T min_val, T max_val) {
+    return (x >= min_val) && (x <= max_val);
+}
+
+template <typename T>
+inline static constexpr bool is_multiple_of(T x, T mult) {
+    return (x % mult) == 0;
+}
+
 } // namespace math
 
 template <typename T, typename V>
@@ -158,16 +168,6 @@ struct NonLinearRange {
 template <typename T>
 inline static constexpr bool is_pow_2(T x) {
     return (x != 0) && ((x & (x - 1)) == 0);
-}
-
-template <typename T>
-inline static constexpr bool in_range(T x, T min_val, T max_val) {
-    return (x >= min_val) && (x <= max_val);
-}
-
-template <typename T>
-inline static constexpr bool is_multiple_of(T x, T mult) {
-    return (x % mult) == 0;
 }
 
 inline static constexpr double samples_to_beat(size_t samples, double sample_rate, double beat_duration) {
