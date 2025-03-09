@@ -203,6 +203,15 @@ struct Vector {
         return *new_item;
     }
 
+    template <typename... Args>
+    inline T* emplace_back_raw() {
+        if (intern_.size == intern_.capacity) [[unlikely]]
+            reserve_internal_(grow_capacity_());
+        T* new_item = intern_.data + intern_.size;
+        intern_.size++;
+        return new_item;
+    }
+
     inline void push_front(const T& item)
         requires std::copy_constructible<T>
     {
