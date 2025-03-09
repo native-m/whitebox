@@ -70,6 +70,7 @@ CPMAddPackage(
     OPTIONS             "LEVELDB_INSTALL OFF"
                         "LEVELDB_BUILD_TESTS OFF"
                         "LEVELDB_BUILD_BENCHMARKS OFF"
+                        "CMAKE_CXX_STANDARD 11"
     EXCLUDE_FROM_ALL
 )
 

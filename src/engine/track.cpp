@@ -122,10 +122,10 @@ std::optional<ClipQueryResult> Track::query_clip_by_range(double min, double max
     }
 
     if (max > (*last)->min_time) {
-        last_offset = max - (*last)->min_time;
+        last_offset = max - (*last)->max_time;
     } else {
         last_clip--;
-        last_offset = max - clips[last_clip]->min_time;
+        last_offset = max - clips[last_clip]->max_time;
     }
 
     return ClipQueryResult {
