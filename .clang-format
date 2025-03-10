@@ -1,26 +1,24 @@
----
-Language: Cpp
-Standard: c++20
-UseTab: Never
-ContinuationIndentWidth: 4
-IndentWidth: 4
-IndentCaseLabels: true
-SortIncludes: Never
-ColumnLimit: 120
-AllowShortEnumsOnASingleLine: false
-AllowShortFunctionsOnASingleLine: InlineOnly
-PointerAlignment: Left
-ConstructorInitializerAllOnOneLineOrOnePerLine: true
-AlwaysBreakTemplateDeclarations: true
-SpaceBeforeCpp11BracedList: true
-BreakConstructorInitializers: AfterColon
-BraceWrapping:
-    AfterControlStatement: false
-    AfterEnum: false
-    AfterFunction: false
-    AfterClass: false
-    AfterStruct: false
-    AfterNamespace: true
-    AfterUnion: false
-    BeforeElse: false
-    SplitEmptyFunction: true
+BasedOnStyle: Google
+AlignAfterOpenBracket: AlwaysBreak
+AllowAllConstructorInitializersOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+AlignConsecutiveMacros: true
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+BracedInitializerIndentWidth: 2
+BreakBeforeBraces: Attach
+BinPackArguments: false
+BinPackParameters: false
+Cpp11BracedListStyle: false
+ColumnLimit: 125
+IndentWidth: 2
+NamespaceIndentation: None
+SpaceAfterTemplateKeyword: false
+SpaceBeforeCtorInitializerColon: true
+SpaceBeforeInheritanceColon: true
+SpaceBeforeParens: ControlStatements
+SpaceBeforeRangeBasedForLoopColon: true
+SpaceInEmptyBlock: true
+Standard: Latest
