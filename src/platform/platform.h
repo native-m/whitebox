@@ -1,11 +1,14 @@
 #pragma once
 
-#include "core/common.h"
-#include <SDL_video.h>
 #include <SDL_events.h>
+#include <SDL_video.h>
+
 #include <optional>
 
+#include "core/common.h"
+
 namespace wb {
+
 struct PluginInterface;
 
 void init_platform();
@@ -29,4 +32,4 @@ void wm_enable_relative_mouse_mode(bool relative_mode);
 void wm_get_relative_mouse_state(int* x, int* y);
 void wm_reset_relative_mouse_state();
 
-}; // namespace wb
+};  // namespace wb

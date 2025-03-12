@@ -193,8 +193,9 @@ void GuiBrowser::render() {
     static constexpr auto table_flags =
         ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY;
     auto default_item_spacing = ImGui::GetStyle().ItemSpacing;
+    auto table_size = ImGui::GetContentRegionAvail();
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(default_item_spacing.x, 0.0f));
-    if (ImGui::BeginTable("content_browser", 2, table_flags)) {
+    if (ImGui::BeginTable("content_browser", 2, table_flags, ImVec2(table_size.x, table_size.y - 50.0f))) {
         ImGui::TableSetupScrollFreeze(0, 1);
         ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_NoHide);
         ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 13.0f);

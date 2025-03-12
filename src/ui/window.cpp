@@ -8,7 +8,7 @@
 #include "plugin_mgr.h"
 #include "plugins.h"
 #include "settings.h"
-#include "timeline.h"
+#include "timeline2.h"
 
 #include <imgui_stdlib.h>
 
@@ -24,6 +24,7 @@ bool g_settings_window_open = false;
 bool g_plugin_mgr_window_open = false;
 bool g_env_editor_window_open = true;
 bool g_project_info_window_open = false;
+bool g_performance_counter_window_open = true;
 
 void project_info_window() {
     ImGui::SetNextWindowSize(ImVec2(300, 300), ImGuiCond_Once);
@@ -98,6 +99,18 @@ void asset_window() {
     controls::end_window();
 }
 
+void performance_counter_window() {
+    if (!controls::begin_window("Performance counter", &g_performance_counter_window_open)) {
+        controls::end_window();
+        return;
+    }
+
+    //double audio_processing_ticks = g_engine.perf_counter.load(std::memory_order_acquire);
+    //ImGui::Text("Audio processing: %lf", audio_processing_ticks);
+
+    controls::end_window();
+}
+
 void render_windows() {
     ImGui::ShowDemoWindow();
     controls::render_test_controls();
@@ -116,12 +129,13 @@ void render_windows() {
     if (g_mixer_window_open)
         g_mixer.render();
     if (g_timeline_window_open)
-        g_timeline.render();
+        g_timeline2.render();
     if (g_piano_roll_window_open)
         g_piano_roll.render();
     if (g_env_editor_window_open)
         g_env_window.render();
     if (g_project_info_window_open)
         project_info_window();
+    //performance_counter_window();
 }
 } // namespace wb

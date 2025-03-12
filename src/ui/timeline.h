@@ -40,6 +40,7 @@ struct TargetSelectionRange {
 struct SelectedClipRange {
     uint32_t track_id;
     float track_y;
+    bool has_clip_selected;
     ClipQueryResult range;
 };
 
@@ -47,9 +48,9 @@ struct ClipDrawCmd {
     Clip* clip;
     double min_pos_x;
     double max_pos_x;
-    double content_offset;
+    double start_offset;
     float min_pos_y;
-    float max_pos_y;
+    float height;
 };
 
 struct GuiTimeline : public TimelineBase {
@@ -89,7 +90,7 @@ struct GuiTimeline : public TimelineBase {
     bool item_dropped = false;
     BrowserFilePayload* drop_payload_data = {};
 
-    TargetSelectionRange target_sel_range;
+    TargetSelectionRange selection_range;
     Vector<SelectedClipRange> selected_clips;
     TimelineEditAction edit_action;
     bool scrolling = false;
@@ -130,7 +131,7 @@ struct GuiTimeline : public TimelineBase {
     void render_track(Track* track, uint32_t id, bool hovering_track_rect, bool hovering_current_track,
                       bool left_clicked, bool right_clicked, float offset_y, float track_pos_y, float next_pos_y,
                       float timeline_end_x, double mouse_at_gridline);
-    void select_range();
+    void query_selected_range();
     void finish_edit_action();
     void recalculate_timeline_length();
 

@@ -104,6 +104,56 @@ bool small_toggle_button(const char* str, bool* value, const ImVec4& toggled_col
     return ret;
 }
 
+// bool hsplitter(uint32_t id, float* size, float default_size, float min_size = 0.0f, float max_size = 0.0f) {
+//     return hsplitter(ImGui::GetID(id), size, default_size, min_size, max_size);
+// }
+
+bool hsplitter(ImGuiID id, float* size, float default_size, float min_size, float max_size, float width) {
+    ImGuiWindow* window = ImGui::GetCurrentWindow();
+    if (window->SkipItems)
+        return false;
+
+    ImGuiID real_id = ImGui::GetID(id);
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    ImVec2 cur_pos = ImGui::GetCursorScreenPos();
+    ImGuiStyle& style = ImGui::GetStyle();
+    ImGuiCol color = ImGuiCol_Separator;
+    const float splitter_padding = 2.0f;
+
+    width = (width == 0.0f) ? ImGui::GetWindowContentRegionMax().x : width;
+    ImRect bb(cur_pos, ImVec2(cur_pos.x + width, cur_pos.y + splitter_padding));
+    ImGui::ItemSize(ImVec2(width, splitter_padding));
+    if (!ImGui::ItemAdd(bb, real_id)) {
+        return false;
+    }
+
+    bool is_separator_hovered;
+    ImGui::ButtonBehavior(bb, real_id, &is_separator_hovered, nullptr, 0);
+    bool is_separator_active = ImGui::IsItemActive();
+
+    if (size) {
+        if (is_separator_hovered || is_separator_active) {
+            if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+                *size = default_size;
+            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
+        }
+
+        if (is_separator_active) {
+            auto drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left, 1.0f);
+            ImGui::ResetMouseDragDelta(ImGuiMouseButton_Left);
+            *size = std::clamp(*size + drag_delta.y, min_size, max_size);
+            color = ImGuiCol_SeparatorActive;
+        } else if (is_separator_hovered) {
+            color = ImGuiCol_SeparatorHovered;
+        }
+    }
+
+    draw_list->AddLine(ImVec2(cur_pos.x, cur_pos.y + 0.5f), ImVec2(cur_pos.x + width, cur_pos.y + 0.5f),
+                       ImGui::GetColorU32(color), 2.0f);
+
+    return is_separator_active;
+}
+
 bool param_drag_db(const char* str_id, float* value, float speed, float min_db, float max_db, const char* format,
                    ImGuiSliderFlags flags) {
     char tmp[16] {};
@@ -163,7 +213,7 @@ bool mixer_label(const char* caption, const float height, const ImColor& color) 
     draw_list->AddRectFilled(bb.Min, ImVec2(bb.Max.x - 3.0f, bb.Max.y), ImGui::GetColorU32(ImGuiCol_FrameBg));
     draw_list->AddRectFilled(ImVec2(bb.Max.x - 3.0f, bb.Min.y), bb.Max, header_color);
     im_draw_vertical_text(draw_list, caption, ImVec2(bb.Min.x + 2.0f, bb.Max.y - 4.0f), ImVec4(),
-                       ImGui::GetColorU32(ImGuiCol_Text));
+                          ImGui::GetColorU32(ImGuiCol_Text));
 
     return true;
 }

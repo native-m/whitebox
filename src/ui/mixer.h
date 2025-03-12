@@ -2,8 +2,8 @@
 
 namespace wb {
 struct GuiMixer {
-    void render();
+  void render();
 };
 
 extern GuiMixer g_mixer;
-} // namespace wb
+}  // namespace wb

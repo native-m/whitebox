@@ -4,11 +4,11 @@
 
 namespace wb {
 struct AppEvent {
-    static uint32_t audio_device_removed_event;
+  static uint32_t audio_device_removed_event;
 };
 
 extern void app_init();
 extern void app_run_loop();
 extern void app_push_event(uint32_t event_type, void* data, size_t size);
 extern void app_shutdown();
-} // namespace wb
+}  // namespace wb

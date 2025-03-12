@@ -41,7 +41,7 @@ void pm_fetch_registered_plugins(const std::string& name_search, void* userdata,
 void pm_update_plugin_info(const PluginInfo& info);
 void pm_delete_plugin(uint8_t plugin_uid[16]);
 void pm_scan_plugins();
-void register_builtin_plugins();
+void pm_register_builtin_plugins();
 
 PluginInterface* pm_open_plugin(PluginUID uid);
 void pm_close_plugin(PluginInterface* handle);

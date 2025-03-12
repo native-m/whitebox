@@ -9,6 +9,11 @@
 
 namespace wb::controls {
 
+template <typename T, typename Fn>
+concept ControlWrapper = requires(T val, Fn&& wrapper) {
+    { wrapper(&val) } -> std::convertible_to<bool>;
+};
+
 enum class SliderGrabShape {
     Circle,
     Rectangle
@@ -43,8 +48,17 @@ struct KnobProperties {
     bool bipolar = false;
 };
 
+struct WbPrivateState {};
+
 static float get_item_height() {
     return GImGui->FontSize + GImGui->Style.FramePadding.y * 2.0f + GImGui->Style.ItemSpacing.y;
+}
+
+template <typename T, typename Fn>
+    requires ControlWrapper<T, Fn>
+static void parameter_control(T* value, const char* parameter_name, Fn&& wrapper) {
+    if (wrapper(value)) {
+    }
 }
 
 static bool collapse_button(const char* str_id, bool* shown) {
@@ -78,58 +92,6 @@ static bool collapse_button(const char* str_id, bool* shown) {
     // draw_list->AddRect(bb.Min, bb.Max, ImGui::GetColorU32(ImGuiCol_PlotLines));
 
     return pressed;
-}
-
-template <typename T>
-static bool resizable_horizontal_separator(T id, float* size, float default_size, float min_size = 0.0f,
-                                           float max_size = 0.0f) {
-    ImGuiWindow* window = ImGui::GetCurrentWindow();
-    if (window->SkipItems)
-        return false;
-
-    ImVec2 region_avail = ImGui::GetWindowContentRegionMax();
-    ImDrawList* draw_list = ImGui::GetWindowDrawList();
-    ImVec2 cur_pos = ImGui::GetCursorScreenPos();
-    ImGuiStyle& style = ImGui::GetStyle();
-    ImGuiCol color = ImGuiCol_Separator;
-    const float separator_pad = 2.0f;
-
-    ImGui::PushID(id);
-
-    ImGuiID item_id = window->GetID("");
-    ImRect bb(cur_pos, ImVec2(cur_pos.x + region_avail.x, cur_pos.y + separator_pad));
-    ImGui::ItemSize(ImVec2(region_avail.x, separator_pad));
-    if (!ImGui::ItemAdd(bb, item_id)) {
-        ImGui::PopID();
-        return false;
-    }
-
-    bool is_separator_hovered;
-    ImGui::ButtonBehavior(bb, item_id, &is_separator_hovered, nullptr, 0);
-    bool is_separator_active = ImGui::IsItemActive();
-
-    if (size) {
-        if (is_separator_hovered || is_separator_active) {
-            if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
-                *size = default_size;
-            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
-        }
-
-        if (is_separator_active) {
-            auto drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left, 1.0f);
-            ImGui::ResetMouseDragDelta(ImGuiMouseButton_Left);
-            *size = std::clamp(*size + drag_delta.y, min_size, max_size);
-            color = ImGuiCol_SeparatorActive;
-        } else if (is_separator_hovered) {
-            color = ImGuiCol_SeparatorHovered;
-        }
-    }
-
-    draw_list->AddLine(ImVec2(cur_pos.x, cur_pos.y + 0.5f), ImVec2(cur_pos.x + region_avail.x, cur_pos.y + 0.5f),
-                       ImGui::GetColorU32(color), 2.0f);
-
-    ImGui::PopID();
-    return is_separator_active;
 }
 
 template <typename T, typename Range>
@@ -300,7 +262,7 @@ static bool knob(const KnobProperties& props, const char* str_id, const ImVec2& 
     const float dir_y = std::sin(angle);
     const float min_radius = body_radius * props.pointer_min_len;
     const float max_radius = body_radius * props.pointer_max_len;
-    const ImVec2 center = pos + size * ImVec2(0.5f, 0.5f);
+    const ImVec2 center = pos + size * 0.5f;
     ImDrawList* dl = window->DrawList;
 
     if (props.body_size < 1.0f && (props.arc_bg_color != 0 || props.arc_color != 0)) {
@@ -358,8 +320,8 @@ static bool knob(const KnobProperties& props, const char* str_id, const ImVec2& 
     }
     if (props.pointer_color != 0) {
         im_draw_line_segment(dl, center + ImVec2(dir_x * min_radius, dir_y * min_radius),
-                          center + ImVec2(dir_x * max_radius, dir_y * max_radius), props.pointer_color,
-                          props.pointer_thickness);
+                             center + ImVec2(dir_x * max_radius, dir_y * max_radius), props.pointer_color,
+                             props.pointer_thickness);
     }
 
     if (held) {
@@ -382,6 +344,8 @@ void song_position();
 void item_tooltip(const char* str);
 bool toggle_button(const char* str, bool* value, const ImVec4& toggled_color, const ImVec2& size = ImVec2());
 bool small_toggle_button(const char* str, bool* value, const ImVec4& toggled_color);
+bool hsplitter(ImGuiID id, float* size, float default_size, float min_size = 0.0f, float max_size = 0.0f,
+               float width = 0.0f);
 bool param_drag_db(const char* str_id, float* value, float speed = 0.1f, float min_db = -72.0f, float max_db = 6.0f,
                    const char* format = "%.2fdB", ImGuiSliderFlags flags = ImGuiSliderFlags_Vertical);
 bool param_drag_panning(const char* str_id, float* value, float speed = 1.0f,
@@ -392,7 +356,6 @@ bool mixer_label(const char* caption, const float height, const ImColor& color);
 void level_meter_options();
 void level_meter(const char* str_id, const ImVec2& size, uint32_t count, VUMeter* channels,
                  LevelMeterColorMode color_mode, bool border = true);
-
 
 void render_test_controls();
 extern bool g_test_control_shown;

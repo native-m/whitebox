@@ -7,6 +7,7 @@
 #endif
 #include <D3dkmthk.h>
 #include <ntstatus.h>
+#include <dwmapi.h>
 #endif
 
 namespace wb {
@@ -52,6 +53,7 @@ struct VsyncProviderWin32 : public VsyncProvider {
     virtual void wait_for_vblank() override {
         if (available) {
             D3DKMTWaitForVerticalBlankEvent(&wait_vblank);
+            //DwmFlush();
         } else {
             VsyncProvider::wait_for_vblank();
         }

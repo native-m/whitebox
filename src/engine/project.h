@@ -3,7 +3,7 @@
 #include "assets_table.h"
 #include "core/common.h"
 #include "engine.h"
-#include "ui/timeline.h"
+#include "ui/timeline2.h"
 #include <filesystem>
 #include <unordered_map>
 
@@ -97,9 +97,9 @@ enum class ProjectFileResult {
 
 ProjectFileResult read_project_file(const std::filesystem::path& filepath, Engine& engine,
                                     SampleTable& sample_table, MidiTable& midi_table,
-                                    GuiTimeline& timeline);
+                                    GuiTimeline2& timeline);
 ProjectFileResult write_project_file(const std::filesystem::path& filepath, Engine& engine,
                                      SampleTable& sample_table, MidiTable& midi_table,
-                                     GuiTimeline& timeline);
+                                     GuiTimeline2& timeline);
 
 } // namespace wb

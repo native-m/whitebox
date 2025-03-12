@@ -240,6 +240,7 @@ WaveformVisual* WaveformVisual::create(Sample* sample, WaveformVisualQuality qua
     ret->sample_count = sample->count;
     ret->mipmap_count = mipmaps.size();
     ret->channels = sample->channels;
+    ret->sample_rate = sample->sample_rate;
     ret->quality = quality;
     ret->cpu_accessible = false;
     ret->mipmaps = std::move(mipmaps);

@@ -19,4 +19,4 @@ void load_default_settings();
 void save_settings_data();
 void start_audio_engine();
 
-} // namespace wb
+}  // namespace wb

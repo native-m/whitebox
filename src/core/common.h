@@ -2,11 +2,12 @@
 
 #define NOMINMAX
 
-#include "platform_def.h"
-#include <cstdlib>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <cassert>
+#include <cstdlib>
+
+#include "platform_def.h"
 
 #if defined(_MSC_VER) && !defined(__clang__)
 #define WB_UNREACHABLE() __assume(false)

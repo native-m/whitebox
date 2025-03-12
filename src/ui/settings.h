@@ -4,8 +4,8 @@
 
 namespace wb {
 struct GuiSettings {
-    void render();
+  void render();
 };
 
 extern GuiSettings g_settings;
-} // namespace wb
+}  // namespace wb
