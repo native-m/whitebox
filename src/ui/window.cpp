@@ -8,7 +8,7 @@
 #include "plugin_mgr.h"
 #include "plugins.h"
 #include "settings.h"
-#include "timeline2.h"
+#include "timeline.h"
 
 #include <imgui_stdlib.h>
 
@@ -129,7 +129,7 @@ void render_windows() {
     if (g_mixer_window_open)
         g_mixer.render();
     if (g_timeline_window_open)
-        g_timeline2.render();
+        g_timeline.render();
     if (g_piano_roll_window_open)
         g_piano_roll.render();
     if (g_env_editor_window_open)

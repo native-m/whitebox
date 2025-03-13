@@ -1,148 +1,199 @@
 #pragma once
 
-#include "core/common.h"
+#include <imgui.h>
+
 #include "engine/track.h"
 #include "gfx/renderer.h"
-#include "ui/timeline_base.h"
-#include <imgui.h>
-#include <memory>
+#include "plughost/plugin_interface.h"
+#include "timeline_base.h"
 
 namespace wb {
 
-struct BrowserFilePayload;
-
 enum class TimelineEditAction {
-    None,
-    ClipMove,
-    ClipResizeLeft,
-    ClipResizeRight,
-    ClipShiftLeft,
-    ClipShiftRight,
-    ClipShift,
-    ClipDuplicate,
-    ClipAdjustGain,
-    ShowClipContextMenu,
+  None,
+  ClipMove,
+  ClipResizeLeft,
+  ClipResizeRight,
+  ClipShiftLeft,
+  ClipShiftRight,
+  ClipShift,
+  ClipDuplicate,
+  ClipAdjustGain,
+  ShowClipContextMenu,
 };
 
-struct SelectionRange {
-    Track* track;
-    double min;
-    double max;
-};
-
-struct TargetSelectionRange {
-    uint32_t first_track;
-    uint32_t last_track;
-    double min;
-    double max;
-};
-
-struct SelectedClipRange {
-    uint32_t track_id;
-    float track_y;
-    bool has_clip_selected;
-    ClipQueryResult range;
+enum class ClipSelectStatus {
+  NotSelected,
+  Selected,
+  PartiallySelected,
 };
 
 struct ClipDrawCmd {
-    Clip* clip;
-    double min_pos_x;
-    double max_pos_x;
-    double start_offset;
-    float min_pos_y;
-    float height;
+  ClipType type;
+  ClipHover hover_state;
+  Clip* clip;
+  double start_offset;
+  double min_pos_x;
+  double max_pos_x;
+  float min_pos_y;
+  float height;
+  float gain;
+  bool always_on_top;
+  union {
+    WaveformVisual* audio;
+    MidiData* midi;
+  };
+};
+
+struct SelectedClipRange {
+  uint32_t track_id;
+  float track_y;
+  bool has_clip_selected;
+  ClipQueryResult range;
+
+  bool right_side_partially_selected(uint32_t id) const {
+    return range.first == id && range.first_offset > 0.0;
+  }
+
+  bool left_side_partially_selected(uint32_t id) const {
+    return range.last == id && range.last_offset < 0.0;
+  }
+
+  ClipSelectStatus is_clip_selected(uint32_t id) {
+    if (math::in_range(id, range.first, range.last)) {
+      if (id == range.first && range.first_offset > 0.0) {
+        return ClipSelectStatus::PartiallySelected;
+      }
+      if (id == range.last && range.last_offset < 0.0) {
+        return ClipSelectStatus::PartiallySelected;
+      }
+      return ClipSelectStatus::Selected;
+    }
+    return ClipSelectStatus::NotSelected;
+  }
+};
+
+struct ClipResizeInfo {
+  bool should_resize;
+  uint32_t clip_id;
 };
 
 struct GuiTimeline : public TimelineBase {
-    bool force_redraw = false;
-    uint32_t color_spin = 0;
-    ImDrawList* main_draw_list {};
-    ImDrawList* layer1_draw_list {}; // Clip header & background
-    ImDrawList* layer2_draw_list {}; // Clip controls
-    ImDrawList* layer3_draw_list {}; // Drag & drop
-    ImDrawData layer_draw_data;
-    Vector<ClipDrawCmd> clip_draw_cmd;
-    Vector<WaveformDrawCmd> clip_content_cmds;
-    GPUTexture* timeline_fb {};
+  static constexpr uint32_t highlight_color = 0x9F555555;
+  static constexpr float track_separator_height = 2.0f;
 
-    ImVec2 window_origin;
-    ImVec2 timeline_view_pos;
-    ImVec2 content_min;
-    ImVec2 content_max;
-    ImVec2 area_size;
-    ImVec2 old_timeline_size;
-    ImVec2 last_mouse_pos;
+  double beat_duration;
 
-    double initial_time_pos = 0.0;
-    float current_value = 0.0f;
-    uint32_t initial_track_id = 0;
-    float vscroll = 0.0f;
-    float last_vscroll = 0.0f;
-    float scroll_delta_y = 0.0f;
+  ImU32 text_color{};
+  ImU32 text_transparent_color{};
+  ImU32 splitter_color{};
+  ImU32 splitter_hover_color{};
+  ImU32 splitter_active_color{};
 
-    double beat_duration = 0.0;
-    double clip_scale = 0.0;
-    double sample_scale = 0.0;
-    double timeline_scroll_offset_x = 0.0;
-    float timeline_scroll_offset_x_f32 = 0.0;
-    bool has_deleted_clips = false;
-    bool dragging_file = false;
-    bool item_dropped = false;
-    BrowserFilePayload* drop_payload_data = {};
+  GPUTexture* timeline_fb{};
+  ImDrawList* main_draw_list;
+  ImDrawList* layer1_draw_list;
+  ImDrawList* layer2_draw_list;
+  ImDrawList* layer3_draw_list;
+  ImDrawData layer_draw_data;
+  Vector<ClipDrawCmd> clip_draw_cmd;
+  Vector<WaveformDrawCmd> waveform_cmds;
 
-    TargetSelectionRange selection_range;
-    Vector<SelectedClipRange> selected_clips;
-    TimelineEditAction edit_action;
-    bool scrolling = false;
-    bool zooming = false;
-    bool selecting_range = false;
-    bool range_selected = false;
+  ImFont* font;
+  uint32_t color_spin = 0;
+  uint32_t initial_track_id = 0;
+  float mouse_wheel = 0.0f;
+  float mouse_wheel_h = 0.0f;
+  float font_size = 0.0f;
+  float vsplitter_default_size = 150.0f;
+  float vscroll = 0.0f;
+  float last_vscroll = 0.0f;
+  float scroll_delta_y = 0.0f;
+  float timeline_scroll_offset_x_f32;
+  float timeline_bounds_min_x;
+  float timeline_bounds_min_y;
+  float timeline_bounds_max_x;
+  float current_value = 0.0f;
+  double timeline_scroll_offset_x;
+  double clip_scale = 0.0;
+  double initial_time_pos = 0.0;
+  ImVec2 mouse_pos;
+  ImVec2 content_min;
+  ImVec2 content_max;
+  ImVec2 content_size;
+  ImVec2 timeline_view_pos;
+  ImVec2 old_timeline_size;
 
-    Track* edited_track {};
-    Clip* edited_clip {};
-    std::optional<uint32_t> edited_track_id {};
-    float edited_track_pos_y;
-    double edited_clip_min_time;
-    double edited_clip_max_time;
+  Vector<SelectedClipRange> selected_clip_ranges;
+  uint32_t first_selected_track = 0;
+  uint32_t last_selected_track = 0;
+  float first_selected_track_pos_y = 0.0;
+  double selection_start_pos;
+  double selection_end_pos;
 
-    Track* hovered_track {};
-    std::optional<uint32_t> hovered_track_id {};
-    float hovered_track_y = 0.0f;
-    float hovered_track_height = 60.0f;
+  bool force_redraw = false;
+  bool has_deleted_clips = false;
+  bool selecting_range = false;
+  bool range_selected = false;
+  bool scrolling = false;
+  bool timeline_window_focused = false;
+  bool edit_selected = false;
+  bool left_mouse_clicked = false;
+  bool left_mouse_down = false;
+  bool middle_mouse_clicked = false;
+  bool middle_mouse_down = false;
+  bool right_mouse_clicked = false;
+  bool holding_shift = false;
+  bool holding_ctrl = false;
+  bool holding_alt = false;
 
-    // Context menu stuff...
-    std::optional<uint32_t> context_menu_track_id {};
-    Track* context_menu_track {};
-    Clip* context_menu_clip {};
-    ImColor tmp_color;
-    std::string tmp_name;
+  TimelineEditAction edit_action{};
+  Track* edited_track{};
+  Clip* edited_clip{};
+  std::optional<int32_t> edit_src_track_id{};
+  float edited_track_pos_y;
+  Vector<ClipResizeInfo> clip_resize;
 
-    static constexpr uint32_t playhead_color = 0xE553A3F9;
+  Track* hovered_track{};
+  std::optional<int32_t> hovered_track_id{};
+  float hovered_track_y = 0.0f;
+  float hovered_track_height = 60.0f;
 
-    void init();
-    void shutdown();
-    void add_track();
-    void reset();
-    void render();
-    void render_separator();
-    void render_track_controls();
-    void clip_context_menu();
-    void render_track_lanes();
-    void render_track(Track* track, uint32_t id, bool hovering_track_rect, bool hovering_current_track,
-                      bool left_clicked, bool right_clicked, float offset_y, float track_pos_y, float next_pos_y,
-                      float timeline_end_x, double mouse_at_gridline);
-    void query_selected_range();
-    void finish_edit_action();
-    void recalculate_timeline_length();
+  Track* context_menu_track{};
+  uint32_t context_menu_track_id{};
+  Clip* context_menu_clip{};
+  ImColor tmp_color;
+  std::string tmp_name;
 
-    void draw_clip(const Clip* clip, float timeline_width, float offset_y, float min_draw_x, double min_x, double max_x,
-                   double clip_scale, double sample_scale, double start_offset, float track_pos_y, float track_height,
-                   float gain, const ImColor& track_color, const ImColor& text_color, ImFont* font);
+  void init();
+  void shutdown();
+  void reset();
+  void render();
+  void render_splitter();
+  void render_track_controls();
+  void render_track_lanes();
+  void render_track(
+      Track* track,
+      uint32_t id,
+      float track_pos_y,
+      double mouse_at_gridline,
+      bool track_hovered,
+      bool is_mouse_in_selection_range);
+  void render_edited_clips(double mouse_at_gridline);
+  void render_clip(Clip* clip, double min_time, double max_time, double start_offset, float track_pos_y, float height);
+  void draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sample_scale, float offset_y);
+  void query_selected_range();
+  bool prepare_resize_for_selected_range(Clip* clip, bool dir);
+  float get_track_position_y(uint32_t id);
+  void recalculate_song_length();
+  void finish_edit();
+  void add_track();
+  void add_plugin(Track* track, PluginUID uid);
 
-    void draw_clip_overlay(ImVec2 pos, float size, float alpha, const ImColor& col, const char* caption);
-
-    inline void redraw_screen() { force_redraw = true; }
+  inline void redraw_screen() {
+    force_redraw = true;
+  }
 };
 
 extern GuiTimeline g_timeline;
-} // namespace wb
+}  // namespace wb

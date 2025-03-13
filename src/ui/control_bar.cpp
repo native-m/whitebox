@@ -13,7 +13,7 @@
 #include "engine/project.h"
 #include "file_dialog.h"
 #include "font.h"
-#include "timeline2.h"
+#include "timeline.h"
 #include "window.h"
 
 namespace wb {
@@ -131,7 +131,7 @@ void main_control_bar() {
   if (ImGui::Button(!is_playing ? ICON_MS_PLAY_ARROW "##wb_play" : ICON_MS_PAUSE "##wb_play")) {
     if (is_playing) {
       if (g_engine.recording)
-        g_timeline2.redraw_screen();
+        g_timeline.redraw_screen();
       g_engine.stop();
     } else {
       g_engine.play();
@@ -140,7 +140,7 @@ void main_control_bar() {
   ImGui::SameLine(0.0f, 4.0f);
   if (ImGui::Button(ICON_MS_STOP "##wb_stop")) {
     if (g_engine.recording)
-      g_timeline2.redraw_screen();
+      g_timeline.redraw_screen();
     g_engine.stop();
   }
   ImGui::SameLine(0.0f, 4.0f);
@@ -150,7 +150,7 @@ void main_control_bar() {
     if (!is_recording) {
       g_engine.record();
     } else {
-      g_timeline2.redraw_screen();
+      g_timeline.redraw_screen();
       g_engine.stop_record();
     }
   }
@@ -232,29 +232,29 @@ void main_control_bar() {
     shutdown_audio_io();
     g_engine.clear_all();
     g_cmd_manager.reset(true);
-    g_timeline2.reset();
-    g_timeline2.add_track();
-    g_timeline2.recalculate_song_length();
-    g_timeline2.redraw_screen();
+    g_timeline.reset();
+    g_timeline.add_track();
+    g_timeline.recalculate_song_length();
+    g_timeline.redraw_screen();
     start_audio_engine();
   } else if (open_project) {
     if (auto file = open_file_dialog({ { "Whitebox Project File", "wb" } })) {
       shutdown_audio_io();
       g_engine.clear_all();
       g_cmd_manager.reset(true);
-      auto result = read_project_file(file.value(), g_engine, g_sample_table, g_midi_table, g_timeline2);
+      auto result = read_project_file(file.value(), g_engine, g_sample_table, g_midi_table, g_timeline);
       if (result != ProjectFileResult::Ok) {
         Log::error("Failed to open project {}", (uint32_t)result);
         assert(false);
       }
-      g_timeline2.recalculate_song_length();
-      g_timeline2.redraw_screen();
+      g_timeline.recalculate_song_length();
+      g_timeline.redraw_screen();
       start_audio_engine();
     }
   } else if (save_project) {
     if (auto file = save_file_dialog({ { "Whitebox Project File", "wb" } })) {
       shutdown_audio_io();
-      auto result = write_project_file(file.value(), g_engine, g_sample_table, g_midi_table, g_timeline2);
+      auto result = write_project_file(file.value(), g_engine, g_sample_table, g_midi_table, g_timeline);
       if (result != ProjectFileResult::Ok) {
         Log::error("Failed to open project {}", (uint32_t)result);
         assert(false);

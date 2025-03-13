@@ -20,7 +20,7 @@
 #include "ui/file_dialog.h"
 #include "ui/file_dropper.h"
 #include "ui/font.h"
-#include "ui/timeline2.h"
+#include "ui/timeline.h"
 #include "ui/window.h"
 
 using namespace std::literals::chrono_literals;
@@ -178,7 +178,7 @@ void app_init() {
   init_renderer(wm_get_main_window());
 
   g_cmd_manager.init(10);
-  g_timeline2.init();
+  g_timeline.init();
   g_engine.set_bpm(150.0f);
 }
 
@@ -225,7 +225,7 @@ void app_render() {
   if (!ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Space)) {
     if (is_playing) {
       g_engine.stop();
-      g_timeline2.redraw_screen();
+      g_timeline.redraw_screen();
     } else {
       g_engine.play();
     }
@@ -253,7 +253,7 @@ void app_render() {
       case ConfirmDialog::Yes:
         if (auto file = save_file_dialog({ { "Whitebox Project File", "wb" } })) {
           shutdown_audio_io();
-          auto result = write_project_file(file.value(), g_engine, g_sample_table, g_midi_table, g_timeline2);
+          auto result = write_project_file(file.value(), g_engine, g_sample_table, g_midi_table, g_timeline);
           if (result != ProjectFileResult::Ok) {
             Log::error("Failed to open project {}", (uint32_t)result);
             assert(false);
@@ -305,7 +305,7 @@ void app_shutdown() {
   Log::info("Closing application...");
   wm_close_all_plugin_window();
   save_settings_data();
-  g_timeline2.shutdown();
+  g_timeline.shutdown();
   shutdown_audio_io();
   g_cmd_manager.reset();
   g_engine.clear_all();
