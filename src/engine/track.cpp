@@ -263,7 +263,7 @@ void Track::process_event(
   }
 
   uint32_t num_clips = (uint32_t)clips.size();
-  if (event_state.refresh_voice) [[unlikely]] {
+  [[unlikely]] if (event_state.refresh_voice) {
     std::optional<uint32_t> clip_at_playhead = find_next_clip(start_time);
     // TODO: Skip if refreshing the same clip
     if (clip_at_playhead) {
@@ -367,7 +367,7 @@ void Track::process_event(
         event_state.midi_note_idx = clip->midi.asset->find_first_note(actual_start_offset, 0);
       }
       clip->start_offset_changed = false;
-    } else if (clip->start_offset_changed && event_state.partially_ended) [[unlikely]] {
+    } else [[unlikely]] if (clip->start_offset_changed && event_state.partially_ended) {
       double relative_start_time = start_time - min_time;
       if (is_audio) {
         double sample_pos = beat_to_samples(relative_start_time, sample_rate, beat_duration);
