@@ -172,6 +172,7 @@ struct GuiTimeline : public TimelineBase {
   void render();
   void render_splitter();
   void render_track_controls();
+  void render_clip_context_menu();
   void render_track_lanes();
   void render_track(
       Track* track,
@@ -181,8 +182,17 @@ struct GuiTimeline : public TimelineBase {
       bool track_hovered,
       bool is_mouse_in_selection_range);
   void render_edited_clips(double mouse_at_gridline);
-  void render_clip(Clip* clip, double min_time, double max_time, double start_offset, float track_pos_y, float height, bool layer2 = false);
+  void render_clip(
+      Clip* clip,
+      double min_time,
+      double max_time,
+      double start_offset,
+      float track_pos_y,
+      float height,
+      bool layer2 = false);
   void draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sample_scale, float offset_y);
+  void draw_clip_overlay(ImVec2 pos, float size, float alpha, const ImColor& col, const char* caption);
+  void finish_edit_action();
   void query_selected_range();
   bool prepare_resize_for_selected_range(Clip* clip, bool dir);
   float get_track_position_y(uint32_t id);

@@ -6,6 +6,7 @@
 #include "controls.h"
 #include "core/color.h"
 #include "core/debug.h"
+#include "dialogs.h"
 #include "engine/engine.h"
 #include "plugins.h"
 #include "window.h"
@@ -428,6 +429,113 @@ void GuiTimeline::render_track_controls() {
   ImGui::PopStyleVar();
 }
 
+void GuiTimeline::render_clip_context_menu() {
+  bool open_rename_popup = false;
+  bool open_change_color_popup = false;
+
+  if (ImGui::BeginPopup("clip_context_menu")) {
+    if (ImGui::MenuItem("Rename"))
+      open_rename_popup = true;
+
+    if (ImGui::MenuItem("Change color"))
+      open_change_color_popup = true;
+
+    ImGui::Separator();
+
+    if (!context_menu_clip->is_active()) {
+      if (ImGui::MenuItem("Activate Clip")) {
+        context_menu_clip->set_active(true);
+        force_redraw = true;
+      }
+    } else {
+      if (ImGui::MenuItem("Deactivate Clip")) {
+        context_menu_clip->set_active(false);
+        force_redraw = true;
+      }
+    }
+
+    if (ImGui::MenuItem("Delete")) {
+      double beat_duration = g_engine.get_beat_duration();
+      ClipDeleteCmd* cmd = new ClipDeleteCmd();
+      cmd->track_id = context_menu_track_id;
+      cmd->clip_id = context_menu_clip->id;
+      g_cmd_manager.execute("Delete Clip", cmd);
+      recalculate_song_length();
+      force_redraw = true;
+    }
+
+    if (ImGui::MenuItem("Duplicate")) {
+      // TODO
+      force_redraw = true;
+    }
+
+    ImGui::EndPopup();
+  }
+
+  if (open_rename_popup) {
+    ImGui::OpenPopup("rename_clip");
+  }
+
+  if (open_change_color_popup) {
+    ImGui::OpenPopup("change_clip_color");
+  }
+
+  if (context_menu_clip) {
+    bool cleanup = false;
+
+    if (auto ret = rename_dialog("rename_clip", tmp_name, &context_menu_clip->name)) {
+      switch (ret) {
+        case ConfirmDialog::ValueChanged: force_redraw = true; break;
+        case ConfirmDialog::Ok: {
+          ClipRenameCmd* cmd = new ClipRenameCmd();
+          cmd->track_id = context_menu_track_id;
+          cmd->clip_id = context_menu_clip->id;
+          cmd->old_name = tmp_name;
+          cmd->new_name = context_menu_clip->name;
+          g_cmd_manager.execute("Rename clip", cmd);
+          force_redraw = true;
+          cleanup = true;
+          break;
+        }
+        case ConfirmDialog::Cancel:
+          force_redraw = true;
+          cleanup = true;
+          break;
+        case ConfirmDialog::None: break;
+        default: break;
+      }
+    }
+
+    if (auto ret = color_picker_dialog("change_clip_color", tmp_color, &context_menu_clip->color)) {
+      switch (ret) {
+        case ConfirmDialog::ValueChanged: force_redraw = true; break;
+        case ConfirmDialog::Ok: {
+          ClipChangeColorCmd* cmd = new ClipChangeColorCmd();
+          cmd->track_id = context_menu_track_id;
+          cmd->clip_id = context_menu_clip->id;
+          cmd->old_color = tmp_color;
+          cmd->new_color = context_menu_clip->color;
+          g_cmd_manager.execute("Change clip color", cmd);
+          force_redraw = true;
+          cleanup = true;
+          break;
+        }
+        case ConfirmDialog::Cancel:
+          force_redraw = true;
+          cleanup = true;
+          break;
+        case ConfirmDialog::None: break;
+        default: break;
+      }
+    }
+
+    if (cleanup) {
+      context_menu_clip = nullptr;
+      context_menu_track = nullptr;
+    }
+  }
+}
+
 void GuiTimeline::render_track_lanes() {
   ImGui::SetCursorScreenPos(timeline_view_pos);
   const float offset_y = vscroll + timeline_view_pos.y;
@@ -519,44 +627,45 @@ void GuiTimeline::render_track_lanes() {
   }
 
   bool dragging = false;
-  if (edit_action != TimelineEditAction::None && edit_action != TimelineEditAction::ClipAdjustGain || dragging_file ||
-      selecting_range) {
-    static constexpr float speed = 0.1f;
-    static constexpr float drag_offset_x = 20.0f;
-    static constexpr float drag_offset_y = 40.0f;
-    float min_offset_x;
-    float max_offset_x;
-    float min_offset_y;
-    float max_offset_y;
+  if (edit_action != TimelineEditAction::None || dragging_file || selecting_range) {
+    if (edit_action != TimelineEditAction::ClipAdjustGain) {
+      static constexpr float speed = 0.1f;
+      static constexpr float drag_offset_x = 20.0f;
+      static constexpr float drag_offset_y = 40.0f;
+      float min_offset_x;
+      float max_offset_x;
+      float min_offset_y;
+      float max_offset_y;
 
-    if (!dragging_file) {
-      min_offset_x = view_min.x;
-      max_offset_x = view_max.x;
-      min_offset_y = view_min.y;
-      max_offset_y = view_max.y;
-    } else {
-      min_offset_x = view_min.x + drag_offset_x;
-      max_offset_x = view_max.x - drag_offset_x;
-      min_offset_y = view_min.y + drag_offset_y;
-      max_offset_y = view_max.y - drag_offset_y;
-    }
+      if (!dragging_file) {
+        min_offset_x = view_min.x;
+        max_offset_x = view_max.x;
+        min_offset_y = view_min.y;
+        max_offset_y = view_max.y;
+      } else {
+        min_offset_x = view_min.x + drag_offset_x;
+        max_offset_x = view_max.x - drag_offset_x;
+        min_offset_y = view_min.y + drag_offset_y;
+        max_offset_y = view_max.y - drag_offset_y;
+      }
 
-    // Scroll automatically when dragging stuff
-    if (mouse_pos.x < min_offset_x) {
-      float distance = min_offset_x - mouse_pos.x;
-      scroll_horizontal(distance * speed, song_length, -view_scale);
-    }
-    if (mouse_pos.x > max_offset_x) {
-      float distance = max_offset_x - mouse_pos.x;
-      scroll_horizontal(distance * speed, song_length, -view_scale);
-    }
-    if (mouse_pos.y < min_offset_y) {
-      float distance = min_offset_y - mouse_pos.y;
-      scroll_delta_y = distance * speed;
-    }
-    if (mouse_pos.y > max_offset_y) {
-      float distance = max_offset_y - mouse_pos.y;
-      scroll_delta_y = distance * speed;
+      // Scroll automatically when dragging stuff
+      if (mouse_pos.x < min_offset_x) {
+        float distance = min_offset_x - mouse_pos.x;
+        scroll_horizontal(distance * speed, song_length, -view_scale);
+      }
+      if (mouse_pos.x > max_offset_x) {
+        float distance = max_offset_x - mouse_pos.x;
+        scroll_horizontal(distance * speed, song_length, -view_scale);
+      }
+      if (mouse_pos.y < min_offset_y) {
+        float distance = min_offset_y - mouse_pos.y;
+        scroll_delta_y = distance * speed;
+      }
+      if (mouse_pos.y > max_offset_y) {
+        float distance = max_offset_y - mouse_pos.y;
+        scroll_delta_y = distance * speed;
+      }
     }
 
     // Find which track is currently hovered
@@ -876,11 +985,135 @@ void GuiTimeline::render_track_lanes() {
 
   [[unlikely]] if (edit_action != TimelineEditAction::None) {
     double relative_pos = mouse_at_gridline - initial_time_pos;
-    if (!left_mouse_down) {
-      finish_edit();
-      force_redraw = true;
+    if (!edit_selected) {
+      switch (edit_action) {
+        case TimelineEditAction::ClipMove:
+          if (!left_mouse_down) {
+            ClipMoveCmd* cmd = new ClipMoveCmd();
+            cmd->src_track_id = edit_src_track_id.value();
+            cmd->dst_track_id = hovered_track_id.value();
+            cmd->clip_id = edited_clip->id;
+            cmd->relative_pos = relative_pos;
+            g_cmd_manager.execute("Move Clip", cmd);
+            finish_edit();
+            force_redraw = true;
+          }
+          ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+          break;
+        case TimelineEditAction::ClipResizeLeft:
+          if (!left_mouse_down) {
+            ClipResizeCmd* cmd = new ClipResizeCmd();
+            cmd->track_id = edit_src_track_id.value();
+            cmd->clip_id = edited_clip->id;
+            cmd->left_side = true;
+            cmd->relative_pos = relative_pos;
+            cmd->min_length = 1.0 / grid_scale;
+            cmd->last_beat_duration = beat_duration;
+            g_cmd_manager.execute("Resize clip", cmd);
+            finish_edit();
+            force_redraw = true;
+          }
+          ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+          break;
+        case TimelineEditAction::ClipResizeRight:
+          if (!left_mouse_down) {
+            ClipResizeCmd* cmd = new ClipResizeCmd();
+            cmd->track_id = edit_src_track_id.value();
+            cmd->clip_id = edited_clip->id;
+            cmd->left_side = false;
+            cmd->relative_pos = relative_pos;
+            cmd->min_length = 1.0 / grid_scale;
+            cmd->last_beat_duration = beat_duration;
+            g_cmd_manager.execute("Resize clip", cmd);
+            finish_edit();
+            force_redraw = true;
+          }
+          ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+          break;
+        case TimelineEditAction::ClipShiftLeft:
+          if (!left_mouse_down) {
+            ClipResizeCmd* cmd = new ClipResizeCmd();
+            cmd->track_id = edit_src_track_id.value();
+            cmd->clip_id = edited_clip->id;
+            cmd->left_side = true;
+            cmd->shift = true;
+            cmd->relative_pos = relative_pos;
+            cmd->min_length = 1.0 / grid_scale;
+            cmd->last_beat_duration = beat_duration;
+            g_cmd_manager.execute("Resize and shift clip", cmd);
+            finish_edit();
+            force_redraw = true;
+          }
+          ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+          break;
+        case TimelineEditAction::ClipShiftRight:
+          if (!left_mouse_down) {
+            ClipResizeCmd* cmd = new ClipResizeCmd();
+            cmd->track_id = edit_src_track_id.value();
+            cmd->clip_id = edited_clip->id;
+            cmd->left_side = false;
+            cmd->shift = true;
+            cmd->relative_pos = relative_pos;
+            cmd->min_length = 1.0 / grid_scale;
+            cmd->last_beat_duration = beat_duration;
+            g_cmd_manager.execute("Resize and shift clip", cmd);
+            finish_edit();
+            force_redraw = true;
+          }
+          ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+          break;
+        case TimelineEditAction::ClipShift:
+          if (!left_mouse_down) {
+            ClipShiftCmd* cmd = new ClipShiftCmd();
+            cmd->track_id = edit_src_track_id.value();
+            cmd->clip_id = edited_clip->id;
+            cmd->relative_pos = relative_pos;
+            cmd->last_beat_duration = beat_duration;
+            g_cmd_manager.execute("Shift clip", cmd);
+            finish_edit();
+            force_redraw = true;
+          }
+          ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+          break;
+        case TimelineEditAction::ClipDuplicate:
+          if (!left_mouse_down) {
+            ClipDuplicateCmd* cmd = new ClipDuplicateCmd();
+            cmd->src_track_id = edit_src_track_id.value();
+            cmd->dst_track_id = hovered_track_id.value();
+            cmd->clip_id = edited_clip->id;
+            cmd->relative_pos = relative_pos;
+            g_cmd_manager.execute("Duplicate clip", cmd);
+            finish_edit();
+            force_redraw = true;
+          }
+          break;
+        case TimelineEditAction::ClipAdjustGain:
+          if (!left_mouse_down) {
+            ClipAdjustGainCmd* cmd = new ClipAdjustGainCmd();
+            cmd->track_id = edit_src_track_id.value();
+            cmd->clip_id = edited_clip->id;
+            cmd->gain_before = edited_clip->audio.gain;
+            cmd->gain_after = math::db_to_linear(current_value);
+            g_cmd_manager.execute("Adjust clip gain", cmd);
+            finish_edit();
+            force_redraw = redraw;
+          }
+          break;
+        case TimelineEditAction::ShowClipContextMenu:
+          ImGui::OpenPopup("clip_context_menu");
+          context_menu_track_id = edit_src_track_id.value();
+          context_menu_track = edited_track;
+          context_menu_clip = edited_clip;
+          tmp_color = edited_clip->color;
+          tmp_name = edited_clip->name;
+          finish_edit();
+          break;
+        default: finish_edit(); break;
+      }
     }
   }
+
+  render_clip_context_menu();
 
   // TODO: Fix accessing hovered_track_id with undefined value when redrawing
   // Log::debug("Force redraw: {}", force_redraw);
@@ -1185,7 +1418,6 @@ void GuiTimeline::render_edited_clips(double mouse_at_gridline) {
         auto [new_min_time, new_max_time] = calc_move_clip(edited_clip, relative_pos);
         min_time = new_min_time;
         max_time = new_max_time;
-        Log::debug("{}", GImGui->FrameCount);
         uint32_t track_id = hovered_track_id.value();
         track_pos_y = get_track_position_y(track_id);
         track_height = g_engine.tracks[track_id]->height;
@@ -1617,7 +1849,39 @@ void GuiTimeline::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sa
       }
       default: break;
     }
+
+    layer3_draw_list->PushClipRect(clip_content_min, clip_content_max);
+
+    if (clip->is_audio()) {
+      ImVec2 content_rect_min = layer3_draw_list->GetClipRectMin();
+      float ctrl_pos_x = math::max(clip_content_min.x, content_rect_min.x);
+      float width = max_pos_clamped_x - ctrl_pos_x;
+      float gain = cmd.gain;
+
+      if (!math::near_equal(gain, 1.0f) || clip->hover_state == ClipHover::All) {
+        char gain_str[8]{};
+        float gain_db = math::linear_to_db(gain);
+        fmt::format_to(gain_str, "{:.1f}db", gain_db);
+
+        constexpr float min_width = 60.0f;
+        float alpha = (width >= min_width) ? 1.0f : width / min_width;
+        ImVec2 ctrl_pos(ctrl_pos_x + 4.0f, clip_content_max.y - 16.0f);
+        draw_clip_overlay(ctrl_pos, 50.0f, alpha, bg_color, gain_str);
+      }
+    }
+
+    layer3_draw_list->PopClipRect();
   }
+}
+
+void GuiTimeline::draw_clip_overlay(ImVec2 pos, float size, float alpha, const ImColor& col, const char* caption) {
+  ImU32 ctrl_bg = color_darken(col, 0.8f);
+  ImVec2 text_size = ImGui::CalcTextSize(caption);
+  float text_offset_x = 0.5f * (size - text_size.x);
+  uint32_t bg_alpha = (uint32_t)(199.0f * alpha) << 24;
+  uint32_t caption_alpha = (uint32_t)(255.0f * alpha) << 24;
+  im_draw_box_filled(layer3_draw_list, pos.x, pos.y, size, 13.0f, (ctrl_bg & 0x00FF'FFFF) | bg_alpha, 3.0f);
+  layer3_draw_list->AddText(ImVec2(pos.x + text_offset_x, pos.y), 0x00FF'FFFF | caption_alpha, caption);
 }
 
 void GuiTimeline::query_selected_range() {
@@ -1751,6 +2015,7 @@ void GuiTimeline::finish_edit() {
   initial_time_pos = 0.0;
   clip_resize.resize_fast(0);
   recalculate_song_length();
+  Log::debug("Finish edit");
 }
 
 void GuiTimeline::add_track() {
