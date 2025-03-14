@@ -9,7 +9,7 @@
 
 namespace wb {
 
-enum class TimelineEditAction {
+enum class TimelineCommand {
   None,
   ClipMove,
   ClipResizeLeft,
@@ -148,7 +148,7 @@ struct GuiTimeline : public TimelineBase {
   bool holding_ctrl = false;
   bool holding_alt = false;
 
-  TimelineEditAction edit_action{};
+  TimelineCommand edit_command{};
   Track* edited_track{};
   Clip* edited_clip{};
   std::optional<int32_t> edit_src_track_id{};
@@ -192,7 +192,7 @@ struct GuiTimeline : public TimelineBase {
       bool layer2 = false);
   void draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sample_scale, float offset_y);
   void draw_clip_overlay(ImVec2 pos, float size, float alpha, const ImColor& col, const char* caption);
-  void finish_edit_action();
+  void apply_edit(double mouse_at_gridline);
   void query_selected_range();
   bool prepare_resize_for_selected_range(Clip* clip, bool dir);
   float get_track_position_y(uint32_t id);
