@@ -38,7 +38,7 @@ struct ClipDrawCmd {
   float min_pos_y;
   float height;
   float gain;
-  bool always_on_top;
+  bool layer2;
   union {
     WaveformVisual* audio;
     MidiData* midi;
@@ -97,7 +97,8 @@ struct GuiTimeline : public TimelineBase {
   ImDrawList* layer3_draw_list;
   ImDrawData layer_draw_data;
   Vector<ClipDrawCmd> clip_draw_cmd;
-  Vector<WaveformDrawCmd> waveform_cmds;
+  Vector<WaveformDrawCmd> waveform_cmd_list1;
+  Vector<WaveformDrawCmd> waveform_cmd_list2;
 
   ImFont* font;
   uint32_t color_spin = 0;
@@ -180,7 +181,7 @@ struct GuiTimeline : public TimelineBase {
       bool track_hovered,
       bool is_mouse_in_selection_range);
   void render_edited_clips(double mouse_at_gridline);
-  void render_clip(Clip* clip, double min_time, double max_time, double start_offset, float track_pos_y, float height);
+  void render_clip(Clip* clip, double min_time, double max_time, double start_offset, float track_pos_y, float height, bool layer2 = false);
   void draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sample_scale, float offset_y);
   void query_selected_range();
   bool prepare_resize_for_selected_range(Clip* clip, bool dir);

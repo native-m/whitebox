@@ -165,7 +165,7 @@ void main_control_bar() {
   set_current_font(FontType::Normal);
   ImGui::SameLine(0.0f, 4.0f);
   float tempo = (float)g_engine.get_bpm();
-  if (ImGui::DragFloat("##TEMPO_DRAG", &tempo, 1.0f, 0.0f, 0.0f, "%.2f BPM", ImGuiSliderFlags_Vertical)) {
+  if (ImGui::DragFloat("##tempo_drag", &tempo, 1.0f, 0.0f, 0.0f, "%.2f BPM", ImGuiSliderFlags_Vertical)) {
     g_engine.set_bpm((double)tempo);
   }
   ImGui::PopItemWidth();
