@@ -8,6 +8,12 @@ namespace wb {
 struct Clip;
 struct Track;
 
+enum class ClipSelectStatus {
+  NotSelected,
+  Selected,
+  PartiallySelected,
+};
+
 struct ClipMoveResult {
   double min;
   double max;
@@ -24,6 +30,36 @@ struct ClipQueryResult {
   uint32_t last;
   double first_offset;
   double last_offset;
+  
+  bool right_side_partially_selected(uint32_t id) const {
+    return first == id && first_offset > 0.0;
+  }
+
+  bool left_side_partially_selected(uint32_t id) const {
+    return last == id && last_offset < 0.0;
+  }
+
+  uint32_t num_clips() const {
+    return (last - first) + 1;
+  }
+};
+
+struct SelectedTrackRegion {
+  bool has_clip_selected;
+  ClipQueryResult range;
+
+  ClipSelectStatus is_clip_selected(uint32_t id) {
+    if (math::in_range(id, range.first, range.last)) {
+      if (id == range.first && range.first_offset > 0.0) {
+        return ClipSelectStatus::PartiallySelected;
+      }
+      if (id == range.last && range.last_offset < 0.0) {
+        return ClipSelectStatus::PartiallySelected;
+      }
+      return ClipSelectStatus::Selected;
+    }
+    return ClipSelectStatus::NotSelected;
+  }
 };
 
 struct TrackEditResult {

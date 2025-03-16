@@ -710,7 +710,7 @@ void GuiTimeline::render_track_lanes() {
 
   // Pressing escape key cancel the selection
   if (selecting_range && escape_key_pressed) {
-    selected_clip_ranges.clear();
+    selected_track_regions.clear();
     selecting_range = false;
     redraw = true;
   }
@@ -924,9 +924,9 @@ void GuiTimeline::render_track_lanes() {
       const ImVec2 a(timeline_scroll_offset_x_f32 + (float)min_time, selection_start_y);
       const ImVec2 b(timeline_scroll_offset_x_f32 + (float)max_time, selection_end_y);
       if (edit_selected) {
-        layer2_draw_list->AddRect(a - ImVec2(1.0f, 0.0f), b + ImVec2(1.0f, 1.0f), selection_range_border);
+        layer3_draw_list->AddRect(a - ImVec2(1.0f, 0.0f), b + ImVec2(1.0f, 1.0f), selection_range_border);
       } else {
-        layer2_draw_list->AddRectFilled(a, b, selection_range_fill);
+        layer3_draw_list->AddRectFilled(a, b, selection_range_fill);
       }
       // layer2_draw_list->AddRect(a, b, selection_range_border);
     }
@@ -974,7 +974,7 @@ void GuiTimeline::render_track_lanes() {
   }
 
   if (range_selected && !edit_selected && ((timeline_clicked && left_mouse_clicked) || escape_key_pressed)) {
-    selected_clip_ranges.clear();
+    selected_track_regions.clear();
     range_selected = false;
     force_redraw = true;
   }
@@ -1004,7 +1004,7 @@ void GuiTimeline::render_track(
   const float height = track->height;
   double relative_pos = 0.0;
   bool has_clip_selected = false;
-  SelectedClipRange* selected_clip_range = nullptr;
+  SelectedTrackRegion* selected_region = nullptr;
   ClipResizeInfo* clip_resize_info = nullptr;
   bool is_track_selected = math::in_range(id, first_selected_track, last_selected_track);
   is_mouse_in_selection_range = is_mouse_in_selection_range && is_track_selected;
@@ -1013,11 +1013,11 @@ void GuiTimeline::render_track(
     relative_pos = mouse_at_gridline - initial_time_pos;
   }
 
-  [[unlikely]] if (!selected_clip_ranges.empty()) {
+  [[unlikely]] if (!selected_track_regions.empty()) {
     uint32_t idx = id - first_selected_track;
-    if (idx < selected_clip_ranges.size()) {
-      selected_clip_range = &selected_clip_ranges[idx];
-      has_clip_selected = selected_clip_range->has_clip_selected;
+    if (idx < selected_track_regions.size()) {
+      selected_region = &selected_track_regions[idx];
+      has_clip_selected = selected_region->has_clip_selected;
     }
   }
 
@@ -1043,8 +1043,8 @@ void GuiTimeline::render_track(
     double start_offset = clip->start_offset;
     ClipSelectStatus select_status = ClipSelectStatus::NotSelected;
 
-    if (selected_clip_range) {
-      select_status = selected_clip_range->is_clip_selected(i);
+    if (selected_region) {
+      select_status = selected_region->is_clip_selected(i);
     }
 
     [[unlikely]] if (edit_command != TimelineCommand::None) {
@@ -1053,16 +1053,16 @@ void GuiTimeline::render_track(
           if (move_or_shift_action) {
             if (select_status == ClipSelectStatus::PartiallySelected) {
               bool is_audio = clip->is_audio();
-              bool right_side_partially_selected = selected_clip_range->right_side_partially_selected(i);
-              bool left_side_partially_selected = selected_clip_range->left_side_partially_selected(i);
+              bool right_side_partially_selected = selected_region->range.right_side_partially_selected(i);
+              bool left_side_partially_selected = selected_region->range.left_side_partially_selected(i);
               const double sample_rate = clip->get_asset_sample_rate();
 
               if (right_side_partially_selected && left_side_partially_selected) {
-                const double resize_offset = max_time + selected_clip_range->range.last_offset - min_time;
+                const double resize_offset = max_time + selected_region->range.last_offset - min_time;
                 const double lhs_min_time = min_time;
-                const double lhs_max_time = clip->min_time + selected_clip_range->range.first_offset;
+                const double lhs_max_time = clip->min_time + selected_region->range.first_offset;
                 const double lhs_start_ofs = start_offset;
-                const double rhs_min_time = max_time + selected_clip_range->range.last_offset;
+                const double rhs_min_time = max_time + selected_region->range.last_offset;
                 const double rhs_max_time = max_time;
                 const double rhs_start_ofs =
                     calc_clip_shift(is_audio, start_offset, lhs_min_time - rhs_min_time, beat_duration, sample_rate);
@@ -1084,7 +1084,7 @@ void GuiTimeline::render_track(
                 render_clip(clip, rhs_min_time, rhs_max_time, rhs_start_ofs, track_pos_y, height);
                 continue;
               } else if (right_side_partially_selected) {
-                max_time = clip->min_time + selected_clip_range->range.first_offset;
+                max_time = clip->min_time + selected_region->range.first_offset;
                 render_clip(clip, min_time, max_time, start_offset, track_pos_y, height);
                 if (edit_command == TimelineCommand::ClipShift) {
                   const double max_time2 = clip->max_time;
@@ -1099,14 +1099,9 @@ void GuiTimeline::render_track(
                   const double new_start_offset = calc_clip_shift(
                       clip->is_audio(), start_offset, relative_pos, beat_duration, clip->get_asset_sample_rate());
                   render_clip(
-                      clip,
-                      min_time,
-                      max_time + selected_clip_range->range.last_offset,
-                      new_start_offset,
-                      track_pos_y,
-                      height);
+                      clip, min_time, max_time + selected_region->range.last_offset, new_start_offset, track_pos_y, height);
                 }
-                const double rhs_min_time = max_time + selected_clip_range->range.last_offset;
+                const double rhs_min_time = max_time + selected_region->range.last_offset;
                 const double rhs_max_time = max_time;
                 const double rhs_start_ofs =
                     calc_clip_shift(is_audio, start_offset, min_time - rhs_min_time, beat_duration, sample_rate);
@@ -1127,7 +1122,7 @@ void GuiTimeline::render_track(
             }
           }
         }
-      } else if (clip == edited_clip) {
+      } else if (clip == edited_clip && edit_command != TimelineCommand::ClipDuplicate) {
         continue;
       }
     }
@@ -1278,11 +1273,12 @@ void GuiTimeline::render_edited_clips(double mouse_at_gridline) {
     double start_offset = edited_clip->start_offset;
 
     switch (edit_command) {
+      case TimelineCommand::ClipDuplicate:
       case TimelineCommand::ClipMove: {
+        const uint32_t track_id = hovered_track_id.value();
         auto [new_min_time, new_max_time] = calc_move_clip(edited_clip, relative_pos);
         min_time = new_min_time;
         max_time = new_max_time;
-        uint32_t track_id = hovered_track_id.value();
         track_pos_y = get_track_position_y(track_id);
         track_height = g_engine.tracks[track_id]->height;
         break;
@@ -1320,19 +1316,6 @@ void GuiTimeline::render_edited_clips(double mouse_at_gridline) {
       }
       case TimelineCommand::ClipShift: {
         start_offset = shift_clip_content(edited_clip, relative_pos, beat_duration);
-        break;
-      }
-      case TimelineCommand::ClipDuplicate: {
-        const double highlight_pos = math::max(relative_pos + edited_clip->min_time, 0.0);  // Snap to grid
-        const double length = edited_clip->max_time - edited_clip->min_time;
-        const float duplicate_pos_y = hovered_track_y;
-        im_draw_box_filled(
-            layer3_draw_list,
-            timeline_scroll_offset_x_f32 + (float)(highlight_pos * clip_scale),
-            duplicate_pos_y,
-            length * clip_scale,
-            hovered_track_height,
-            highlight_color);
         break;
       }
       case TimelineCommand::ClipAdjustGain: {
@@ -1375,26 +1358,26 @@ void GuiTimeline::render_edited_clips(double mouse_at_gridline) {
         break;
       }
 
-      const SelectedClipRange& selected_clip_range = selected_clip_ranges[i - first_selected_track];
-      if (track_pos_y < track_view_min_y || !selected_clip_range.has_clip_selected) {
+      const SelectedTrackRegion& selected_region = selected_track_regions[i - first_selected_track];
+      if (track_pos_y < track_view_min_y || !selected_region.has_clip_selected) {
         track_pos_y += height + track_separator_height;
         continue;
       }
 
       double min_move = 0.0;
       if (any_of(edit_command, TimelineCommand::ClipMove, TimelineCommand::ClipDuplicate)) {
-        for (uint32_t j = selected_clip_range.range.first; j <= selected_clip_range.range.last; j++) {
+        for (uint32_t j = selected_region.range.first; j <= selected_region.range.last; j++) {
           Clip* clip = src_track->clips[j];
           double min_time = clip->min_time;
           double max_time = clip->max_time;
           double start_offset = clip->start_offset;
-          bool right_side_partially_selected = selected_clip_range.right_side_partially_selected(j);
-          bool left_side_partially_selected = selected_clip_range.left_side_partially_selected(j);
+          bool right_side_partially_selected = selected_region.range.right_side_partially_selected(j);
+          bool left_side_partially_selected = selected_region.range.left_side_partially_selected(j);
 
           if (right_side_partially_selected && left_side_partially_selected) {
-            const double new_min_time = min_time + selected_clip_range.range.first_offset;
+            const double new_min_time = min_time + selected_region.range.first_offset;
             const double min_time_moved = math::max(new_min_time + relative_pos, min_move);
-            const double length = (max_time - new_min_time) + selected_clip_range.range.last_offset;
+            const double length = (max_time - new_min_time) + selected_region.range.last_offset;
             const double max_time_moved = min_time_moved + length;
             const double new_start_ofs = calc_clip_shift(
                 clip->is_audio(), start_offset, min_time - new_min_time, beat_duration, clip->get_asset_sample_rate());
@@ -1402,7 +1385,7 @@ void GuiTimeline::render_edited_clips(double mouse_at_gridline) {
             max_time = max_time_moved;
             start_offset = new_start_ofs;
           } else if (right_side_partially_selected) {
-            const double new_min_time = min_time + selected_clip_range.range.first_offset;
+            const double new_min_time = min_time + selected_region.range.first_offset;
             const double min_time_moved = math::max(new_min_time + relative_pos, min_move);
             const double max_time_moved = min_time_moved + (max_time - new_min_time);
             const double new_start_ofs = calc_clip_shift(
@@ -1412,13 +1395,13 @@ void GuiTimeline::render_edited_clips(double mouse_at_gridline) {
             min_move = max_time_moved;
             start_offset = new_start_ofs;
           } else if (left_side_partially_selected) {
-            const double new_max_time = max_time + selected_clip_range.range.last_offset;
+            const double new_max_time = max_time + selected_region.range.last_offset;
             const double min_time_moved = math::max(min_time + relative_pos, min_move);
             const double max_time_moved = min_time_moved + (new_max_time - min_time);
             min_time = min_time_moved;
             max_time = max_time_moved;
             min_move = max_time_moved;
-          } else {
+          } else [[likely]] {
             const auto [new_min_time, new_max_time] = calc_move_clip(clip, relative_pos, min_move);
             min_time = new_min_time;
             max_time = new_max_time;
@@ -1720,7 +1703,7 @@ void GuiTimeline::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sa
       float width = max_pos_clamped_x - ctrl_pos_x;
       float gain = cmd.gain;
 
-      if (!math::near_equal(gain, 1.0f) || clip->hover_state == ClipHover::All) {
+      if (!math::near_equal(gain, 1.0f) || cmd.hover_state == ClipHover::All) {
         char gain_str[8]{};
         float gain_db = math::linear_to_db(gain);
         fmt::format_to(gain_str, "{:.1f}db", gain_db);
@@ -1873,35 +1856,33 @@ void GuiTimeline::apply_edit(double mouse_at_gridline) {
         break;
       default: finish_edit(); break;
     }
+  } else {
+    if (!left_mouse_down) {
+      finish_edit();
+      force_redraw = true;
+    }
   }
 }
 
 void GuiTimeline::query_selected_range() {
-  selected_clip_ranges.reserve((last_selected_track - first_selected_track) + 1);
+  selected_track_regions.reserve((last_selected_track - first_selected_track) + 1);
   for (uint32_t i = first_selected_track; i <= last_selected_track; i++) {
     Track* track = g_engine.tracks[i];
     auto query_result = track->query_clip_by_range(selection_start_pos, selection_end_pos);
-    selected_clip_ranges.push_back({
-      .track_id = i,
+    selected_track_regions.push_back({
       .has_clip_selected = query_result.has_value(),
       .range = query_result ? query_result.value() : ClipQueryResult{},
     });
   }
 
   Log::debug("---- Track selected ----");
-  for (auto& sel : selected_clip_ranges) {
-    Log::debug(
-        "Track {}: {} -> {} ({} -> {})",
-        sel.track_id,
-        sel.range.first,
-        sel.range.last,
-        sel.range.first_offset,
-        sel.range.last_offset);
+  for (auto& sel : selected_track_regions) {
+    Log::debug("Track: {} -> {} ({} -> {})", sel.range.first, sel.range.last, sel.range.first_offset, sel.range.last_offset);
   }
 }
 
 bool GuiTimeline::prepare_resize_for_selected_range(Clip* src_clip, bool dir) {
-  if (selected_clip_ranges.empty()) {
+  if (selected_track_regions.empty()) {
     return false;
   }
 
@@ -1913,20 +1894,20 @@ bool GuiTimeline::prepare_resize_for_selected_range(Clip* src_clip, bool dir) {
   // Find clip that matches the resize position based on resize direction
   for (uint32_t i = first_selected_track; i <= last_selected_track; i++) {
     Track* track = g_engine.tracks[i];
-    const SelectedClipRange& selected_clip_range = selected_clip_ranges[i - first_selected_track];
-    uint32_t first_clip = selected_clip_range.range.first;
-    uint32_t last_clip = selected_clip_range.range.last;
+    const SelectedTrackRegion& selected_region = selected_track_regions[i - first_selected_track];
+    uint32_t first_clip = selected_region.range.first;
+    uint32_t last_clip = selected_region.range.last;
     bool should_resize = false;
     uint32_t clip_id = 0;
 
-    if (selected_clip_range.has_clip_selected) {
-      if (selected_clip_range.range.first != selected_clip_range.range.last) {
+    if (selected_region.has_clip_selected) {
+      if (selected_region.range.first != selected_region.range.last) {
         if (!dir) {
-          if (selected_clip_range.range.first_offset > 0.0) {
+          if (selected_region.range.first_offset > 0.0) {
             first_clip++;
           }
         } else {
-          if (selected_clip_range.range.last_offset < 0.0) {
+          if (selected_region.range.last_offset < 0.0) {
             last_clip--;
           }
         }
@@ -1940,14 +1921,14 @@ bool GuiTimeline::prepare_resize_for_selected_range(Clip* src_clip, bool dir) {
           }
         }
       } else {
-        Clip* clip = track->clips[selected_clip_range.range.first];
+        Clip* clip = track->clips[selected_region.range.first];
         if (!dir) {
-          if (clip->min_time == resize_pos && selected_clip_range.range.first_offset < 0.0) {
+          if (clip->min_time == resize_pos && selected_region.range.first_offset < 0.0) {
             should_resize = true;
             clip_id = clip->id;
           }
         } else {
-          if (clip->max_time == resize_pos && selected_clip_range.range.last_offset > 0.0) {
+          if (clip->max_time == resize_pos && selected_region.range.last_offset > 0.0) {
             should_resize = true;
             clip_id = clip->id;
           }

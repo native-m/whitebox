@@ -22,12 +22,6 @@ enum class TimelineCommand {
   ShowClipContextMenu,
 };
 
-enum class ClipSelectStatus {
-  NotSelected,
-  Selected,
-  PartiallySelected,
-};
-
 struct ClipDrawCmd {
   ClipType type;
   ClipHover hover_state;
@@ -43,34 +37,6 @@ struct ClipDrawCmd {
     WaveformVisual* audio;
     MidiData* midi;
   };
-};
-
-struct SelectedClipRange {
-  uint32_t track_id;
-  float track_y;
-  bool has_clip_selected;
-  ClipQueryResult range;
-
-  bool right_side_partially_selected(uint32_t id) const {
-    return range.first == id && range.first_offset > 0.0;
-  }
-
-  bool left_side_partially_selected(uint32_t id) const {
-    return range.last == id && range.last_offset < 0.0;
-  }
-
-  ClipSelectStatus is_clip_selected(uint32_t id) {
-    if (math::in_range(id, range.first, range.last)) {
-      if (id == range.first && range.first_offset > 0.0) {
-        return ClipSelectStatus::PartiallySelected;
-      }
-      if (id == range.last && range.last_offset < 0.0) {
-        return ClipSelectStatus::PartiallySelected;
-      }
-      return ClipSelectStatus::Selected;
-    }
-    return ClipSelectStatus::NotSelected;
-  }
 };
 
 struct ClipResizeInfo {
@@ -125,7 +91,7 @@ struct GuiTimeline : public TimelineBase {
   ImVec2 timeline_view_pos;
   ImVec2 old_timeline_size;
 
-  Vector<SelectedClipRange> selected_clip_ranges;
+  Vector<SelectedTrackRegion> selected_track_regions;
   uint32_t first_selected_track = 0;
   uint32_t last_selected_track = 0;
   float first_selected_track_pos_y = 0.0;
