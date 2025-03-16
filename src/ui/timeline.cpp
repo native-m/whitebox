@@ -1437,7 +1437,7 @@ void GuiTimeline::render_edited_clips(double mouse_at_gridline) {
 
           ClipDrawCmd* cmd = clip_draw_cmd.emplace_back_raw();
           cmd->type = clip->type;
-          cmd->hover_state = clip->hover_state;
+          cmd->hover_state = ClipHover::None;
           cmd->clip = clip;
           cmd->start_offset = start_offset;
           cmd->min_pos_x = min_pos_x;
@@ -1487,7 +1487,7 @@ void GuiTimeline::render_clip(
   if (max_pos_x_in_pixel >= timeline_bounds_min_x && min_pos_x_in_pixel < timeline_bounds_max_x) {
     ClipDrawCmd* cmd = clip_draw_cmd.emplace_back_raw();
     cmd->type = clip->type;
-    cmd->hover_state = clip->hover_state;
+    cmd->hover_state = ClipHover::None;
     cmd->clip = clip;
     cmd->start_offset = start_offset;
     cmd->min_pos_x = min_pos_x;
