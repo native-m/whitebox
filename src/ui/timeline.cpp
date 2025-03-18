@@ -1523,14 +1523,20 @@ void GuiTimeline::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sa
     const ImVec2 clip_title_max_bb(max_pos_clamped_x, clip_title_max_y);
     const ImVec2 clip_content_min(min_pos_clamped_x, clip_title_max_y);
     const ImVec2 clip_content_max(max_pos_clamped_x, min_pos_y + cmd.height);
-    const ImColor base_color = is_active ? color_adjust_contrast(color, 1.2f) : color_adjust_alpha(color, 0.75f);
-    const ImColor bg_color = color_premul_alpha(color_adjust_alpha(color, color.Value.w * 0.75f));
-    const ImU32 content_color = is_active ? color_brighten(color, 1.25f) : color_premul_alpha(color_brighten(color, 1.0f));
+    const ImColor base_color = is_active ? color_adjust_contrast(color, 1.3f) : color_adjust_alpha(color, 0.75f);
+    const ImColor bg_color = color_premul_alpha(color_adjust_alpha(base_color, base_color.Value.w * 0.6f));
+    const ImU32 content_color =
+        is_active ? color_brighten(base_color, 1.25f) : color_premul_alpha(color_brighten(base_color, 1.0f));
     auto* dl = !cmd.layer2 ? layer1_draw_list : layer2_draw_list;
 
-    dl->AddRectFilled(
-        clip_title_min_bb, clip_content_max, color_adjust_alpha(bg_color, 0.75f), 2.5f, ImDrawFlags_RoundCornersAll);
-    dl->AddRect(clip_title_min_bb, clip_content_max, color_adjust_alpha(color, 0.62f), 2.5f);
+    if (cmd.layer2) {
+      // Add small shadow border
+      dl->AddRect(clip_title_min_bb, clip_content_max, 0x3F000000, 3.0f, ImDrawFlags_RoundCornersTop, 4.5f);
+    }
+
+    dl->AddRectFilled(clip_title_min_bb, clip_content_max, bg_color, 3.0f, ImDrawFlags_RoundCornersTop);
+    dl->AddRect(
+        clip_title_min_bb, clip_content_max, color_adjust_alpha(content_color, 0.30f), 3.0f, ImDrawFlags_RoundCornersTop, 1.0f);
 
     if (!is_active) {
       text_color_adjusted = color_adjust_alpha(text_color_adjusted, 0.75f);
@@ -1539,7 +1545,7 @@ void GuiTimeline::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sa
     // Draw clip label
     if (clip->name.size() != 0) {
       const char* str = clip->name.c_str();
-      static constexpr float label_padding_x = 4.0f;
+      static constexpr float label_padding_x = 5.0f;
       static constexpr float label_padding_y = 2.0f;
       const ImVec2 label_pos(std::max(clip_title_min_bb.x, rect.x) + label_padding_x, min_pos_y + label_padding_y);
       const ImVec4 clip_label_rect(clip_title_min_bb.x, clip_title_min_bb.y, clip_title_max_bb.x - 6.0f, clip_title_max_y);
