@@ -1494,6 +1494,7 @@ void GuiTimeline::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sa
       ImDrawListFlags_AntiAliasedFill | ImDrawListFlags_AntiAliasedLinesUseTex | ImDrawListFlags_AntiAliasedLines;
 
   ImColor text_col(text_color);
+  ImVec2 ones(1.0f, 1.0f);
   const ImVec4& rect = layer1_draw_list->_ClipRectStack.back();
 
   for (auto& cmd : clip_cmd_list) {
@@ -1512,8 +1513,8 @@ void GuiTimeline::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sa
     const double start_offset = cmd.start_offset;
     const bool is_active = cmd.clip->is_active();
     const float min_draw_x = rect.x;
-    const float min_pos_x = (float)math::round(cmd.min_pos_x);
-    const float max_pos_x = (float)math::round(cmd.max_pos_x);
+    const float min_pos_x = (float)math::round(cmd.min_pos_x) + 0.5f;
+    const float max_pos_x = (float)math::round(cmd.max_pos_x) + 0.5f;
     const float min_pos_clamped_x = math::max(min_pos_x, rect.x - 3.0f);
     const float max_pos_clamped_x = math::min(max_pos_x, rect.z + 3.0f);
     const float min_pos_y = cmd.min_pos_y;
@@ -1523,20 +1524,25 @@ void GuiTimeline::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sa
     const ImVec2 clip_title_max_bb(max_pos_clamped_x, clip_title_max_y);
     const ImVec2 clip_content_min(min_pos_clamped_x, clip_title_max_y);
     const ImVec2 clip_content_max(max_pos_clamped_x, min_pos_y + cmd.height);
-    const ImColor base_color = is_active ? color_adjust_contrast(color, 1.3f) : color_adjust_alpha(color, 0.75f);
-    const ImColor bg_color = color_premul_alpha(color_adjust_alpha(base_color, base_color.Value.w * 0.6f));
+    const ImColor base_color = is_active ? color_adjust_contrast(color, 0.95f) : color_adjust_alpha(color, 0.75f);
+    const ImColor bg_color = color_premul_alpha(color_adjust_alpha(base_color, base_color.Value.w * 0.75f));
     const ImU32 content_color =
         is_active ? color_brighten(base_color, 1.25f) : color_premul_alpha(color_brighten(base_color, 1.0f));
     auto* dl = !cmd.layer2 ? layer1_draw_list : layer2_draw_list;
 
     if (cmd.layer2) {
       // Add small shadow border
-      dl->AddRect(clip_title_min_bb, clip_content_max, 0x3F000000, 3.0f, ImDrawFlags_RoundCornersTop, 4.5f);
+      dl->AddRect(clip_title_min_bb, clip_content_max, 0x3F000000, 3.5f, ImDrawFlags_RoundCornersTop, 4.5f);
     }
 
-    dl->AddRectFilled(clip_title_min_bb, clip_content_max, bg_color, 3.0f, ImDrawFlags_RoundCornersTop);
+    dl->AddRectFilled(clip_title_min_bb, clip_content_max, bg_color, 3.5f, ImDrawFlags_RoundCornersTop);
     dl->AddRect(
-        clip_title_min_bb, clip_content_max, color_adjust_alpha(content_color, 0.30f), 3.0f, ImDrawFlags_RoundCornersTop, 1.0f);
+        clip_title_min_bb - ones,
+        clip_content_max + ones,
+        0x5F000000,
+        3.5f,
+        ImDrawFlags_RoundCornersTop,
+        1.0f);
 
     if (!is_active) {
       text_color_adjusted = color_adjust_alpha(text_color_adjusted, 0.75f);
