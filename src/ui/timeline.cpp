@@ -38,6 +38,10 @@ void GuiTimeline::shutdown() {
 }
 
 void GuiTimeline::reset() {
+  selected_track_regions.clear();
+  selecting_range = false;
+  range_selected = false;
+  force_redraw = true;
   finish_edit();
   color_spin = 0;
 }
