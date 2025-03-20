@@ -1494,7 +1494,7 @@ void GuiTimeline::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sa
       ImDrawListFlags_AntiAliasedFill | ImDrawListFlags_AntiAliasedLinesUseTex | ImDrawListFlags_AntiAliasedLines;
 
   ImColor text_col(text_color);
-  ImVec2 ones(1.0f, 1.0f);
+  ImVec2 half(0.5f, 0.5f);
   const ImVec4& rect = layer1_draw_list->_ClipRectStack.back();
 
   for (auto& cmd : clip_cmd_list) {
@@ -1532,17 +1532,11 @@ void GuiTimeline::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sa
 
     if (cmd.layer2) {
       // Add small shadow border
-      dl->AddRect(clip_title_min_bb, clip_content_max, 0x3F000000, 3.5f, ImDrawFlags_RoundCornersTop, 4.5f);
+      dl->AddRect(clip_title_min_bb, clip_content_max, 0x3F000000, 3.0f, ImDrawFlags_RoundCornersTop, 4.5f);
     }
 
-    dl->AddRectFilled(clip_title_min_bb, clip_content_max, bg_color, 3.5f, ImDrawFlags_RoundCornersTop);
-    dl->AddRect(
-        clip_title_min_bb - ones,
-        clip_content_max + ones,
-        0x5F000000,
-        3.5f,
-        ImDrawFlags_RoundCornersTop,
-        1.0f);
+    dl->AddRectFilled(clip_title_min_bb, clip_content_max, bg_color, 3.0f, ImDrawFlags_RoundCornersTop);
+    dl->AddRect(clip_title_min_bb - half, clip_content_max + half, 0x3F000000, 3.0f, ImDrawFlags_RoundCornersTop, 1.0f);
 
     if (!is_active) {
       text_color_adjusted = color_adjust_alpha(text_color_adjusted, 0.75f);
@@ -1869,9 +1863,25 @@ void GuiTimeline::apply_edit(double mouse_at_gridline) {
       default: finish_edit(); break;
     }
   } else {
-    if (!left_mouse_down) {
-      finish_edit();
-      force_redraw = true;
+    switch (edit_command) {
+      case TimelineCommand::ClipMove:
+        if (!left_mouse_down) {
+          int32_t track_size = (int32_t)g_engine.tracks.size();
+          int32_t src_track = edit_src_track_id.value();
+          int32_t min_move = src_track - (int32_t)first_selected_track;
+          int32_t max_move = track_size - ((int32_t)last_selected_track - src_track) - 1;
+          ClipMoveCmd2* cmd = new ClipMoveCmd2();
+          cmd->selected_track_regions = selected_track_regions;
+          cmd->src_track_idx = first_selected_track;
+          cmd->dst_track_relative_idx = math::clamp(hovered_track_id.value(), min_move, max_move) - src_track;
+          cmd->min_pos = selection_start_pos;
+          cmd->max_pos = selection_end_pos;
+          cmd->relative_move_pos = relative_pos;
+          g_cmd_manager.execute("Move clip", cmd);
+          finish_edit();
+          force_redraw = true;
+        }
+        break;
     }
   }
 }
@@ -1888,6 +1898,7 @@ void GuiTimeline::query_selected_range() {
   }
 
   Log::debug("---- Track selected ----");
+  Log::debug("Selected range: {} -> {}", selection_start_pos, selection_end_pos);
   for (auto& sel : selected_track_regions) {
     Log::debug("Track: {} -> {} ({} -> {})", sel.range.first, sel.range.last, sel.range.first_offset, sel.range.last_offset);
   }
