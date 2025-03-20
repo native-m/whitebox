@@ -237,14 +237,15 @@ void app_render() {
 
   if (request_quit) {
     if (g_cmd_manager.is_modified) {
-      ImGui::OpenPopup("Exit##confirm_exit");
+      ImGui::OpenPopup("Exit whitebox##confirm_exit");
+      request_quit = false;
     } else {
       is_running = false;
     }
   }
 
   if (auto ret = confirm_dialog(
-          "Exit##confirm_exit",
+          "Exit whitebox##confirm_exit",
           "You have unsaved changes in your file.\n"
           "If you close the application now, any unsaved work will be lost.\n\n"
           "Save changes to untitled.wb?",
