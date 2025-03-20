@@ -30,12 +30,16 @@ struct Vector {
 
   Vector() noexcept {
   }
+  
   Vector(size_t size) {
     resize(size);
   }
+  
   Vector(Vector<T>&& other) noexcept : intern_(std::exchange(other.intern_, {})) {
   }
+
   Vector(const Vector<T>&) = delete;
+
   ~Vector() {
     destroy_();
   }
@@ -43,6 +47,8 @@ struct Vector {
   inline Vector<T>& operator=(const Vector<T>& other)
     requires std::copyable<T>
   {
+    if (other.intern_.size == 0)
+      return *this;
     if constexpr (std::is_trivially_copyable_v<T>) {
       size_t other_size = other.size();
       if (other_size != size()) {
@@ -276,7 +282,7 @@ struct Vector {
       intern_.data[intern_.size].~T();
   }
 
-  inline void clear(const bool fast = false) noexcept {
+  inline void clear() noexcept {
     if constexpr (!std::is_trivially_destructible_v<T>) {
       T* begin_ptr = intern_.data;
       for (size_t i = 0; i < intern_.size; i++) {
@@ -326,6 +332,10 @@ struct Vector {
 
   inline void reserve(size_t new_capacity) {
     reserve_internal_(new_capacity);
+  }
+
+  inline void expand_capacity(size_t size) {
+    reserve_internal_(intern_.size + size);
   }
 
   inline size_t grow_capacity_() {
