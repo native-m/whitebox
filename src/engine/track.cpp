@@ -112,8 +112,7 @@ std::optional<ClipQueryResult> Track::query_clip_by_range(double min, double max
   double first_offset;
   double last_offset;
 
-  if (first == last &&
-      ((min < (*first)->min_time && max < (*first)->min_time) || (min > (*first)->max_time && max > (*first)->max_time))) {
+  if (first == last && (max <= (*first)->min_time || min > (*last)->max_time)) {
     return {};
   }
 
