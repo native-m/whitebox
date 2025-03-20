@@ -39,6 +39,7 @@ struct PoolChunk {
 // Growable pool
 template<typename T>
 struct Pool {
+  static_assert(sizeof(T) < 65536, "Object is too large");
   static constexpr size_t block_size = 65536;
   static constexpr size_t alloc_size = math::max(sizeof(T), sizeof(PoolHeader));
   static constexpr size_t alloc_alignment = math::max(alignof(T), sizeof(PoolHeader));

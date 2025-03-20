@@ -280,4 +280,54 @@ void ClipAdjustGainCmd::undo() {
   g_engine.set_clip_gain(track, clip_id, gain_before);
 }
 
+//
+
+void ClipCmd::backup(MultiEditResult&& edit_result) {
+  deleted_clips = std::move(edit_result.deleted_clips);
+  added_clips.resize(edit_result.added_clips.size());
+  modified_clips.resize(edit_result.modified_clips.size());
+  for (uint32_t i = 0; i < edit_result.added_clips.size(); i++) {
+    auto& added_clip = added_clips[i];
+    const auto& added_clip_result = edit_result.added_clips[i];
+    added_clip.first = added_clip_result.first;
+    added_clip.second = added_clip_result.second->id;
+  }
+  for (uint32_t i = 0; i < edit_result.modified_clips.size(); i++) {
+    auto& modified_clip = modified_clips[i];
+    const auto& modified_clip_result = edit_result.modified_clips[i];
+    modified_clip.first = modified_clip_result.first;
+    modified_clip.second = modified_clip_result.second->id;
+  }
+}
+
+void ClipCmd::clean_edit_result() {
+}
+
+//
+
+void ClipMoveCmd2::execute() {
+  backup(g_engine.move_region(
+      selected_track_regions, src_track_idx, dst_track_relative_idx, min_pos, max_pos, relative_move_pos));
+}
+
+void ClipMoveCmd2::undo() {
+  uint32_t num_selected_tracks = (uint32_t)selected_track_regions.size();
+  uint32_t dst_track_idx = (int32_t)src_track_idx + dst_track_relative_idx;
+  uint32_t src_last_idx = src_track_idx + num_selected_tracks;
+  uint32_t dst_last_idx = dst_track_idx + num_selected_tracks;
+
+  if (dst_last_idx > src_track_idx && dst_track_idx < src_last_idx) {
+    for (uint32_t i = src_track_idx; i <= dst_last_idx; i++) {
+      Track* track = g_engine.tracks[i];
+    }
+  } else {
+    for (uint32_t i = 0; i < (uint32_t)selected_track_regions.size(); i++) {
+      uint32_t src_index = src_track_idx + i;
+      uint32_t dst_index = dst_track_idx + i;
+      Track* src_track = g_engine.tracks[src_index];
+      Track* dst_track = g_engine.tracks[dst_index];
+    }
+  }
+}
+
 }  // namespace wb

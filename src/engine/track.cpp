@@ -92,7 +92,7 @@ void Track::set_mute(bool mute) {
   });
 }
 
-void Track::delete_clip(Clip* clip) {
+void Track::mark_clip_deleted(Clip* clip) {
   clip->mark_deleted();
   has_deleted_clips = true;
 }

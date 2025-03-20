@@ -140,7 +140,7 @@ struct Track {
     clip_allocator.free(clip);
   }
 
-  void delete_clip(Clip* clip);
+  void mark_clip_deleted(Clip* clip);
 
   /**
    * @brief Query clips within the minimum and maximum time range.

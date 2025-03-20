@@ -379,7 +379,7 @@ Engine::resize_clip(Track* track, Clip* clip, double relative_pos, double min_le
 TrackEditResult Engine::delete_clip(Track* track, Clip* clip) {
   TrackEditResult result;
   result.deleted_clips.push_back(*clip);
-  track->delete_clip(clip);
+  track->mark_clip_deleted(clip);
   track->update_clip_ordering();
   track->reset_playback_state(playhead, true);
   return result;
@@ -500,7 +500,7 @@ TrackEditResult Engine::reserve_track_region(
       clip->start_offset = shift_clip_content(clip, clip->min_time - max, current_beat_duration);
       clip->min_time = max;
     } else {
-      track->delete_clip(clip);
+      track->mark_clip_deleted(clip);
       return {
         .deleted_clips = std::move(deleted_clips),
       };
@@ -536,7 +536,7 @@ TrackEditResult Engine::reserve_track_region(
     for (uint32_t i = first_clip; i <= last_clip; i++) {
       if (clips[i] != ignore_clip) {
         deleted_clips.push_back(*clips[i]);
-        track->delete_clip(clips[i]);
+        track->mark_clip_deleted(clips[i]);
       }
     }
   }
@@ -545,6 +545,272 @@ TrackEditResult Engine::reserve_track_region(
     .deleted_clips = std::move(deleted_clips),
     .modified_clips = std::move(modified_clips),
   };
+}
+
+MultiEditResult Engine::move_region(
+    const Vector<SelectedTrackRegion>& selected_track_regions,
+    uint32_t src_track_idx,
+    int32_t dst_track_relative_idx,
+    double min_pos,
+    double max_pos,
+    double relative_time_pos) {
+  if (dst_track_relative_idx == 0 && relative_time_pos == 0.0) {
+    return {};  // Return if there is no movement
+  }
+
+  MultiEditResult result;
+  uint32_t num_selected_regions = (int32_t)selected_track_regions.size();
+  int32_t dst_max_bound = tracks.size() - num_selected_regions;
+  uint32_t src_track_end = src_track_idx + num_selected_regions;
+  uint32_t dst_track_idx = math::clamp((int32_t)src_track_idx + dst_track_relative_idx, 0, dst_max_bound);
+  uint32_t dst_track_end = dst_track_idx + num_selected_regions;
+  double current_beat_duration = beat_duration.load(std::memory_order_relaxed);
+  double dst_min_pos = min_pos + relative_time_pos;
+  double dst_max_pos = max_pos + relative_time_pos;
+  bool track_overlapped = dst_track_end > src_track_idx && dst_track_idx < src_track_end;
+  bool time_overlapped = dst_max_pos >= min_pos && dst_min_pos <= max_pos;
+  Vector<Pair<uint32_t, Clip*>> substitute_clips;  // temporary storage for storing substitute clips
+  std::unique_lock lock(editor_lock);
+
+  auto clear_track_region = [&](Track* track,
+                                uint32_t track_index,
+                                double reserve_min,
+                                double reserve_max,
+                                const ClipQueryResult& query_result,
+                                Clip* last_clip = nullptr) {
+    Clip* last_partially_selected_clip = nullptr;
+
+    for (uint32_t i = query_result.first; i <= query_result.last; i++) {
+      Clip* clip = track->clips[i];
+      bool right_side_partially_selected = query_result.right_side_partially_selected(i);
+      bool left_side_partially_selected = query_result.left_side_partially_selected(i);
+
+      if (right_side_partially_selected && left_side_partially_selected) {
+        double right_shift_ofs = clip->min_time - reserve_max;
+        Clip* right_side_substitute_clip = track->allocate_clip();
+        assert(right_side_substitute_clip);
+        new (right_side_substitute_clip) Clip(*clip);
+        right_side_substitute_clip->min_time = reserve_max;
+        right_side_substitute_clip->start_offset = shift_clip_content(clip, right_shift_ofs, current_beat_duration);
+        substitute_clips.emplace_back(track_index, right_side_substitute_clip);
+        result.modified_clips.emplace_back(track_index, right_side_substitute_clip);
+        last_partially_selected_clip = right_side_substitute_clip;
+
+        if (last_clip == nullptr || last_clip->id != clip->id) {
+          Clip* left_side_substitute_clip = track->allocate_clip();
+          assert(left_side_substitute_clip);
+          new (left_side_substitute_clip) Clip(*clip);
+          left_side_substitute_clip->max_time = reserve_min;
+          substitute_clips.emplace_back(track_index, left_side_substitute_clip);
+          result.modified_clips.emplace_back(track_index, left_side_substitute_clip);
+        } else {
+          last_clip->max_time = reserve_min;
+        }
+      } else if (right_side_partially_selected) {
+        if (last_clip == nullptr || last_clip->id != clip->id) {
+          Clip* left_side_substitute_clip = track->allocate_clip();
+          assert(left_side_substitute_clip);
+          new (left_side_substitute_clip) Clip(*clip);
+          left_side_substitute_clip->max_time = reserve_min;
+          substitute_clips.emplace_back(track_index, left_side_substitute_clip);
+          result.modified_clips.emplace_back(track_index, left_side_substitute_clip);
+        } else {
+          last_clip->max_time = reserve_min;
+        }
+      } else if (left_side_partially_selected) {
+        double right_shift_ofs = clip->min_time - reserve_max;
+        Clip* right_side_substitute_clip = track->allocate_clip();
+        assert(right_side_substitute_clip);
+        new (right_side_substitute_clip) Clip(*clip);
+        right_side_substitute_clip->start_offset = shift_clip_content(clip, right_shift_ofs, current_beat_duration);
+        right_side_substitute_clip->min_time = reserve_max;
+        substitute_clips.emplace_back(track_index, right_side_substitute_clip);
+        result.modified_clips.emplace_back(track_index, right_side_substitute_clip);
+        last_partially_selected_clip = right_side_substitute_clip;
+      }
+
+      if (!clip->deleted) {
+        track->mark_clip_deleted(clip);
+        result.deleted_clips.emplace_back(track_index, *clip);
+      }
+    }
+
+    return last_partially_selected_clip;
+  };
+
+  if (track_overlapped) {
+    int32_t begin_track = (int32_t)(dst_track_relative_idx >= 0 ? src_track_idx : dst_track_idx);
+    int32_t end_track = (int32_t)(dst_track_relative_idx >= 0 ? dst_track_end : src_track_end) - 1;
+    double src_begin_pos = min_pos;
+    double src_end_pos = max_pos;
+    double dst_begin_pos = dst_min_pos;
+    double dst_end_pos = dst_max_pos;
+    bool backward = false;
+
+    if (src_begin_pos > dst_begin_pos) {
+      std::swap(src_begin_pos, dst_begin_pos);
+      std::swap(src_end_pos, dst_end_pos);
+      backward = true;
+    }
+
+    for (int32_t i = begin_track; i <= end_track; i++) {
+      Track* track = tracks[i];
+      bool src_in_range = i >= src_track_idx && i < src_track_end;
+      bool dst_in_range = i >= dst_track_idx && i < dst_track_end;
+
+      if (src_in_range && dst_in_range) {
+        if (time_overlapped) {
+          // When the time is overlapped, we can combine this into one operation
+          auto query_result = track->query_clip_by_range(src_begin_pos, dst_end_pos);
+          if (query_result) {
+            clear_track_region(track, i, src_begin_pos, dst_end_pos, *query_result);
+          }
+        } else {
+          int32_t src_region_index = i - src_track_idx;
+          const SelectedTrackRegion& src_region = selected_track_regions[src_region_index];
+          auto dst_region_range = track->query_clip_by_range(dst_min_pos, dst_max_pos);
+          if (dst_region_range) {
+            // Swap source & dest ranges if position is moved backwards
+            const ClipQueryResult& src_clip_range = !backward ? src_region.range : *dst_region_range;
+            const ClipQueryResult& dst_clip_range = !backward ? *dst_region_range : src_region.range;
+            Clip* last_partially_selected_clip = clear_track_region(track, i, src_begin_pos, src_end_pos, src_clip_range);
+            clear_track_region(track, i, dst_begin_pos, dst_end_pos, dst_clip_range, last_partially_selected_clip);
+          } else {
+            if (src_region.has_clip_selected) {
+              clear_track_region(track, i, min_pos, max_pos, src_region.range);
+            }
+          }
+        }
+      } else if (src_in_range) {
+        int32_t region_index = i - src_track_idx;
+        const SelectedTrackRegion& selected_region = selected_track_regions[region_index];
+        if (selected_region.has_clip_selected) {
+          clear_track_region(track, i, min_pos, max_pos, selected_region.range);
+        }
+      } else if (dst_in_range) {
+        if (auto region_range = track->query_clip_by_range(dst_min_pos, dst_max_pos)) {
+          clear_track_region(track, i, dst_min_pos, dst_max_pos, *region_range);
+        }
+      }
+    }
+
+    if (!substitute_clips.empty()) {
+      for (auto [track_index, clip] : substitute_clips) {
+        Track* track = tracks[track_index];
+        track->clips.push_back(clip);
+      }
+    }
+  } else {
+    for (uint32_t i = src_track_idx; i < src_track_end; i++) {
+      int32_t src_region_index = i - src_track_idx;
+      const SelectedTrackRegion& src_region = selected_track_regions[src_region_index];
+      Track* track = tracks[i];
+      if (src_region.has_clip_selected) {
+        clear_track_region(track, i, min_pos, max_pos, src_region.range, nullptr);
+      }
+    }
+
+    for (uint32_t i = dst_track_idx; i < dst_track_end; i++) {
+      Track* track = tracks[i];
+      if (auto dst_region_range = track->query_clip_by_range(dst_min_pos, dst_max_pos)) {
+        clear_track_region(track, i, dst_min_pos, dst_max_pos, *dst_region_range, nullptr);
+      }
+    }
+
+    if (!substitute_clips.empty()) {
+      for (auto [track_index, clip] : substitute_clips) {
+        Track* track = tracks[track_index];
+        track->clips.push_back(clip);
+      }
+    }
+  }
+
+  // Relocate selected region
+  for (uint32_t i = 0; i < num_selected_regions; i++) {
+    const SelectedTrackRegion& selected_region = selected_track_regions[i];
+    uint32_t num_clips = selected_region.range.num_clips();
+    uint32_t src_index = src_track_idx + i;
+    uint32_t dst_index = dst_track_idx + i;
+    Track* src_track = tracks[src_index];
+    Track* dst_track = tracks[dst_index];
+
+    if (selected_region.has_clip_selected) {
+      double min_move = 0.0;
+      dst_track->clips.expand_capacity(num_clips);
+      result.added_clips.expand_capacity(num_clips);
+
+      for (uint32_t i = selected_region.range.first; i <= selected_region.range.last; i++) {
+        bool right_side_partially_selected = selected_region.range.right_side_partially_selected(i);
+        bool left_side_partially_selected = selected_region.range.left_side_partially_selected(i);
+        Clip* clip = src_track->clips[i];
+        double new_min_time;
+        double new_max_time;
+        double new_start_ofs;
+
+        if (right_side_partially_selected && left_side_partially_selected) {
+          const double shift_ofs = selected_region.range.first_offset;
+          const double min_time = clip->min_time + shift_ofs;
+          const double length = (clip->max_time - min_time) + selected_region.range.last_offset;
+          new_min_time = math::max(min_time + relative_time_pos, min_move);
+          new_max_time = new_min_time + length;
+          new_start_ofs = shift_clip_content(clip, -shift_ofs, current_beat_duration);
+        } else if (right_side_partially_selected) {
+          const double shift_ofs = selected_region.range.first_offset;
+          const double min_time = clip->min_time + shift_ofs;
+          new_min_time = math::max(min_time + relative_time_pos, min_move);
+          new_max_time = new_min_time + (clip->max_time - min_time);
+          new_start_ofs = shift_clip_content(clip, -shift_ofs, current_beat_duration);
+          min_move = new_max_time;
+        } else if (left_side_partially_selected) {
+          const auto [min_time, max_time] = calc_move_clip(clip, relative_time_pos, min_move);
+          new_min_time = min_time;
+          new_max_time = max_time + selected_region.range.last_offset;
+          new_start_ofs = clip->start_offset;
+        } else {
+          const auto [min_time, max_time] = calc_move_clip(clip, relative_time_pos, min_move);
+          new_min_time = min_time;
+          new_max_time = max_time;
+          new_start_ofs = clip->start_offset;
+          min_move = new_max_time;
+        }
+
+        Clip* new_clip = dst_track->allocate_clip();
+        assert(new_clip);
+        new (new_clip) Clip(*clip);
+        new_clip->min_time = new_min_time;
+        new_clip->max_time = new_max_time;
+        new_clip->start_offset = new_start_ofs;
+        dst_track->clips.push_back(new_clip);
+        result.added_clips.emplace_back(dst_index, new_clip);
+      }
+    }
+  }
+
+  if (track_overlapped) {
+    int32_t begin_track = (int32_t)(dst_track_relative_idx >= 0 ? src_track_idx : dst_track_idx);
+    int32_t end_track = (int32_t)(dst_track_relative_idx >= 0 ? dst_track_end : src_track_end) - 1;
+
+    for (int32_t i = begin_track; i <= end_track; i++) {
+      Track* track = tracks[i];
+      track->update_clip_ordering();
+      track->reset_playback_state(playhead, true);
+    }
+  }
+  else {
+    for (uint32_t i = src_track_idx; i < src_track_end; i++) {
+      Track* track = tracks[i];
+      track->update_clip_ordering();
+      track->reset_playback_state(playhead, true);
+    }
+
+    for (uint32_t i = dst_track_idx; i < dst_track_end; i++) {
+      Track* track = tracks[i];
+      track->update_clip_ordering();
+      track->reset_playback_state(playhead, true);
+    }
+  }
+
+  return result;
 }
 
 void Engine::set_clip_gain(Track* track, uint32_t clip_id, float gain) {

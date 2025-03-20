@@ -69,4 +69,10 @@ struct TrackEditResult {
   Clip* new_clip;
 };
 
+struct MultiEditResult {
+  Vector<Pair<uint32_t, Clip>> deleted_clips;
+  Vector<Pair<uint32_t, Clip*>> added_clips;
+  Vector<Pair<uint32_t, Clip*>> modified_clips;
+};
+
 }  // namespace wb

@@ -35,6 +35,7 @@ struct Engine {
   uint32_t audio_record_file_chunk_size = 8 * 1024;
   uint32_t audio_record_chunk_size = 256 * 1024;
 
+  std::string project_filename = "untitled.wb";
   ProjectInfo project_info;
   std::vector<Track*> tracks;
   mutable Spinlock editor_lock;
@@ -124,6 +125,14 @@ struct Engine {
       double max,
       bool dont_sort,
       Clip* ignore_clip);
+
+  MultiEditResult move_region(
+      const Vector<SelectedTrackRegion>& selected_track_regions,
+      uint32_t src_track_idx,
+      int32_t dst_track_relative_idx,
+      double min_pos,
+      double max_pos,
+      double relative_move_pos);
 
   void set_clip_gain(Track* track, uint32_t clip_id, float gain);
 

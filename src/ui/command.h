@@ -20,6 +20,8 @@ struct TrackHistory {
   void undo(Track* track);
 };
 
+struct TimelineHistory { };
+
 struct Command : public InplaceList<Command> {
   std::string name;
   virtual ~Command() {
@@ -149,6 +151,27 @@ struct ClipAdjustGainCmd : public Command {
   uint32_t clip_id;
   float gain_before;
   float gain_after;
+
+  void execute() override;
+  void undo() override;
+};
+
+struct ClipCmd : public Command {
+  Vector<Pair<uint32_t, Clip>> deleted_clips;
+  Vector<Pair<uint32_t, uint32_t>> added_clips;
+  Vector<Pair<uint32_t, uint32_t>> modified_clips;
+
+  void backup(MultiEditResult&& edit_result);
+  void clean_edit_result();
+};
+
+struct ClipMoveCmd2 : public ClipCmd {
+  Vector<SelectedTrackRegion> selected_track_regions;
+  uint32_t src_track_idx;
+  int32_t dst_track_relative_idx;
+  double min_pos;
+  double max_pos;
+  double relative_move_pos;
 
   void execute() override;
   void undo() override;
