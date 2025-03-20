@@ -269,8 +269,8 @@ void GuiPianoRoll::render_editor() {
     if (note_rect.Contains(mouse_pos) && is_piano_roll_hovered)
       note_id = note.id;
 
-    ImVec2 a(min_pos_x + 0.5f, min_pos_y + 0.5f);
-    ImVec2 b(max_pos_x - 0.5f, max_pos_y - 0.5f);
+    ImVec2 a(min_pos_x + 1.0f, min_pos_y);
+    ImVec2 b(max_pos_x + 1.0f, max_pos_y);
     if (a.y > end_y || b.y < main_cursor_pos.y)
       continue;
 
@@ -280,6 +280,13 @@ void GuiPianoRoll::render_editor() {
     draw_list->PathLineTo(b);
     draw_list->PathLineTo(ImVec2(a.x, b.y));
     draw_list->PathFillConvex(channel_color);
+    
+    // Draw note rect
+    draw_list->PathLineTo(a - ImVec2(0.5f, 0.5f));
+    draw_list->PathLineTo(ImVec2(b.x + 0.5f, a.y - 0.5f));
+    draw_list->PathLineTo(b + ImVec2(0.5f, 0.5f));
+    draw_list->PathLineTo(ImVec2(a.x - 0.5f, b.y + 0.5f));
+    draw_list->PathStroke(0xFF000000, ImDrawFlags_Closed);
 
     // Draw note pitch caption
     ImVec4 label_rect(a.x, a.y, b.x - 4.0f, b.y);
