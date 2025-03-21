@@ -124,6 +124,7 @@ set(WB_SOURCES
     "src/extern/dr_mp3_stub.c"
     "src/extern/json.hpp"
     "src/extern/json_fwd.hpp"
+    "src/extern/sdl_wm.h"
     "src/extern/xxhash.c"
     "src/extern/xxhash.h"
 

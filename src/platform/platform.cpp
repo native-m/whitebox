@@ -1,18 +1,10 @@
 #include "platform.h"
 
 #include <SDL_mouse.h>
-#include <SDL_syswm.h>
-
-#if defined(SDL_VIDEO_DRIVER_X11)
-// This causes compile error
-#undef None
-#endif
-
-#include <SDL_video.h>
-
 #include <unordered_map>
 
 #include "core/debug.h"
+#include "extern/sdl_wm.h"
 #include "plughost/plugin_interface.h"
 
 #ifdef WB_PLATFORM_WINDOWS

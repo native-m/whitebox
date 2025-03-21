@@ -1,7 +1,5 @@
 #include "vst3host.h"
 
-#include <SDL_syswm.h>
-#include <SDL_video.h>
 #include <pluginterfaces/vst/ivstprocesscontext.h>
 #include <public.sdk/source/common/memorystream.h>
 
@@ -11,6 +9,7 @@
 #include "core/core_math.h"
 #include "core/debug.h"
 #include "core/memory.h"
+#include "extern/sdl_wm.h"
 #include "extern/xxhash.h"
 
 #define VST3_WARN(x)                                 \

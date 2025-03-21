@@ -18,6 +18,10 @@ extern "C" {
 }
 #endif
 
+#if defined(SDL_VIDEO_DRIVER_X11)
+#undef None
+#endif
+
 #define WB_LOG_VULKAN_RESOURCE_DISPOSAL 0
 
 namespace wb {

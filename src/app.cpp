@@ -2,7 +2,6 @@
 
 #include <SDL.h>
 #include <SDL_mouse.h>
-#include <SDL_syswm.h>
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
 
