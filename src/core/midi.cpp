@@ -114,8 +114,8 @@ bool load_notes_from_file(MidiData& result, const std::filesystem::path& path) {
   return true;
 }
 
-std::optional<double> get_midi_file_content_length(const std::filesystem::path& path) {
-  return std::optional<double>();
+double get_midi_file_content_length(const std::filesystem::path& path) {
+  return 0.0;
 }
 
 const char* get_midi_note_scale(uint16_t note_number) {

@@ -43,7 +43,7 @@ struct MidiData {
 };
 
 bool load_notes_from_file(MidiData& result, const std::filesystem::path& path);
-std::optional<double> get_midi_file_content_length(const std::filesystem::path& path);
+double get_midi_file_content_length(const std::filesystem::path& path);
 const char* get_midi_note_scale(uint16_t note_number);
 int get_midi_note_octave(uint16_t note_number);
 
