@@ -19,6 +19,10 @@ bool File::seek(int64_t offset, IOSeekMode mode) {
   return false;
 }
 
+uint64_t File::position() const {
+  return 0;
+}
+
 uint32_t File::read(void* dest, size_t size) {
   return 0;
 }
