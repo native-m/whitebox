@@ -6,7 +6,7 @@ File::File() : handle_(nullptr) {
 }
 
 File::~File() {
-  if (handle == nullptr) {
+  if (handle_ == nullptr) {
     close();
   }
 }
@@ -28,7 +28,7 @@ uint32_t File::write(const void* src, size_t size) {
 }
 
 void File::close() {
-  handle = nullptr;
+  handle_ = nullptr;
 }
 }  // namespace wb
 #endif
