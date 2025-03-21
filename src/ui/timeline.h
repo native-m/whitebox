@@ -48,7 +48,7 @@ struct GuiTimeline : public TimelineBase {
   static constexpr uint32_t highlight_color = 0x9F555555;
   static constexpr float track_separator_height = 2.0f;
 
-  double beat_duration;
+  double beat_duration = 1.0;
 
   ImU32 text_color{};
   ImU32 text_transparent_color{};
@@ -57,16 +57,16 @@ struct GuiTimeline : public TimelineBase {
   ImU32 splitter_active_color{};
 
   GPUTexture* timeline_fb{};
-  ImDrawList* main_draw_list;
-  ImDrawList* layer1_draw_list;
-  ImDrawList* layer2_draw_list;
-  ImDrawList* layer3_draw_list;
+  ImDrawList* main_draw_list{};
+  ImDrawList* layer1_draw_list{};
+  ImDrawList* layer2_draw_list{};
+  ImDrawList* layer3_draw_list{};
   ImDrawData layer_draw_data;
   Vector<ClipDrawCmd> clip_draw_cmd;
   Vector<WaveformDrawCmd> waveform_cmd_list1;
   Vector<WaveformDrawCmd> waveform_cmd_list2;
 
-  ImFont* font;
+  ImFont* font{};
   uint32_t color_spin = 0;
   uint32_t initial_track_id = 0;
   float mouse_wheel = 0.0f;
@@ -76,12 +76,12 @@ struct GuiTimeline : public TimelineBase {
   float vscroll = 0.0f;
   float last_vscroll = 0.0f;
   float scroll_delta_y = 0.0f;
-  float timeline_scroll_offset_x_f32;
+  float timeline_scroll_offset_x_f32 = 0.0f;
   float timeline_bounds_min_x;
   float timeline_bounds_min_y;
   float timeline_bounds_max_x;
   float current_value = 0.0f;
-  double timeline_scroll_offset_x;
+  double timeline_scroll_offset_x = 0.0;
   double clip_scale = 0.0;
   double initial_time_pos = 0.0;
   ImVec2 mouse_pos;
@@ -95,8 +95,8 @@ struct GuiTimeline : public TimelineBase {
   uint32_t first_selected_track = 0;
   uint32_t last_selected_track = 0;
   float first_selected_track_pos_y = 0.0;
-  double selection_start_pos;
-  double selection_end_pos;
+  double selection_start_pos = 0.0;
+  double selection_end_pos = 0.0;
 
   bool force_redraw = false;
   bool has_deleted_clips = false;
@@ -118,7 +118,7 @@ struct GuiTimeline : public TimelineBase {
   Track* edited_track{};
   Clip* edited_clip{};
   std::optional<int32_t> edit_src_track_id{};
-  float edited_track_pos_y;
+  float edited_track_pos_y = 0.0;
   Vector<ClipResizeInfo> clip_resize;
 
   Track* hovered_track{};

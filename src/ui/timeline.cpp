@@ -887,11 +887,25 @@ void GuiTimeline::render_track_lanes() {
       float selection_end_y = 0.0f;
       float selection_start_height = 0.0f;
       float selection_end_height = 0.0f;
-      uint32_t first_track = first_selected_track;
-      uint32_t last_track = last_selected_track;
+      int32_t first_track = (int32_t)first_selected_track;
+      int32_t last_track = (int32_t)last_selected_track;
+      double start_pos = selection_start_pos;
+      double end_pos = selection_end_pos;
 
       if (last_track < first_track) {
         std::swap(first_track, last_track);
+      }
+
+      if (edit_command == TimelineCommand::ClipMove) {
+        int32_t num_selected_regions = (int32_t)selected_track_regions.size();
+        int32_t max_move = (int32_t)tracks.size() - num_selected_regions;
+        int32_t relative_track_offset = (int32_t)hovered_track_id.value() - edit_src_track_id.value();
+        double relative_time_offset = mouse_at_gridline - initial_time_pos;
+        double selected_time_range = end_pos - start_pos;
+        first_track = math::clamp(first_track + relative_track_offset, 0, max_move);
+        last_track = (first_track + num_selected_regions) - 1;
+        start_pos += relative_time_offset;
+        end_pos = start_pos + selected_time_range;
       }
 
       for (uint32_t i = 0; i <= last_track; i++) {
@@ -909,13 +923,13 @@ void GuiTimeline::render_track_lanes() {
         track_pos_y += track->height + track_separator_height;
       }
 
-      static const ImU32 selection_range_fill = ImColor(28, 150, 237, 78);
+      static const ImU32 selection_range_fill = ImColor(28, 150, 237, 76);
       static const ImU32 selection_range_border = ImColor(28, 150, 237, 255);
-      double min_time = math::round(selection_start_pos * clip_scale);
-      double max_time = math::round(selection_end_pos * clip_scale);
+      double min_pos_in_pixel = math::round(start_pos * clip_scale);
+      double max_pos_in_pixel = math::round(end_pos * clip_scale);
 
-      if (max_time < min_time) {
-        std::swap(min_time, max_time);
+      if (max_pos_in_pixel < min_pos_in_pixel) {
+        std::swap(min_pos_in_pixel, max_pos_in_pixel);
       }
 
       if (selection_end_y < selection_start_y) {
@@ -925,14 +939,15 @@ void GuiTimeline::render_track_lanes() {
         selection_end_y += selection_end_height;
       }
 
-      const ImVec2 a(timeline_scroll_offset_x_f32 + (float)min_time, selection_start_y);
-      const ImVec2 b(timeline_scroll_offset_x_f32 + (float)max_time, selection_end_y);
+      const ImVec2 a(timeline_scroll_offset_x_f32 + (float)min_pos_in_pixel, selection_start_y);
+      const ImVec2 b(timeline_scroll_offset_x_f32 + (float)max_pos_in_pixel, selection_end_y);
+
       if (edit_selected) {
         layer3_draw_list->AddRect(a - ImVec2(1.0f, 0.0f), b + ImVec2(1.0f, 1.0f), selection_range_border);
       } else {
         layer3_draw_list->AddRectFilled(a, b, selection_range_fill);
+        layer3_draw_list->AddRect(a - ImVec2(1.0f, 0.0f), b + ImVec2(1.0f, 1.0f), selection_range_border);
       }
-      // layer2_draw_list->AddRect(a, b, selection_range_border);
     }
 
     layer3_draw_list->PopClipRect();
