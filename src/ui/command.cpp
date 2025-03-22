@@ -382,7 +382,7 @@ void ClipMoveCmd2::undo() {
 //
 
 void ClipResizeCmd2::execute() {
-  backup(g_engine.resize_clips(track_clip, first_track, relative_pos, min_length, right_side, false));
+  backup(g_engine.resize_clips(track_clip, first_track, relative_pos, min_length, right_side, shift));
 }
 
 void ClipResizeCmd2::undo() {

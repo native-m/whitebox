@@ -1899,6 +1899,7 @@ void GuiTimeline::apply_edit(double mouse_at_gridline) {
           finish_edit();
           force_redraw = true;
         }
+        ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
         break;
       case TimelineCommand::ClipResizeLeft:
       case TimelineCommand::ClipResizeRight:
@@ -1914,6 +1915,23 @@ void GuiTimeline::apply_edit(double mouse_at_gridline) {
           finish_edit();
           force_redraw = true;
         }
+        ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+        break;
+      case TimelineCommand::ClipShiftLeft:
+      case TimelineCommand::ClipShiftRight:
+        if (!left_mouse_down) {
+          ClipResizeCmd2* cmd = new ClipResizeCmd2();
+          cmd->track_clip = clip_resize;
+          cmd->first_track = first_selected_track;
+          cmd->relative_pos = relative_pos;
+          cmd->min_length = 1.0 / grid_scale;
+          cmd->right_side = edit_command == TimelineCommand::ClipShiftRight;
+          cmd->shift = true;
+          g_cmd_manager.execute("Shift clip", cmd);
+          finish_edit();
+          force_redraw = true;
+        }
+        ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
         break;
     }
   }
