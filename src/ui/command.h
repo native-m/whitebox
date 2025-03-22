@@ -162,6 +162,7 @@ struct ClipCmd : public Command {
   Vector<Pair<uint32_t, uint32_t>> modified_clips;
 
   void backup(MultiEditResult&& edit_result);
+  void undo(uint32_t begin_track, uint32_t end_track);
   void clean_edit_result();
 };
 
@@ -173,6 +174,11 @@ struct ClipMoveCmd2 : public ClipCmd {
   double max_pos;
   double relative_move_pos;
 
+  void execute() override;
+  void undo() override;
+};
+
+struct ClipResize2 : public ClipCmd {
   void execute() override;
   void undo() override;
 };

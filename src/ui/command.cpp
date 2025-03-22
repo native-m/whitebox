@@ -300,7 +300,56 @@ void ClipCmd::backup(MultiEditResult&& edit_result) {
   }
 }
 
+void ClipCmd::undo(uint32_t begin_track, uint32_t end_track) {
+  double playback_pos = g_engine.playhead;
+  for (uint32_t i = begin_track; i < end_track; i++) {
+    Track* track = g_engine.tracks[i];
+    Vector<Clip*> new_cliplist;
+
+    for (auto clip : track->clips) {
+      bool should_delete = false;
+
+      for (const auto& modified_clip : modified_clips) {
+        if (modified_clip.first == i && modified_clip.second == clip->id) {
+          should_delete = true;
+          break;
+        }
+      }
+
+      for (const auto& added_clip : added_clips) {
+        if (added_clip.first == i && added_clip.second == clip->id) {
+          should_delete = true;
+          break;
+        }
+      }
+
+      if (should_delete) {
+        track->destroy_clip(clip);
+        continue;
+      }
+
+      new_cliplist.push_back(clip);
+    }
+
+    for (auto& deleted_clip : deleted_clips) {
+      if (deleted_clip.first != i) {
+        continue;
+      }
+      auto restored_clip = track->allocate_clip();
+      new (restored_clip) Clip(deleted_clip.second);
+      new_cliplist.push_back(restored_clip);
+    }
+
+    track->clips = std::move(new_cliplist);
+    track->update_clip_ordering();
+    track->reset_playback_state(playback_pos, true);
+  }
+}
+
 void ClipCmd::clean_edit_result() {
+  deleted_clips.clear();
+  added_clips.clear();
+  modified_clips.clear();
 }
 
 //
@@ -313,21 +362,28 @@ void ClipMoveCmd2::execute() {
 void ClipMoveCmd2::undo() {
   uint32_t num_selected_tracks = (uint32_t)selected_track_regions.size();
   uint32_t dst_track_idx = (int32_t)src_track_idx + dst_track_relative_idx;
-  uint32_t src_last_idx = src_track_idx + num_selected_tracks;
-  uint32_t dst_last_idx = dst_track_idx + num_selected_tracks;
+  uint32_t src_track_end = src_track_idx + num_selected_tracks;
+  uint32_t dst_track_end = dst_track_idx + num_selected_tracks;
+  g_engine.edit_lock();
 
-  if (dst_last_idx > src_track_idx && dst_track_idx < src_last_idx) {
-    for (uint32_t i = src_track_idx; i <= dst_last_idx; i++) {
-      Track* track = g_engine.tracks[i];
-    }
+  if (dst_track_end > src_track_idx && dst_track_idx < src_track_end) {
+    int32_t begin_track = (int32_t)(dst_track_relative_idx >= 0 ? src_track_idx : dst_track_idx);
+    int32_t end_track = (int32_t)(dst_track_relative_idx >= 0 ? dst_track_end : src_track_end);
+    ClipCmd::undo(begin_track, end_track);
   } else {
-    for (uint32_t i = 0; i < (uint32_t)selected_track_regions.size(); i++) {
-      uint32_t src_index = src_track_idx + i;
-      uint32_t dst_index = dst_track_idx + i;
-      Track* src_track = g_engine.tracks[src_index];
-      Track* dst_track = g_engine.tracks[dst_index];
-    }
+    ClipCmd::undo(src_track_idx, src_track_end);
+    ClipCmd::undo(dst_track_idx, dst_track_end);
   }
+
+  clean_edit_result();
+  g_engine.edit_unlock();
+}
+
+//
+
+void ClipResize2::execute() {
+}
+void ClipResize2::undo() {
 }
 
 }  // namespace wb

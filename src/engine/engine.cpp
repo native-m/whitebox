@@ -559,7 +559,7 @@ MultiEditResult Engine::move_region(
   }
 
   MultiEditResult result;
-  uint32_t num_selected_regions = (int32_t)selected_track_regions.size();
+  int32_t num_selected_regions = (int32_t)selected_track_regions.size();
   int32_t dst_max_bound = tracks.size() - num_selected_regions;
   uint32_t src_track_end = src_track_idx + num_selected_regions;
   uint32_t dst_track_idx = math::clamp((int32_t)src_track_idx + dst_track_relative_idx, 0, dst_max_bound);
@@ -586,16 +586,6 @@ MultiEditResult Engine::move_region(
       bool left_side_partially_selected = query_result.left_side_partially_selected(i);
 
       if (right_side_partially_selected && left_side_partially_selected) {
-        double right_shift_ofs = clip->min_time - reserve_max;
-        Clip* right_side_substitute_clip = track->allocate_clip();
-        assert(right_side_substitute_clip);
-        new (right_side_substitute_clip) Clip(*clip);
-        right_side_substitute_clip->min_time = reserve_max;
-        right_side_substitute_clip->start_offset = shift_clip_content(clip, right_shift_ofs, current_beat_duration);
-        substitute_clips.emplace_back(track_index, right_side_substitute_clip);
-        result.modified_clips.emplace_back(track_index, right_side_substitute_clip);
-        last_partially_selected_clip = right_side_substitute_clip;
-
         if (last_clip == nullptr || last_clip->id != clip->id) {
           Clip* left_side_substitute_clip = track->allocate_clip();
           assert(left_side_substitute_clip);
@@ -606,6 +596,16 @@ MultiEditResult Engine::move_region(
         } else {
           last_clip->max_time = reserve_min;
         }
+
+        double right_shift_ofs = clip->min_time - reserve_max;
+        Clip* right_side_substitute_clip = track->allocate_clip();
+        assert(right_side_substitute_clip);
+        new (right_side_substitute_clip) Clip(*clip);
+        right_side_substitute_clip->min_time = reserve_max;
+        right_side_substitute_clip->start_offset = shift_clip_content(clip, right_shift_ofs, current_beat_duration);
+        substitute_clips.emplace_back(track_index, right_side_substitute_clip);
+        result.modified_clips.emplace_back(track_index, right_side_substitute_clip);
+        last_partially_selected_clip = right_side_substitute_clip;
       } else if (right_side_partially_selected) {
         if (last_clip == nullptr || last_clip->id != clip->id) {
           Clip* left_side_substitute_clip = track->allocate_clip();
@@ -638,6 +638,7 @@ MultiEditResult Engine::move_region(
     return last_partially_selected_clip;
   };
 
+  // Clear region
   if (track_overlapped) {
     int32_t begin_track = (int32_t)(dst_track_relative_idx >= 0 ? src_track_idx : dst_track_idx);
     int32_t end_track = (int32_t)(dst_track_relative_idx >= 0 ? dst_track_end : src_track_end) - 1;
@@ -666,6 +667,7 @@ MultiEditResult Engine::move_region(
             clear_track_region(track, i, src_begin_pos, dst_end_pos, *query_result);
           }
         } else {
+          // When the time is not overlapped, it needs to be cleared separately
           int32_t src_region_index = i - src_track_idx;
           const SelectedTrackRegion& src_region = selected_track_regions[src_region_index];
           auto dst_region_range = track->query_clip_by_range(dst_min_pos, dst_max_pos);
@@ -795,8 +797,7 @@ MultiEditResult Engine::move_region(
       track->update_clip_ordering();
       track->reset_playback_state(playhead, true);
     }
-  }
-  else {
+  } else {
     for (uint32_t i = src_track_idx; i < src_track_end; i++) {
       Track* track = tracks[i];
       track->update_clip_ordering();

@@ -34,7 +34,7 @@ calc_resize_clip(Clip* clip, double relative_pos, double min_length, double beat
         start_offset -= new_max_clamped - old_max;
       else
         start_offset += old_max - new_max_clamped;
-      if (clip->is_audio())
+      if (clip->is_audio() && asset)
         start_offset = beat_to_samples(start_offset, (double)asset->sample_instance.sample_rate, beat_duration);
     }
 
