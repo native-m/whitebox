@@ -25,6 +25,11 @@ struct ClipResizeResult {
   double start_offset;
 };
 
+struct TrackClipResizeInfo {
+  bool should_resize;
+  uint32_t clip_id;
+};
+
 struct ClipQueryResult {
   uint32_t first;
   uint32_t last;

@@ -39,11 +39,6 @@ struct ClipDrawCmd {
   };
 };
 
-struct ClipResizeInfo {
-  bool should_resize;
-  uint32_t clip_id;
-};
-
 struct GuiTimeline : public TimelineBase {
   static constexpr uint32_t highlight_color = 0x9F555555;
   static constexpr float track_separator_height = 2.0f;
@@ -119,7 +114,7 @@ struct GuiTimeline : public TimelineBase {
   Clip* edited_clip{};
   std::optional<int32_t> edit_src_track_id{};
   float edited_track_pos_y = 0.0;
-  Vector<ClipResizeInfo> clip_resize;
+  Vector<TrackClipResizeInfo> clip_resize;
 
   Track* hovered_track{};
   std::optional<int32_t> hovered_track_id{};

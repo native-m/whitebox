@@ -814,6 +814,78 @@ MultiEditResult Engine::move_region(
   return result;
 }
 
+MultiEditResult Engine::resize_clips(
+    const Vector<TrackClipResizeInfo>& track_clip,
+    uint32_t first_track,
+    double relative_pos,
+    double min_length,
+    bool right_side,
+    bool shift) {
+  double current_beat_duration = beat_duration.load(std::memory_order_relaxed);
+  MultiEditResult result;
+  std::unique_lock lock(editor_lock);
+
+  for (uint32_t i = 0; auto [has_clip, clip_id] : track_clip) {
+    if (!has_clip) {
+      i++;
+      continue;
+    }
+
+    uint32_t track_index = i + first_track;
+    Track* track = tracks[track_index];
+    Clip* resized_clip = track->clips[clip_id];
+    double clear_start_pos = 0.0;
+    double clear_end_pos = 0.0;
+
+    if (!right_side) {
+      clear_start_pos = resized_clip->min_time + relative_pos;
+      clear_end_pos = resized_clip->min_time;
+    } else {
+      clear_start_pos = resized_clip->max_time;
+      clear_end_pos = resized_clip->max_time + relative_pos;
+    }
+
+    // Clear the region below the resized clip
+    if (clear_end_pos > clear_start_pos) {
+      auto deleted_clips = track->query_clip_by_range(clear_start_pos, clear_end_pos);
+      if (deleted_clips) {
+        for (uint32_t j = deleted_clips->first; j <= deleted_clips->last; j++) {
+          if (Clip* clip = track->clips[j]; clip->id != clip_id) {
+            bool right_side_partially_selected = deleted_clips->right_side_partially_selected(j);
+            bool left_side_partially_selected = deleted_clips->left_side_partially_selected(j);
+            result.deleted_clips.emplace_back(track_index, *clip);
+            if (deleted_clips->right_side_partially_selected(j)) {
+              clip->max_time = clear_start_pos;
+              result.modified_clips.emplace_back(track_index, clip);
+            } else if (deleted_clips->left_side_partially_selected(j)) {
+              double right_shift_ofs = clip->min_time - clear_end_pos;
+              clip->start_offset = shift_clip_content(clip, right_shift_ofs, current_beat_duration);
+              clip->min_time = clear_end_pos;
+              result.modified_clips.emplace_back(track_index, clip);
+            } else {
+              track->mark_clip_deleted(clip);
+            }
+          }
+        }
+      }
+    }
+
+    auto [min_time, max_time, start_offset] =
+        calc_resize_clip(resized_clip, relative_pos, min_length, beat_duration, !right_side, shift);
+    result.deleted_clips.emplace_back(track_index, *resized_clip);
+    resized_clip->min_time = min_time;
+    resized_clip->max_time = max_time;
+    resized_clip->start_offset = start_offset;
+    result.modified_clips.emplace_back(track_index, resized_clip);
+
+    track->update_clip_ordering();
+    track->reset_playback_state(playhead, true);
+    i++;
+  }
+
+  return result;
+}
+
 void Engine::set_clip_gain(Track* track, uint32_t clip_id, float gain) {
   Clip* clip = track->clips[clip_id];
   if (clip->is_audio())

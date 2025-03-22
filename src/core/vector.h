@@ -47,7 +47,7 @@ struct Vector {
   inline Vector<T>& operator=(const Vector<T>& other)
     requires std::copyable<T>
   {
-    if (other.intern_.size == 0)
+    if (other.intern_.size == 0 || other.intern_.data == nullptr)
       return *this;
     if constexpr (std::is_trivially_copyable_v<T>) {
       size_t other_size = other.size();
@@ -283,6 +283,8 @@ struct Vector {
   }
 
   inline void clear() noexcept {
+    if (intern_.size == 0)
+      return;
     if constexpr (!std::is_trivially_destructible_v<T>) {
       T* begin_ptr = intern_.data;
       for (size_t i = 0; i < intern_.size; i++) {

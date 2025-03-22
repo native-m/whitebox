@@ -93,6 +93,7 @@ struct Engine {
   void preview_sample(const std::filesystem::path& path);
 
   TrackEditResult add_clip_from_file(Track* track, const std::filesystem::path& path, double min_time);
+  
   TrackEditResult add_audio_clip(
       Track* track,
       const std::string& name,
@@ -101,6 +102,7 @@ struct Engine {
       double start_offset,
       const AudioClip& clip_info,
       bool active = true);
+  
   TrackEditResult add_midi_clip(
       Track* track,
       const std::string& name,
@@ -109,6 +111,7 @@ struct Engine {
       double start_offset,
       const MidiClip& clip_info,
       bool active = true);
+  
   TrackEditResult emplace_clip(Track* track, const Clip& new_clip);
   TrackEditResult duplicate_clip(Track* track, Clip* clip_to_duplicate, double min_time, double max_time);
   TrackEditResult move_clip(Track* track, Clip* clip, double relative_pos);
@@ -117,6 +120,7 @@ struct Engine {
   TrackEditResult add_to_cliplist(Track* track, Clip* clip);
   TrackEditResult delete_region(Track* track, double min, double max);
   std::optional<ClipQueryResult> query_clip_by_range(Track* track, double min, double max) const;
+
   TrackEditResult reserve_track_region(
       Track* track,
       uint32_t first_clip,
@@ -133,6 +137,14 @@ struct Engine {
       double min_pos,
       double max_pos,
       double relative_move_pos);
+
+  MultiEditResult resize_clips(
+      const Vector<TrackClipResizeInfo>& clips,
+      uint32_t first_track,
+      double relative_pos,
+      double min_pos,
+      bool right_side,
+      bool shift);
 
   void set_clip_gain(Track* track, uint32_t clip_id, float gain);
 

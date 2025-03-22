@@ -178,7 +178,14 @@ struct ClipMoveCmd2 : public ClipCmd {
   void undo() override;
 };
 
-struct ClipResize2 : public ClipCmd {
+struct ClipResizeCmd2 : public ClipCmd {
+  Vector<TrackClipResizeInfo> track_clip;
+  uint32_t first_track;
+  double relative_pos;
+  double min_length;
+  bool right_side;
+  bool shift;
+
   void execute() override;
   void undo() override;
 };

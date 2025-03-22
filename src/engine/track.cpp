@@ -105,6 +105,12 @@ std::optional<ClipQueryResult> Track::query_clip_by_range(double min, double max
   if (begin == end)
     return {};
 
+  if (max <= (*begin)->min_time)
+    return {};
+
+  if (min >= clips.back()->max_time)
+    return {};
+
   auto first = wb::find_lower_bound(begin, end, min, [](const Clip* clip, double time) { return clip->max_time <= time; });
   auto last = wb::find_lower_bound(begin, end, max, [](const Clip* clip, double time) { return clip->max_time <= time; });
   uint32_t first_clip = first - begin;
@@ -112,7 +118,7 @@ std::optional<ClipQueryResult> Track::query_clip_by_range(double min, double max
   double first_offset;
   double last_offset;
 
-  if (first == last && (max <= (*first)->min_time || min > (*last)->max_time)) {
+  if (first == last && (max <= (*first)->min_time || min >= (*last)->max_time)) {
     return {};
   }
 

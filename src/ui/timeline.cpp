@@ -1024,7 +1024,7 @@ void GuiTimeline::render_track(
   double relative_pos = 0.0;
   bool has_clip_selected = false;
   SelectedTrackRegion* selected_region = nullptr;
-  ClipResizeInfo* clip_resize_info = nullptr;
+  TrackClipResizeInfo* clip_resize_info = nullptr;
   bool is_track_selected = math::in_range(id, first_selected_track, last_selected_track);
   is_mouse_in_selection_range = is_mouse_in_selection_range && is_track_selected;
 
@@ -1047,9 +1047,8 @@ void GuiTimeline::render_track(
     }
   }
 
-  bool move_or_shift_action = any_of(edit_command, TimelineCommand::ClipMove, TimelineCommand::ClipShift);
-  bool resize_or_shift_action =
-      math::in_range(edit_command, TimelineCommand::ClipResizeLeft, TimelineCommand::ClipShiftRight);
+  bool move_or_shift_cmd = any_of(edit_command, TimelineCommand::ClipMove, TimelineCommand::ClipShift);
+  bool resize_or_shift_cmd = math::in_range(edit_command, TimelineCommand::ClipResizeLeft, TimelineCommand::ClipShiftRight);
 
   for (size_t i = 0; i < track->clips.size(); i++) {
     Clip* clip = track->clips[i];
@@ -1069,7 +1068,7 @@ void GuiTimeline::render_track(
     [[unlikely]] if (edit_command != TimelineCommand::None) {
       [[unlikely]] if (edit_selected && redraw && has_clip_selected) {
         if (select_status != ClipSelectStatus::NotSelected) {
-          if (move_or_shift_action) {
+          if (move_or_shift_cmd) {
             if (select_status == ClipSelectStatus::PartiallySelected) {
               bool is_audio = clip->is_audio();
               bool right_side_partially_selected = selected_region->range.right_side_partially_selected(i);
@@ -1135,7 +1134,7 @@ void GuiTimeline::render_track(
                 continue;
               }
             }
-          } else if (resize_or_shift_action) {
+          } else if (resize_or_shift_cmd) {
             if (clip_resize_info && clip_resize_info->should_resize && clip_resize_info->clip_id == i) {
               continue;
             }
@@ -1459,7 +1458,7 @@ void GuiTimeline::render_edited_clips(double mouse_at_gridline) {
       } else if (edit_command >= TimelineCommand::ClipResizeLeft && edit_command <= TimelineCommand::ClipShiftRight) {
         bool shift_mode = edit_command == TimelineCommand::ClipShiftLeft || edit_command == TimelineCommand::ClipShiftRight;
         bool left_side = edit_command == TimelineCommand::ClipResizeLeft || edit_command == TimelineCommand::ClipShiftLeft;
-        const ClipResizeInfo& clip_resize_info = clip_resize[i - first_selected_track];
+        const TrackClipResizeInfo& clip_resize_info = clip_resize[i - first_selected_track];
         if (clip_resize_info.should_resize) {
           Clip* clip = src_track->clips[clip_resize_info.clip_id];
           const double min_length = 1.0 / grid_scale;
@@ -1897,6 +1896,21 @@ void GuiTimeline::apply_edit(double mouse_at_gridline) {
           cmd->max_pos = selection_end_pos;
           cmd->relative_move_pos = relative_pos;
           g_cmd_manager.execute("Move clip", cmd);
+          finish_edit();
+          force_redraw = true;
+        }
+        break;
+      case TimelineCommand::ClipResizeLeft:
+      case TimelineCommand::ClipResizeRight:
+        if (!left_mouse_down) {
+          ClipResizeCmd2* cmd = new ClipResizeCmd2();
+          cmd->track_clip = clip_resize;
+          cmd->first_track = first_selected_track;
+          cmd->relative_pos = relative_pos;
+          cmd->min_length = 1.0 / grid_scale;
+          cmd->right_side = edit_command == TimelineCommand::ClipResizeRight;
+          cmd->shift = false;
+          g_cmd_manager.execute("Resize clip", cmd);
           finish_edit();
           force_redraw = true;
         }
