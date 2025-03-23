@@ -1754,6 +1754,11 @@ void GuiTimeline::draw_clip_overlay(ImVec2 pos, float size, float alpha, const I
 }
 
 void GuiTimeline::apply_edit(double mouse_at_gridline) {
+  if (timeline_window_focused && ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+    finish_edit();
+    force_redraw = true;
+    return;
+  }
   double relative_pos = mouse_at_gridline - initial_time_pos;
   if (!edit_selected) {
     switch (edit_command) {
