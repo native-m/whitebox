@@ -547,13 +547,14 @@ TrackEditResult Engine::reserve_track_region(
   };
 }
 
-MultiEditResult Engine::move_region(
+MultiEditResult Engine::move_or_duplicate_region(
     const Vector<SelectedTrackRegion>& selected_track_regions,
     uint32_t src_track_idx,
     int32_t dst_track_relative_idx,
     double min_pos,
     double max_pos,
-    double relative_time_pos) {
+    double relative_time_pos,
+    bool duplicate) {
   if (dst_track_relative_idx == 0 && relative_time_pos == 0.0) {
     return {};  // Return if there is no movement
   }
@@ -659,6 +660,13 @@ MultiEditResult Engine::move_region(
       bool src_in_range = i >= src_track_idx && i < src_track_end;
       bool dst_in_range = i >= dst_track_idx && i < dst_track_end;
 
+      if (duplicate) {
+        if (auto region_range = track->query_clip_by_range(dst_min_pos, dst_max_pos)) {
+          clear_track_region(track, i, dst_min_pos, dst_max_pos, *region_range);
+        }
+        continue;
+      }
+
       if (src_in_range && dst_in_range) {
         if (time_overlapped) {
           // When the time is overlapped, we can combine this into one operation
@@ -703,12 +711,14 @@ MultiEditResult Engine::move_region(
       }
     }
   } else {
-    for (uint32_t i = src_track_idx; i < src_track_end; i++) {
-      int32_t src_region_index = i - src_track_idx;
-      const SelectedTrackRegion& src_region = selected_track_regions[src_region_index];
-      Track* track = tracks[i];
-      if (src_region.has_clip_selected) {
-        clear_track_region(track, i, min_pos, max_pos, src_region.range, nullptr);
+    if (!duplicate) {
+      for (uint32_t i = src_track_idx; i < src_track_end; i++) {
+        int32_t src_region_index = i - src_track_idx;
+        const SelectedTrackRegion& src_region = selected_track_regions[src_region_index];
+        Track* track = tracks[i];
+        if (src_region.has_clip_selected) {
+          clear_track_region(track, i, min_pos, max_pos, src_region.range, nullptr);
+        }
       }
     }
 

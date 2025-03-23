@@ -355,8 +355,8 @@ void ClipCmd::clean_edit_result() {
 //
 
 void ClipMoveCmd2::execute() {
-  backup(g_engine.move_region(
-      selected_track_regions, src_track_idx, dst_track_relative_idx, min_pos, max_pos, relative_move_pos));
+  backup(g_engine.move_or_duplicate_region(
+      selected_track_regions, src_track_idx, dst_track_relative_idx, min_pos, max_pos, relative_move_pos, duplicate));
 }
 
 void ClipMoveCmd2::undo() {

@@ -130,13 +130,14 @@ struct Engine {
       bool dont_sort,
       Clip* ignore_clip);
 
-  MultiEditResult move_region(
+  MultiEditResult move_or_duplicate_region(
       const Vector<SelectedTrackRegion>& selected_track_regions,
       uint32_t src_track_idx,
       int32_t dst_track_relative_idx,
       double min_pos,
       double max_pos,
-      double relative_move_pos);
+      double relative_move_pos,
+      bool duplicate);
 
   MultiEditResult resize_clips(
       const Vector<TrackClipResizeInfo>& clips,

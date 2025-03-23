@@ -173,6 +173,7 @@ struct ClipMoveCmd2 : public ClipCmd {
   double min_pos;
   double max_pos;
   double relative_move_pos;
+  bool duplicate;
 
   void execute() override;
   void undo() override;

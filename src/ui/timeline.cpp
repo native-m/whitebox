@@ -1888,6 +1888,7 @@ void GuiTimeline::apply_edit(double mouse_at_gridline) {
   } else {
     switch (edit_command) {
       case TimelineCommand::ClipMove:
+      case TimelineCommand::ClipDuplicate:
         if (!left_mouse_down) {
           int32_t track_size = (int32_t)g_engine.tracks.size();
           int32_t src_track = edit_src_track_id.value();
@@ -1900,7 +1901,8 @@ void GuiTimeline::apply_edit(double mouse_at_gridline) {
           cmd->min_pos = selection_start_pos;
           cmd->max_pos = selection_end_pos;
           cmd->relative_move_pos = relative_pos;
-          g_cmd_manager.execute("Move clip", cmd);
+          cmd->duplicate = edit_command == TimelineCommand::ClipDuplicate;
+          g_cmd_manager.execute(cmd->duplicate ? "Duplicate clip" : "Move clip", cmd);
           finish_edit();
           force_redraw = true;
         }
