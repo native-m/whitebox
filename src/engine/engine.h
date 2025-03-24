@@ -152,8 +152,9 @@ struct Engine {
       const Vector<TrackClipResizeInfo>& clips,
       uint32_t first_track,
       double relative_pos,
-      double min_resize_pos,
+      double resize_limit,
       double min_length,
+      double min_resize_pos,
       bool right_side,
       bool shift);
 

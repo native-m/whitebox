@@ -836,11 +836,13 @@ MultiEditResult Engine::resize_clips(
     double relative_pos,
     double resize_limit,
     double min_length,
+    double min_resize_pos,
     bool right_side,
     bool shift) {
   double current_beat_duration = beat_duration.load(std::memory_order_relaxed);
   MultiEditResult result;
   std::unique_lock lock(editor_lock);
+  min_resize_pos = math::max(min_resize_pos, 0.0);
 
   for (uint32_t i = 0; auto [has_clip, clip_id] : track_clip) {
     if (!has_clip) {
@@ -854,8 +856,16 @@ MultiEditResult Engine::resize_clips(
     double clear_start_pos = 0.0;
     double clear_end_pos = 0.0;
     double actual_min_length = 0.0;
-    const auto [new_min_time, new_max_time, new_start_ofs] =
-        calc_resize_clip(resized_clip, relative_pos, resize_limit, min_length, beat_duration, !right_side, shift);
+    const auto [new_min_time, new_max_time, new_start_ofs] = calc_resize_clip(
+        resized_clip,
+        relative_pos,
+        resize_limit,
+        min_length,
+        min_resize_pos,
+        current_beat_duration,
+        !right_side,
+        shift,
+        true);
 
     if (!right_side) {
       clear_start_pos = new_min_time;

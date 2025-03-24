@@ -116,6 +116,8 @@ struct GuiTimeline : public TimelineBase {
   float edited_track_pos_y = 0.0;
   Vector<TrackClipResizeInfo> clip_resize;
   double clip_resize_limit{};
+  double clip_resize_pos{};
+  double clip_min_resize_pos{};
 
   Track* hovered_track{};
   std::optional<int32_t> hovered_track_id{};

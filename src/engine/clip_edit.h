@@ -6,6 +6,7 @@
 #include "etypes.h"
 
 namespace wb {
+
 static inline ClipMoveResult calc_move_clip(Clip* clip, double relative_pos, double min_move = 0.0) {
   const double new_pos = math::max(clip->min_time + relative_pos, min_move);
   return {
@@ -19,9 +20,11 @@ static inline ClipResizeResult calc_resize_clip(
     double relative_pos,
     double resize_limit,
     double min_length,
+    double min_resize_pos,
     double beat_duration,
     bool is_min,
-    bool shift = false) {
+    bool shift = false,
+    bool clamp_at_resize_pos = false) {
   if (!is_min) {
     const double old_max = clip->max_time;
     const double actual_min_length = resize_limit + min_length - clip->min_time;
@@ -59,6 +62,8 @@ static inline ClipResizeResult calc_resize_clip(
   double length = clip->max_time - new_min;
   if (length < actual_min_length)
     new_min = clip->max_time - actual_min_length;
+  if (clamp_at_resize_pos && new_min < min_resize_pos)
+    new_min = min_resize_pos;
 
   double start_offset = clip->start_offset;
   if (!shift) {

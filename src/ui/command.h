@@ -185,6 +185,7 @@ struct ClipResizeCmd2 : public ClipCmd {
   double relative_pos;
   double resize_limit;
   double min_length;
+  double min_resize_pos;
   bool right_side;
   bool shift;
 

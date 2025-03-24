@@ -200,6 +200,15 @@ struct Clip {
     return 0.0;
   }
 
+  inline double get_start_offset(double beat_duration) const {
+    if (type == ClipType::Audio) {
+      if (audio.asset == nullptr)
+        return 0.0;
+      return samples_to_beat(start_offset, (double)audio.asset->sample_instance.sample_rate, beat_duration);
+    }
+    return start_offset;
+  }
+
   inline bool is_active() const {
     return active.load(std::memory_order_relaxed);
   }
