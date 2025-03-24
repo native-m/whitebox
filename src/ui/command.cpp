@@ -181,7 +181,8 @@ void ClipShiftCmd::undo() {
 void ClipResizeCmd::execute() {
   Track* track = g_engine.tracks[track_id];
   Clip* clip = track->clips[clip_id];
-  auto result = g_engine.resize_clip(track, clip, relative_pos, min_length, left_side, shift);
+  double resize_limit = left_side ? clip->max_time : clip->min_time;
+  auto result = g_engine.resize_clip(track, clip, relative_pos, resize_limit, min_length, left_side, shift);
   history.backup(std::move(result));
 }
 
@@ -382,7 +383,7 @@ void ClipMoveCmd2::undo() {
 //
 
 void ClipResizeCmd2::execute() {
-  backup(g_engine.resize_clips(track_clip, first_track, relative_pos, min_length, right_side, shift));
+  backup(g_engine.resize_clips(track_clip, first_track, relative_pos, resize_limit, min_length, right_side, shift));
 }
 
 void ClipResizeCmd2::undo() {

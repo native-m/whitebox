@@ -183,6 +183,7 @@ struct ClipResizeCmd2 : public ClipCmd {
   Vector<TrackClipResizeInfo> track_clip;
   uint32_t first_track;
   double relative_pos;
+  double resize_limit;
   double min_length;
   bool right_side;
   bool shift;

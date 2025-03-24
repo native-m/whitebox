@@ -351,13 +351,19 @@ TrackEditResult Engine::move_clip(Track* track, Clip* clip, double relative_pos)
   return trim_result;
 }
 
-TrackEditResult
-Engine::resize_clip(Track* track, Clip* clip, double relative_pos, double min_length, bool right_side, bool shift) {
+TrackEditResult Engine::resize_clip(
+    Track* track,
+    Clip* clip,
+    double relative_pos,
+    double resize_limit,
+    double min_length,
+    bool right_side,
+    bool shift) {
   if (relative_pos == 0.0)
     return {};
   std::unique_lock lock(editor_lock);
   auto [min_time, max_time, start_offset] =
-      calc_resize_clip(clip, relative_pos, min_length, beat_duration, right_side, shift);
+      calc_resize_clip(clip, relative_pos, resize_limit, min_length, beat_duration, right_side, shift);
   auto query_result = track->query_clip_by_range(min_time, max_time);
   TrackEditResult trim_result =
       query_result ? reserve_track_region(track, query_result->first, query_result->last, min_time, max_time, true, clip)
@@ -828,6 +834,7 @@ MultiEditResult Engine::resize_clips(
     const Vector<TrackClipResizeInfo>& track_clip,
     uint32_t first_track,
     double relative_pos,
+    double resize_limit,
     double min_length,
     bool right_side,
     bool shift) {
@@ -846,13 +853,16 @@ MultiEditResult Engine::resize_clips(
     Clip* resized_clip = track->clips[clip_id];
     double clear_start_pos = 0.0;
     double clear_end_pos = 0.0;
+    double actual_min_length = 0.0;
+    const auto [new_min_time, new_max_time, new_start_ofs] =
+        calc_resize_clip(resized_clip, relative_pos, resize_limit, min_length, beat_duration, !right_side, shift);
 
     if (!right_side) {
-      clear_start_pos = resized_clip->min_time + relative_pos;
+      clear_start_pos = new_min_time;
       clear_end_pos = resized_clip->min_time;
     } else {
       clear_start_pos = resized_clip->max_time;
-      clear_end_pos = resized_clip->max_time + relative_pos;
+      clear_end_pos = new_max_time;
     }
 
     // Clear the region below the resized clip
@@ -880,12 +890,10 @@ MultiEditResult Engine::resize_clips(
       }
     }
 
-    auto [min_time, max_time, start_offset] =
-        calc_resize_clip(resized_clip, relative_pos, min_length, beat_duration, !right_side, shift);
     result.deleted_clips.emplace_back(track_index, *resized_clip);
-    resized_clip->min_time = min_time;
-    resized_clip->max_time = max_time;
-    resized_clip->start_offset = start_offset;
+    resized_clip->min_time = new_min_time;
+    resized_clip->max_time = new_max_time;
+    resized_clip->start_offset = new_start_ofs;
     result.modified_clips.emplace_back(track_index, resized_clip);
 
     track->update_clip_ordering();

@@ -14,13 +14,21 @@ static inline ClipMoveResult calc_move_clip(Clip* clip, double relative_pos, dou
   };
 }
 
-static inline ClipResizeResult
-calc_resize_clip(Clip* clip, double relative_pos, double min_length, double beat_duration, bool is_min, bool shift = false) {
+static inline ClipResizeResult calc_resize_clip(
+    Clip* clip,
+    double relative_pos,
+    double resize_limit,
+    double min_length,
+    double beat_duration,
+    bool is_min,
+    bool shift = false) {
   if (!is_min) {
     const double old_max = clip->max_time;
+    const double actual_min_length = resize_limit + min_length - clip->min_time;
     double new_max = math::max(clip->max_time + relative_pos, 0.0);
-    if (new_max <= clip->min_time)
-      new_max = clip->min_time + min_length;
+    double length = new_max - clip->min_time;
+    if (length < actual_min_length)
+      new_max = clip->min_time + actual_min_length;
 
     double start_offset = clip->start_offset;
     if (shift) {
@@ -46,9 +54,11 @@ calc_resize_clip(Clip* clip, double relative_pos, double min_length, double beat
   }
 
   const double old_min = clip->min_time;
+  const double actual_min_length = clip->max_time - resize_limit + min_length;
   double new_min = math::max(clip->min_time + relative_pos, 0.0);
-  if (new_min >= clip->max_time)
-    new_min = clip->max_time - min_length;
+  double length = clip->max_time - new_min;
+  if (length < actual_min_length)
+    new_min = clip->max_time - actual_min_length;
 
   double start_offset = clip->start_offset;
   if (!shift) {

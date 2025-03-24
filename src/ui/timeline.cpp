@@ -896,7 +896,7 @@ void GuiTimeline::render_track_lanes() {
         std::swap(first_track, last_track);
       }
 
-      if (edit_command == TimelineCommand::ClipMove) {
+      if (edit_command == TimelineCommand::ClipMove || edit_command == TimelineCommand::ClipDuplicate) {
         int32_t num_selected_regions = (int32_t)selected_track_regions.size();
         int32_t max_move = (int32_t)tracks.size() - num_selected_regions;
         int32_t relative_track_offset = (int32_t)hovered_track_id.value() - edit_src_track_id.value();
@@ -906,6 +906,7 @@ void GuiTimeline::render_track_lanes() {
         last_track = (first_track + num_selected_regions) - 1;
         start_pos += relative_time_offset;
         end_pos = start_pos + selected_time_range;
+      } else if (edit_command == TimelineCommand::ClipResizeLeft || edit_command == TimelineCommand::ClipResizeRight) {
       }
 
       for (uint32_t i = 0; i <= last_track; i++) {
@@ -1304,7 +1305,7 @@ void GuiTimeline::render_edited_clips(double mouse_at_gridline) {
       case TimelineCommand::ClipResizeLeft: {
         const double min_length = 1.0 / grid_scale;
         auto [new_min_time, new_max_time, new_start_offset] =
-            calc_resize_clip(edited_clip, relative_pos, min_length, beat_duration, true);
+            calc_resize_clip(edited_clip, relative_pos, edited_clip->max_time, min_length, beat_duration, true);
         start_offset = new_start_offset;
         min_time = new_min_time;
         break;
@@ -1312,14 +1313,14 @@ void GuiTimeline::render_edited_clips(double mouse_at_gridline) {
       case TimelineCommand::ClipResizeRight: {
         const double min_length = 1.0 / grid_scale;
         auto [new_min_time, new_max_time, new_start_offset] =
-            calc_resize_clip(edited_clip, relative_pos, min_length, beat_duration, false);
+            calc_resize_clip(edited_clip, relative_pos, edited_clip->min_time, min_length, beat_duration, false);
         max_time = new_max_time;
         break;
       }
       case TimelineCommand::ClipShiftLeft: {
         const double min_length = 1.0 / grid_scale;
         auto [new_min_time, new_max_time, rel_offset] =
-            calc_resize_clip(edited_clip, relative_pos, min_length, beat_duration, true, true);
+            calc_resize_clip(edited_clip, relative_pos, edited_clip->max_time, min_length, beat_duration, true, true);
         start_offset = rel_offset;
         min_time = new_min_time;
         break;
@@ -1327,7 +1328,7 @@ void GuiTimeline::render_edited_clips(double mouse_at_gridline) {
       case TimelineCommand::ClipShiftRight: {
         const double min_length = 1.0 / grid_scale;
         auto [new_min_time, new_max_time, rel_offset] =
-            calc_resize_clip(edited_clip, relative_pos, min_length, beat_duration, false, true);
+            calc_resize_clip(edited_clip, relative_pos, edited_clip->min_time, min_length, beat_duration, false, true);
         start_offset = rel_offset;
         max_time = new_max_time;
         break;
@@ -1353,6 +1354,7 @@ void GuiTimeline::render_edited_clips(double mouse_at_gridline) {
       return;
     }
 
+    double min_length = 1.0 / grid_scale;
     int32_t first_track = first_selected_track;
     int32_t move_offset = 0;
 
@@ -1461,10 +1463,10 @@ void GuiTimeline::render_edited_clips(double mouse_at_gridline) {
         const TrackClipResizeInfo& clip_resize_info = clip_resize[i - first_selected_track];
         if (clip_resize_info.should_resize) {
           Clip* clip = src_track->clips[clip_resize_info.clip_id];
-          const double min_length = 1.0 / grid_scale;
           auto [new_min_time, new_max_time, new_start_offset] =
-              calc_resize_clip(clip, relative_pos, min_length, beat_duration, left_side, shift_mode);
+              calc_resize_clip(clip, relative_pos, clip_resize_limit, min_length, beat_duration, left_side, shift_mode);
           render_clip(clip, new_min_time, new_max_time, new_start_offset, track_pos_y, height, true);
+          Log::debug("{}", min_length);
         }
       }
 
@@ -1554,7 +1556,7 @@ void GuiTimeline::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sa
     }
 
     dl->AddRectFilled(clip_title_min_bb, clip_content_max, bg_color, 3.0f, ImDrawFlags_RoundCornersTop);
-    dl->AddRect(clip_title_min_bb - half, clip_content_max + half, 0x3F000000, 3.0f, ImDrawFlags_RoundCornersTop, 1.0f);
+    dl->AddRect(clip_title_min_bb - half, clip_content_max + half, 0x3F000000, 3.0f, ImDrawFlags_RoundCornersTop);
 
     if (!is_active) {
       text_color_adjusted = color_adjust_alpha(text_color_adjusted, 0.75f);
@@ -1915,6 +1917,7 @@ void GuiTimeline::apply_edit(double mouse_at_gridline) {
           cmd->track_clip = clip_resize;
           cmd->first_track = first_selected_track;
           cmd->relative_pos = relative_pos;
+          cmd->resize_limit = clip_resize_limit;
           cmd->min_length = 1.0 / grid_scale;
           cmd->right_side = edit_command == TimelineCommand::ClipResizeRight;
           cmd->shift = false;
@@ -1931,6 +1934,7 @@ void GuiTimeline::apply_edit(double mouse_at_gridline) {
           cmd->track_clip = clip_resize;
           cmd->first_track = first_selected_track;
           cmd->relative_pos = relative_pos;
+          cmd->resize_limit = clip_resize_limit;
           cmd->min_length = 1.0 / grid_scale;
           cmd->right_side = edit_command == TimelineCommand::ClipShiftRight;
           cmd->shift = true;
@@ -1972,6 +1976,7 @@ bool GuiTimeline::prepare_resize_for_selected_range(Clip* src_clip, bool dir) {
     return false;
   }
 
+  double min_resize_pos = dir ? 0.0 : DBL_MAX;
   // Find clip that matches the resize position based on resize direction
   for (uint32_t i = first_selected_track; i <= last_selected_track; i++) {
     Track* track = g_engine.tracks[i];
@@ -1998,6 +2003,11 @@ bool GuiTimeline::prepare_resize_for_selected_range(Clip* src_clip, bool dir) {
           if (time_pos == resize_pos) {
             should_resize = true;
             clip_id = j;
+            if (dir) {
+              min_resize_pos = math::max(min_resize_pos, clip->min_time);
+            } else {
+              min_resize_pos = math::min(min_resize_pos, clip->max_time);
+            }
             break;
           }
         }
@@ -2007,11 +2017,13 @@ bool GuiTimeline::prepare_resize_for_selected_range(Clip* src_clip, bool dir) {
           if (clip->min_time == resize_pos && selected_region.range.first_offset < 0.0) {
             should_resize = true;
             clip_id = clip->id;
+            min_resize_pos = math::min(min_resize_pos, clip->max_time);
           }
         } else {
           if (clip->max_time == resize_pos && selected_region.range.last_offset > 0.0) {
             should_resize = true;
             clip_id = clip->id;
+            min_resize_pos = math::max(min_resize_pos, clip->min_time);
           }
         }
       }
@@ -2022,6 +2034,8 @@ bool GuiTimeline::prepare_resize_for_selected_range(Clip* src_clip, bool dir) {
       .clip_id = clip_id,
     });
   }
+
+  clip_resize_limit = min_resize_pos;
   return true;
 }
 
@@ -2067,6 +2081,7 @@ void GuiTimeline::finish_edit() {
   edit_command = TimelineCommand::None;
   current_value = 0.0f;
   initial_time_pos = 0.0;
+  clip_resize_limit = 0.0;
   clip_resize.resize_fast(0);
   recalculate_song_length();
   Log::debug("Finish edit");
