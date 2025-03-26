@@ -70,7 +70,7 @@ void perf_counter_display() {
 
   const char* mem_usage_begin;
   const char* mem_usage_end;
-  ImFormatStringToTempBuffer(&mem_usage_begin, &mem_usage_end, "%.1f% MB", (double)mem_usage / 1000000.0);
+  ImFormatStringToTempBuffer(&mem_usage_begin, &mem_usage_end, "%.1f%% MB", (double)mem_usage / 1000000.0);
   ImVec2 mem_usage_size = ImGui::CalcTextSize(mem_usage_begin, mem_usage_end);
 
   dl->AddText(bb.Min + ImVec2(4.0f, cpu_usage_size.y + 2.0f), text_col, "Mem");
@@ -99,8 +99,8 @@ void main_control_bar() {
   ImGui::PopStyleColor();
 
   ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
-  ImGui::PushStyleColor(ImGuiCol_Button, color_brighten(btn_color, 0.12f).Value);
-  ImGui::PushStyleColor(ImGuiCol_FrameBg, color_brighten(frame_bg, 0.12f).Value);
+  ImGui::PushStyleColor(ImGuiCol_Button, Color(btn_color).brighten(0.12f).to_uint32());
+  ImGui::PushStyleColor(ImGuiCol_FrameBg, Color(frame_bg).brighten(0.12f).to_uint32());
 
   set_current_font(FontType::Icon);
   ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 3.0f));

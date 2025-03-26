@@ -1,10 +1,9 @@
 #pragma once
 
-#include <imgui.h>
-
 #include <string>
 
 #include "core/common.h"
+#include "core/color.h"
 #include "core/list.h"
 #include "engine/clip.h"
 #include "engine/etypes.h"
@@ -31,7 +30,7 @@ struct Command : public InplaceList<Command> {
 };
 
 struct TrackAddCmd : public Command {
-  ImColor color;
+  Color color;
   uint32_t track_id;
 
   void execute() override;
@@ -72,8 +71,8 @@ struct ClipRenameCmd : public Command {
 struct ClipChangeColorCmd : public Command {
   uint32_t track_id;
   uint32_t clip_id;
-  ImColor old_color;
-  ImColor new_color;
+  Color old_color;
+  Color new_color;
 
   void execute() override;
   void undo() override;

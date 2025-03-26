@@ -38,7 +38,7 @@ Track::Track() {
   });
 }
 
-Track::Track(const std::string& name, const ImColor& color, float height, bool shown, const TrackParameterState& track_param)
+Track::Track(const std::string& name, const Color& color, float height, bool shown, const TrackParameterState& track_param)
     : name(name),
       color(color),
       height(height),

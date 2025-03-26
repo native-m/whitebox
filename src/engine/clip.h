@@ -1,12 +1,13 @@
 #pragma once
 
-#include <imgui.h>
+//#include <imgui.h>
 
 #include <atomic>
 #include <string>
 
 #include "assets_table.h"
 #include "core/common.h"
+#include "core/color.h"
 
 #define WB_INVALID_CLIP_ID (~0U)
 
@@ -45,11 +46,11 @@ struct Clip {
   // General clip information
   ClipType type{};
   std::string name{};
-  ImColor color{};
+  Color color{};
   ClipHover hover_state{};
   std::atomic_bool active{ true };
   bool deleted{};
-  bool start_offset_changed{};
+  volatile bool start_offset_changed{};
 
   // Time placement in beat units
   double min_time{};
@@ -64,7 +65,7 @@ struct Clip {
   Clip() noexcept : id(WB_INVALID_CLIP_ID), audio() {
   }
 
-  Clip(const std::string& name, const ImColor& color, double min_time, double max_time, double start_offset = 0.0) noexcept
+  Clip(const std::string& name, const Color& color, double min_time, double max_time, double start_offset = 0.0) noexcept
       : id(WB_INVALID_CLIP_ID),
         type(ClipType::Unknown),
         name(name),

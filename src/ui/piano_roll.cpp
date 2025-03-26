@@ -186,7 +186,7 @@ void GuiPianoRoll::render_editor() {
   float four_bars = (float)(16.0 * ppq / view_scale);
   uint32_t guidestrip_count = (uint32_t)(timeline_width / four_bars) + 2;
   float guidestrip_pos_x = cursor_pos.x - std::fmod((float)scroll_pos_x, four_bars * 2.0f);
-  ImU32 guidestrip_color = (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.13f);
+  ImU32 guidestrip_color = Color(ImGui::GetColorU32(ImGuiCol_Separator)).change_alpha(0.13f).to_uint32();
   for (uint32_t i = 0; i <= guidestrip_count; i++) {
     float start_pos_x = guidestrip_pos_x;
     guidestrip_pos_x += four_bars;
@@ -196,9 +196,9 @@ void GuiPianoRoll::render_editor() {
     }
   }
 
-  ImU32 grid_color = (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.55f);
-  ImU32 beat_grid_color = (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.15f);
-  ImU32 bar_grid_color = (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.3f);
+  ImU32 grid_color = Color(ImGui::GetColorU32(ImGuiCol_Separator)).change_alpha(0.55f).to_uint32();
+  ImU32 beat_grid_color = Color(ImGui::GetColorU32(ImGuiCol_Separator)).change_alpha(0.15f).to_uint32();
+  ImU32 bar_grid_color = Color(ImGui::GetColorU32(ImGuiCol_Separator)).change_alpha(0.3f).to_uint32();
 
   // Draw vertical gridlines
   double beat = ppq / view_scale;
@@ -248,8 +248,8 @@ void GuiPianoRoll::render_editor() {
     key_pos.y += note_height_padded;
   }
 
-  static const ImU32 channel_color = color_brighten(ImColor(121, 166, 91), 0.6f);
-  static const ImU32 text_color = color_darken(ImColor(121, 166, 91), 1.25f);
+  static const ImU32 channel_color = Color(121, 166, 91).darken(0.6f).to_uint32();
+  static const ImU32 text_color = Color(121, 166, 91).darken(1.25f).to_uint32();
   auto font = ImGui::GetFont();
   float end_x = cursor_pos.x + timeline_width;
   float end_y = main_cursor_pos.y + content_height;
@@ -329,7 +329,7 @@ void GuiPianoRoll::render_event_editor() {
   double clip_scale = ppq / view_scale;
   float end_x = cursor_pos.x + timeline_width;
   float end_y = cursor_pos.y + editor_event_region.y;
-  static const ImU32 channel_color = color_brighten(ImColor(121, 166, 91), 0.6f);
+  static const ImU32 channel_color = Color(121, 166, 91).brighten(0.6f).to_uint32();
 
   for (auto& note : midi_note.channels[0]) {
     float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * clip_scale);

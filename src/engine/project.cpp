@@ -162,7 +162,7 @@ ProjectFileResult read_project_file(
       if (file.read_array(track->name) < 4)
         return ProjectFileResult::ErrCorruptedFile;
 
-    track->color = ImColor(track_header.color);
+    track->color = Color(track_header.color);
     track->height = track_header.view_height;
     track->shown = track_header.flags.shown;
     track->ui_parameter_state.solo = track_header.flags.solo;
@@ -188,7 +188,7 @@ ProjectFileResult read_project_file(
       Clip* clip = (Clip*)track->clip_allocator.allocate();
       assert(clip && "Cannot allocate clip");
       new (clip) Clip(
-          std::move(name), ImColor(clip_header.color), clip_header.min_time, clip_header.max_time, clip_header.start_offset);
+          std::move(name), Color(clip_header.color), clip_header.min_time, clip_header.max_time, clip_header.start_offset);
 
       clip->id = j;
       switch (clip_header.type) {
@@ -331,7 +331,7 @@ ProjectFileResult write_project_file(
         .mute = track->ui_parameter_state.mute,
         .solo = track->ui_parameter_state.solo,
       },
-      .color = (uint32_t)track->color,
+      .color = track->color.to_uint32(),
       .view_height = track->height,
       .volume_db = track->ui_parameter_state.volume_db,
       .pan = track->ui_parameter_state.pan,
@@ -352,7 +352,7 @@ ProjectFileResult write_project_file(
           .has_name = clip->name.size() != 0,
           .active = clip->is_active(),
         },
-        .color = (uint32_t)clip->color,
+        .color = clip->color.to_uint32(),
         .min_time = clip->min_time,
         .max_time = clip->max_time,
         .start_offset = clip->start_offset,

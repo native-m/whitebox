@@ -1,7 +1,5 @@
 #pragma once
 
-#include <imgui.h>
-
 #include <array>
 #include <numbers>
 #include <optional>
@@ -67,7 +65,7 @@ struct TrackParamTransfer {
 
 struct Track {
   std::string name;
-  ImColor color{ 0.3f, 0.3f, 0.3f, 1.0f };
+  Color color{ 0.3f, 0.3f, 0.3f, 1.0f };
   float height = 60.0f;
   bool shown = true;
   TrackInput input{};
@@ -110,7 +108,7 @@ struct Track {
   ConcurrentRingBuffer<TrackParamTransfer> ui_param_transfer;
 
   Track();
-  Track(const std::string& name, const ImColor& color, float height, bool shown, const TrackParameterState& track_param);
+  Track(const std::string& name, const Color& color, float height, bool shown, const TrackParameterState& track_param);
   ~Track();
 
   void set_volume(float db);

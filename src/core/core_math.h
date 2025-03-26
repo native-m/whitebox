@@ -38,6 +38,12 @@ inline static constexpr T clamp(T x, T min_val, T max_val) {
 }
 
 template<std::floating_point T>
+inline static constexpr T saturate(T x) {
+  T max_part = x < 1.0f ? x : 1.0f ;
+  return max_part > 0.0f ? max_part : 0.0f;
+}
+
+template<std::floating_point T>
 inline static constexpr T trunc(T x) {
   if constexpr (std::is_same_v<T, double>) {
     return (T)(int64_t)x;

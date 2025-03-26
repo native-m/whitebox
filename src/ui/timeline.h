@@ -127,7 +127,7 @@ struct GuiTimeline : public TimelineBase {
   Track* context_menu_track{};
   uint32_t context_menu_track_id{};
   Clip* context_menu_clip{};
-  ImColor tmp_color;
+  Color tmp_color;
   std::string tmp_name;
 
   void init();
@@ -155,7 +155,7 @@ struct GuiTimeline : public TimelineBase {
       float height,
       bool layer2 = false);
   void draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sample_scale, float offset_y);
-  void draw_clip_overlay(ImVec2 pos, float size, float alpha, const ImColor& col, const char* caption);
+  void draw_clip_overlay(ImVec2 pos, float size, float alpha, const Color& col, const char* caption);
   void apply_edit(double mouse_at_gridline);
   void query_selected_range();
   bool prepare_resize_for_selected_range(Clip* clip, bool dir);

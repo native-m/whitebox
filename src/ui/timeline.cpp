@@ -67,7 +67,7 @@ void GuiTimeline::render() {
   inv_ppq = 1.0 / ppq;
 
   text_color = ImGui::GetColorU32(ImGuiCol_Text);
-  text_transparent_color = color_adjust_alpha(ImColor(ImGui::GetStyleColorVec4(ImGuiCol_Text)), 0.7f);
+  text_transparent_color = Color(ImGui::GetColorU32(ImGuiCol_Text)).change_alpha(0.7f).to_uint32();
   splitter_color = ImGui::GetColorU32(ImGuiCol_Separator);
   splitter_hover_color = ImGui::GetColorU32(ImGuiCol_ResizeGripHovered);
   splitter_active_color = ImGui::GetColorU32(ImGuiCol_ResizeGripActive);
@@ -196,7 +196,7 @@ void GuiTimeline::render_track_controls() {
     const ImVec2 track_color_max = ImVec2(track_color_min.x + track_color_width, track_color_min.y + height);
 
     if (ImGui::IsRectVisible(track_color_min, track_color_max)) {
-      main_draw_list->AddRectFilled(track_color_min, track_color_max, ImGui::GetColorU32(track->color.Value));
+      main_draw_list->AddRectFilled(track_color_min, track_color_max, track->color.to_uint32());
     }
 
     ImGui::PushID(i);
@@ -696,12 +696,13 @@ void GuiTimeline::render_track_lanes() {
 
   const double scroll_pos_x = std::round((min_hscroll * song_length) / view_scale);
   const double sample_scale = (view_scale * beat_duration) * inv_ppq;
-  const ImU32 gridline_color = (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), 0.85f);
+  const ImU32 gridline_color = Color(ImGui::GetColorU32(ImGuiCol_Separator)).change_alpha(0.55f).to_uint32();
 
   // Map mouse position to time position
   const double mouse_at_time_pos =
       ((double)(mouse_pos.x - timeline_view_pos.x) * view_scale + min_hscroll * song_length) * inv_ppq;
-  const double mouse_at_gridline = std::round(mouse_at_time_pos * (double)grid_scale) / (double)grid_scale;
+  const double mouse_at_gridline = mouse_at_time_pos;
+  // std::round(mouse_at_time_pos * (double)grid_scale) / (double)grid_scale;
 
   timeline_scroll_offset_x = (double)timeline_view_pos.x - scroll_pos_x;
   timeline_scroll_offset_x_f32 = (float)timeline_scroll_offset_x;
@@ -738,9 +739,9 @@ void GuiTimeline::render_track_lanes() {
     static constexpr float guidestrip_alpha = 0.12f;
     static constexpr float beat_line_alpha = 0.28f;
     static constexpr float bar_line_alpha = 0.5f;
-    const ImU32 guidestrip_color = (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), guidestrip_alpha);
-    const ImU32 beat_line_color = (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), beat_line_alpha);
-    const ImU32 bar_line_color = (ImU32)color_adjust_alpha(ImGui::GetColorU32(ImGuiCol_Separator), bar_line_alpha);
+    const ImU32 guidestrip_color = Color(ImGui::GetColorU32(ImGuiCol_Separator)).change_alpha(guidestrip_alpha).to_uint32();
+    const ImU32 beat_line_color = Color(ImGui::GetColorU32(ImGuiCol_Separator)).change_alpha(beat_line_alpha).to_uint32();
+    const ImU32 bar_line_color = Color(ImGui::GetColorU32(ImGuiCol_Separator)).change_alpha(bar_line_alpha).to_uint32();
 
     ImTextureID font_tex_id = ImGui::GetIO().Fonts->TexID;
     clip_draw_cmd.resize(0);
@@ -1003,7 +1004,9 @@ void GuiTimeline::render_track_lanes() {
     force_redraw = true;
   }
 
-  [[unlikely]] if (edit_command != TimelineCommand::None) { apply_edit(mouse_at_gridline); }
+  if (edit_command != TimelineCommand::None) {
+    apply_edit(mouse_at_gridline);
+  }
 
   render_clip_context_menu();
 
@@ -1517,7 +1520,7 @@ void GuiTimeline::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sa
   constexpr ImDrawListFlags draw_list_aa_flags =
       ImDrawListFlags_AntiAliasedFill | ImDrawListFlags_AntiAliasedLinesUseTex | ImDrawListFlags_AntiAliasedLines;
 
-  ImColor text_col(text_color);
+  Color text_col(text_color);
   ImVec2 half(0.5f, 0.5f);
   const ImVec4& rect = layer1_draw_list->_ClipRectStack.back();
 
@@ -1527,12 +1530,12 @@ void GuiTimeline::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sa
     static constexpr double log_base4 = 1.0 / 1.3862943611198906;  // 1.0 / log(4.0)
 
     Clip* clip = cmd.clip;
-    const ImColor color(clip->color);
+    const Color color(clip->color);
     const float bg_contrast_ratio = calc_contrast_ratio(color, text_color);
-    const ImColor border_color =
-        (bg_contrast_ratio > border_contrast_ratio) ? ImColor(0.0f, 0.0f, 0.0f, 0.3f) : ImColor(1.0f, 1.0f, 1.0f, 0.2f);
-    ImColor text_color_adjusted =
-        (bg_contrast_ratio > text_contrast_ratio) ? ImColor(0.0f, 0.0f, 0.0f, 1.0f - bg_contrast_ratio * 0.45f) : text_col;
+    const Color border_color =
+        (bg_contrast_ratio > border_contrast_ratio) ? Color(0.0f, 0.0f, 0.0f, 0.3f) : Color(1.0f, 1.0f, 1.0f, 0.2f);
+    Color text_color_adjusted =
+        (bg_contrast_ratio > text_contrast_ratio) ? Color(0.0f, 0.0f, 0.0f, 1.0f - bg_contrast_ratio * 0.45f) : text_col;
 
     const double start_offset = cmd.start_offset;
     const bool is_active = cmd.clip->is_active();
@@ -1548,10 +1551,9 @@ void GuiTimeline::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sa
     const ImVec2 clip_title_max_bb(max_pos_clamped_x, clip_title_max_y);
     const ImVec2 clip_content_min(min_pos_clamped_x, clip_title_max_y);
     const ImVec2 clip_content_max(max_pos_clamped_x, min_pos_y + cmd.height);
-    const ImColor base_color = is_active ? color_adjust_contrast(color, 0.95f) : color_adjust_alpha(color, 0.75f);
-    const ImColor bg_color = color_premul_alpha(color_adjust_alpha(base_color, base_color.Value.w * 0.75f));
-    const ImU32 content_color =
-        is_active ? color_brighten(base_color, 1.25f) : color_premul_alpha(color_brighten(base_color, 1.0f));
+    const Color base_color = is_active ? color.add_contrast(0.95) : color.change_alpha(0.75f);
+    const Color bg_color = base_color.change_alpha(base_color.a * 0.75f).premult_alpha();
+    const Color content_color = is_active ? base_color.brighten(1.25f) : base_color.brighten(1.0f).premult_alpha();
     auto* dl = !cmd.layer2 ? layer1_draw_list : layer2_draw_list;
 
     if (cmd.layer2) {
@@ -1559,11 +1561,11 @@ void GuiTimeline::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sa
       dl->AddRect(clip_title_min_bb, clip_content_max, 0x3F000000, 3.0f, ImDrawFlags_RoundCornersTop, 4.5f);
     }
 
-    dl->AddRectFilled(clip_title_min_bb, clip_content_max, bg_color, 3.0f, ImDrawFlags_RoundCornersTop);
+    dl->AddRectFilled(clip_title_min_bb, clip_content_max, bg_color.to_uint32(), 3.0f, ImDrawFlags_RoundCornersTop);
     dl->AddRect(clip_title_min_bb - half, clip_content_max + half, 0x3F000000, 3.0f, ImDrawFlags_RoundCornersTop);
 
     if (!is_active) {
-      text_color_adjusted = color_adjust_alpha(text_color_adjusted, 0.75f);
+      text_color_adjusted = text_color_adjusted.change_alpha(0.75f);
     }
 
     // Draw clip label
@@ -1579,7 +1581,7 @@ void GuiTimeline::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sa
     switch (clip->type) {
       case ClipType::Audio: {
         SampleAsset* asset = clip->audio.asset;
-        [[likely]] if (asset) {
+        if (asset) {
           WaveformVisual* waveform = cmd.audio;
           if (!waveform)
             break;
@@ -1613,6 +1615,7 @@ void GuiTimeline::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sa
             const float min_bb_x = (float)math::round(min_pos_x);
             const float max_bb_x = (float)math::round(max_pos_x);
             const float pos_y = clip_content_min.y - offset_y;
+            const ColorU32 waveform_color = content_color.to_uint32();
             if (waveform->channels == 2) {
               const float height = std::floor((clip_content_max.y - clip_content_min.y) * 0.5f);
               waveform_cmd_list.push_back({
@@ -1623,7 +1626,7 @@ void GuiTimeline::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sa
                 .max_y = pos_y + height,
                 .gain = cmd.gain,
                 .scale_x = (float)mip_scale,
-                .color = content_color,
+                .color = waveform_color,
                 .mip_index = index,
                 .channel = 0,
                 .start_idx = (uint32_t)start_idx,
@@ -1637,7 +1640,7 @@ void GuiTimeline::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sa
                 .max_y = pos_y + height * 2.0f,
                 .gain = cmd.gain,
                 .scale_x = (float)mip_scale,
-                .color = content_color,
+                .color = waveform_color,
                 .mip_index = index,
                 .channel = 1,
                 .start_idx = (uint32_t)start_idx,
@@ -1652,7 +1655,7 @@ void GuiTimeline::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sa
                 .max_y = clip_content_max.y - offset_y,
                 .gain = cmd.gain,
                 .scale_x = (float)mip_scale,
-                .color = content_color,
+                .color = waveform_color,
                 .mip_index = index,
                 .start_idx = (uint32_t)start_idx,
                 .draw_count = (uint32_t)draw_count + 2,
@@ -1678,8 +1681,6 @@ void GuiTimeline::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sa
         const float note_height = content_height / (float)note_range;
         float max_note_size = math::min(note_height, max_note_size_px);
         const float min_note_size = math::max(max_note_size, min_note_size_px);
-        const float min_view = math::max(min_pos_clamped_x, min_draw_x);
-        const float max_view = math::min(max_pos_clamped_x, min_draw_x + timeline_width);
         const float offset_y = clip_content_min.y + ((content_height * 0.5f) - (max_note_size * note_range * 0.5f));
 
         // Fix note overflow
@@ -1687,7 +1688,11 @@ void GuiTimeline::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sa
           max_note_size = (content_height - 2.0f) / (float)(note_range - 1u);
         }
 
-        [[likely]] if (asset) {
+        const float min_view = math::max(min_pos_clamped_x, min_draw_x);
+        const float max_view = math::min(max_pos_clamped_x, min_draw_x + timeline_width);
+        const ColorU32 note_color = content_color.to_uint32();
+
+        if (asset) {
           uint32_t channel_count = asset->data.channel_count;
           double min_start_x = cmd.min_pos_x - start_offset * clip_scale;
           for (uint32_t i = 0; i < channel_count; i++) {
@@ -1716,7 +1721,7 @@ void GuiTimeline::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sa
               dl->PathLineTo(ImVec2(b.x, a.y));
               dl->PathLineTo(b);
               dl->PathLineTo(ImVec2(a.x, b.y));
-              dl->PathFillConvex(content_color);
+              dl->PathFillConvex(note_color);
             }
           }
         }
@@ -1749,8 +1754,8 @@ void GuiTimeline::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sa
   }
 }
 
-void GuiTimeline::draw_clip_overlay(ImVec2 pos, float size, float alpha, const ImColor& col, const char* caption) {
-  ImU32 ctrl_bg = color_darken(col, 0.8f);
+void GuiTimeline::draw_clip_overlay(ImVec2 pos, float size, float alpha, const Color& col, const char* caption) {
+  ImU32 ctrl_bg = col.darken(0.8f).to_uint32();
   ImVec2 text_size = ImGui::CalcTextSize(caption);
   float text_offset_x = 0.5f * (size - text_size.x);
   uint32_t bg_alpha = (uint32_t)(199.0f * alpha) << 24;
@@ -1949,6 +1954,7 @@ void GuiTimeline::apply_edit(double mouse_at_gridline) {
         }
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
         break;
+      default: break;
     }
   }
 }
@@ -2102,7 +2108,7 @@ void GuiTimeline::finish_edit() {
 
 void GuiTimeline::add_track() {
   TrackAddCmd* cmd = new TrackAddCmd();
-  cmd->color = ImColor::HSV((float)color_spin / 15.0f, 0.6472f, 0.788f);
+  cmd->color = Color::from_hsv((float)color_spin / 15.0f, 0.6472f, 0.788f);
   g_cmd_manager.execute("Add track", cmd);
   color_spin = (color_spin + 1) % 15;
   redraw = true;

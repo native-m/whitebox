@@ -2,6 +2,7 @@
 
 #include <imgui.h>
 #include <imgui_stdlib.h>
+#include <bit>
 
 #include "core/bit_manipulation.h"
 #include "core/debug.h"
@@ -99,7 +100,7 @@ ConfirmDialogFlags rename_dialog(const char* str, const std::string& previous, s
   return ret;
 }
 
-ConfirmDialogFlags color_picker_dialog(const char* str, const ImColor& previous, ImColor* color) {
+ConfirmDialogFlags color_picker_dialog(const char* str, const Color& previous, Color* color) {
   ConfirmDialogFlags ret = ConfirmDialog::None;
   constexpr ImGuiColorEditFlags color_picker_flags = ImGuiColorEditFlags_NoSidePreview | ImGuiColorEditFlags_NoSmallPreview;
 
@@ -110,12 +111,14 @@ ConfirmDialogFlags color_picker_dialog(const char* str, const ImColor& previous,
       ret = ConfirmDialog::ValueChanged;
     }
 
+    ImVec4& prev_color = *std::bit_cast<ImVec4*>(&previous);
+    ImVec4& curr_color = *std::bit_cast<ImVec4*>(color);
     ImGui::SameLine();
     ImGui::BeginGroup();
     ImGui::TextUnformatted("Current");
-    ImGui::ColorButton("##current", *color, ImGuiColorEditFlags_NoPicker, ImVec2(60, 40));
+    ImGui::ColorButton("##current", curr_color, ImGuiColorEditFlags_NoPicker, ImVec2(60, 40));
     ImGui::TextUnformatted("Previous");
-    if (ImGui::ColorButton("##previous", previous, ImGuiColorEditFlags_NoPicker, ImVec2(60, 40))) {
+    if (ImGui::ColorButton("##previous", prev_color, ImGuiColorEditFlags_NoPicker, ImVec2(60, 40))) {
       *color = previous;
       ret = ConfirmDialog::ValueChanged;
     }

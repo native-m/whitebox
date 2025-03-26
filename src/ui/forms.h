@@ -26,7 +26,7 @@ static FormResult rename_form(std::string* out_name, const std::string* tmp_name
   return ret;
 }
 
-static FormResult color_picker_form(ImColor* color, const ImColor& previous_color) {
+static FormResult color_picker_form(Color* color, const Color& previous_color) {
   constexpr ImGuiColorEditFlags no_preview_color_picker =
       ImGuiColorEditFlags_NoSidePreview | ImGuiColorEditFlags_NoSmallPreview;
 
@@ -37,11 +37,13 @@ static FormResult color_picker_form(ImColor* color, const ImColor& previous_colo
 
   ImGui::SameLine();
 
+  ImVec4& prev_color = *std::bit_cast<ImVec4*>(&previous_color);
+  ImVec4& curr_color = *std::bit_cast<ImVec4*>(color);
   ImGui::BeginGroup();
   ImGui::TextUnformatted("Current");
-  ImGui::ColorButton("##current", *color, ImGuiColorEditFlags_NoPicker, ImVec2(60, 40));
+  ImGui::ColorButton("##current", curr_color, ImGuiColorEditFlags_NoPicker, ImVec2(60, 40));
   ImGui::TextUnformatted("Previous");
-  if (ImGui::ColorButton("##previous", previous_color, ImGuiColorEditFlags_NoPicker, ImVec2(60, 40))) {
+  if (ImGui::ColorButton("##previous", prev_color, ImGuiColorEditFlags_NoPicker, ImVec2(60, 40))) {
     *color = previous_color;
     ret = FormResult::ValueChanged;
   }
