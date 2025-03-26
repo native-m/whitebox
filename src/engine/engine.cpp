@@ -1045,7 +1045,7 @@ void Engine::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>&
     track->audio_event_buffer.resize(0);
     track->midi_event_list.clear();
     if (track->midi_voice_state.has_voice() && !currently_playing) {
-      track->stop_midi_notes(0, playhead);
+      track->kill_all_voices(0, playhead);
     }
   }
 

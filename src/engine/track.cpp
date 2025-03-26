@@ -13,7 +13,7 @@
 
 #ifndef _NDEBUG
 #define WB_DBG_LOG_CLIP_ORDERING    1
-#define WB_DBG_LOG_NOTE_ON_EVENT    0
+#define WB_DBG_LOG_NOTE_ON_EVENT    1
 #define WB_DBG_LOG_AUDIO_EVENT      0
 #define WB_DBG_LOG_PARAMETER_UPDATE 1
 #endif
@@ -256,7 +256,7 @@ void Track::process_event(
         .buffer_offset = 0,
         .time = start_time,
       });
-      stop_midi_notes(0, start_time);
+      kill_all_voices(0, start_time);
       event_state.current_clip_idx.reset();
       event_state.clip_idx.reset();
       event_state.midi_note_idx = 0;
@@ -268,13 +268,13 @@ void Track::process_event(
   }
 
   uint32_t num_clips = (uint32_t)clips.size();
-  [[unlikely]] if (event_state.refresh_voice) {
+  if (event_state.refresh_voice) [[unlikely]] {
     std::optional<uint32_t> clip_at_playhead = find_next_clip(start_time);
     // TODO: Skip if refreshing the same clip
     if (clip_at_playhead) {
       if (event_state.clip_idx) {
         uint32_t idx = *event_state.clip_idx;
-        if (idx < clips.size()) {
+        if (idx < num_clips) {
           Clip* clip = clips[*clip_at_playhead];
           Clip* current_clip = clips[idx];
           if (clip != current_clip && start_time >= clip->min_time && start_time <= clip->max_time) {
@@ -285,7 +285,7 @@ void Track::process_event(
                 .time = start_time,
               });
             } else {
-              stop_midi_notes(0, start_time);
+              kill_all_voices(0, start_time);
             }
             event_state.clip_idx = *clip_at_playhead;
             event_state.midi_note_idx = 0;
@@ -298,7 +298,7 @@ void Track::process_event(
                 .time = start_time,
               });
             } else {
-              stop_midi_notes(0, start_time);
+              kill_all_voices(0, start_time);
             }
             event_state.clip_idx = *clip_at_playhead;
             event_state.midi_note_idx = 0;
@@ -315,7 +315,7 @@ void Track::process_event(
         .buffer_offset = 0,
         .time = start_time,
       });
-      stop_midi_notes(0, start_time);
+      kill_all_voices(0, start_time);
       event_state.clip_idx.reset();
       event_state.midi_note_idx = 0;
     }
@@ -328,16 +328,16 @@ void Track::process_event(
     return;
   }
 
-  uint32_t next_clip = event_state.clip_idx.value();
+  uint32_t next_clip = *event_state.clip_idx;
   while (next_clip < num_clips) {
     Clip* clip = clips[next_clip];
-    bool is_audio = clip->is_audio();
     double min_time = clip->min_time;
     double max_time = clip->max_time;
 
     if (min_time > end_time)
       break;
 
+    bool is_audio = clip->is_audio();
     if (min_time >= start_time) {  // Started from beginning
       if (is_audio) {
         double offset_from_start = beat_to_samples(min_time - start_time, sample_rate, beat_duration);
@@ -355,7 +355,7 @@ void Track::process_event(
         event_state.midi_note_idx = clip->midi.asset->find_first_note(clip->start_offset, 0);
       }
       clip->start_offset_changed = false;
-    } else if (start_time > min_time && !event_state.partially_ended) {  // Partially started
+    } else if (start_time > min_time && !event_state.partially_ended) {  // Partially started (started in the middle)
       double relative_start_time = start_time - min_time;
       if (is_audio) {
         double sample_pos = beat_to_samples(relative_start_time, sample_rate, beat_duration);
@@ -372,7 +372,7 @@ void Track::process_event(
         event_state.midi_note_idx = clip->midi.asset->find_first_note(actual_start_offset, 0);
       }
       clip->start_offset_changed = false;
-    } else [[unlikely]] if (clip->start_offset_changed && event_state.partially_ended) {
+    } else if (clip->start_offset_changed && event_state.partially_ended) {
       double relative_start_time = start_time - min_time;
       if (is_audio) {
         double sample_pos = beat_to_samples(relative_start_time, sample_rate, beat_duration);
@@ -391,14 +391,14 @@ void Track::process_event(
           .sample = &clip->audio.asset->sample_instance,
         });
       } else {
-        stop_midi_notes(0, start_time);
+        kill_all_voices(0, start_time);
         double actual_start_offset = relative_start_time + clip->start_offset;
         event_state.midi_note_idx = clip->midi.asset->find_first_note(actual_start_offset, 0);
       }
       clip->start_offset_changed = false;
     }
 
-    if (max_time <= end_time) { // Reaching the end of the clip
+    if (max_time <= end_time) {  // Reaching the end of the clip
       if (is_audio) {
         double offset_from_start = beat_to_samples(max_time - start_time, sample_rate, beat_duration);
         double sample_offset = sample_position + offset_from_start;
@@ -424,6 +424,33 @@ void Track::process_event(
 
     next_clip++;
   }
+
+  while (auto voice = midi_voice_state.release_voice(end_time)) {
+    double offset_from_start = beat_to_samples(voice->max_time - start_time, sample_rate, beat_duration);
+    double sample_offset = sample_position + offset_from_start;
+    uint32_t buffer_offset = (uint32_t)((uint64_t)sample_offset % (uint64_t)buffer_size);
+    midi_event_list.add_event({
+      .type = MidiEventType::NoteOff,
+      .buffer_offset = buffer_offset,
+      .time = voice->max_time,
+      .note_off = {
+        .channel = 0,
+        .note_number = voice->note_number,
+        .velocity = voice->velocity,
+      },
+    });
+#if WB_DBG_LOG_NOTE_ON_EVENT
+    char note_str[8]{};
+    fmt::format_to_n(
+        note_str,
+        std::size(note_str),
+        "{}{}",
+        get_midi_note_scale(voice->note_number),
+        get_midi_note_octave(voice->note_number));
+    Log::debug("Note off: {} length: {} at: {}", note_str, voice->max_time, buffer_offset);
+#endif
+  }
+
 
   if (input_attr.recording)
     record_max_time += buffer_duration;
@@ -551,7 +578,7 @@ void Track::process_midi_event(
   event_state.midi_note_idx = midi_note_idx;
 }
 
-void Track::stop_midi_notes(uint32_t buffer_offset, double time_pos) {
+void Track::kill_all_voices(uint32_t buffer_offset, double time_pos) {
   while (auto voice = midi_voice_state.release_voice(std::numeric_limits<double>::max())) {
     midi_event_list.add_event({
       .type = MidiEventType::NoteOff,

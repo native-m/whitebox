@@ -32,19 +32,19 @@ bool MidiVoiceState::add_voice(MidiVoice&& voice) {
   return true;
 }
 
-MidiVoice* MidiVoiceState::release_voice(double time_range) {
+MidiVoice* MidiVoiceState::release_voice(double timeout) {
   auto active_voice = allocated_voices.next();
   if (active_voice == nullptr)
     return nullptr;
 
   auto shortest_voice = active_voice;
   while (active_voice != nullptr) {
-    if (active_voice->max_time < shortest_voice->max_time && active_voice->max_time <= time_range)
+    if (active_voice->max_time < shortest_voice->max_time && active_voice->max_time <= timeout)
       shortest_voice = active_voice;
     active_voice = active_voice->next();
   }
 
-  if (shortest_voice->max_time > time_range)
+  if (shortest_voice->max_time > timeout)
     return nullptr;
   shortest_voice->remove_from_list();
   free_voices.push_item(shortest_voice);

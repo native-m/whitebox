@@ -27,7 +27,7 @@ struct MidiVoiceState {
 
   MidiVoiceState();
   bool add_voice(MidiVoice&& voice);
-  MidiVoice* release_voice(double time_range);
+  MidiVoice* release_voice(double timeout);
   void release_all();
   inline bool has_voice() const {
     return used_voices != 0;

@@ -212,7 +212,7 @@ struct Track {
       double inv_ppq,
       uint32_t buffer_size);
 
-  void stop_midi_notes(uint32_t buffer_offset, double time_pos);
+  void kill_all_voices(uint32_t buffer_offset, double time_pos);
 
   /**
    * @brief Process audio block.
