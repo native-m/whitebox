@@ -248,7 +248,7 @@ void GuiPianoRoll::render_editor() {
     key_pos.y += note_height_padded;
   }
 
-  static const ImU32 channel_color = Color(121, 166, 91).darken(0.6f).to_uint32();
+  static const ImU32 channel_color = Color(121, 166, 91).brighten(0.6f).to_uint32();
   static const ImU32 text_color = Color(121, 166, 91).darken(1.25f).to_uint32();
   auto font = ImGui::GetFont();
   float end_x = cursor_pos.x + timeline_width;
