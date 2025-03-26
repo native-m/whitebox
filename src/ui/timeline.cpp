@@ -309,7 +309,7 @@ void GuiTimeline::render_track_controls() {
           }
 
           ImGui::BeginDisabled(is_recording);
-          [[unlikely]] if (ImGui::BeginCombo("Input", input_name)) {
+          if (ImGui::BeginCombo("Input", input_name)) {
             track_input_context_menu(track, i);
             ImGui::EndCombo();
           }
@@ -347,8 +347,7 @@ void GuiTimeline::render_track_controls() {
         ImGui::EndPopup();
       }
 
-      [[unlikely]] if (
-          ImGui::IsWindowHovered() && !(ImGui::IsAnyItemActive() || ImGui::IsAnyItemHovered()) &&
+      if (ImGui::IsWindowHovered() && !(ImGui::IsAnyItemActive() || ImGui::IsAnyItemHovered()) &&
           ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
         context_menu_track = track;
         context_menu_track_id = i;
@@ -1040,7 +1039,7 @@ void GuiTimeline::render_track(
     relative_pos = mouse_at_gridline - initial_time_pos;
   }
 
-  [[unlikely]] if (!selected_track_regions.empty()) {
+  if (!selected_track_regions.empty()) {
     uint32_t idx = id - first_selected_track;
     if (idx < selected_track_regions.size()) {
       selected_region = &selected_track_regions[idx];
@@ -1073,8 +1072,8 @@ void GuiTimeline::render_track(
       select_status = selected_region->is_clip_selected(i);
     }
 
-    [[unlikely]] if (edit_command != TimelineCommand::None) {
-      [[unlikely]] if (edit_selected && redraw && has_clip_selected) {
+    if (edit_command != TimelineCommand::None) [[unlikely]] {
+      if (edit_selected && redraw && has_clip_selected) [[unlikely]] {
         if (select_status != ClipSelectStatus::NotSelected) {
           if (move_or_shift_cmd) {
             if (select_status == ClipSelectStatus::PartiallySelected) {
@@ -1169,7 +1168,7 @@ void GuiTimeline::render_track(
     bool should_edit_selected = false;
     ClipHover current_hover_state{};
 
-    [[unlikely]] if (track_hovered && edit_command == TimelineCommand::None && !holding_ctrl) {
+    if (track_hovered && edit_command == TimelineCommand::None && !holding_ctrl) [[unlikely]] {
       static constexpr float handle_offset = 4.0f;
       ImRect clip_rect(min_bb, max_bb);
       // Hitboxes for sizing handle
@@ -1471,9 +1470,16 @@ void GuiTimeline::render_edited_clips(double mouse_at_gridline) {
         if (clip_resize_info.should_resize) {
           Clip* clip = src_track->clips[clip_resize_info.clip_id];
           auto [new_min_time, new_max_time, new_start_offset] = calc_resize_clip(
-              clip, relative_pos, clip_resize_limit, min_length, clip_min_resize_pos, beat_duration, left_side, shift_mode, true);
+              clip,
+              relative_pos,
+              clip_resize_limit,
+              min_length,
+              clip_min_resize_pos,
+              beat_duration,
+              left_side,
+              shift_mode,
+              true);
           render_clip(clip, new_min_time, new_max_time, new_start_offset, track_pos_y, height, true);
-          Log::debug("{}", min_length);
         }
       }
 

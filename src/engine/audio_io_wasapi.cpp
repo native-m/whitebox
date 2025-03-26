@@ -739,14 +739,14 @@ void AudioIOWASAPI::audio_thread_runner(AudioIOWASAPI* instance, AudioThreadPrio
         // Enqueue captured samples
         if (begin_write <= end_write) {
           void* dst = input_queue_buffer + (input_buffer_write_pos * frame_size);
-          [[unlikely]] if (has_bit(flags, AUDCLNT_BUFFERFLAGS_SILENT))
+          if (has_bit(flags, AUDCLNT_BUFFERFLAGS_SILENT)) [[unlikely]] 
             std::memset(dst, 0, frames_available * frame_size);
           else
             std::memcpy(dst, buffer, frames_available * frame_size);
           input_buffer_write_pos = end_write;
           input_buffer_size += frames_available;
         } else {
-          [[unlikely]] if (has_bit(flags, AUDCLNT_BUFFERFLAGS_SILENT)) {
+          if (has_bit(flags, AUDCLNT_BUFFERFLAGS_SILENT)) [[unlikely]] {
             std::memset(
                 input_queue_buffer + (input_buffer_write_pos * frame_size),
                 0,
@@ -768,7 +768,7 @@ void AudioIOWASAPI::audio_thread_runner(AudioIOWASAPI* instance, AudioThreadPrio
 
       uint32_t padding;
       hr = output_client->GetCurrentPadding(&padding);
-      [[unlikely]] if (!SUCCEEDED(hr)) {
+      if (!SUCCEEDED(hr)) {
         break;
       }
 
@@ -782,21 +782,21 @@ void AudioIOWASAPI::audio_thread_runner(AudioIOWASAPI* instance, AudioThreadPrio
       }
 
       hr = render->GetBuffer(frames_available, (BYTE**)&buffer);
-      [[unlikely]] if (!SUCCEEDED(hr)) {
+      if (!SUCCEEDED(hr)) {
         break;
       }
 
       output_buffer.interleave_samples_to(buffer, output_offset, frames_available, instance->output_stream_format);
 
       hr = render->ReleaseBuffer(frames_available, 0);
-      [[unlikely]] if (!SUCCEEDED(hr)) {
+      if (!SUCCEEDED(hr)) {
         break;
       }
 
       output_offset += frames_available;
     }
 
-    [[unlikely]] if (!SUCCEEDED(hr)) {
+    if (!SUCCEEDED(hr)) {
       break;
     }
   }

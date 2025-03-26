@@ -55,6 +55,7 @@ set(WB_SOURCES
     "src/core/bitset.h"
     "src/core/bit_manipulation.h"
     "src/core/byte_buffer.h"
+    "src/core/color.cpp"
     "src/core/color.h"
     "src/core/common.h"
     "src/core/core_math.h"
