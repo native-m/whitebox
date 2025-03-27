@@ -1556,9 +1556,10 @@ void GuiTimeline::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sa
     const ImVec2 clip_title_max_bb(max_pos_clamped_x, clip_title_max_y);
     const ImVec2 clip_content_min(min_pos_clamped_x, clip_title_max_y);
     const ImVec2 clip_content_max(max_pos_clamped_x, min_pos_y + cmd.height);
-    const Color base_color = is_active ? color.add_contrast(0.95) : color.change_alpha(0.75f);
-    const Color bg_color = base_color.change_alpha(base_color.a * 0.75f).premult_alpha();
-    const Color content_color = is_active ? base_color.brighten(1.25f) : base_color.brighten(1.0f).premult_alpha();
+    const float darkening = is_active ? 0.80f : 0.60f;
+    const Color base_color = is_active ? color : color.desaturate(0.4f);
+    const Color bg_color = base_color.change_alpha(base_color.a * darkening).premult_alpha();
+    const Color content_color = is_active ? base_color.brighten(1.25f) : base_color.brighten(0.5f);
     auto* dl = !cmd.layer2 ? layer1_draw_list : layer2_draw_list;
 
     if (cmd.layer2) {
