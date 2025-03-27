@@ -8,6 +8,7 @@
 #include "core/debug.h"
 #include "core/queue.h"
 #include "engine/engine.h"
+#include "font.h"
 #include "gfx/draw.h"
 
 namespace wb::controls {
@@ -83,8 +84,14 @@ void song_position() {
 }
 
 void item_tooltip(const char* str) {
-  if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay))
+  if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay)) {
+    ImFont* font = ImGui::GetFont();
+    set_current_font(FontType::Normal); // Force tooltip to use main font
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6.0f, 4.0f));
     ImGui::SetTooltip(str);
+    ImGui::PopStyleVar();
+    ImGui::SetCurrentFont(font);
+  }
 }
 
 bool toggle_button(const char* str, bool* value, const ImVec4& toggled_color, const ImVec2& size) {
