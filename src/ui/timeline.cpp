@@ -695,13 +695,12 @@ void GuiTimeline::render_track_lanes() {
 
   const double scroll_pos_x = std::round((min_hscroll * song_length) / view_scale);
   const double sample_scale = (view_scale * beat_duration) * inv_ppq;
-  const ImU32 gridline_color = Color(ImGui::GetColorU32(ImGuiCol_Separator)).change_alpha(0.55f).to_uint32();
+  const ImU32 gridline_color = Color(ImGui::GetColorU32(ImGuiCol_Separator)).change_alpha(0.85f).to_uint32();
 
   // Map mouse position to time position
   const double mouse_at_time_pos =
       ((double)(mouse_pos.x - timeline_view_pos.x) * view_scale + min_hscroll * song_length) * inv_ppq;
-  const double mouse_at_gridline = mouse_at_time_pos;
-  // std::round(mouse_at_time_pos * (double)grid_scale) / (double)grid_scale;
+  const double mouse_at_gridline = std::round(mouse_at_time_pos * (double)grid_scale) / (double)grid_scale;
 
   timeline_scroll_offset_x = (double)timeline_view_pos.x - scroll_pos_x;
   timeline_scroll_offset_x_f32 = (float)timeline_scroll_offset_x;
@@ -2114,7 +2113,7 @@ void GuiTimeline::finish_edit() {
 
 void GuiTimeline::add_track() {
   TrackAddCmd* cmd = new TrackAddCmd();
-  cmd->color = Color::from_hsv((float)color_spin / 15.0f, 0.6472f, 0.788f);
+  cmd->color = Color::from_hsv((float)color_spin / 15.0f, 0.6172f, 0.80f);
   g_cmd_manager.execute("Add track", cmd);
   color_spin = (color_spin + 1) % 15;
   redraw = true;
