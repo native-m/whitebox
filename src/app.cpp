@@ -115,14 +115,16 @@ static void handle_scroll() {
   ImGuiIO& io = GImGui->IO;
   ImVec2 scroll_speed;
   if (math::abs(scroll_acc.x) > 0.00001f) {
-    scroll_speed.x = scroll_acc.x * io.DeltaTime * 36.0f;
+    float delta_time = math::min(io.DeltaTime, (float)tm_ms_to_sec(200.0));
+    scroll_speed.x = scroll_acc.x * delta_time * 36.0f;
     scroll_acc.x -= scroll_speed.x;
   } else {
     scroll_acc.x = 0.0f;
   }
 
   if (math::abs(scroll_acc.y) > 0.00001f) {
-    scroll_speed.y = scroll_acc.y * io.DeltaTime * 36.0f;
+    float delta_time = math::min(io.DeltaTime, (float)tm_ms_to_sec(200.0));
+    scroll_speed.y = scroll_acc.y * delta_time * 36.0f;
     scroll_acc.y -= scroll_speed.y;
   } else {
     scroll_acc.y = 0.0f;
