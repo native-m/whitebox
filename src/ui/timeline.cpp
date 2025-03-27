@@ -546,11 +546,13 @@ void GuiTimeline::render_track_lanes() {
   const bool escape_key_pressed = timeline_window_focused && ImGui::IsKeyPressed(ImGuiKey_Escape);
   timeline_width = timeline_area.x;
 
+  const ImVec2 view_min(timeline_view_pos.x, offset_y);
+  const ImVec2 view_max(timeline_view_pos.x + timeline_width, offset_y + content_size.y);
+  ImGui::PushClipRect(view_min, view_max, true);
+
   static constexpr uint32_t timeline_mouse_btn_flags =
       ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_MouseButtonMiddle;
   ImGui::InvisibleButton("##timeline", ImVec2(timeline_area.x, math::max(timeline_area.y, content_size.y + vscroll)));
-  const ImVec2 view_min(timeline_view_pos.x, offset_y);
-  const ImVec2 view_max(timeline_view_pos.x + timeline_width, offset_y + content_size.y);
   const bool timeline_clicked = ImGui::IsItemClicked();
   const bool timeline_hovered = ImGui::IsItemHovered();
   const bool mouse_move = false;
@@ -1017,6 +1019,8 @@ void GuiTimeline::render_track_lanes() {
     const float playhead_pos = (float)math::round(timeline_view_pos.x - scroll_pos_x + playhead_offset);
     im_draw_vline(main_draw_list, playhead_pos, offset_y, offset_y + timeline_area.y, playhead_color);
   }
+
+  ImGui::PopClipRect();
 }
 
 void GuiTimeline::render_track(
