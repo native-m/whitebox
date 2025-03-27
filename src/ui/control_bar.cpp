@@ -70,7 +70,7 @@ void perf_counter_display() {
 
   const char* mem_usage_begin;
   const char* mem_usage_end;
-  ImFormatStringToTempBuffer(&mem_usage_begin, &mem_usage_end, "%.1f%% MB", (double)mem_usage / 1000000.0);
+  ImFormatStringToTempBuffer(&mem_usage_begin, &mem_usage_end, "%.1f MB", (double)mem_usage / 1000000.0);
   ImVec2 mem_usage_size = ImGui::CalcTextSize(mem_usage_begin, mem_usage_end);
 
   dl->AddText(bb.Min + ImVec2(4.0f, cpu_usage_size.y + 2.0f), text_col, "Mem");

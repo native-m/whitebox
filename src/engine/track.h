@@ -179,12 +179,12 @@ struct Track {
   void prepare_record(double time_pos);
 
   /**
-   * @brief Stop recording.
+   * @brief Stop track recording.
    */
   void stop_record();
 
   /**
-   * @brief Stop playback.
+   * @brief Stop playback of the track.
    */
   void stop();
 
@@ -244,8 +244,6 @@ struct Track {
       size_t sample_offset);
 
   void process_test_synth(AudioBuffer<float>& output_buffer, double sample_rate, bool playing);
-
-  void flush_deleted_clips(double time_pos);
 
   void transfer_param_changes();
 

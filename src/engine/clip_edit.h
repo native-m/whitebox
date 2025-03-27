@@ -107,7 +107,7 @@ calc_clip_shift(bool is_audio_clip, double start_offset, double relative_pos, do
 
 static double shift_clip_content(Clip* clip, double relative_pos, double beat_duration) {
   bool is_audio_clip = clip->is_audio();
-  double sample_rate;
+  double sample_rate = 0.0;
 
   if (is_audio_clip) {
     SampleAsset* asset = clip->audio.asset;

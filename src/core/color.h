@@ -76,6 +76,11 @@ struct Color {
     return Color(new_r, new_g, new_b, a);
   }
 
+  inline constexpr Color desaturate(float amount) const {
+    const float y = luminance();
+    return Color(r + amount * (y - r), g + amount * (y - g), b + amount * (y - b));
+  }
+
   inline constexpr Color mix(const Color& other, float v) {
     return Color(math::lerp(r, other.r, v), math::lerp(g, other.g, v), math::lerp(b, other.b, v), math::lerp(a, other.a, v));
   }

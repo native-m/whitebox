@@ -15,6 +15,10 @@ using namespace std::chrono_literals;
 
 namespace wb {
 
+inline static constexpr double round_ppq(double beat, double ppq) {
+  return math::round(beat * ppq) / ppq;
+}
+
 Engine::~Engine() {
 }
 
@@ -1114,16 +1118,6 @@ void Engine::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>&
   }
 
   editor_lock.unlock();
-
-  if (has_deleted_clips.load(std::memory_order_relaxed)) {
-    delete_lock.lock();
-    for (auto track : tracks) {
-      Log::debug("Deleting pending clips for track: {} ...", (uintptr_t)track);
-      track->flush_deleted_clips(playhead);
-    }
-    delete_lock.unlock();
-    has_deleted_clips.store(false, std::memory_order_relaxed);
-  }
 
   perf_measurer.update(tm_ticks_to_ms(counter.duration()), audio_buffer_duration_ms);
 }

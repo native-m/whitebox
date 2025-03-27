@@ -157,6 +157,9 @@ void Track::update_clip_ordering() {
     has_deleted_clips = false;
     clips = std::move(new_cliplist);
   }
+  for (auto clip : deleted_clips) {
+    destroy_clip(clip);
+  }
   std::sort(clips.begin(), clips.end(), [](const Clip* a, const Clip* b) { return a->min_time < b->min_time; });
   for (uint32_t i = 0; i < (uint32_t)clips.size(); i++) {
     clips[i]->id = i;
@@ -688,13 +691,6 @@ void Track::process(
   }
 
   param_queue.clear();
-
-  if (deleted_clips.size() > 0) {
-    for (auto deleted_clip : deleted_clips) {
-      destroy_clip(deleted_clip);
-    }
-    deleted_clips.resize(0);
-  }
 }
 
 void Track::render_sample(
@@ -817,25 +813,6 @@ void Track::process_test_synth(AudioBuffer<float>& output_buffer, double sample_
       start_sample = output_buffer.n_samples;
     }
   }
-}
-
-void Track::flush_deleted_clips(double time_pos) {
-  uint32_t i = 0;
-  bool is_playing_current_clip = false;
-  Vector<Clip*> new_clip_list;
-  new_clip_list.reserve(clips.size());
-  for (auto clip : clips) {
-    if (clip->is_deleted()) {
-      clip->~Clip();
-      clip_allocator.free(clip);
-      continue;
-    }
-    clip->id = i;
-    new_clip_list.push_back(clip);
-    i++;
-  }
-  // deleted_clip_ids.clear();
-  clips = std::move(new_clip_list);
 }
 
 void Track::transfer_param_changes() {
