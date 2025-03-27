@@ -1550,16 +1550,17 @@ void GuiTimeline::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sa
     const float min_pos_clamped_x = math::max(min_pos_x, rect.x - 3.0f);
     const float max_pos_clamped_x = math::min(max_pos_x, rect.z + 3.0f);
     const float min_pos_y = cmd.min_pos_y;
+    const float height = cmd.height;
     const float font_size = font->FontSize;
     const float clip_title_max_y = min_pos_y + font_size + 4.0f;
     const ImVec2 clip_title_min_bb(min_pos_clamped_x, min_pos_y);
     const ImVec2 clip_title_max_bb(max_pos_clamped_x, clip_title_max_y);
     const ImVec2 clip_content_min(min_pos_clamped_x, clip_title_max_y);
-    const ImVec2 clip_content_max(max_pos_clamped_x, min_pos_y + cmd.height);
+    const ImVec2 clip_content_max(max_pos_clamped_x, min_pos_y + height);
     const float darkening = is_active ? 0.80f : 0.60f;
     const Color base_color = is_active ? color : color.desaturate(0.4f);
     const Color bg_color = base_color.change_alpha(base_color.a * darkening).premult_alpha();
-    const Color content_color = is_active ? base_color.brighten(1.25f) : base_color.brighten(0.5f);
+    const Color content_color = is_active ? base_color.brighten(1.28f) : base_color.brighten(0.5f);
     auto* dl = !cmd.layer2 ? layer1_draw_list : layer2_draw_list;
 
     if (cmd.layer2) {
@@ -1757,6 +1758,32 @@ void GuiTimeline::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sa
     }
 
     layer3_draw_list->PopClipRect();
+
+    if (clip->hover_state != ClipHover::None) {
+      switch (clip->hover_state) {
+        case ClipHover::LeftHandle: {
+          ImVec2 min_bb(min_pos_x, min_pos_y);
+          ImVec2 max_bb(max_pos_x, min_pos_y + height);
+          layer3_draw_list->AddLine(
+              ImVec2(min_bb.x + 0.5f, min_bb.y),
+              ImVec2(min_bb.x + 0.5f, max_bb.y),
+              ImGui::GetColorU32(ImGuiCol_ButtonActive),
+              3.0f);
+          break;
+        }
+        case ClipHover::RightHandle: {
+          ImVec2 min_bb(min_pos_x, min_pos_y);
+          ImVec2 max_bb(max_pos_x, min_pos_y + height);
+          layer3_draw_list->AddLine(
+              ImVec2(max_bb.x - 1.5f, min_bb.y),
+              ImVec2(max_bb.x - 1.5f, max_bb.y),
+              ImGui::GetColorU32(ImGuiCol_ButtonActive),
+              3.0f);
+          break;
+        }
+        default: break;
+      }
+    }
   }
 }
 
