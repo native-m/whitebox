@@ -19,11 +19,9 @@ void init_font_assets() {
   config.OversampleV = 2.0f;
   // config.FontBuilderFlags = ImGuiFreeTypeBuilderFlags_NoHinting;
   g_fonts[(uint32_t)FontType::Normal] = io.Fonts->AddFontFromFileTTF("assets/Inter-Regular.ttf", 0.0f, &config);
-  config.GlyphExtraSpacing.x = 0.0f;
   config.FontBuilderFlags = 0;
   config.RasterizerDensity = 1.0f;
   config.SizePixels = 24.0f;
-  config.GlyphExtraSpacing.x = 0.0f;
   config.GlyphOffset.y -= 1.0f;
   g_fonts[(uint32_t)FontType::MonoMedium] = io.Fonts->AddFontFromFileTTF("assets/RobotoMono-Regular.ttf", 0.0f, &config);
   config.SizePixels = 24.0f;

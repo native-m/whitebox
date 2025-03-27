@@ -435,7 +435,7 @@ void apply_theme(ImGuiStyle& style) {
   style.TabRounding = 3.099999904632568f;
   style.TabBorderSize = 0.0f;
   style.TabBarOverlineSize = 0.0f;
-  style.TabMinWidthForCloseButton = 0.0f;
+  style.TabCloseButtonMinWidthUnselected = 0.0f;
   style.ColorButtonPosition = ImGuiDir_Right;
   style.ButtonTextAlign = ImVec2(0.5f, 0.5f);
   style.SelectableTextAlign = ImVec2(0.0f, 0.0f);
