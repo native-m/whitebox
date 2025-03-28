@@ -85,13 +85,14 @@ static void handle_events(SDL_Event& event) {
       }
       break;
     }
-    case SDL_MOUSEWHEEL: {
+    /*case SDL_MOUSEWHEEL: {
+      // FIXME(native-m): This break the mouse scroll
       float wheel_x = event.wheel.preciseX;
       float wheel_y = event.wheel.preciseY;
       scroll_acc.x += wheel_x;
       scroll_acc.y += wheel_y;
       return;
-    }
+    }*/
     case SDL_DROPFILE:
       g_file_drop.push_back(event.drop.file);
       SDL_free(event.drop.file);
@@ -184,7 +185,8 @@ void app_init() {
 }
 
 void app_render() {
-  handle_scroll();
+  // FIXME(native-m): This break the mouse scroll
+  // handle_scroll();
   g_renderer->begin_frame();
   ImGui_ImplSDL2_NewFrame();
   ImGui::NewFrame();
