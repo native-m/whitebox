@@ -8,8 +8,9 @@ struct GuiPianoRoll : public TimelineBase {
   static constexpr float note_count = 132.0f;
   static constexpr float note_count_per_oct = 12.0f;
   static constexpr float max_oct_count = note_count / note_count_per_oct;
-  static constexpr float note_height = 18.0f;
-  static constexpr float note_height_padded = note_height + 1.0f;
+
+  ImDrawList* piano_roll_dl{};
+  ImFont* font{};
 
   MidiData midi_note;
   ImVec2 content_size;
@@ -21,15 +22,23 @@ struct GuiPianoRoll : public TimelineBase {
   float scroll_delta_y = 0.0f;
   float space_divider = 0.25f;
   float content_height = 0.0f;
+  float zoom_pos_y = 0.0f;
+  float note_height = 18.0f;
+  float note_height_in_pixel = note_height;
+  float new_note_height = note_height;
+  float last_scroll_pos_y_normalized = 0.0f;
   bool scrolling = false;
   bool force_redraw = false;
+  bool zooming_vertically = false;
 
   GuiPianoRoll();
   void open_midi_file();
   void render();
-  void render_editor();
+  void render_note_keys();
+  void render_note_editor();
   void render_event_editor();
   void draw_piano_keys(ImDrawList* draw_list, ImVec2& pos, const ImVec2& note_size, uint32_t oct);
+  void zoom_vertically(float mouse_pos_y, float height, float mouse_wheel);
 };
 
 extern GuiPianoRoll g_piano_roll;
