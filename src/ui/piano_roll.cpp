@@ -380,7 +380,7 @@ void GuiPianoRoll::render_note_editor() {
   }
 
   if (is_piano_roll_hovered && holding_ctrl && mouse_wheel != 0.0f) {
-    zoom(mouse_pos.x, cursor_pos.x, view_scale, mouse_wheel * 0.20f);
+    zoom(mouse_pos.x, cursor_pos.x, view_scale, mouse_wheel * zoom_rate);
     force_redraw = true;
   }
 

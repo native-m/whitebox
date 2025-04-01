@@ -173,7 +173,7 @@ bool TimelineBase::render_time_ruler(double* time_value) {
   // Handle zoom scrolling on ruler
   float mouse_wheel = ImGui::GetIO().MouseWheel;
   if (hovered && mouse_wheel != 0.0f) {
-    zoom(mouse_pos.x, cursor_pos.x, view_scale, mouse_wheel * 0.25f);
+    zoom(mouse_pos.x, cursor_pos.x, view_scale, mouse_wheel * zoom_rate);
     view_scale = calc_view_scale();
   }
 

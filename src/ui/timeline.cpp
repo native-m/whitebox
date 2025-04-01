@@ -585,7 +585,7 @@ void GuiTimeline::render_track_lanes() {
 
   // Zoom
   if (timeline_hovered && holding_ctrl && mouse_wheel != 0.0f) {
-    zoom(mouse_pos.x, timeline_view_pos.x, view_scale, mouse_wheel * 0.25f);
+    zoom(mouse_pos.x, timeline_view_pos.x, view_scale, mouse_wheel * zoom_rate);
     view_scale = calc_view_scale();
     inv_view_scale = 1.0 / view_scale;
   }

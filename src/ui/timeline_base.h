@@ -22,6 +22,7 @@ struct TimelineBase {
     bool resizing_lhs_scroll_grab = false;
     bool resizing_rhs_scroll_grab = false;
 
+    static constexpr float zoom_rate = 0.12f;
     static constexpr uint32_t playhead_color = 0xE553A3F9;
 
     void render_horizontal_scrollbar();
