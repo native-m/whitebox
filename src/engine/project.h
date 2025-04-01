@@ -97,9 +97,9 @@ enum class ProjectFileResult {
 
 ProjectFileResult read_project_file(const std::filesystem::path& filepath, Engine& engine,
                                     SampleTable& sample_table, MidiTable& midi_table,
-                                    GuiTimeline& timeline);
+                                    TimelineWindow& timeline);
 ProjectFileResult write_project_file(const std::filesystem::path& filepath, Engine& engine,
                                      SampleTable& sample_table, MidiTable& midi_table,
-                                     GuiTimeline& timeline);
+                                     TimelineWindow& timeline);
 
 } // namespace wb

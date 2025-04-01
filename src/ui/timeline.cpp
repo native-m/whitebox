@@ -19,9 +19,9 @@
 #endif
 
 namespace wb {
-GuiTimeline g_timeline;
+TimelineWindow g_timeline;
 
-void GuiTimeline::init() {
+void TimelineWindow::init() {
   g_engine.add_on_bpm_change_listener([this](double bpm, double beat_duration) { force_redraw = true; });
   g_cmd_manager.add_on_history_update_listener([this] { force_redraw = true; });
   layer1_draw_list = new ImDrawList(ImGui::GetDrawListSharedData());
@@ -29,7 +29,7 @@ void GuiTimeline::init() {
   layer3_draw_list = new ImDrawList(ImGui::GetDrawListSharedData());
 }
 
-void GuiTimeline::shutdown() {
+void TimelineWindow::shutdown() {
   delete layer1_draw_list;
   delete layer2_draw_list;
   delete layer3_draw_list;
@@ -37,7 +37,7 @@ void GuiTimeline::shutdown() {
     g_renderer->destroy_texture(timeline_fb);
 }
 
-void GuiTimeline::reset() {
+void TimelineWindow::reset() {
   selected_track_regions.clear();
   selecting_range = false;
   range_selected = false;
@@ -46,7 +46,7 @@ void GuiTimeline::reset() {
   color_spin = 0;
 }
 
-void GuiTimeline::render() {
+void TimelineWindow::render() {
   ImGui::SetNextWindowSize(ImVec2(640.0f, 480.0f), ImGuiCond_FirstUseEver);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 1.0f));
   if (!controls::begin_window("Timeline", &g_timeline_window_open)) {
@@ -124,7 +124,7 @@ void GuiTimeline::render() {
   controls::end_window();
 }
 
-void GuiTimeline::render_splitter() {
+void TimelineWindow::render_splitter() {
   ImVec2 backup_cursor_pos = ImGui::GetCursorScreenPos();
   const float splitter_pos_x = backup_cursor_pos.x + vsplitter_size;
   ImVec2 splitter_pos(splitter_pos_x - 2.0f, backup_cursor_pos.y + vscroll);
@@ -169,7 +169,7 @@ void GuiTimeline::render_splitter() {
   timeline_view_pos.y = backup_cursor_pos.y;
 }
 
-void GuiTimeline::render_track_controls() {
+void TimelineWindow::render_track_controls() {
   constexpr ImGuiWindowFlags track_control_window_flags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse |
                                                           ImGuiWindowFlags_NoBackground |
                                                           ImGuiWindowFlags_AlwaysUseWindowPadding;
@@ -432,7 +432,7 @@ void GuiTimeline::render_track_controls() {
   ImGui::PopStyleVar();
 }
 
-void GuiTimeline::render_clip_context_menu() {
+void TimelineWindow::render_clip_context_menu() {
   bool open_rename_popup = false;
   bool open_change_color_popup = false;
 
@@ -539,7 +539,7 @@ void GuiTimeline::render_clip_context_menu() {
   }
 }
 
-void GuiTimeline::render_track_lanes() {
+void TimelineWindow::render_track_lanes() {
   ImGui::SetCursorScreenPos(timeline_view_pos);
   const float offset_y = vscroll + timeline_view_pos.y;
   const auto timeline_area = ImGui::GetContentRegionAvail();
@@ -883,6 +883,7 @@ void GuiTimeline::render_track_lanes() {
     }
     draw_clips(clip_draw_cmd, sample_scale, offset_y);
 
+    // Draw selection range
     if (selecting_range || range_selected) {
       float track_pos_y = timeline_view_pos.y;
       float selection_start_y = 0.0f;
@@ -1023,7 +1024,7 @@ void GuiTimeline::render_track_lanes() {
   ImGui::PopClipRect();
 }
 
-void GuiTimeline::render_track(
+void TimelineWindow::render_track(
     Track* track,
     uint32_t id,
     float track_pos_y,
@@ -1290,7 +1291,7 @@ void GuiTimeline::render_track(
   }
 }
 
-void GuiTimeline::render_edited_clips(double mouse_at_gridline) {
+void TimelineWindow::render_edited_clips(double mouse_at_gridline) {
   const double relative_pos = mouse_at_gridline - initial_time_pos;
 
   if (edited_clip) {
@@ -1491,7 +1492,7 @@ void GuiTimeline::render_edited_clips(double mouse_at_gridline) {
   }
 }
 
-void GuiTimeline::render_clip(
+void TimelineWindow::render_clip(
     Clip* clip,
     double min_time,
     double max_time,
@@ -1525,7 +1526,7 @@ void GuiTimeline::render_clip(
   }
 }
 
-void GuiTimeline::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sample_scale, float offset_y) {
+void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sample_scale, float offset_y) {
   constexpr ImDrawListFlags draw_list_aa_flags =
       ImDrawListFlags_AntiAliasedFill | ImDrawListFlags_AntiAliasedLinesUseTex | ImDrawListFlags_AntiAliasedLines;
 
@@ -1564,7 +1565,7 @@ void GuiTimeline::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sa
     const float darkening = is_active ? 0.80f : 0.60f;
     const Color base_color = is_active ? color : color.desaturate(0.4f);
     const Color bg_color = base_color.change_alpha(base_color.a * darkening).premult_alpha();
-    const Color content_color = is_active ? base_color.brighten(1.28f) : base_color.brighten(0.5f);
+    const Color content_color = is_active ? base_color.brighten(1.30f) : base_color.brighten(0.5f);
     auto* dl = !cmd.layer2 ? layer1_draw_list : layer2_draw_list;
 
     if (cmd.layer2) {
@@ -1791,7 +1792,7 @@ void GuiTimeline::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sa
   }
 }
 
-void GuiTimeline::draw_clip_overlay(ImVec2 pos, float size, float alpha, const Color& col, const char* caption) {
+void TimelineWindow::draw_clip_overlay(ImVec2 pos, float size, float alpha, const Color& col, const char* caption) {
   ImU32 ctrl_bg = col.darken(0.8f).to_uint32();
   ImVec2 text_size = ImGui::CalcTextSize(caption);
   float text_offset_x = 0.5f * (size - text_size.x);
@@ -1801,13 +1802,15 @@ void GuiTimeline::draw_clip_overlay(ImVec2 pos, float size, float alpha, const C
   layer3_draw_list->AddText(ImVec2(pos.x + text_offset_x, pos.y), 0x00FF'FFFF | caption_alpha, caption);
 }
 
-void GuiTimeline::apply_edit(double mouse_at_gridline) {
-  if (timeline_window_focused && ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+void TimelineWindow::apply_edit(double mouse_at_gridline) {
+  if (timeline_window_focused && edit_command != TimelineCommand::None && ImGui::IsKeyPressed(ImGuiKey_Escape)) {
     finish_edit();
     force_redraw = true;
     return;
   }
+
   double relative_pos = mouse_at_gridline - initial_time_pos;
+  
   if (!edit_selected) {
     switch (edit_command) {
       case TimelineCommand::ClipMove:
@@ -1952,6 +1955,7 @@ void GuiTimeline::apply_edit(double mouse_at_gridline) {
           cmd->duplicate = edit_command == TimelineCommand::ClipDuplicate;
           g_cmd_manager.execute(cmd->duplicate ? "Duplicate clip" : "Move clip", cmd);
           finish_edit();
+
           force_redraw = true;
         }
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
@@ -1996,7 +2000,7 @@ void GuiTimeline::apply_edit(double mouse_at_gridline) {
   }
 }
 
-void GuiTimeline::query_selected_range() {
+void TimelineWindow::query_selected_range() {
   selected_track_regions.reserve((last_selected_track - first_selected_track) + 1);
   for (uint32_t i = first_selected_track; i <= last_selected_track; i++) {
     Track* track = g_engine.tracks[i];
@@ -2014,7 +2018,7 @@ void GuiTimeline::query_selected_range() {
   }
 }
 
-bool GuiTimeline::prepare_resize_for_selected_range(Clip* src_clip, bool dir) {
+bool TimelineWindow::prepare_resize_for_selected_range(Clip* src_clip, bool dir) {
   if (selected_track_regions.empty()) {
     return false;
   }
@@ -2094,7 +2098,7 @@ bool GuiTimeline::prepare_resize_for_selected_range(Clip* src_clip, bool dir) {
   return true;
 }
 
-float GuiTimeline::get_track_position_y(uint32_t id) {
+float TimelineWindow::get_track_position_y(uint32_t id) {
   uint32_t track_count = (uint32_t)g_engine.tracks.size();
   if (id == 0 || track_count == 0) {
     return timeline_view_pos.y;
@@ -2110,7 +2114,7 @@ float GuiTimeline::get_track_position_y(uint32_t id) {
   return track_pos_y;
 }
 
-void GuiTimeline::recalculate_song_length() {
+void TimelineWindow::recalculate_song_length() {
   double max_length = g_engine.get_song_length();
   if (max_length > 10000.0) {
     max_length += g_engine.ppq * 14;
@@ -2124,7 +2128,7 @@ void GuiTimeline::recalculate_song_length() {
   }
 }
 
-void GuiTimeline::finish_edit() {
+void TimelineWindow::finish_edit() {
   hovered_track = nullptr;
   hovered_track_y = 0.0f;
   hovered_track_id = {};
@@ -2133,6 +2137,7 @@ void GuiTimeline::finish_edit() {
   edited_track = nullptr;
   edited_track_pos_y = 0.0f;
   edit_selected = false;
+  range_selected = false;
   edit_command = TimelineCommand::None;
   current_value = 0.0f;
   initial_time_pos = 0.0;
@@ -2140,10 +2145,11 @@ void GuiTimeline::finish_edit() {
   clip_min_resize_pos = 0.0;
   clip_resize.resize_fast(0);
   recalculate_song_length();
+  selected_track_regions.clear();
   Log::debug("Finish edit");
 }
 
-void GuiTimeline::add_track() {
+void TimelineWindow::add_track() {
   TrackAddCmd* cmd = new TrackAddCmd();
   cmd->color = Color::from_hsv((float)color_spin / 15.0f, 0.6172f, 0.80f);
   g_cmd_manager.execute("Add track", cmd);
@@ -2151,7 +2157,7 @@ void GuiTimeline::add_track() {
   redraw = true;
 }
 
-void GuiTimeline::add_plugin(Track* track, PluginUID uid) {
+void TimelineWindow::add_plugin(Track* track, PluginUID uid) {
   PluginInterface* plugin = g_engine.add_plugin_to_track(track, uid);
   if (!plugin)
     return;

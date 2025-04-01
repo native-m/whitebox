@@ -11,17 +11,17 @@
 #include "window.h"
 
 namespace wb {
-GuiPlugins g_plugins_window;
+PluginsWindow g_plugins_window;
 
 enum PluginsColumnID {
   PluginsColumnID_Name,
   PluginsColumnID_Format,
 };
 
-void GuiPlugins::render() {
+void PluginsWindow::render() {
   if (first_time) {
     pm_add_plugin_db_update_listener(this, [](void* userdata) {
-      GuiPlugins* plugins_window = (GuiPlugins*)userdata;
+      PluginsWindow* plugins_window = (PluginsWindow*)userdata;
       plugins_window->force_refresh = true;
       plugins_window->refit_table_column = true;
     });
@@ -106,7 +106,7 @@ void GuiPlugins::render() {
   refit_table_column = false;
 }
 
-void GuiPlugins::update_plugin_info_data(ImGuiTableSortSpecs* sort_specs) {
+void PluginsWindow::update_plugin_info_data(ImGuiTableSortSpecs* sort_specs) {
   Vector<PluginItem> plugin_info_data;
   pm_fetch_registered_plugins(search_text, &plugin_info_data, [](void* userdata, PluginInfo&& info) {
     Vector<PluginItem>* plugins = (Vector<PluginItem>*)userdata;

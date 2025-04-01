@@ -14,7 +14,7 @@ struct PluginItem {
   PluginUID uid;
 };
 
-struct GuiPlugins {
+struct PluginsWindow {
   Vector<PluginItem> items;
   std::string search_text;
   float search_timeout = 0.0;
@@ -26,5 +26,5 @@ struct GuiPlugins {
   void update_plugin_info_data(ImGuiTableSortSpecs* sort_specs);
 };
 
-extern GuiPlugins g_plugins_window;
+extern PluginsWindow g_plugins_window;
 }  // namespace wb

@@ -10,7 +10,7 @@
 #include "window.h"
 
 namespace wb {
-GuiPluginManager g_plugin_manager;
+PluginManagerWindow g_plugin_manager;
 
 enum PluginManagerColumnID {
   PluginManagerColumnID_Name,
@@ -33,7 +33,7 @@ static uint32_t get_plugin_flag_type(uint32_t flag) {
   return 4;
 }
 
-void GuiPluginManager::render() {
+void PluginManagerWindow::render() {
   ImGui::SetNextWindowSize(ImVec2(800.0f, 600.0f), ImGuiCond_FirstUseEver);
   if (!ImGui::Begin("Plugin Manager", &g_plugin_mgr_window_open, ImGuiWindowFlags_NoDocking)) {
     ImGui::End();
@@ -182,7 +182,7 @@ void GuiPluginManager::render() {
   ImGui::End();
 }
 
-void GuiPluginManager::update_plugin_info_data(ImGuiTableSortSpecs* sort_specs) {
+void PluginManagerWindow::update_plugin_info_data(ImGuiTableSortSpecs* sort_specs) {
   Vector<PluginInfo> plugin_info_data;
   pm_fetch_registered_plugins(search_text, &plugin_info_data, [](void* userdata, PluginInfo&& info) {
     Vector<PluginInfo>* plugins = (Vector<PluginInfo>*)userdata;
@@ -224,7 +224,7 @@ void GuiPluginManager::update_plugin_info_data(ImGuiTableSortSpecs* sort_specs) 
   num_selected_plugins = 0;
 }
 
-void GuiPluginManager::delete_selected() {
+void PluginManagerWindow::delete_selected() {
   for (auto id : selected_plugin_set) {
     auto& plugin_info = plugin_infos[id];
     pm_delete_plugin(plugin_info.uid);

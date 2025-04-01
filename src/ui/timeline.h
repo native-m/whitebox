@@ -39,7 +39,7 @@ struct ClipDrawCmd {
   };
 };
 
-struct GuiTimeline : public TimelineBase {
+struct TimelineWindow : public TimelineBase {
   static constexpr uint32_t highlight_color = 0x9F555555;
   static constexpr float track_separator_height = 2.0f;
 
@@ -170,5 +170,5 @@ struct GuiTimeline : public TimelineBase {
   }
 };
 
-extern GuiTimeline g_timeline;
+extern TimelineWindow g_timeline;
 }  // namespace wb

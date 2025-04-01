@@ -3,9 +3,9 @@
 #include "core/common.h"
 
 namespace wb {
-struct GuiSettings {
+struct SettingsWindow {
   void render();
 };
 
-extern GuiSettings g_settings;
+extern SettingsWindow g_settings;
 }  // namespace wb

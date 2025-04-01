@@ -22,7 +22,7 @@ ProjectFileResult read_project_file(
     Engine& engine,
     SampleTable& sample_table,
     MidiTable& midi_table,
-    GuiTimeline& timeline) {
+    TimelineWindow& timeline) {
   File file;
   uintmax_t size = std::filesystem::file_size(path);
   if (size < sizeof(PFHeader))
@@ -230,7 +230,7 @@ ProjectFileResult write_project_file(
     Engine& engine,
     SampleTable& sample_table,
     MidiTable& midi_table,
-    GuiTimeline& timeline) {
+    TimelineWindow& timeline) {
   sample_table.destroy_unused();
 
   File file;

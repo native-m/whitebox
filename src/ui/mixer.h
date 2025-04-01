@@ -1,9 +1,9 @@
 #pragma once
 
 namespace wb {
-struct GuiMixer {
+struct MixerWindow {
   void render();
 };
 
-extern GuiMixer g_mixer;
+extern MixerWindow g_mixer;
 }  // namespace wb

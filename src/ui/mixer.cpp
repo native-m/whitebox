@@ -8,7 +8,7 @@
 
 namespace wb {
 
-void GuiMixer::render() {
+void MixerWindow::render() {
   ImGui::SetNextWindowSize(ImVec2(500, 300), ImGuiCond_FirstUseEver);
 
   ImVec2 window_padding = GImGui->Style.WindowPadding;
@@ -144,6 +144,6 @@ void GuiMixer::render() {
   controls::end_window();
 }
 
-GuiMixer g_mixer;
+MixerWindow g_mixer;
 
 }  // namespace wb

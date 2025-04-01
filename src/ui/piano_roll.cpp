@@ -16,17 +16,17 @@ const char* note_scale[] = {
   "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
 };
 
-GuiPianoRoll::GuiPianoRoll() {
+ClipEditorWindow::ClipEditorWindow() {
   vsplitter_size = 70.0f;
   vsplitter_min_size = 70.0f;
 }
 
-void GuiPianoRoll::open_midi_file() {
+void ClipEditorWindow::open_midi_file() {
   if (auto file = open_file_dialog({ { "Standard MIDI File", "mid" } })) {
     load_notes_from_file(midi_note, file.value());
   }
 }
-void GuiPianoRoll::render() {
+void ClipEditorWindow::render() {
   ppq = g_engine.ppq;
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
   ImGui::SetNextWindowSize(ImVec2(640.0f, 480.0f), ImGuiCond_FirstUseEver);
@@ -132,7 +132,7 @@ void GuiPianoRoll::render() {
   controls::end_window();
 }
 
-void GuiPianoRoll::render_note_keys() {
+void ClipEditorWindow::render_note_keys() {
   ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
   ImGui::InvisibleButton(
       "PianoRollKeys",
@@ -179,7 +179,7 @@ void GuiPianoRoll::render_note_keys() {
   }
 }
 
-void GuiPianoRoll::render_note_editor() {
+void ClipEditorWindow::render_note_editor() {
   ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
   ImVec2 region_size = ImGui::GetContentRegionAvail();
   ImDrawList* dl = ImGui::GetWindowDrawList();
@@ -314,6 +314,7 @@ void GuiPianoRoll::render_note_editor() {
     float pos_y = (float)(131 - note.note_number) * note_height_in_pixel;
     float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * clip_scale);
     float max_pos_x = (float)math::round(scroll_offset_x + note.max_time * clip_scale);
+
     if (max_pos_x < cursor_pos.x)
       continue;
     if (min_pos_x > end_x)
@@ -347,6 +348,7 @@ void GuiPianoRoll::render_note_editor() {
     if (note_height_in_pixel > 13.0f) {
       float note_text_padding_y;
       if (note_height_in_pixel > 22.0f) {
+        // Draw velocity indicator
         float indicator_width = max_pos_x - min_pos_x - 5.0f;
         if (indicator_width > 1.0f) {
           im_draw_box_filled(dl, min_pos_x + 3.0f, b.y - 6.0f, indicator_width, 4.0f, indicator_frame_color);
@@ -389,7 +391,7 @@ void GuiPianoRoll::render_note_editor() {
   ImGui::PopClipRect();
 }
 
-void GuiPianoRoll::render_event_editor() {
+void ClipEditorWindow::render_event_editor() {
   auto draw_list = ImGui::GetWindowDrawList();
   auto cursor_pos = ImGui::GetCursorScreenPos() + ImVec2(vsplitter_min_size, 0.0f);
   auto editor_event_region = ImGui::GetContentRegionAvail();
@@ -414,7 +416,7 @@ void GuiPianoRoll::render_event_editor() {
   }
 }
 
-void GuiPianoRoll::draw_piano_keys(ImDrawList* draw_list, ImVec2& pos, const ImVec2& size, uint32_t oct) {
+void ClipEditorWindow::draw_piano_keys(ImDrawList* draw_list, ImVec2& pos, const ImVec2& size, uint32_t oct) {
   ImU32 dark_note = ImGui::GetColorU32(ImGuiCol_FrameBg);
   ImU32 white_note = ImGui::GetColorU32(ImGuiCol_Text);
   ImU32 separator = ImGui::GetColorU32(ImGuiCol_Separator);
@@ -462,11 +464,11 @@ void GuiPianoRoll::draw_piano_keys(ImDrawList* draw_list, ImVec2& pos, const ImV
   pos.y = note_pos.y;
 }
 
-void GuiPianoRoll::zoom_vertically(float mouse_pos_y, float height, float mouse_wheel) {
+void ClipEditorWindow::zoom_vertically(float mouse_pos_y, float height, float mouse_wheel) {
   float min_scroll_pos_normalized = vscroll / height;
   new_note_height = math::max(note_height + mouse_wheel, 5.0f);
   last_scroll_pos_y_normalized = min_scroll_pos_normalized;
 }
 
-GuiPianoRoll g_piano_roll;
+ClipEditorWindow g_piano_roll;
 }  // namespace wb

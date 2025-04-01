@@ -80,7 +80,7 @@ struct BrowserFilePayload {
   std::filesystem::path path;
 };
 
-struct GuiBrowser {
+struct BrowserWindow {
   using DirectorySet = std::unordered_set<std::filesystem::path>;
   using DirectoryRefItem = std::pair<DirectorySet::iterator, BrowserItem>;
   DirectorySet directory_set;
@@ -97,7 +97,7 @@ struct GuiBrowser {
   BrowserItem* selected_item = nullptr;
   BrowserFilePayload drop_payload;
 
-  GuiBrowser();
+  BrowserWindow();
   void add_directory(const std::filesystem::path& path);
   void remove_directory(std::vector<DirectoryRefItem>::iterator dir);
   void sort_directory();
@@ -106,5 +106,5 @@ struct GuiBrowser {
   void render();
 };
 
-extern GuiBrowser g_browser;
+extern BrowserWindow g_browser;
 }  // namespace wb

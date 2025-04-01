@@ -8,7 +8,8 @@
 struct ImGuiTableSortSpecs;
 
 namespace wb {
-struct GuiPluginManager {
+
+struct PluginManagerWindow {
   Vector<PluginInfo> plugin_infos;
   std::unordered_set<uint32_t> selected_plugin_set;
   uint32_t num_selected_plugins = 0;
@@ -21,5 +22,6 @@ struct GuiPluginManager {
   void delete_selected();
 };
 
-extern GuiPluginManager g_plugin_manager;
+extern PluginManagerWindow g_plugin_manager;
+
 }  // namespace wb

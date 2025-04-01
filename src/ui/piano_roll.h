@@ -4,7 +4,8 @@
 #include "timeline_base.h"
 
 namespace wb {
-struct GuiPianoRoll : public TimelineBase {
+
+struct ClipEditorWindow : public TimelineBase {
   static constexpr float note_count = 132.0f;
   static constexpr float note_count_per_oct = 12.0f;
   static constexpr float max_oct_count = note_count / note_count_per_oct;
@@ -31,7 +32,7 @@ struct GuiPianoRoll : public TimelineBase {
   bool force_redraw = false;
   bool zooming_vertically = false;
 
-  GuiPianoRoll();
+  ClipEditorWindow();
   void open_midi_file();
   void render();
   void render_note_keys();
@@ -41,6 +42,6 @@ struct GuiPianoRoll : public TimelineBase {
   void zoom_vertically(float mouse_pos_y, float height, float mouse_wheel);
 };
 
-extern GuiPianoRoll g_piano_roll;
+extern ClipEditorWindow g_piano_roll;
 
 }  // namespace wb

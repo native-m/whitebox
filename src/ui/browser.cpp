@@ -22,10 +22,10 @@ static std::pair<double, double> get_item_content_info(const std::filesystem::pa
     return {};
 }
 
-GuiBrowser::GuiBrowser() {
+BrowserWindow::BrowserWindow() {
 }
 
-void GuiBrowser::add_directory(const std::filesystem::path& path) {
+void BrowserWindow::add_directory(const std::filesystem::path& path) {
     if (fs::is_directory(path) && !directory_set.contains(path)) {
         auto [iterator, already_exists] = directory_set.emplace(path);
         if (already_exists) {
@@ -37,18 +37,18 @@ void GuiBrowser::add_directory(const std::filesystem::path& path) {
     }
 }
 
-void GuiBrowser::remove_directory(std::vector<GuiBrowser::DirectoryRefItem>::iterator dir) {
+void BrowserWindow::remove_directory(std::vector<BrowserWindow::DirectoryRefItem>::iterator dir) {
     directory_set.erase(dir->first);
     directories.erase(dir);
 }
 
-void GuiBrowser::sort_directory() {
+void BrowserWindow::sort_directory() {
     std::stable_sort(directories.begin(), directories.end(), [](const DirectoryRefItem& a, const DirectoryRefItem& b) {
         return a.second.name < b.second.name;
     });
 }
 
-void GuiBrowser::glob_path(const std::filesystem::path& path, BrowserItem& item) {
+void BrowserWindow::glob_path(const std::filesystem::path& path, BrowserItem& item) {
     item.dir_items.emplace();
     item.file_items.emplace();
     for (const auto& dir_entry : fs::directory_iterator(path, fs::directory_options::skip_permission_denied)) {
@@ -73,7 +73,7 @@ void GuiBrowser::glob_path(const std::filesystem::path& path, BrowserItem& item)
     }
 }
 
-void GuiBrowser::render_item(const std::filesystem::path& root_path, BrowserItem& item) {
+void BrowserWindow::render_item(const std::filesystem::path& root_path, BrowserItem& item) {
     ImGui::TableNextRow();
     ImGui::TableSetColumnIndex(0);
 
@@ -164,7 +164,7 @@ void GuiBrowser::render_item(const std::filesystem::path& root_path, BrowserItem
     }
 }
 
-void GuiBrowser::render() {
+void BrowserWindow::render() {
     if (!controls::begin_window("Browser", &g_browser_window_open)) {
         controls::end_window();
         return;
@@ -280,5 +280,5 @@ void GuiBrowser::render() {
     controls::end_window();
 }
 
-GuiBrowser g_browser;
+BrowserWindow g_browser;
 } // namespace wb
