@@ -91,7 +91,7 @@ struct Color {
   }
 
   inline constexpr Color premult_alpha() const {
-    return Color(r * a, g * a, b * b, 1.0f);
+    return Color(r * a, g * a, b * a, 1.0f);
   }
 
   inline constexpr Color change_alpha(float alpha) const {
