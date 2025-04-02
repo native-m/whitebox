@@ -39,7 +39,6 @@ struct Engine {
   ProjectInfo project_info;
   std::vector<Track*> tracks;
   mutable Spinlock editor_lock;
-  mutable Spinlock delete_lock;
 
   double ppq = 96.0;
   double playhead{};
@@ -87,6 +86,7 @@ struct Engine {
 
   Track* add_track(const std::string& name);
   void delete_track(uint32_t slot);
+  void delete_track(uint32_t first_slot, uint32_t count);
   void move_track(uint32_t from_slot, uint32_t to_slot);
   void solo_track(uint32_t slot);
 

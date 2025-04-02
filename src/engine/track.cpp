@@ -156,9 +156,10 @@ void Track::update_clip_ordering() {
     }
     has_deleted_clips = false;
     clips = std::move(new_cliplist);
-  }
-  for (auto clip : deleted_clips) {
-    destroy_clip(clip);
+    for (auto clip : deleted_clips) {
+      destroy_clip(clip);
+    }
+    deleted_clips.resize(0);
   }
   std::sort(clips.begin(), clips.end(), [](const Clip* a, const Clip* b) { return a->min_time < b->min_time; });
   for (uint32_t i = 0; i < (uint32_t)clips.size(); i++) {
@@ -453,7 +454,6 @@ void Track::process_event(
     Log::debug("Note off: {} length: {} at: {}", note_str, voice->max_time, buffer_offset);
 #endif
   }
-
 
   if (input_attr.recording)
     record_max_time += buffer_duration;

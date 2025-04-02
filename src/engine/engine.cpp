@@ -210,14 +210,19 @@ Track* Engine::add_track(const std::string& name) {
 
 void Engine::delete_track(uint32_t slot) {
   editor_lock.lock();
-  delete_lock.lock();
   Track* track = tracks[slot];
   if (track->input.type != TrackInputType::None)
     set_track_input(slot, TrackInputType::None, 0, false);
   tracks.erase(tracks.begin() + slot);
   delete track;
-  delete_lock.unlock();
   editor_lock.unlock();
+}
+
+void Engine::delete_track(uint32_t first_slot, uint32_t count) {
+  auto track_begin = g_engine.tracks.begin() + first_slot;
+  auto track_end = track_begin + count;
+  g_engine.editor_lock.lock();
+  g_engine.editor_lock.unlock();
 }
 
 void Engine::move_track(uint32_t from_slot, uint32_t to_slot) {
