@@ -158,6 +158,8 @@ set(WB_SOURCES
 
     "src/ui/browser.cpp"
     "src/ui/browser.h"
+    "src/ui/clip_editor.cpp"
+    "src/ui/clip_editor.h"
     "src/ui/command.cpp"
     "src/ui/command.h"
     "src/ui/command_manager.cpp"
@@ -183,8 +185,6 @@ set(WB_SOURCES
     "src/ui/IconsMaterialSymbols.h"
     "src/ui/mixer.cpp"
     "src/ui/mixer.h"
-    "src/ui/piano_roll.cpp"
-    "src/ui/piano_roll.h"
     "src/ui/plugins.cpp"
     "src/ui/plugins.h"
     "src/ui/plugin_mgr.cpp"

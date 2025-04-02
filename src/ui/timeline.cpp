@@ -1,6 +1,7 @@
 #include "timeline.h"
 
 #include "browser.h"
+#include "clip_editor.h"
 #include "command_manager.h"
 #include "context_menu.h"
 #include "controls.h"

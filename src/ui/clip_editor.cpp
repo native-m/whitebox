@@ -1,4 +1,4 @@
-#include "piano_roll.h"
+#include "clip_editor.h"
 
 #include <imgui.h>
 
@@ -21,11 +21,17 @@ ClipEditorWindow::ClipEditorWindow() {
   vsplitter_min_size = 70.0f;
 }
 
+void ClipEditorWindow::set_clip(Clip* clip) {
+  current_clip = clip;
+  force_redraw = true;
+}
+
 void ClipEditorWindow::open_midi_file() {
   if (auto file = open_file_dialog({ { "Standard MIDI File", "mid" } })) {
-    load_notes_from_file(midi_note, file.value());
+    //load_notes_from_file(midi_note, file.value());
   }
 }
+
 void ClipEditorWindow::render() {
   ppq = g_engine.ppq;
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
@@ -36,6 +42,11 @@ void ClipEditorWindow::render() {
     return;
   }
   ImGui::PopStyleVar();
+
+  redraw = force_redraw;
+  if (force_redraw) {
+    force_redraw = false;
+  }
 
   bool note_height_changed = false;
   if (note_height != new_note_height) {
@@ -310,69 +321,72 @@ void ClipEditorWindow::render_note_editor() {
   float end_x = cursor_pos.x + timeline_width;
   float end_y = main_cursor_pos.y + content_height;
   std::optional<uint32_t> note_id;
-  for (auto& note : midi_note.channels[0]) {
-    float pos_y = (float)(131 - note.note_number) * note_height_in_pixel;
-    float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * clip_scale);
-    float max_pos_x = (float)math::round(scroll_offset_x + note.max_time * clip_scale);
 
-    if (max_pos_x < cursor_pos.x)
-      continue;
-    if (min_pos_x > end_x)
-      break;
+  if (current_clip && current_clip->is_midi()) {
+    for (auto midi_data = current_clip->midi.asset; auto& note : midi_data->data.channels[0]) {
+      float pos_y = (float)(131 - note.note_number) * note_height_in_pixel;
+      float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * clip_scale);
+      float max_pos_x = (float)math::round(scroll_offset_x + note.max_time * clip_scale);
 
-    float min_pos_y = cursor_pos.y + pos_y;
-    float max_pos_y = min_pos_y + note_height_in_pixel;
-    ImRect note_rect(min_pos_x, min_pos_y, max_pos_x, max_pos_y);
-    if (note_rect.Contains(mouse_pos) && is_piano_roll_hovered)
-      note_id = note.id;
+      if (max_pos_x < cursor_pos.x)
+        continue;
+      if (min_pos_x > end_x)
+        break;
 
-    ImVec2 a(min_pos_x + 0.5f, min_pos_y);
-    ImVec2 b(max_pos_x + 0.5f, max_pos_y - 0.5f);
-    if (a.y > end_y || b.y < main_cursor_pos.y)
-      continue;
+      float min_pos_y = cursor_pos.y + pos_y;
+      float max_pos_y = min_pos_y + note_height_in_pixel;
+      ImRect note_rect(min_pos_x, min_pos_y, max_pos_x, max_pos_y);
+      if (note_rect.Contains(mouse_pos) && is_piano_roll_hovered)
+        note_id = note.id;
 
-    // Draw note rect
-    dl->PathLineTo(a);
-    dl->PathLineTo(ImVec2(b.x, a.y));
-    dl->PathLineTo(b);
-    dl->PathLineTo(ImVec2(a.x, b.y));
-    dl->PathFillConvex(channel_color);
+      ImVec2 a(min_pos_x + 0.5f, min_pos_y);
+      ImVec2 b(max_pos_x + 0.5f, max_pos_y - 0.5f);
+      if (a.y > end_y || b.y < main_cursor_pos.y)
+        continue;
 
-    // Draw note rect
-    dl->PathLineTo(a);
-    dl->PathLineTo(ImVec2(b.x, a.y));
-    dl->PathLineTo(b);
-    dl->PathLineTo(ImVec2(a.x, b.y));
-    dl->PathStroke(0x44000000, ImDrawFlags_Closed);
+      // Draw note rect
+      dl->PathLineTo(a);
+      dl->PathLineTo(ImVec2(b.x, a.y));
+      dl->PathLineTo(b);
+      dl->PathLineTo(ImVec2(a.x, b.y));
+      dl->PathFillConvex(channel_color);
 
-    if (note_height_in_pixel > 13.0f) {
-      float note_text_padding_y;
-      if (note_height_in_pixel > 22.0f) {
-        // Draw velocity indicator
-        float indicator_width = max_pos_x - min_pos_x - 5.0f;
-        if (indicator_width > 1.0f) {
-          im_draw_box_filled(dl, min_pos_x + 3.0f, b.y - 6.0f, indicator_width, 4.0f, indicator_frame_color);
-          im_draw_box_filled(dl, min_pos_x + 3.0f, b.y - 6.0f, indicator_width * note.velocity, 4.0f, indicator_color);
+      // Draw note rect
+      dl->PathLineTo(a);
+      dl->PathLineTo(ImVec2(b.x, a.y));
+      dl->PathLineTo(b);
+      dl->PathLineTo(ImVec2(a.x, b.y));
+      dl->PathStroke(0x44000000, ImDrawFlags_Closed);
+
+      if (note_height_in_pixel > 13.0f) {
+        float note_text_padding_y;
+        if (note_height_in_pixel > 22.0f) {
+          // Draw velocity indicator
+          float indicator_width = max_pos_x - min_pos_x - 5.0f;
+          if (indicator_width > 1.0f) {
+            im_draw_box_filled(dl, min_pos_x + 3.0f, b.y - 6.0f, indicator_width, 4.0f, indicator_frame_color);
+            im_draw_box_filled(dl, min_pos_x + 3.0f, b.y - 6.0f, indicator_width * note.velocity, 4.0f, indicator_color);
+          }
+          note_text_padding_y = 2.0f;
+        } else {
+          note_text_padding_y = half_note_size - half_font_size;
         }
-        note_text_padding_y = 2.0f;
-      } else {
-        note_text_padding_y = half_note_size - half_font_size;
-      }
 
-      // Draw note text
-      ImVec4 label_rect(a.x, a.y, b.x - 4.0f, b.y);
-      char note_name[5]{};
-      const char* scale = note_scale[note.note_number % 12];
-      fmt::format_to_n(note_name, sizeof(note_name), "{}{}", scale, note.note_number / 12);
-      dl->AddText(
-          font,
-          font->FontSize,
-          ImVec2(std::max(cursor_pos.x, min_pos_x) + 3.0f, a.y + note_text_padding_y),
-          text_color,
-          note_name,
-          nullptr,
-          0.0f,
-          &label_rect);
+        // Draw note text
+        ImVec4 label_rect(a.x, a.y, b.x - 4.0f, b.y);
+        char note_name[5]{};
+        const char* scale = note_scale[note.note_number % 12];
+        fmt::format_to_n(note_name, sizeof(note_name), "{}{}", scale, note.note_number / 12);
+        dl->AddText(
+            font,
+            font->FontSize,
+            ImVec2(std::max(cursor_pos.x, min_pos_x) + 3.0f, a.y + note_text_padding_y),
+            text_color,
+            note_name,
+            nullptr,
+            0.0f,
+            &label_rect);
+      }
     }
   }
 
@@ -403,16 +417,18 @@ void ClipEditorWindow::render_event_editor() {
   float end_y = cursor_pos.y + editor_event_region.y;
   static const ImU32 channel_color = Color(121, 166, 91).brighten(0.6f).to_uint32();
 
-  for (auto& note : midi_note.channels[0]) {
-    float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * clip_scale);
-    if (min_pos_x < cursor_pos.x)
-      continue;
-    if (min_pos_x > end_x)
-      break;
-    float min_pos_y = cursor_pos.y + (1.0f - note.velocity) * editor_event_region.y;
-    ImVec2 min_pos = ImVec2(min_pos_x, min_pos_y);
-    draw_list->AddLine(min_pos, ImVec2(min_pos_x, end_y), channel_color);
-    draw_list->AddRectFilled(min_pos - ImVec2(2.0f, 2.0f), min_pos + ImVec2(3.0f, 3.0f), channel_color);
+  if (current_clip && current_clip->is_midi()) {
+    for (auto note_data = current_clip->midi.asset; auto& note : note_data->data.channels[0]) {
+      float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * clip_scale);
+      if (min_pos_x < cursor_pos.x)
+        continue;
+      if (min_pos_x > end_x)
+        break;
+      float min_pos_y = cursor_pos.y + (1.0f - note.velocity) * editor_event_region.y;
+      ImVec2 min_pos = ImVec2(min_pos_x, min_pos_y);
+      draw_list->AddLine(min_pos, ImVec2(min_pos_x, end_y), channel_color);
+      draw_list->AddRectFilled(min_pos - ImVec2(2.0f, 2.0f), min_pos + ImVec2(3.0f, 3.0f), channel_color);
+    }
   }
 }
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/midi.h"
+#include "engine/clip.h"
 #include "timeline_base.h"
 
 namespace wb {
@@ -12,8 +13,8 @@ struct ClipEditorWindow : public TimelineBase {
 
   ImDrawList* piano_roll_dl{};
   ImFont* font{};
+  Clip* current_clip{};
 
-  MidiData midi_note;
   ImVec2 content_size;
   ImVec2 main_cursor_pos;
   ImVec2 child_content_size;
@@ -29,10 +30,12 @@ struct ClipEditorWindow : public TimelineBase {
   float new_note_height = note_height;
   float last_scroll_pos_y_normalized = 0.0f;
   bool scrolling = false;
-  bool force_redraw = false;
   bool zooming_vertically = false;
+  bool force_redraw = false;
+  bool redraw = false;
 
   ClipEditorWindow();
+  void set_clip(Clip* clip);
   void open_midi_file();
   void render();
   void render_note_keys();

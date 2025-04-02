@@ -131,7 +131,7 @@ ImVec2 im_draw_simple_text(ImDrawList* draw_list, const char* text, ImVec2 pos, 
           ImVec2(glyph->U1, glyph->V1),
           text_color);
     }
-    x += half_size;
+    x += glyph->AdvanceX;
   }
   return pos;
 }

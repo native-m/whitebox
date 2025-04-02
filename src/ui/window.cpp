@@ -4,7 +4,7 @@
 #include "engine/engine.h"
 #include "env_editor.h"
 #include "mixer.h"
-#include "piano_roll.h"
+#include "clip_editor.h"
 #include "plugin_mgr.h"
 #include "plugins.h"
 #include "settings.h"
