@@ -486,5 +486,5 @@ void ClipEditorWindow::zoom_vertically(float mouse_pos_y, float height, float mo
   last_scroll_pos_y_normalized = min_scroll_pos_normalized;
 }
 
-ClipEditorWindow g_piano_roll;
+ClipEditorWindow g_clip_editor;
 }  // namespace wb
