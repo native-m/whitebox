@@ -736,6 +736,22 @@ void TimelineWindow::render_track_lanes() {
     query_selected_range();
   }
 
+  if (ImGui::IsItemFocused()) {
+    if (range_selected) {
+      if (ImGui::IsKeyPressed(ImGuiKey_Delete, false)) {
+        ClipDeleteCmd2* cmd = new ClipDeleteCmd2();
+        cmd->selected_track_regions = selected_track_regions;
+        cmd->first_track = first_selected_track;
+        cmd->min_pos = selection_start_pos;
+        cmd->max_pos = selection_end_pos;
+        g_cmd_manager.execute("Delete Selected Region", cmd);
+        recalculate_song_length();
+        redraw = true;
+      }
+
+    }
+  }
+
   if (redraw) {
     static constexpr float guidestrip_alpha = 0.12f;
     static constexpr float beat_line_alpha = 0.28f;

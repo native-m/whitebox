@@ -388,7 +388,19 @@ void ClipResizeCmd2::execute() {
 }
 
 void ClipResizeCmd2::undo() {
+  std::unique_lock lock(g_engine.editor_lock);
   ClipCmd::undo(first_track, first_track + track_clip.size());
+}
+
+//
+
+void ClipDeleteCmd2::execute() {
+  backup(g_engine.delete_region(selected_track_regions, first_track, min_pos, max_pos));
+}
+
+void ClipDeleteCmd2::undo() {
+  std::unique_lock lock(g_engine.editor_lock);
+  ClipCmd::undo(first_track, first_track + selected_track_regions.size());
 }
 
 }  // namespace wb

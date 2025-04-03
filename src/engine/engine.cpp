@@ -923,6 +923,67 @@ MultiEditResult Engine::resize_clips(
   return result;
 }
 
+MultiEditResult Engine::delete_region(
+    const Vector<SelectedTrackRegion>& selected_track_regions,
+    uint32_t first_track_idx,
+    double min_pos,
+    double max_pos,
+    bool should_update_tracks) {
+  double current_beat_duration = beat_duration.load(std::memory_order_relaxed);
+  MultiEditResult result;
+  std::unique_lock lock(editor_lock);
+
+  for (uint32_t i = 0; auto& deleted_region : selected_track_regions) {
+    if (!deleted_region.has_clip_selected) {
+      i++;
+      continue;
+    }
+
+    uint32_t track_index = i + first_track_idx;
+    Track* track = tracks[track_index];
+    for (uint32_t i = deleted_region.range.first; i <= deleted_region.range.last; i++) {
+      Clip* clip = track->clips[i];
+      bool right_side_partially_selected = deleted_region.range.right_side_partially_selected(i);
+      bool left_side_partially_selected = deleted_region.range.left_side_partially_selected(i);
+
+      result.deleted_clips.emplace_back(track_index, *clip);
+
+      if (right_side_partially_selected && left_side_partially_selected) {
+        double right_shift_ofs = clip->min_time - max_pos;
+        Clip* substitute_clip = track->allocate_clip();
+        assert(substitute_clip);
+        new (substitute_clip) Clip(*clip);
+        substitute_clip->min_time = max_pos;
+        substitute_clip->start_offset = shift_clip_content(clip, right_shift_ofs, current_beat_duration);
+        track->clips.push_back(substitute_clip);
+        result.modified_clips.emplace_back(track_index, substitute_clip);
+
+        clip->max_time = min_pos;
+        result.modified_clips.emplace_back(track_index, clip);
+      } else if (right_side_partially_selected) {
+        clip->max_time = min_pos;
+        result.modified_clips.emplace_back(track_index, clip);
+      } else if (left_side_partially_selected) {
+        double right_shift_ofs = clip->min_time - max_pos;
+        clip->start_offset = shift_clip_content(clip, right_shift_ofs, current_beat_duration);
+        clip->min_time = max_pos;
+        result.modified_clips.emplace_back(track_index, clip);
+      } else {
+        track->mark_clip_deleted(clip);
+      }
+    }
+
+    if (should_update_tracks) {
+      track->update_clip_ordering();
+      track->reset_playback_state(playhead, true);
+    }
+
+    i++;
+  }
+
+  return result;
+}
+
 void Engine::set_clip_gain(Track* track, uint32_t clip_id, float gain) {
   Clip* clip = track->clips[clip_id];
   if (clip->is_audio())

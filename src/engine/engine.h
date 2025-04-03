@@ -158,6 +158,13 @@ struct Engine {
       bool right_side,
       bool shift);
 
+  MultiEditResult delete_region(
+      const Vector<SelectedTrackRegion>& selected_track_regions,
+      uint32_t first_track_idx,
+      double min_pos,
+      double max_pos,
+      bool should_update_tracks = true);
+
   void set_clip_gain(Track* track, uint32_t clip_id, float gain);
 
   PluginInterface* add_plugin_to_track(Track* track, PluginUID uid);
