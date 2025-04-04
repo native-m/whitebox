@@ -562,6 +562,33 @@ TrackEditResult Engine::reserve_track_region(
   };
 }
 
+MultiEditResult Engine::create_midi_clips(
+    const Vector<SelectedTrackRegion>& selected_track_regions,
+    uint32_t first_track_idx,
+    double min_pos,
+    double max_pos) {
+  MultiEditResult result = delete_region(selected_track_regions, first_track_idx, min_pos, max_pos, false);
+  uint32_t last_track_idx = first_track_idx + selected_track_regions.size();
+  std::unique_lock lock(editor_lock);
+
+  for (uint32_t i = first_track_idx; i < last_track_idx; i++) {
+    Track* track = tracks[i];
+    Clip* clip = track->allocate_clip();
+    MidiAsset* asset = g_midi_table.create_midi();
+    assert(asset != nullptr);
+    new (clip) Clip("", track->color, min_pos, max_pos);
+    clip->init_as_midi_clip({
+      .asset = asset,
+    });
+    result.added_clips.emplace_back(i, clip);
+    track->clips.push_back(clip);
+    track->update_clip_ordering();
+    track->reset_playback_state(playhead, true);
+  }
+
+  return result;
+}
+
 MultiEditResult Engine::move_or_duplicate_region(
     const Vector<SelectedTrackRegion>& selected_track_regions,
     uint32_t src_track_idx,

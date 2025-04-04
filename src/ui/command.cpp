@@ -355,6 +355,18 @@ void ClipCmd::clean_edit_result() {
 
 //
 
+void CreateMidiClipCmd::execute() {
+  backup(g_engine.create_midi_clips(selected_track_regions, first_track, min_pos, max_pos));
+}
+
+void CreateMidiClipCmd::undo() {
+  std::unique_lock lock(g_engine.editor_lock);
+  ClipCmd::undo(first_track, first_track + selected_track_regions.size());
+  clean_edit_result();
+}
+
+//
+
 void ClipMoveCmd2::execute() {
   backup(g_engine.move_or_duplicate_region(
       selected_track_regions, src_track_idx, dst_track_relative_idx, min_pos, max_pos, relative_move_pos, duplicate));

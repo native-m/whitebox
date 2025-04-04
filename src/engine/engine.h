@@ -139,6 +139,12 @@ struct Engine {
       bool dont_sort,
       Clip* ignore_clip);
 
+  MultiEditResult create_midi_clips(
+      const Vector<SelectedTrackRegion>& selected_track_regions,
+      uint32_t first_track_idx,
+      double min_pos,
+      double max_pos);
+
   MultiEditResult move_or_duplicate_region(
       const Vector<SelectedTrackRegion>& selected_track_regions,
       uint32_t src_track_idx,

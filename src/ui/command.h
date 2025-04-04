@@ -165,6 +165,16 @@ struct ClipCmd : public Command {
   void clean_edit_result();
 };
 
+struct CreateMidiClipCmd : public ClipCmd {
+  Vector<SelectedTrackRegion> selected_track_regions;
+  uint32_t first_track;
+  double min_pos;
+  double max_pos;
+
+  void execute() override;
+  void undo() override;
+};
+
 struct ClipMoveCmd2 : public ClipCmd {
   Vector<SelectedTrackRegion> selected_track_regions;
   uint32_t src_track_idx;

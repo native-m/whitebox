@@ -736,6 +736,10 @@ void TimelineWindow::render_track_lanes() {
     query_selected_range();
   }
 
+  if (holding_ctrl && timeline_hovered) {
+    ImGui::SetMouseCursor(ImGuiMouseCursor_TextInput);
+  }
+
   if (ImGui::IsItemFocused()) {
     if (range_selected) {
       if (ImGui::IsKeyPressed(ImGuiKey_Delete, false)) {
@@ -749,6 +753,16 @@ void TimelineWindow::render_track_lanes() {
         redraw = true;
       }
 
+      if (holding_ctrl && holding_shift && ImGui::IsKeyPressed(ImGuiKey_M, false)) {
+        CreateMidiClipCmd* cmd = new CreateMidiClipCmd();
+        cmd->selected_track_regions = selected_track_regions;
+        cmd->first_track = first_selected_track;
+        cmd->min_pos = selection_start_pos;
+        cmd->max_pos = selection_end_pos;
+        g_cmd_manager.execute("Create MIDI clip", cmd);
+        recalculate_song_length();
+        redraw = true;
+      }
     }
   }
 
@@ -1832,124 +1846,111 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
     switch (edit_command) {
       case TimelineCommand::ClipMove:
         if (!left_mouse_down) {
-          if (relative_pos == 0.0) {
-            finish_edit();
-            return;
+          if (relative_pos != 0.0) {
+            ClipMoveCmd* cmd = new ClipMoveCmd();
+            cmd->src_track_id = edit_src_track_id.value();
+            cmd->dst_track_id = hovered_track_id.value();
+            cmd->clip_id = edited_clip->id;
+            cmd->relative_pos = relative_pos;
+            g_cmd_manager.execute("Move Clip", cmd);
           }
-          ClipMoveCmd* cmd = new ClipMoveCmd();
-          cmd->src_track_id = edit_src_track_id.value();
-          cmd->dst_track_id = hovered_track_id.value();
-          cmd->clip_id = edited_clip->id;
-          cmd->relative_pos = relative_pos;
-          g_cmd_manager.execute("Move Clip", cmd);
           finish_edit();
         }
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
         break;
       case TimelineCommand::ClipResizeLeft:
         if (!left_mouse_down) {
-          if (relative_pos == 0.0) {
-            finish_edit();
-            return;
+          if (relative_pos != 0.0) {
+            ClipResizeCmd* cmd = new ClipResizeCmd();
+            cmd->track_id = edit_src_track_id.value();
+            cmd->clip_id = edited_clip->id;
+            cmd->left_side = true;
+            cmd->relative_pos = relative_pos;
+            cmd->min_length = 1.0 / grid_scale;
+            cmd->last_beat_duration = beat_duration;
+            g_cmd_manager.execute("Resize clip", cmd);
           }
-          ClipResizeCmd* cmd = new ClipResizeCmd();
-          cmd->track_id = edit_src_track_id.value();
-          cmd->clip_id = edited_clip->id;
-          cmd->left_side = true;
-          cmd->relative_pos = relative_pos;
-          cmd->min_length = 1.0 / grid_scale;
-          cmd->last_beat_duration = beat_duration;
-          g_cmd_manager.execute("Resize clip", cmd);
           finish_edit();
         }
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
         break;
       case TimelineCommand::ClipResizeRight:
         if (!left_mouse_down) {
-          if (relative_pos == 0.0) {
-            finish_edit();
-            return;
+          if (relative_pos != 0.0) {
+            ClipResizeCmd* cmd = new ClipResizeCmd();
+            cmd->track_id = edit_src_track_id.value();
+            cmd->clip_id = edited_clip->id;
+            cmd->left_side = false;
+            cmd->relative_pos = relative_pos;
+            cmd->min_length = 1.0 / grid_scale;
+            cmd->last_beat_duration = beat_duration;
+            g_cmd_manager.execute("Resize clip", cmd);
           }
-          ClipResizeCmd* cmd = new ClipResizeCmd();
-          cmd->track_id = edit_src_track_id.value();
-          cmd->clip_id = edited_clip->id;
-          cmd->left_side = false;
-          cmd->relative_pos = relative_pos;
-          cmd->min_length = 1.0 / grid_scale;
-          cmd->last_beat_duration = beat_duration;
-          g_cmd_manager.execute("Resize clip", cmd);
           finish_edit();
         }
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
         break;
       case TimelineCommand::ClipShiftLeft:
         if (!left_mouse_down) {
-          if (relative_pos == 0.0) {
-            finish_edit();
-            return;
-          }
-          ClipResizeCmd* cmd = new ClipResizeCmd();
-          cmd->track_id = edit_src_track_id.value();
-          cmd->clip_id = edited_clip->id;
+          if (relative_pos != 0.0) {
+            ClipResizeCmd* cmd = new ClipResizeCmd();
+            cmd->track_id = edit_src_track_id.value();
+            cmd->clip_id = edited_clip->id;
           cmd->left_side = true;
           cmd->shift = true;
           cmd->relative_pos = relative_pos;
-          cmd->min_length = 1.0 / grid_scale;
-          cmd->last_beat_duration = beat_duration;
-          g_cmd_manager.execute("Resize and shift clip", cmd);
+            cmd->min_length = 1.0 / grid_scale;
+            cmd->last_beat_duration = beat_duration;
+            g_cmd_manager.execute("Resize and shift clip", cmd);
+          }
           finish_edit();
         }
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
         break;
       case TimelineCommand::ClipShiftRight:
         if (!left_mouse_down) {
-          if (relative_pos == 0.0) {
-            finish_edit();
-            return;
-          }
-          ClipResizeCmd* cmd = new ClipResizeCmd();
-          cmd->track_id = edit_src_track_id.value();
-          cmd->clip_id = edited_clip->id;
+          if (relative_pos != 0.0) {
+            ClipResizeCmd* cmd = new ClipResizeCmd();
+            cmd->track_id = edit_src_track_id.value();
+            cmd->clip_id = edited_clip->id;
           cmd->left_side = false;
           cmd->shift = true;
           cmd->relative_pos = relative_pos;
-          cmd->min_length = 1.0 / grid_scale;
-          cmd->last_beat_duration = beat_duration;
-          g_cmd_manager.execute("Resize and shift clip", cmd);
+            cmd->min_length = 1.0 / grid_scale;
+            cmd->last_beat_duration = beat_duration;
+            g_cmd_manager.execute("Resize and shift clip", cmd);
+          }
           finish_edit();
         }
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
         break;
       case TimelineCommand::ClipShift:
         if (!left_mouse_down) {
-          if (relative_pos == 0.0) {
-            finish_edit();
-            return;
+          if (relative_pos != 0.0) {
+            ClipShiftCmd* cmd = new ClipShiftCmd();
+            cmd->track_id = edit_src_track_id.value();
+            cmd->clip_id = edited_clip->id;
+            cmd->relative_pos = relative_pos;
+            cmd->last_beat_duration = beat_duration;
+            g_cmd_manager.execute("Shift clip", cmd);
           }
-          ClipShiftCmd* cmd = new ClipShiftCmd();
-          cmd->track_id = edit_src_track_id.value();
-          cmd->clip_id = edited_clip->id;
-          cmd->relative_pos = relative_pos;
-          cmd->last_beat_duration = beat_duration;
-          g_cmd_manager.execute("Shift clip", cmd);
           finish_edit();
         }
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
         break;
       case TimelineCommand::ClipDuplicate:
         if (!left_mouse_down) {
-          if (relative_pos == 0.0) {
-            finish_edit();
-            return;
+          if (relative_pos != 0.0) {
+            ClipDuplicateCmd* cmd = new ClipDuplicateCmd();
+            cmd->src_track_id = edit_src_track_id.value();
+            cmd->dst_track_id = hovered_track_id.value();
+            cmd->clip_id = edited_clip->id;
+            cmd->relative_pos = relative_pos;
+            g_cmd_manager.execute("Duplicate clip", cmd);
           }
-          ClipDuplicateCmd* cmd = new ClipDuplicateCmd();
-          cmd->src_track_id = edit_src_track_id.value();
-          cmd->dst_track_id = hovered_track_id.value();
-          cmd->clip_id = edited_clip->id;
-          cmd->relative_pos = relative_pos;
-          g_cmd_manager.execute("Duplicate clip", cmd);
           finish_edit();
         }
+        ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
         break;
       case TimelineCommand::ClipAdjustGain:
         if (!left_mouse_down) {
@@ -1978,13 +1979,10 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
       case TimelineCommand::ClipMove:
       case TimelineCommand::ClipDuplicate:
         if (!left_mouse_down) {
-          if (relative_pos == 0.0) {
-            finish_edit();
-            return;
-          }
-          int32_t track_size = (int32_t)g_engine.tracks.size();
-          int32_t src_track = edit_src_track_id.value();
-          int32_t min_move = src_track - (int32_t)first_selected_track;
+          if (relative_pos != 0.0) {
+            int32_t track_size = (int32_t)g_engine.tracks.size();
+            int32_t src_track = edit_src_track_id.value();
+            int32_t min_move = src_track - (int32_t)first_selected_track;
           int32_t max_move = track_size - ((int32_t)last_selected_track - src_track) - 1;
           ClipMoveCmd2* cmd = new ClipMoveCmd2();
           cmd->selected_track_regions = selected_track_regions;
@@ -1992,9 +1990,10 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
           cmd->dst_track_relative_idx = math::clamp(hovered_track_id.value(), min_move, max_move) - src_track;
           cmd->min_pos = selection_start_pos;
           cmd->max_pos = selection_end_pos;
-          cmd->relative_move_pos = relative_pos;
-          cmd->duplicate = edit_command == TimelineCommand::ClipDuplicate;
-          g_cmd_manager.execute(cmd->duplicate ? "Duplicate clip" : "Move clip", cmd);
+            cmd->relative_move_pos = relative_pos;
+            cmd->duplicate = edit_command == TimelineCommand::ClipDuplicate;
+            g_cmd_manager.execute(cmd->duplicate ? "Duplicate clip" : "Move clip", cmd);
+          }
           finish_edit();
         }
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
@@ -2002,41 +2001,36 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
       case TimelineCommand::ClipResizeLeft:
       case TimelineCommand::ClipResizeRight:
         if (!left_mouse_down) {
-          if (relative_pos == 0.0) {
-            finish_edit();
-            return;
-          }
-          ClipResizeCmd2* cmd = new ClipResizeCmd2();
-          cmd->track_clip = clip_resize;
-          cmd->first_track = first_selected_track;
+          if (relative_pos != 0.0) {
+            ClipResizeCmd2* cmd = new ClipResizeCmd2();
+            cmd->track_clip = clip_resize;
+            cmd->first_track = first_selected_track;
           cmd->relative_pos = relative_pos;
           cmd->resize_limit = clip_resize_limit;
           cmd->min_length = 1.0 / grid_scale;
           cmd->min_resize_pos = clip_min_resize_pos;
-          cmd->right_side = edit_command == TimelineCommand::ClipResizeRight;
-          cmd->shift = false;
-          g_cmd_manager.execute("Resize clip", cmd);
+            cmd->right_side = edit_command == TimelineCommand::ClipResizeRight;
+            cmd->shift = false;
+            g_cmd_manager.execute("Resize clip", cmd);
+          }
           finish_edit();
-          force_redraw = true;
         }
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
         break;
       case TimelineCommand::ClipShiftLeft:
       case TimelineCommand::ClipShiftRight:
         if (!left_mouse_down) {
-          if (relative_pos == 0.0) {
-            finish_edit();
-            return;
-          }
-          ClipResizeCmd2* cmd = new ClipResizeCmd2();
-          cmd->track_clip = clip_resize;
-          cmd->first_track = first_selected_track;
+          if (relative_pos != 0.0) {
+            ClipResizeCmd2* cmd = new ClipResizeCmd2();
+            cmd->track_clip = clip_resize;
+            cmd->first_track = first_selected_track;
           cmd->relative_pos = relative_pos;
           cmd->resize_limit = clip_resize_limit;
           cmd->min_length = 1.0 / grid_scale;
-          cmd->right_side = edit_command == TimelineCommand::ClipShiftRight;
-          cmd->shift = true;
-          g_cmd_manager.execute("Shift clip", cmd);
+            cmd->right_side = edit_command == TimelineCommand::ClipShiftRight;
+            cmd->shift = true;
+            g_cmd_manager.execute("Shift clip", cmd);
+          }
           finish_edit();
         }
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
