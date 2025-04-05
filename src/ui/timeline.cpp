@@ -1846,7 +1846,7 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
     switch (edit_command) {
       case TimelineCommand::ClipMove:
         if (!left_mouse_down) {
-          if (relative_pos != 0.0) {
+          if (relative_pos != 0.0 || edit_src_track_id.value() != hovered_track_id.value()) {
             ClipMoveCmd* cmd = new ClipMoveCmd();
             cmd->src_track_id = edit_src_track_id.value();
             cmd->dst_track_id = hovered_track_id.value();
@@ -1940,7 +1940,7 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
         break;
       case TimelineCommand::ClipDuplicate:
         if (!left_mouse_down) {
-          if (relative_pos != 0.0) {
+          if (relative_pos != 0.0 || edit_src_track_id.value() != hovered_track_id.value()) {
             ClipDuplicateCmd* cmd = new ClipDuplicateCmd();
             cmd->src_track_id = edit_src_track_id.value();
             cmd->dst_track_id = hovered_track_id.value();
@@ -1979,7 +1979,7 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
       case TimelineCommand::ClipMove:
       case TimelineCommand::ClipDuplicate:
         if (!left_mouse_down) {
-          if (relative_pos != 0.0) {
+          if (relative_pos != 0.0 || edit_src_track_id.value() != hovered_track_id.value()) {
             int32_t track_size = (int32_t)g_engine.tracks.size();
             int32_t src_track = edit_src_track_id.value();
             int32_t min_move = src_track - (int32_t)first_selected_track;
