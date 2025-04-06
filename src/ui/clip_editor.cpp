@@ -21,14 +21,25 @@ ClipEditorWindow::ClipEditorWindow() {
   vsplitter_min_size = 70.0f;
 }
 
-void ClipEditorWindow::set_clip(Clip* clip) {
-  current_clip = clip;
+void ClipEditorWindow::set_clip(uint32_t track_id, uint32_t clip_id) {
+  current_track = g_engine.tracks[track_id];
+  current_clip = current_track->clips[clip_id];
   force_redraw = true;
+}
+
+void ClipEditorWindow::unset_clip() {
+  current_track = {};
+  current_clip = {};
+  force_redraw = true;
+}
+
+bool ClipEditorWindow::contains_clip() {
+  return current_track != nullptr && current_clip != nullptr;
 }
 
 void ClipEditorWindow::open_midi_file() {
   if (auto file = open_file_dialog({ { "Standard MIDI File", "mid" } })) {
-    //load_notes_from_file(midi_note, file.value());
+    // load_notes_from_file(midi_note, file.value());
   }
 }
 
@@ -322,7 +333,7 @@ void ClipEditorWindow::render_note_editor() {
   float end_y = main_cursor_pos.y + content_height;
   std::optional<uint32_t> note_id;
 
-  if (current_clip && current_clip->is_midi()) {
+  if (current_track && current_clip && current_clip->is_midi()) {
     for (auto midi_data = current_clip->midi.asset; auto& note : midi_data->data.channels[0]) {
       float pos_y = (float)(131 - note.note_number) * note_height_in_pixel;
       float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * clip_scale);

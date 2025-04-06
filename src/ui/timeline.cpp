@@ -459,6 +459,11 @@ void TimelineWindow::render_clip_context_menu() {
     }
 
     if (ImGui::MenuItem("Delete")) {
+      Track* track = g_engine.tracks[context_menu_track_id];
+      if (track == g_clip_editor.current_track && context_menu_clip->id == g_clip_editor.current_clip->id) {
+        g_clip_editor.unset_clip();
+      }
+
       double beat_duration = g_engine.get_beat_duration();
       ClipDeleteCmd* cmd = new ClipDeleteCmd();
       cmd->track_id = context_menu_track_id;
@@ -743,6 +748,17 @@ void TimelineWindow::render_track_lanes() {
   if (ImGui::IsItemFocused()) {
     if (range_selected) {
       if (ImGui::IsKeyPressed(ImGuiKey_Delete, false)) {
+        // Unset clip from the clip editor
+        if (g_clip_editor.contains_clip()) {
+          for (uint32_t track_idx = first_selected_track; const auto& region : selected_track_regions) {
+            Track* track = g_engine.tracks[track_idx];
+            uint32_t clip_id = g_clip_editor.current_clip->id;
+            if (track == g_clip_editor.current_track && region.is_clip_selected(clip_id) != ClipSelectStatus::NotSelected) {
+              g_clip_editor.unset_clip();
+            }
+            track_idx++;
+          }
+        }
         ClipDeleteCmd2* cmd = new ClipDeleteCmd2();
         cmd->selected_track_regions = selected_track_regions;
         cmd->first_track = first_selected_track;
@@ -1091,6 +1107,7 @@ void TimelineWindow::render_track(
 
   bool move_or_shift_cmd = any_of(edit_command, TimelineCommand::ClipMove, TimelineCommand::ClipShift);
   bool resize_or_shift_cmd = math::in_range(edit_command, TimelineCommand::ClipResizeLeft, TimelineCommand::ClipShiftRight);
+  bool unset_clip_editor = false;
 
   for (size_t i = 0; i < track->clips.size(); i++) {
     Clip* clip = track->clips[i];
@@ -1210,6 +1227,7 @@ void TimelineWindow::render_track(
       ImRect left_handle(min_pos_x_in_pixel, track_pos_y, min_pos_x_in_pixel + handle_offset, max_bb.y);
       ImRect right_handle(max_pos_x_in_pixel - handle_offset, track_pos_y, max_pos_x_in_pixel, max_bb.y);
 
+      // Triggers command
       if (left_handle.Contains(mouse_pos)) {
         if (left_mouse_clicked) {
           if (!holding_alt) {
@@ -1263,6 +1281,7 @@ void TimelineWindow::render_track(
               edit_command = TimelineCommand::ClipMove;
             }
             should_edit_selected = is_mouse_in_selection_range;
+            g_clip_editor.set_clip(id, clip->id);
           } else if (right_mouse_clicked) {
             edit_command = TimelineCommand::ShowClipContextMenu;
           }
@@ -1270,6 +1289,10 @@ void TimelineWindow::render_track(
         }
 
         current_hover_state = ClipHover::All;
+      }
+
+      if (left_mouse_clicked && current_hover_state == ClipHover::None) {
+        unset_clip_editor = true;
       }
 
       if (edit_command != TimelineCommand::None) {
@@ -1309,6 +1332,10 @@ void TimelineWindow::render_track(
         cmd->midi = &clip->midi.asset->data;
       }
     }
+  }
+
+  if (unset_clip_editor) {
+    g_clip_editor.unset_clip();
   }
 
   if (track->input_attr.recording) {

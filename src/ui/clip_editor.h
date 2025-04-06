@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core/midi.h"
-#include "engine/clip.h"
+#include "engine/track.h"
 #include "timeline_base.h"
 
 namespace wb {
@@ -13,6 +13,7 @@ struct ClipEditorWindow : public TimelineBase {
 
   ImDrawList* piano_roll_dl{};
   ImFont* font{};
+  Track* current_track{};
   Clip* current_clip{};
 
   ImVec2 content_size;
@@ -35,7 +36,9 @@ struct ClipEditorWindow : public TimelineBase {
   bool redraw = false;
 
   ClipEditorWindow();
-  void set_clip(Clip* clip);
+  void set_clip(uint32_t track_id, uint32_t clip_id);
+  void unset_clip();
+  bool contains_clip();
   void open_midi_file();
   void render();
   void render_note_keys();
