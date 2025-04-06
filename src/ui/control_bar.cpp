@@ -102,32 +102,40 @@ void main_control_bar() {
   ImGui::PushStyleColor(ImGuiCol_Button, Color(btn_color).brighten(0.12f).to_uint32());
   ImGui::PushStyleColor(ImGuiCol_FrameBg, Color(frame_bg).brighten(0.12f).to_uint32());
 
-  set_current_font(FontType::Icon);
   ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 3.0f));
+  set_current_font(FontType::Icon);
   open_menu = ImGui::Button(ICON_MS_MENU);
+  controls::item_tooltip("Main menu");
   ImGui::SameLine(0.0f, 12.0f);
-  new_project = ImGui::Button(ICON_MS_LIBRARY_ADD "##wb_new_project");
+  new_project = ImGui::Button(ICON_MS_NOTE_ADD "##wb_new_project");
+  controls::item_tooltip("Create new project");
   ImGui::SameLine(0.0f, 4.0f);
   open_project = ImGui::Button(ICON_MS_FOLDER_OPEN "##wb_open_project");
+  controls::item_tooltip("Open project file");
   ImGui::SameLine(0.0f, 4.0f);
   save_project = ImGui::Button(ICON_MS_SAVE "##wb_save_project");
+  controls::item_tooltip("Save project file");
+  ImGui::SameLine(0.0f, 12.0f);
 
   //
-  ImGui::SameLine(0.0f, 12.0f);
   if (ImGui::Button(ICON_MS_UNDO "##wb_undo")) {
     g_cmd_manager.undo();
   }
+  controls::item_tooltip("Undo");
   ImGui::SameLine(0.0f, 4.0f);
+  
   if (ImGui::Button(ICON_MS_REDO "##wb_redo")) {
     g_cmd_manager.redo();
   }
+  controls::item_tooltip("Redo");
+  ImGui::SameLine(0.0f, 12.0f);
 
   if (ImGui::IsKeyDown(ImGuiKey_ModCtrl) && ImGui::IsKeyPressed(ImGuiKey_Z) && !ImGui::GetIO().WantTextInput) {
     g_cmd_manager.undo();
   }
 
-  //
-  ImGui::SameLine(0.0f, 12.0f);
+  // Transport button
+
   if (ImGui::Button(!is_playing ? ICON_MS_PLAY_ARROW "##wb_play" : ICON_MS_PAUSE "##wb_play")) {
     if (is_playing) {
       if (g_engine.recording)
@@ -137,13 +145,17 @@ void main_control_bar() {
       g_engine.play();
     }
   }
+  controls::item_tooltip("Play or pause");
   ImGui::SameLine(0.0f, 4.0f);
+  
   if (ImGui::Button(ICON_MS_STOP "##wb_stop")) {
     if (g_engine.recording)
       g_timeline.redraw_screen();
     g_engine.stop();
   }
+  controls::item_tooltip("Stop");
   ImGui::SameLine(0.0f, 4.0f);
+
   ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.951f, 0.322f, 0.322f, 1.000f));
   if (controls::toggle_button(
           ICON_MS_FIBER_MANUAL_RECORD "##wb_record", &is_recording, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive))) {
@@ -155,19 +167,24 @@ void main_control_bar() {
     }
   }
   ImGui::PopStyleColor();
+  controls::item_tooltip("Record");
   ImGui::PopStyleVar();
+  ImGui::SameLine(0.0f, 4.0f);
 
+  // Song position
   ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 8.5f));
   ImGui::PushItemWidth(85.0f);
-  ImGui::SameLine(0.0f, 4.0f);
   set_current_font(FontType::MonoMedium);
   controls::song_position();
   set_current_font(FontType::Normal);
   ImGui::SameLine(0.0f, 4.0f);
+
+  // Tempo
   float tempo = (float)g_engine.get_bpm();
   if (ImGui::DragFloat("##tempo_drag", &tempo, 1.0f, 0.0f, 0.0f, "%.2f BPM", ImGuiSliderFlags_Vertical)) {
     g_engine.set_bpm((double)tempo);
   }
+  controls::item_tooltip("Tempo (BPM)");
   ImGui::PopItemWidth();
 
   ImGui::SameLine(0.0f, 12.0f);
