@@ -85,11 +85,14 @@ struct TimelineWindow : public TimelineBase {
   ImVec2 content_size;
   ImVec2 timeline_view_pos;
   ImVec2 old_timeline_size;
+  ImVec2 floating_button_size;
 
   Vector<SelectedTrackRegion> selected_track_regions;
   uint32_t first_selected_track = 0;
   uint32_t last_selected_track = 0;
   float first_selected_track_pos_y = 0.0;
+  float selection_start_rel_y = 0.0f;
+  float selection_end_rel_y = 0.0f;
   double selection_start_pos = 0.0;
   double selection_end_pos = 0.0;
 

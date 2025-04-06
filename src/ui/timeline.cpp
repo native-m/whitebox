@@ -1,5 +1,6 @@
 #include "timeline.h"
 
+#include "IconsMaterialSymbols.h"
 #include "browser.h"
 #include "clip_editor.h"
 #include "command_manager.h"
@@ -9,6 +10,7 @@
 #include "core/debug.h"
 #include "dialogs.h"
 #include "engine/engine.h"
+#include "font.h"
 #include "plugins.h"
 #include "window.h"
 
@@ -993,6 +995,9 @@ void TimelineWindow::render_track_lanes() {
         selection_end_y += selection_end_height;
       }
 
+      selection_start_rel_y = selection_start_y - timeline_bounds_min_y;
+      selection_end_rel_y = selection_end_y - timeline_bounds_min_y;
+
       const ImVec2 a(timeline_scroll_offset_x_f32 + (float)min_pos_in_pixel, selection_start_y);
       const ImVec2 b(timeline_scroll_offset_x_f32 + (float)max_pos_in_pixel, selection_end_y);
 
@@ -1066,6 +1071,42 @@ void TimelineWindow::render_track_lanes() {
     const double playhead_offset = playhead * ppq * inv_view_scale;
     const float playhead_pos = (float)math::round(timeline_view_pos.x - scroll_pos_x + playhead_offset);
     im_draw_vline(main_draw_list, playhead_pos, offset_y, offset_y + timeline_area.y, playhead_color);
+  }
+
+  if (range_selected && edit_command == TimelineCommand::None) {
+    double min_pos_x = timeline_scroll_offset_x + selection_start_pos * clip_scale;
+    double max_pos_x = timeline_scroll_offset_x + selection_end_pos * clip_scale;
+    float min_pos_y = timeline_bounds_min_y + selection_start_rel_y + 4.0f;
+    float max_pos_y = timeline_bounds_min_y + selection_end_rel_y + 4.0f;
+
+    if (max_pos_x >= view_min.x && min_pos_x < view_max.x && max_pos_y >= view_min.y && min_pos_y < view_max.y) {
+      float x = math::clamp((float)math::round(min_pos_x), view_min.x + 4.0f, view_max.x - floating_button_size.x - 4.0f);
+      float y = math::min(max_pos_y, view_max.y - 32.0f);
+      ImVec2 pos((float)x, y);
+
+      ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2());
+      ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0f);
+
+      if (controls::begin_floating_window("Timeline floating buttons", pos)) {
+        set_current_font(FontType::Icon);
+        ImGui::Button(ICON_MS_MUSIC_NOTE_ADD);
+        controls::item_tooltip("Create MIDI clips");
+        ImGui::SameLine(0.0f, 0.0f);
+        ImGui::Button(ICON_MS_TIMELINE);
+        controls::item_tooltip("Create automation clips");
+        ImGui::SameLine(0.0f, 0.0f);
+        ImGui::Button(ICON_MS_REMOVE_SELECTION);
+        controls::item_tooltip("Delete region");
+        ImGui::SameLine(0.0f, 0.0f);
+        ImGui::Button(ICON_MS_SURGICAL);
+        controls::item_tooltip("Slice region");
+        set_current_font(FontType::Normal);
+        floating_button_size = ImGui::GetWindowSize();
+      }
+
+      ImGui::PopStyleVar(2);
+      controls::end_floating_window();
+    }
   }
 
   ImGui::PopClipRect();
@@ -1645,7 +1686,7 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
       static constexpr float label_padding_y = 2.0f;
       const ImVec2 label_pos(std::max(clip_title_min_bb.x, rect.x) + label_padding_x, min_pos_y + label_padding_y);
       const ImVec4 clip_label_rect(clip_title_min_bb.x, clip_title_min_bb.y, clip_title_max_bb.x - 6.0f, clip_title_max_y);
-      dl->AddText(font, font_size, label_pos, 0xFFFFFFFF, str, str + clip->name.size(), 0.0f, &clip_label_rect);
+      dl->AddText(font, font_size, label_pos, text_color, str, str + clip->name.size(), 0.0f, &clip_label_rect);
     }
 
     switch (clip->type) {
@@ -1923,9 +1964,9 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
             ClipResizeCmd* cmd = new ClipResizeCmd();
             cmd->track_id = edit_src_track_id.value();
             cmd->clip_id = edited_clip->id;
-          cmd->left_side = true;
-          cmd->shift = true;
-          cmd->relative_pos = relative_pos;
+            cmd->left_side = true;
+            cmd->shift = true;
+            cmd->relative_pos = relative_pos;
             cmd->min_length = 1.0 / grid_scale;
             cmd->last_beat_duration = beat_duration;
             g_cmd_manager.execute("Resize and shift clip", cmd);
@@ -1940,9 +1981,9 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
             ClipResizeCmd* cmd = new ClipResizeCmd();
             cmd->track_id = edit_src_track_id.value();
             cmd->clip_id = edited_clip->id;
-          cmd->left_side = false;
-          cmd->shift = true;
-          cmd->relative_pos = relative_pos;
+            cmd->left_side = false;
+            cmd->shift = true;
+            cmd->relative_pos = relative_pos;
             cmd->min_length = 1.0 / grid_scale;
             cmd->last_beat_duration = beat_duration;
             g_cmd_manager.execute("Resize and shift clip", cmd);
@@ -2010,13 +2051,13 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
             int32_t track_size = (int32_t)g_engine.tracks.size();
             int32_t src_track = edit_src_track_id.value();
             int32_t min_move = src_track - (int32_t)first_selected_track;
-          int32_t max_move = track_size - ((int32_t)last_selected_track - src_track) - 1;
-          ClipMoveCmd2* cmd = new ClipMoveCmd2();
-          cmd->selected_track_regions = selected_track_regions;
-          cmd->src_track_idx = first_selected_track;
-          cmd->dst_track_relative_idx = math::clamp(hovered_track_id.value(), min_move, max_move) - src_track;
-          cmd->min_pos = selection_start_pos;
-          cmd->max_pos = selection_end_pos;
+            int32_t max_move = track_size - ((int32_t)last_selected_track - src_track) - 1;
+            ClipMoveCmd2* cmd = new ClipMoveCmd2();
+            cmd->selected_track_regions = selected_track_regions;
+            cmd->src_track_idx = first_selected_track;
+            cmd->dst_track_relative_idx = math::clamp(hovered_track_id.value(), min_move, max_move) - src_track;
+            cmd->min_pos = selection_start_pos;
+            cmd->max_pos = selection_end_pos;
             cmd->relative_move_pos = relative_pos;
             cmd->duplicate = edit_command == TimelineCommand::ClipDuplicate;
             g_cmd_manager.execute(cmd->duplicate ? "Duplicate clip" : "Move clip", cmd);
@@ -2032,10 +2073,10 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
             ClipResizeCmd2* cmd = new ClipResizeCmd2();
             cmd->track_clip = clip_resize;
             cmd->first_track = first_selected_track;
-          cmd->relative_pos = relative_pos;
-          cmd->resize_limit = clip_resize_limit;
-          cmd->min_length = 1.0 / grid_scale;
-          cmd->min_resize_pos = clip_min_resize_pos;
+            cmd->relative_pos = relative_pos;
+            cmd->resize_limit = clip_resize_limit;
+            cmd->min_length = 1.0 / grid_scale;
+            cmd->min_resize_pos = clip_min_resize_pos;
             cmd->right_side = edit_command == TimelineCommand::ClipResizeRight;
             cmd->shift = false;
             g_cmd_manager.execute("Resize clip", cmd);
@@ -2051,9 +2092,9 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
             ClipResizeCmd2* cmd = new ClipResizeCmd2();
             cmd->track_clip = clip_resize;
             cmd->first_track = first_selected_track;
-          cmd->relative_pos = relative_pos;
-          cmd->resize_limit = clip_resize_limit;
-          cmd->min_length = 1.0 / grid_scale;
+            cmd->relative_pos = relative_pos;
+            cmd->resize_limit = clip_resize_limit;
+            cmd->min_length = 1.0 / grid_scale;
             cmd->right_side = edit_command == TimelineCommand::ClipShiftRight;
             cmd->shift = true;
             g_cmd_manager.execute("Shift clip", cmd);

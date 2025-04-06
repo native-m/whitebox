@@ -353,6 +353,8 @@ static bool knob(
 
 bool begin_window(const char* title, bool* p_open = nullptr, ImGuiWindowFlags flags = 0);
 void end_window();
+bool begin_floating_window(const char* str_id, const ImVec2& pos);
+void end_floating_window();
 void song_position();
 void item_tooltip(const char* str);
 bool toggle_button(const char* str, bool* value, const ImVec4& toggled_color, const ImVec2& size = ImVec2());

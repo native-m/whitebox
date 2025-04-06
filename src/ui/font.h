@@ -7,6 +7,6 @@ enum class FontType {
   Icon,
 };
 
-void set_current_font(FontType type);
 void init_font_assets();
+void set_current_font(FontType type);
 }  // namespace wb

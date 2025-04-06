@@ -57,6 +57,19 @@ void end_window() {
   ImGui::PopID();
 }
 
+bool begin_floating_window(const char* str_id, const ImVec2& pos) {
+  static constexpr uint32_t window_flags =
+      ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
+      ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDocking |
+      ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoFocusOnAppearing;
+  ImGui::SetNextWindowPos(pos, ImGuiCond_None);
+  return ImGui::Begin(str_id, nullptr, window_flags);
+}
+
+void end_floating_window() {
+  ImGui::End();
+}
+
 void song_position() {
   float font_size = 13.0f;
   ImFont* font = ImGui::GetFont();
@@ -86,7 +99,7 @@ void song_position() {
 void item_tooltip(const char* str) {
   if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay)) {
     ImFont* font = ImGui::GetFont();
-    set_current_font(FontType::Normal); // Force tooltip to use main font
+    set_current_font(FontType::Normal);  // Force tooltip to use main font
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6.0f, 4.0f));
     ImGui::SetTooltip(str);
     ImGui::PopStyleVar();
