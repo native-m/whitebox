@@ -45,6 +45,6 @@ struct ClipEditorWindow : public TimelineBase {
   void zoom_vertically(float mouse_pos_y, float height, float mouse_wheel);
 };
 
-extern ClipEditorWindow g_piano_roll;
+extern ClipEditorWindow g_clip_editor;
 
 }  // namespace wb

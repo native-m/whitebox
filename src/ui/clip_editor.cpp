@@ -36,7 +36,7 @@ void ClipEditorWindow::render() {
   ppq = g_engine.ppq;
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
   ImGui::SetNextWindowSize(ImVec2(640.0f, 480.0f), ImGuiCond_FirstUseEver);
-  if (!controls::begin_window("Piano Roll", &g_piano_roll_window_open)) {
+  if (!controls::begin_window("Clip Editor", &g_piano_roll_window_open)) {
     ImGui::PopStyleVar();
     controls::end_window();
     return;
