@@ -5,6 +5,7 @@ layout(push_constant) uniform DrawCmd {
     float gain;
     float vp_width;
     float vp_height;
+    float gap_size;
     int is_min;
     uint color;
     uint channel;

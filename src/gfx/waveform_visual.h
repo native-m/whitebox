@@ -21,6 +21,7 @@ struct WaveformDrawCmd {
   float max_y;
   float gain;
   float scale_x;
+  float gap_size;
   uint32_t color;
   int32_t mip_index;
   uint32_t channel;
@@ -36,6 +37,7 @@ struct WaveformDrawParam {
   float gain;
   float vp_width;
   float vp_height;
+  float gap_size;
   int is_min;
   uint32_t color;
   uint32_t channel;

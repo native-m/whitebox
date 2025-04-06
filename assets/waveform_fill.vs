@@ -18,7 +18,7 @@ void main() {
     float y = vertex_idx == 1 ? minmax.y : minmax.x;
     
     vec2 pos;
-    pos.x = draw_cmd.origin.x + float(peak_pos);
+    pos.x = draw_cmd.origin.x + float(peak_pos) * draw_cmd.gap_size;
     pos.y = draw_cmd.origin.y + max_height_y + -y * height;
     
     gl_Position.x = pos.x * draw_cmd.vp_width - 1.0f;

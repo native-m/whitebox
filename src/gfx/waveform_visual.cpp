@@ -289,6 +289,7 @@ void gfx_draw_waveform_batch(
       .gain = cmd.gain,
       .vp_width = vp_width,
       .vp_height = vp_height,
+      .gap_size = cmd.gap_size,
       .is_min = 0,
       .color = cmd.color,
       .channel = cmd.channel,

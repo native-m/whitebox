@@ -1729,6 +1729,8 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
           const double min_pos_x = math::max(rel_min_x, 0.0);
           const double max_pos_x = math::min(math::min(rel_max_x, rel_min_x + waveform_len), (double)(timeline_width + 2.0));
           const double draw_count = math::max(max_pos_x - min_pos_x, 0.0);
+          const double length = rel_max_x - rel_min_x;
+          const float gap_size = (float)(length / std::floor(length));
 
           // Log::debug("{} {} {}", index, mip_scale, (double)sample_peaks->sample_count / mip_index);
           /*Log::debug("{} {} {} {} {}", sample_peaks->sample_count / (size_t)mip_div, mip_div, index,
@@ -1752,6 +1754,7 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
                 .max_y = pos_y + height,
                 .gain = cmd.gain,
                 .scale_x = (float)mip_scale,
+                .gap_size = gap_size,
                 .color = waveform_color,
                 .mip_index = index,
                 .channel = 0,
@@ -1766,6 +1769,7 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
                 .max_y = pos_y + height * 2.0f,
                 .gain = cmd.gain,
                 .scale_x = (float)mip_scale,
+                .gap_size = gap_size,
                 .color = waveform_color,
                 .mip_index = index,
                 .channel = 1,
@@ -1781,6 +1785,7 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
                 .max_y = clip_content_max.y - offset_y,
                 .gain = cmd.gain,
                 .scale_x = (float)mip_scale,
+                .gap_size = gap_size,
                 .color = waveform_color,
                 .mip_index = index,
                 .start_idx = (uint32_t)start_idx,
