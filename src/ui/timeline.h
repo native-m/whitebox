@@ -23,6 +23,11 @@ enum class TimelineCommand {
 };
 
 struct ClipDrawCmd {
+  enum {
+    Layer2 = 1 << 0,
+    Highlighted = 1 << 1,
+  };
+
   ClipType type;
   ClipHover hover_state;
   Clip* clip;
@@ -32,7 +37,8 @@ struct ClipDrawCmd {
   float min_pos_y;
   float height;
   float gain;
-  bool layer2;
+  uint32_t draw_flags;
+
   union {
     WaveformVisual* audio;
     MidiData* midi;
@@ -156,7 +162,7 @@ struct TimelineWindow : public TimelineBase {
       double start_offset,
       float track_pos_y,
       float height,
-      bool layer2 = false);
+      uint32_t draw_flags = 0);
   void draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double sample_scale, float offset_y);
   void draw_clip_overlay(ImVec2 pos, float size, float alpha, const Color& col, const char* caption);
   void apply_edit(double mouse_at_gridline);

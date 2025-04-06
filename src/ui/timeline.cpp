@@ -1322,6 +1322,7 @@ void TimelineWindow::render_track(
               edit_command = TimelineCommand::ClipMove;
             }
             should_edit_selected = is_mouse_in_selection_range;
+            unset_clip_editor = false;
             g_clip_editor.set_clip(id, clip->id);
           } else if (right_mouse_clicked) {
             edit_command = TimelineCommand::ShowClipContextMenu;
@@ -1354,6 +1355,7 @@ void TimelineWindow::render_track(
     }
 
     if (redraw) {
+      bool shown_in_clip_editor = g_clip_editor.current_track == track && g_clip_editor.current_clip == clip;
       ClipDrawCmd* cmd = clip_draw_cmd.emplace_back_raw();
       cmd->type = clip->type;
       cmd->hover_state = clip->hover_state;
@@ -1363,7 +1365,7 @@ void TimelineWindow::render_track(
       cmd->max_pos_x = max_pos_x;
       cmd->min_pos_y = track_pos_y;
       cmd->height = height;
-      cmd->layer2 = false;
+      cmd->draw_flags = shown_in_clip_editor ? ClipDrawCmd::Highlighted : 0;
 
       if (clip->is_audio()) {
         cmd->gain = clip->audio.gain;
@@ -1375,8 +1377,13 @@ void TimelineWindow::render_track(
     }
   }
 
+  if (track_hovered && left_mouse_clicked && !track->has_clips()) {
+    unset_clip_editor = true;
+  }
+
   if (unset_clip_editor) {
     g_clip_editor.unset_clip();
+    force_redraw = true;
   }
 
   if (track->input_attr.recording) {
@@ -1556,7 +1563,7 @@ void TimelineWindow::render_edited_clips(double mouse_at_gridline) {
           cmd->max_pos_x = max_pos_x;
           cmd->min_pos_y = track_pos_y;
           cmd->height = height;
-          cmd->layer2 = true;
+          cmd->draw_flags = ClipDrawCmd::Layer2;
 
           if (clip->is_audio()) {
             cmd->gain = clip->audio.gain;
@@ -1598,7 +1605,7 @@ void TimelineWindow::render_clip(
     double start_offset,
     float track_pos_y,
     float height,
-    bool layer2) {
+    uint32_t draw_flags) {
   const double min_pos_x = timeline_scroll_offset_x + min_time * clip_scale;
   const double max_pos_x = timeline_scroll_offset_x + max_time * clip_scale;
   const float min_pos_x_in_pixel = (float)math::round(min_pos_x);
@@ -1613,7 +1620,7 @@ void TimelineWindow::render_clip(
     cmd->max_pos_x = max_pos_x;
     cmd->min_pos_y = track_pos_y;
     cmd->height = height;
-    cmd->layer2 = layer2;
+    cmd->draw_flags = draw_flags;
 
     if (clip->is_audio()) {
       cmd->gain = clip->audio.gain;
@@ -1665,15 +1672,23 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
     const Color base_color = is_active ? color : color.desaturate(0.4f);
     const Color bg_color = base_color.change_alpha(base_color.a * darkening).premult_alpha();
     const Color content_color = is_active ? base_color.brighten(1.30f) : base_color.brighten(0.5f);
-    auto* dl = !cmd.layer2 ? layer1_draw_list : layer2_draw_list;
+    const bool draw_in_layer2 = has_bit(cmd.draw_flags, ClipDrawCmd::Layer2);
+    const bool highlighted = has_bit(cmd.draw_flags, ClipDrawCmd::Highlighted);
+    auto* dl = !draw_in_layer2 ? layer1_draw_list : layer2_draw_list;
 
-    if (cmd.layer2) {
+    if (draw_in_layer2) {
       // Add small shadow border
       dl->AddRect(clip_title_min_bb, clip_content_max, 0x3F000000, 3.0f, ImDrawFlags_RoundCornersTop, 4.5f);
     }
 
     dl->AddRectFilled(clip_title_min_bb, clip_content_max, bg_color.to_uint32(), 3.0f, ImDrawFlags_RoundCornersTop);
-    dl->AddRect(clip_title_min_bb - half, clip_content_max + half, 0x3F000000, 3.0f, ImDrawFlags_RoundCornersTop);
+
+    if (!highlighted) {
+      dl->AddRect(clip_title_min_bb - half, clip_content_max + half, 0x3F000000, 3.0f, ImDrawFlags_RoundCornersTop);
+    } else {
+      layer2_draw_list->AddRect(
+          clip_title_min_bb - half, clip_content_max + half, content_color.to_uint32(), 3.0f, ImDrawFlags_RoundCornersTop, 1.0f);
+    }
 
     if (!is_active) {
       text_color_adjusted = text_color_adjusted.change_alpha(0.75f);
@@ -1720,7 +1735,7 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
                      math::round(start_offset / mip_div), mip_scale);*/
 
           if (draw_count) {
-            auto& waveform_cmd_list = !cmd.layer2 ? waveform_cmd_list1 : waveform_cmd_list2;
+            auto& waveform_cmd_list = !draw_in_layer2 ? waveform_cmd_list1 : waveform_cmd_list2;
             double waveform_start = start_offset * inv_scale_x;
             const double start_idx = std::round(math::max(-rel_min_x, 0.0) + waveform_start);
             const float min_bb_x = (float)math::round(min_pos_x);
