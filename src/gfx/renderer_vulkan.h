@@ -9,7 +9,7 @@
 #include "renderer.h"
 #include "vk_stub.h"
 
-#define WB_VULKAN_SYNC_COUNT (WB_GPU_RENDER_BUFFER_SIZE)
+#define WB_VULKAN_SYNC_COUNT (WB_GPU_RENDER_BUFFER_SIZE + 1)
 
 namespace wb {
 struct GPUViewportDataVK;

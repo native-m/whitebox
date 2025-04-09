@@ -350,6 +350,7 @@ bool GPURendererVK::init(SDL_Window* window) {
     .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
   };
 
+  // TODO: Optimize memory usage when copying from staging buffer. This may involve implementing our own streaming as well
   VmaAllocationCreateInfo staging_buffer_alloc_info{
     .flags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
     .usage = VMA_MEMORY_USAGE_AUTO,
