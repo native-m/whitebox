@@ -6,6 +6,14 @@
 
 namespace wb {
 
+enum class PianoRollTool {
+  Draw,
+  Paint,
+  Slice,
+  Erase,
+  Mute,
+};
+
 struct ClipEditorWindow : public TimelineBase {
   static constexpr float note_count = 132.0f;
   static constexpr float note_count_per_oct = 12.0f;
@@ -34,6 +42,11 @@ struct ClipEditorWindow : public TimelineBase {
   bool zooming_vertically = false;
   bool force_redraw = false;
   bool redraw = false;
+
+  PianoRollTool piano_roll_tool{};
+  bool triplet_grid = false;
+  bool preview_note = false;
+  int32_t grid_mode = 0;
 
   ClipEditorWindow();
   void set_clip(uint32_t track_id, uint32_t clip_id);

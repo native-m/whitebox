@@ -107,6 +107,10 @@ void item_tooltip(const char* str) {
   }
 }
 
+bool toggle_button(const char* str, bool value, const ImVec4& toggled_color, const ImVec2& size) {
+  return toggle_button(str, &value, toggled_color, size);
+}
+
 bool toggle_button(const char* str, bool* value, const ImVec4& toggled_color, const ImVec2& size) {
   if (*value)
     ImGui::PushStyleColor(ImGuiCol_Button, toggled_color);
@@ -114,6 +118,10 @@ bool toggle_button(const char* str, bool* value, const ImVec4& toggled_color, co
   if (*value)
     ImGui::PopStyleColor();
   return ret;
+}
+
+bool small_toggle_button(const char* str, bool value, const ImVec4& toggled_color) {
+  return small_toggle_button(str, &value, toggled_color);
 }
 
 bool small_toggle_button(const char* str, bool* value, const ImVec4& toggled_color) {

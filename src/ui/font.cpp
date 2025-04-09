@@ -28,7 +28,7 @@ void init_font_assets() {
   config.GlyphOffset.y = 0.0f;
   config.FontBuilderFlags = 0;
   g_fonts[(uint32_t)FontType::Icon] =
-      io.Fonts->AddFontFromFileTTF("assets/MaterialSymbolsRounded_Filled-Regular.ttf", 0.0f, &config, icons_ranges);
+      io.Fonts->AddFontFromFileTTF("assets/MaterialSymbolsSharp_Filled-Regular.ttf", 0.0f, &config, icons_ranges);
   io.Fonts->Build();
 }
 

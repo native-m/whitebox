@@ -4,16 +4,31 @@
 
 #include <optional>
 
+#include "IconsMaterialSymbols.h"
 #include "controls.h"
 #include "core/color.h"
 #include "engine/engine.h"
 #include "file_dialog.h"
+#include "font.h"
 #include "window.h"
+
+#define WB_GRID_SIZE_HEADER_TUPLETS (const char*)1
+#define WB_GRID_SIZE_HEADER_BARS    (const char*)2
 
 namespace wb {
 
-const char* note_scale[] = {
+static const char* note_scale[] = {
   "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
+};
+
+// -1.0 is dummy value
+static double grid_mult_table[] = {
+  0.0, -1.0, 1.0 / 2.0, 1.0 / 3.0, 1.0 / 4.0, 1.0 / 6.0, 1.0 / 8.0, 1.0 / 16.0, 1.0 / 32.0, -1.0, 1.0, 2.0, 4.0, 8.0,
+};
+
+static const char* grid_size_table[] = {
+  "Off",       WB_GRID_SIZE_HEADER_TUPLETS, "1/2 beat", "1/3 beat", "1/4 beat", "1/6 beat", "1/8 beat", "1/16 beat",
+  "1/32 beat", WB_GRID_SIZE_HEADER_BARS,    "1 bar",    "2 bars",   "4 bars",   "8 bars",
 };
 
 ClipEditorWindow::ClipEditorWindow() {
@@ -54,6 +69,11 @@ void ClipEditorWindow::render() {
   }
   ImGui::PopStyleVar();
 
+  if (current_track == nullptr && current_clip == nullptr) {
+    controls::end_window();
+    return;
+  }
+
   redraw = force_redraw;
   if (force_redraw) {
     force_redraw = false;
@@ -68,9 +88,91 @@ void ClipEditorWindow::render() {
   font = ImGui::GetFont();
   note_height_in_pixel = math::round(note_height);
 
-  if (ImGui::BeginChild("PianoRollControl", ImVec2(100.0f, 0.0f), ImGuiChildFlags_Border, ImGuiWindowFlags_MenuBar)) {
-    if (ImGui::Button("Open")) {
-      open_midi_file();
+  if (ImGui::BeginChild("PianoRollControl", ImVec2(200.0f, 0.0f), ImGuiChildFlags_Border, ImGuiWindowFlags_MenuBar)) {
+    if (ImGui::BeginMenuBar()) {
+      const char* track_name = current_track->name.empty() ? "<unnamed track>" : current_track->name.c_str();
+      const char* clip_name = current_clip->name.empty() ? "<unnamed clip>" : current_clip->name.c_str();
+      ImGui::Text("%s - %s", clip_name, track_name);
+      ImGui::EndMenuBar();
+    }
+
+    const ImVec4 tool_select_color =
+        ImGui::ColorConvertU32ToFloat4(Color(ImGui::GetStyleColorVec4(ImGuiCol_Button)).brighten(0.15f).to_uint32());
+
+    if (current_clip->is_midi()) {
+      const char* grid_size_text = nullptr;
+      ImFormatStringToTempBuffer(&grid_size_text, nullptr, "Snap to grid: %s", grid_size_table[grid_mode]);
+      ImGui::SetNextItemWidth(-FLT_MIN);
+      if (ImGui::BeginCombo("##grid_size", grid_size_text, ImGuiComboFlags_HeightLarge)) {
+        for (uint32_t i = 0; auto type : grid_size_table) {
+          if (type == WB_GRID_SIZE_HEADER_TUPLETS) {
+            ImGui::SeparatorText("Tuplets");
+          } else if (type == WB_GRID_SIZE_HEADER_BARS) {
+            ImGui::SeparatorText("Bars");
+          } else {
+            if (ImGui::Selectable(type, grid_mode == i)) {
+              grid_mode = i;
+            }
+          }
+          i++;
+        }
+        ImGui::EndCombo();
+      }
+      ImGui::Checkbox("Preview", &preview_note);
+
+      ImGui::Separator();
+
+      bool draw_tool = piano_roll_tool == PianoRollTool::Draw;
+      bool paint_tool = piano_roll_tool == PianoRollTool::Paint;
+      bool slice_tool = piano_roll_tool == PianoRollTool::Slice;
+      bool erase_tool = piano_roll_tool == PianoRollTool::Erase;
+      bool mute_tool = piano_roll_tool == PianoRollTool::Mute;
+
+      set_current_font(FontType::Icon);
+      ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0f);
+      ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(3.0f, 1.0f));
+
+      if (controls::toggle_button(ICON_MS_STYLUS "##pr_draw", draw_tool, tool_select_color)) {
+        piano_roll_tool = PianoRollTool::Draw;
+      }
+      controls::item_tooltip("Draw tool");
+      ImGui::SameLine(0.0f, 0.0f);
+
+      if (controls::toggle_button(ICON_MS_BORDER_COLOR "##pr_paint", paint_tool, tool_select_color)) {
+        piano_roll_tool = PianoRollTool::Paint;
+      }
+      controls::item_tooltip("Paint tool");
+      ImGui::SameLine(0.0f, 0.0f);
+
+      if (controls::toggle_button(ICON_MS_SPLIT_SCENE "##pr_slice", slice_tool, tool_select_color)) {
+        piano_roll_tool = PianoRollTool::Slice;
+      }
+      controls::item_tooltip("Slice tool");
+      ImGui::SameLine(0.0f, 0.0f);
+
+      if (controls::toggle_button(ICON_MS_INK_ERASER "##pr_erase", erase_tool, tool_select_color)) {
+        piano_roll_tool = PianoRollTool::Erase;
+      }
+      controls::item_tooltip("Erase tool");
+      ImGui::SameLine(0.0f, 0.0f);
+
+      if (controls::toggle_button(ICON_MS_MUSIC_OFF "##pr_mute", mute_tool, tool_select_color)) {
+        piano_roll_tool = PianoRollTool::Mute;
+      }
+      controls::item_tooltip("Mute tool");
+
+      ImGui::PopStyleVar(2);
+      set_current_font(FontType::Normal);
+
+      static float velocity = 100.0f;
+      static int channel = 1;
+      static bool use_last_note = false;
+      ImGui::Checkbox("Use last selected note", &use_last_note);
+      ImGui::TextUnformatted("New note properties:");
+      ImGui::PushItemWidth(-FLT_MIN);
+      ImGui::SliderInt("##note_ch", &channel, 1, 16, "Note channel: %d");
+      ImGui::SliderFloat("##note_velocity", &velocity, 0.0f, 127.0f, "Note velocity: %.1f");
+      ImGui::PopItemWidth();
     }
     ImGui::EndChild();
   }
@@ -116,7 +218,6 @@ void ClipEditorWindow::render() {
     ImGuiID scrollbar_id = ImGui::GetWindowScrollbarID(ImGui::GetCurrentWindow(), ImGuiAxis_Y);
     if (scrolling && scroll_delta_y != 0.0f || ImGui::GetActiveID() == scrollbar_id) {
       ImGui::SetScrollY(vscroll - scroll_delta_y);
-      Log::debug("Test");
       redraw = true;
     }
 

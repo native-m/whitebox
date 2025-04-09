@@ -53,7 +53,7 @@ wb_add_shader_glsl(fragment ras.fs)
 wb_add_shader_glsl(fragment ras_fill.fs)
 wb_add_asset_file("Inter-Regular.ttf")
 wb_add_asset_file("RobotoMono-Regular.ttf")
-wb_add_asset_file("MaterialSymbolsRounded_Filled-Regular.ttf")
+wb_add_asset_file("MaterialSymbolsSharp_Filled-Regular.ttf")
 
 add_custom_target(wb-assets DEPENDS ${WB_ASSET_DEPENDENCIES})
 set(WB_ASSET_INSTALL_FILES "${WB_ASSET_DEPENDENCIES}" PARENT_SCOPE)
