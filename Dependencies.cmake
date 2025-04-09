@@ -83,16 +83,16 @@ CPMAddPackage(
     EXCLUDE_FROM_ALL
 )
 
-CPMAddPackage(
-    NAME                compile-time-regular-expressions
-    VERSION             3.9.0
-    GITHUB_REPOSITORY   hanickadot/compile-time-regular-expressions
-    OPTIONS             "CTRE_BUILD_TESTS OFF"
-                        "CTRE_BUILD_PACKAGE OFF"
-                        "CTRE_BUILD_PACKAGE_DEB OFF"
-                        "CTRE_BUILD_PACKAGE_RPM OFF"
-    EXCLUDE_FROM_ALL
-)
+# CPMAddPackage(
+#     NAME                compile-time-regular-expressions
+#     VERSION             3.9.0
+#     GITHUB_REPOSITORY   hanickadot/compile-time-regular-expressions
+#     OPTIONS             "CTRE_BUILD_TESTS OFF"
+#                         "CTRE_BUILD_PACKAGE OFF"
+#                         "CTRE_BUILD_PACKAGE_DEB OFF"
+#                         "CTRE_BUILD_PACKAGE_RPM OFF"
+#     EXCLUDE_FROM_ALL
+# )
 
 CPMAddPackage(
     NAME                spdlog
@@ -105,7 +105,7 @@ CPMAddPackage(
 CPMAddPackage(
     NAME                freetype
     GITHUB_REPOSITORY   freetype/freetype
-    GIT_TAG             VER-2-13-2
+    GIT_TAG             VER-2-13-3
     OPTIONS             "FT_DISABLE_ZLIB TRUE"
                         "FT_DISABLE_BZIP2 TRUE"
                         "FT_DISABLE_PNG TRUE"
