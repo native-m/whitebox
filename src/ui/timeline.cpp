@@ -11,6 +11,7 @@
 #include "dialogs.h"
 #include "engine/engine.h"
 #include "font.h"
+#include "grid.h"
 #include "plugins.h"
 #include "window.h"
 
@@ -704,17 +705,16 @@ void TimelineWindow::render_track_lanes() {
   }
 
   const double scroll_pos_x = std::round((min_hscroll * song_length) / view_scale);
-  const double sample_scale = (view_scale * beat_duration) * inv_ppq;
+  const double sample_scale = view_scale * beat_duration;
   const ImU32 gridline_color = Color(ImGui::GetColorU32(ImGuiCol_Separator)).change_alpha(0.85f).to_uint32();
 
   // Map mouse position to time position
-  const double mouse_at_time_pos =
-      ((double)(mouse_pos.x - timeline_view_pos.x) * view_scale + min_hscroll * song_length) * inv_ppq;
+  const double mouse_at_time_pos = ((double)(mouse_pos.x - timeline_view_pos.x) * view_scale + min_hscroll * song_length);
   const double mouse_at_gridline = std::round(mouse_at_time_pos * (double)grid_scale) / (double)grid_scale;
 
   timeline_scroll_offset_x = (double)timeline_view_pos.x - scroll_pos_x;
   timeline_scroll_offset_x_f32 = (float)timeline_scroll_offset_x;
-  clip_scale = ppq * inv_view_scale;
+  clip_scale = inv_view_scale;
 
   if (selecting_range) {
     selection_end_pos = math::max(mouse_at_gridline, 0.0);
@@ -785,13 +785,6 @@ void TimelineWindow::render_track_lanes() {
   }
 
   if (redraw) {
-    static constexpr float guidestrip_alpha = 0.12f;
-    static constexpr float beat_line_alpha = 0.28f;
-    static constexpr float bar_line_alpha = 0.5f;
-    const ImU32 guidestrip_color = Color(ImGui::GetColorU32(ImGuiCol_Separator)).change_alpha(guidestrip_alpha).to_uint32();
-    const ImU32 beat_line_color = Color(ImGui::GetColorU32(ImGuiCol_Separator)).change_alpha(beat_line_alpha).to_uint32();
-    const ImU32 bar_line_color = Color(ImGui::GetColorU32(ImGuiCol_Separator)).change_alpha(bar_line_alpha).to_uint32();
-
     ImTextureID font_tex_id = ImGui::GetIO().Fonts->TexID;
     clip_draw_cmd.resize(0);
     waveform_cmd_list1.resize(0);
@@ -806,44 +799,10 @@ void TimelineWindow::render_track_lanes() {
     layer2_draw_list->PushClipRect(view_min, view_max);
     layer3_draw_list->PushClipRect(view_min, view_max);
 
-    // Draw four bars length guidestrip
-    const float four_bars_length = (float)(16.0 * ppq / view_scale);
-    const uint32_t guidestrip_count = (uint32_t)(timeline_width / four_bars_length) + 2;
-    float guidestrip_pos_x = timeline_view_pos.x - std::fmod((float)scroll_pos_x, four_bars_length * 2.0f);
-    for (uint32_t i = 0; i <= guidestrip_count; i++) {
-      float start_pos_x = guidestrip_pos_x;
-      guidestrip_pos_x += four_bars_length;
-      if (i % 2) {
-        layer1_draw_list->AddRectFilled(
-            ImVec2(start_pos_x, offset_y), ImVec2(guidestrip_pos_x, offset_y + content_size.y), guidestrip_color);
-      }
-    }
-
-    // Finally, draw the gridline
-    static constexpr double gridline_division_factor = 5.0;
-    const double beat = ppq / view_scale;
-    const double bar = 4.0 * beat;
-    const double division = std::exp2(std::round(std::log2(view_scale / gridline_division_factor)));
-    const double grid_inc_x = beat * division;
-    const double inv_grid_inc_x = 1.0 / grid_inc_x;
-    const uint32_t lines_per_bar = math::max((uint32_t)(bar / grid_inc_x), 1u);
-    const uint32_t lines_per_beat = math::max((uint32_t)(beat / grid_inc_x), 1u);
-    const uint32_t gridline_count = (uint32_t)((double)timeline_width * inv_grid_inc_x);
-    const uint32_t count_offset = (uint32_t)(scroll_pos_x * inv_grid_inc_x);
-    double line_pos_x = (double)timeline_view_pos.x - std::fmod(scroll_pos_x, grid_inc_x);
-    for (uint32_t i = 0; i <= gridline_count; i++) {
-      line_pos_x += grid_inc_x;
-      float line_pixel_pos_x = (float)math::round(line_pos_x);
-      uint32_t grid_id = i + count_offset + 1u;
-      ImU32 line_color = gridline_color;
-      if (grid_id % lines_per_bar) {
-        line_color = bar_line_color;
-      }
-      if (grid_id % lines_per_beat) {
-        line_color = beat_line_color;
-      }
-      im_draw_vline(layer1_draw_list, line_pixel_pos_x, offset_y, offset_y + content_size.y, line_color);
-    }
+    // Draw guidestripes & grid
+    ImVec2 area_size = ImVec2(timeline_width, content_size.y);
+    draw_musical_guidestripes(layer1_draw_list, view_min, area_size, scroll_pos_x, view_scale);
+    draw_musical_grid(layer1_draw_list, view_min, area_size, scroll_pos_x, inv_view_scale, 1.0f);
   }
 
   auto& tracks = g_engine.tracks;
@@ -1068,7 +1027,7 @@ void TimelineWindow::render_track_lanes() {
   main_draw_list->AddImage(fb_tex_id, fb_image_pos, fb_image_pos + ImVec2(timeline_width, content_size.y));
 
   if (g_engine.is_playing()) {
-    const double playhead_offset = playhead * ppq * inv_view_scale;
+    const double playhead_offset = playhead * inv_view_scale;
     const float playhead_pos = (float)math::round(timeline_view_pos.x - scroll_pos_x + playhead_offset);
     im_draw_vline(main_draw_list, playhead_pos, offset_y, offset_y + timeline_area.y, playhead_color);
   }
@@ -1176,6 +1135,7 @@ void TimelineWindow::render_track(
               const double sample_rate = clip->get_asset_sample_rate();
 
               if (right_side_partially_selected && left_side_partially_selected) {
+                // Carve the center of the clip
                 const double resize_offset = max_time + selected_region->range.last_offset - min_time;
                 const double lhs_min_time = min_time;
                 const double lhs_max_time = clip->min_time + selected_region->range.first_offset;
@@ -1202,6 +1162,7 @@ void TimelineWindow::render_track(
                 render_clip(clip, rhs_min_time, rhs_max_time, rhs_start_ofs, track_pos_y, height);
                 continue;
               } else if (right_side_partially_selected) {
+                // Carve the right side of the clip
                 max_time = clip->min_time + selected_region->range.first_offset;
                 render_clip(clip, min_time, max_time, start_offset, track_pos_y, height);
                 if (edit_command == TimelineCommand::ClipShift) {
@@ -1219,6 +1180,7 @@ void TimelineWindow::render_track(
                   render_clip(
                       clip, min_time, max_time + selected_region->range.last_offset, new_start_offset, track_pos_y, height);
                 }
+                // Carve the left side of the clip
                 const double rhs_min_time = max_time + selected_region->range.last_offset;
                 const double rhs_max_time = max_time;
                 const double rhs_start_ofs =
@@ -1502,6 +1464,7 @@ void TimelineWindow::render_edited_clips(double mouse_at_gridline) {
 
       double min_move = 0.0;
       if (any_of(edit_command, TimelineCommand::ClipMove, TimelineCommand::ClipDuplicate)) {
+        // Insert substitute clips on carved regions
         for (uint32_t j = selected_region.range.first; j <= selected_region.range.last; j++) {
           Clip* clip = src_track->clips[j];
           double min_time = clip->min_time;
@@ -1671,7 +1634,7 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
     const float darkening = is_active ? 0.80f : 0.60f;
     const Color base_color = is_active ? color : color.desaturate(0.4f);
     const Color bg_color = base_color.change_alpha(base_color.a * darkening).premult_alpha();
-    const Color content_color = is_active ? base_color.brighten(1.30f) : base_color.brighten(0.5f);
+    const Color content_color = is_active ? base_color.brighten(1.2f) : base_color.brighten(0.5f);
     const bool draw_in_layer2 = has_bit(cmd.draw_flags, ClipDrawCmd::Layer2);
     const bool highlighted = has_bit(cmd.draw_flags, ClipDrawCmd::Highlighted);
     auto* dl = !draw_in_layer2 ? layer1_draw_list : layer2_draw_list;
@@ -1687,7 +1650,12 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
       dl->AddRect(clip_title_min_bb - half, clip_content_max + half, 0x3F000000, 3.0f, ImDrawFlags_RoundCornersTop);
     } else {
       layer2_draw_list->AddRect(
-          clip_title_min_bb - half, clip_content_max + half, content_color.to_uint32(), 3.0f, ImDrawFlags_RoundCornersTop, 1.0f);
+          clip_title_min_bb - half,
+          clip_content_max + half,
+          content_color.to_uint32(),
+          3.0f,
+          ImDrawFlags_RoundCornersTop,
+          1.5f);
     }
 
     if (!is_active) {
@@ -1941,6 +1909,7 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
             cmd->clip_id = edited_clip->id;
             cmd->relative_pos = relative_pos;
             g_cmd_manager.execute("Move Clip", cmd);
+            g_clip_editor.unset_clip();
           }
           finish_edit();
         }
@@ -2035,6 +2004,7 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
             cmd->clip_id = edited_clip->id;
             cmd->relative_pos = relative_pos;
             g_cmd_manager.execute("Duplicate clip", cmd);
+            g_clip_editor.unset_clip();
           }
           finish_edit();
         }
@@ -2244,15 +2214,15 @@ float TimelineWindow::get_track_position_y(uint32_t id) {
 
 void TimelineWindow::recalculate_song_length() {
   double max_length = g_engine.get_song_length();
-  if (max_length > 10000.0) {
-    max_length += g_engine.ppq * 14;
+  if (max_length > 100.0) {
+    max_length += 32;
     min_hscroll = min_hscroll * song_length / max_length;
     max_hscroll = max_hscroll * song_length / max_length;
     song_length = max_length;
   } else {
-    min_hscroll = min_hscroll * song_length / 10000.0;
-    max_hscroll = max_hscroll * song_length / 10000.0;
-    song_length = 10000.0;
+    min_hscroll = min_hscroll * song_length / 100.0;
+    max_hscroll = max_hscroll * song_length / 100.0;
+    song_length = 100.0;
   }
 }
 

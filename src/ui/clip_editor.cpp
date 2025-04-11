@@ -8,6 +8,7 @@
 #include "controls.h"
 #include "core/color.h"
 #include "engine/engine.h"
+#include "grid.h"
 #include "file_dialog.h"
 #include "font.h"
 #include "window.h"
@@ -353,52 +354,16 @@ void ClipEditorWindow::render_note_editor() {
     scroll_delta_y = 0.0f;
   }
 
+  ImU32 guidestrip_color = Color(ImGui::GetColorU32(ImGuiCol_Separator)).change_alpha(0.13f).to_uint32();
+  ImU32 grid_color = Color(ImGui::GetColorU32(ImGuiCol_Separator)).change_alpha(0.55f).to_uint32();
   double scroll_pos_x = std::round((min_hscroll * song_length) / view_scale);
   double scroll_offset_x = (double)cursor_pos.x - scroll_pos_x;
-  double clip_scale = ppq * inv_view_scale;
+  double clip_scale = inv_view_scale;
 
-  // Draw guidestripes
-  float four_bars = (float)(16.0 * ppq / view_scale);
-  uint32_t guidestrip_count = (uint32_t)(timeline_width / four_bars) + 2;
-  float guidestrip_pos_x = cursor_pos.x - std::fmod((float)scroll_pos_x, four_bars * 2.0f);
-  ImU32 guidestrip_color = Color(ImGui::GetColorU32(ImGuiCol_Separator)).change_alpha(0.13f).to_uint32();
-  for (uint32_t i = 0; i <= guidestrip_count; i++) {
-    float start_pos_x = guidestrip_pos_x;
-    guidestrip_pos_x += four_bars;
-    if (i % 2) {
-      dl->AddRectFilled(ImVec2(start_pos_x, offset_y), ImVec2(guidestrip_pos_x, offset_y + max_height), guidestrip_color);
-    }
-  }
-
-  ImU32 grid_color = Color(ImGui::GetColorU32(ImGuiCol_Separator)).change_alpha(0.55f).to_uint32();
-  ImU32 beat_grid_color = Color(ImGui::GetColorU32(ImGuiCol_Separator)).change_alpha(0.15f).to_uint32();
-  ImU32 bar_grid_color = Color(ImGui::GetColorU32(ImGuiCol_Separator)).change_alpha(0.3f).to_uint32();
-
-  // Draw vertical gridlines
-  double beat = ppq / view_scale;
-  double bar = 4.0 * beat;
-  double division = std::exp2(std::round(std::log2(view_scale / 5.0)));
-  float grid_inc_x = (float)(beat * division);
-  float inv_grid_inc_x = 1.0f / grid_inc_x;
-  uint32_t lines_per_bar = std::max((uint32_t)((float)bar / grid_inc_x), 1u);
-  uint32_t lines_per_beat = std::max((uint32_t)((float)beat / grid_inc_x), 1u);
-  float gridline_pos_x = cursor_pos.x - std::fmod((float)scroll_pos_x, grid_inc_x);
-  int gridline_count = (uint32_t)(timeline_width * inv_grid_inc_x);
-  int grid_index_offset = (uint32_t)(scroll_pos_x * inv_grid_inc_x);
-  for (int i = 0; i <= gridline_count; i++) {
-    gridline_pos_x += grid_inc_x;
-    float gridline_pos_x_pixel = std::round(gridline_pos_x);
-    uint32_t grid_id = i + grid_index_offset + 1;
-    ImU32 line_color = grid_color;
-    if (grid_id % lines_per_bar) {
-      line_color = bar_grid_color;
-    }
-    if (grid_id % lines_per_beat) {
-      line_color = beat_grid_color;
-    }
-    dl->AddLine(
-        ImVec2(gridline_pos_x_pixel, offset_y), ImVec2(gridline_pos_x_pixel, offset_y + max_height), line_color, 1.0f);
-  }
+  // Draw guidestripes & grid
+  ImVec2 area_size = ImVec2(timeline_width, region_size.y);
+  draw_musical_guidestripes(dl, view_min, area_size, scroll_pos_x, view_scale);
+  draw_musical_grid(dl, view_min, area_size, scroll_pos_x, inv_view_scale, 0.5f);
 
   // Draw horizontal gridlines
   float key_pos_y = main_cursor_pos.y - std::fmod(vscroll, note_height_in_pixel);
@@ -524,14 +489,14 @@ void ClipEditorWindow::render_event_editor() {
   double view_scale = calc_view_scale();
   double scroll_pos_x = std::round((min_hscroll * song_length) / view_scale);
   double scroll_offset_x = (double)cursor_pos.x - scroll_pos_x;
-  double clip_scale = ppq / view_scale;
+  double pixel_scale = 1.0 / view_scale;
   float end_x = cursor_pos.x + timeline_width;
   float end_y = cursor_pos.y + editor_event_region.y;
   static const ImU32 channel_color = Color(121, 166, 91).brighten(0.6f).to_uint32();
 
   if (current_clip && current_clip->is_midi()) {
     for (auto note_data = current_clip->midi.asset; auto& note : note_data->data.channels[0]) {
-      float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * clip_scale);
+      float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * pixel_scale);
       if (min_pos_x < cursor_pos.x)
         continue;
       if (min_pos_x > end_x)

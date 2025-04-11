@@ -10,7 +10,7 @@ struct TimelineBase {
     double last_hscroll = 0.0;
     double min_hscroll = 0.0;
     double max_hscroll = 1.0;
-    double song_length = 10000.0;
+    double song_length = 100.0;  // 100 beats
     float timeline_width = 0.0f;
     float vsplitter_size = 150.0f;
     float vsplitter_min_size = 100.0f;
@@ -32,7 +32,7 @@ struct TimelineBase {
     void zoom(float mouse_pos_x, float cursor_pos_x, double view_scale, float mouse_wheel);
 
     inline double calc_view_scale() const {
-        return (max_hscroll - min_hscroll) * song_length / (double)timeline_width;
+      return ((max_hscroll - min_hscroll) * song_length) / (double)timeline_width;
     }
 };
 } // namespace wb

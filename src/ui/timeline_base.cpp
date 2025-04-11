@@ -162,7 +162,7 @@ bool TimelineBase::render_time_ruler(double* time_value) {
   bool active = false;
   if (left_clicked || (holding_left && std::abs(drag_delta.x) > 0.001f)) {
     double mapped_x_pos = (double)(mouse_pos.x - cursor_pos.x) / song_length * view_scale + min_hscroll;
-    double mouse_time_pos = mapped_x_pos * song_length * inv_ppq;
+    double mouse_time_pos = mapped_x_pos * song_length;
     double mouse_time_pos_grid = math::max(std::round(mouse_time_pos * grid_scale) / grid_scale, 0.0);
     *time_value = mouse_time_pos_grid;
     // g_engine.set_playhead_position(mouse_time_pos_grid);
@@ -210,8 +210,8 @@ bool TimelineBase::render_time_ruler(double* time_value) {
   ImU32 time_point_color = ImGui::GetColorU32(ImGuiCol_Text);
   double division = math::max(std::exp2(math::round(std::log2(view_scale / 8.0))), 1.0);
   double inv_view_scale = 1.0 / view_scale;
-  double bar = 4.0 * g_engine.ppq * inv_view_scale;
-  float grid_inc_x = (float)(bar * division);
+  double bar = 4.0 * inv_view_scale;
+  float grid_inc_x = (float)(bar * 4.0);
   float inv_grid_inc_x = 1.0f / grid_inc_x;
   float scroll_pos_x = (float)std::round((min_hscroll * song_length) * inv_view_scale);
   float gridline_pos_x = cursor_pos.x - std::fmod(scroll_pos_x, grid_inc_x);
@@ -224,7 +224,7 @@ bool TimelineBase::render_time_ruler(double* time_value) {
   // Draw playhead indicator
   bool is_playing = g_engine.is_playing();
   if (is_playing) {
-    double playhead_start = g_engine.playhead_start * g_engine.ppq * inv_view_scale;
+    double playhead_start = g_engine.playhead_start * inv_view_scale;
     float position = (float)std::round(scroll_offset + playhead_start) - size.y * 0.5f;
     dl->AddTriangleFilled(
         ImVec2(position, cursor_pos.y + 2.5f),
@@ -248,7 +248,7 @@ bool TimelineBase::render_time_ruler(double* time_value) {
   }
 
   float playhead_screen_position =
-      (float)std::round(scroll_offset + playhead * g_engine.ppq * inv_view_scale) - size.y * 0.5f;
+      (float)std::round(scroll_offset + playhead * inv_view_scale) - size.y * 0.5f;
   dl->AddTriangleFilled(
       ImVec2(playhead_screen_position, cursor_pos.y + 2.5f),
       ImVec2(playhead_screen_position + size.y, cursor_pos.y + 2.5f),
