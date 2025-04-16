@@ -89,7 +89,7 @@ Steinberg::tresult PLUGIN_API VST3InputEventList::getEvent(Steinberg::int32 inde
       case MidiEventType::NoteOn:
         e.type = Steinberg::Vst::Event::kNoteOnEvent;
         e.noteOn.channel = event.note_on.channel;
-        e.noteOn.pitch = event.note_on.note_number;
+        e.noteOn.pitch = event.note_on.key;
         e.noteOn.tuning = event.note_on.tuning;
         e.noteOn.velocity = event.note_on.velocity;
         e.noteOn.length = 0;
@@ -98,7 +98,7 @@ Steinberg::tresult PLUGIN_API VST3InputEventList::getEvent(Steinberg::int32 inde
       case MidiEventType::NoteOff:
         e.type = Steinberg::Vst::Event::kNoteOffEvent;
         e.noteOff.channel = event.note_off.channel;
-        e.noteOff.pitch = event.note_off.note_number;
+        e.noteOff.pitch = event.note_off.key;
         e.noteOff.tuning = event.note_off.tuning;
         e.noteOff.velocity = event.note_off.velocity;
         e.noteOff.noteId = -1;

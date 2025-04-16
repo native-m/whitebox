@@ -439,7 +439,7 @@ void Track::process_event(
       .time = voice->max_time,
       .note_off = {
         .channel = 0,
-        .note_number = voice->note_number,
+        .key = voice->key,
         .velocity = voice->velocity,
       },
     });
@@ -449,8 +449,8 @@ void Track::process_event(
         note_str,
         std::size(note_str),
         "{}{}",
-        get_midi_note_scale(voice->note_number),
-        get_midi_note_octave(voice->note_number));
+        get_midi_note_scale(voice->key),
+        get_midi_note_octave(voice->key));
     Log::debug("Note off: {} length: {} at: {}", note_str, voice->max_time, buffer_offset);
 #endif
   }
@@ -494,7 +494,7 @@ void Track::process_midi_event(
         .time = voice->max_time,
         .note_off = {
           .channel = 0,
-          .note_number = voice->note_number,
+          .key = voice->key,
           .velocity = voice->velocity,
         },
       });
@@ -504,8 +504,8 @@ void Track::process_midi_event(
           note_str,
           std::size(note_str),
           "{}{}",
-          get_midi_note_scale(voice->note_number),
-          get_midi_note_octave(voice->note_number));
+          get_midi_note_scale(voice->key),
+          get_midi_note_octave(voice->key));
       Log::debug("Note off: {} length: {} at: {}", note_str, voice->max_time, buffer_offset);
 #endif
     }
@@ -518,7 +518,7 @@ void Track::process_midi_event(
       .max_time = max_time,
       .velocity = note.velocity,
       .channel = 0,
-      .note_number = note.note_number,
+      .key = note.key,
     });
 
     // Skip if we have reached maximum voices
@@ -533,7 +533,7 @@ void Track::process_midi_event(
       .time = min_time,
       .note_on = {
         .channel = 0,
-        .note_number = note.note_number,
+        .key = note.key,
         .velocity = note.velocity,
       },
     });
@@ -544,8 +544,8 @@ void Track::process_midi_event(
         note_str,
         std::size(note_str),
         "{}{}",
-        get_midi_note_scale(note.note_number),
-        get_midi_note_octave(note.note_number));
+        get_midi_note_scale(note.key),
+        get_midi_note_octave(note.key));
     Log::debug("Note on: {} {} {} -> {} at {}", note.id, note_str, min_time, max_time, buffer_offset);
 #endif
 
@@ -562,7 +562,7 @@ void Track::process_midi_event(
       .time = voice->max_time,
       .note_off = {
         .channel = 0,
-        .note_number = voice->note_number,
+        .key = voice->key,
         .velocity = voice->velocity,
       },
     });
@@ -572,8 +572,8 @@ void Track::process_midi_event(
         note_str,
         std::size(note_str),
         "{}{}",
-        get_midi_note_scale(voice->note_number),
-        get_midi_note_octave(voice->note_number));
+        get_midi_note_scale(voice->key),
+        get_midi_note_octave(voice->key));
     Log::debug("Note off: {} length: {} at: {}", note_str, voice->max_time, buffer_offset);
 #endif
   }
@@ -589,7 +589,7 @@ void Track::kill_all_voices(uint32_t buffer_offset, double time_pos) {
       .time = time_pos,
       .note_off = {
         .channel = 0,
-        .note_number = voice->note_number,
+        .key = voice->key,
         .velocity = voice->velocity,
       },
     });
@@ -803,7 +803,7 @@ void Track::process_test_synth(AudioBuffer<float>& output_buffer, double sample_
         }
         switch (event.type) {
           case MidiEventType::NoteOn: test_synth.add_voice(event); break;
-          case MidiEventType::NoteOff: test_synth.remove_note(event.note_off.note_number); break;
+          case MidiEventType::NoteOff: test_synth.remove_note(event.note_off.key); break;
           default: break;
         }
         // Log::debug("{}", test_synth.voice_mask);

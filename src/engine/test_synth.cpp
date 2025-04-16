@@ -11,10 +11,10 @@ void TestSynth::add_voice(const MidiEvent& voice) {
   // std::uniform_real_distribution<double> dis(0.0, 2.0);
   voices[free_voice] = {
     .phase = 0.0,
-    .frequency = get_midi_frequency(voice.note_on.note_number),
+    .frequency = get_midi_frequency(voice.note_on.key),
     .volume = voice.note_on.velocity,
     .amp = 1.0f,
-    .note_number = voice.note_on.note_number,
+    .note_number = voice.note_on.key,
   };
   voice_mask |= 1ull << free_voice;
 }

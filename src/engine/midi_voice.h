@@ -12,7 +12,7 @@ struct MidiVoice : public InplaceList<MidiVoice> {
   double max_time;
   float velocity;
   uint16_t channel;
-  uint16_t note_number;
+  uint16_t key;
 };
 
 struct MidiVoiceState {

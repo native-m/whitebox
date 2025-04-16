@@ -2,8 +2,8 @@
 
 #include <string>
 
-#include "core/common.h"
 #include "core/color.h"
+#include "core/common.h"
 #include "core/list.h"
 #include "engine/clip.h"
 #include "engine/etypes.h"
@@ -208,6 +208,20 @@ struct ClipDeleteCmd2 : public ClipCmd {
   double min_pos;
   double max_pos;
 
+  void execute() override;
+  void undo() override;
+};
+
+struct MidiAddNoteCmd : public ClipCmd {
+  MidiEditResult edit_result;
+  uint32_t track_id;
+  uint32_t clip_id;
+  double min_time;
+  double max_time;
+  float velocity;
+  uint16_t note_key;
+  uint16_t channel;
+  
   void execute() override;
   void undo() override;
 };

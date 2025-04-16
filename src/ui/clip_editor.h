@@ -7,11 +7,17 @@
 namespace wb {
 
 enum class PianoRollTool {
+  None,
   Draw,
   Paint,
   Slice,
   Erase,
   Mute,
+
+  // Implicit command
+  Move,
+  ResizeLeft,
+  ResizeRight,
 };
 
 struct ClipEditorWindow : public TimelineBase {
@@ -23,6 +29,8 @@ struct ClipEditorWindow : public TimelineBase {
   ImFont* font{};
   Track* current_track{};
   Clip* current_clip{};
+  std::optional<uint32_t> current_track_id;
+  std::optional<uint32_t> current_clip_id;
 
   ImVec2 content_size;
   ImVec2 main_cursor_pos;
@@ -43,10 +51,23 @@ struct ClipEditorWindow : public TimelineBase {
   bool force_redraw = false;
   bool redraw = false;
 
-  PianoRollTool piano_roll_tool{};
+  PianoRollTool piano_roll_tool = PianoRollTool::Draw;
   bool triplet_grid = false;
   bool preview_note = false;
   int32_t grid_mode = 0;
+
+  float new_velocity = 100.0f;
+  float new_length = 1.0f;
+  int new_channel = 1;
+  bool use_last_note = true;
+  bool repeat_mode = true;
+
+  PianoRollTool edit_command{};
+  double initial_time_pos = 0.0;
+  int32_t hovered_key = -1;
+
+  // debug
+  bool display_note_id = false;
 
   ClipEditorWindow();
   void set_clip(uint32_t track_id, uint32_t clip_id);
@@ -58,6 +79,7 @@ struct ClipEditorWindow : public TimelineBase {
   void render_note_editor();
   void render_event_editor();
   void draw_piano_keys(ImDrawList* draw_list, ImVec2& pos, const ImVec2& note_size, uint32_t oct);
+  void draw_note(ImDrawList* draw_list, double min_time, double max_time, uint16_t key);
   void zoom_vertically(float mouse_pos_y, float height, float mouse_wheel);
 };
 

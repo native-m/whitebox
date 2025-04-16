@@ -415,4 +415,15 @@ void ClipDeleteCmd2::undo() {
   ClipCmd::undo(first_track, first_track + selected_track_regions.size());
 }
 
+//
+
+void MidiAddNoteCmd::execute() {
+  g_engine.add_note(track_id, clip_id, min_time, max_time, velocity, note_key, channel);
+}
+
+void MidiAddNoteCmd::undo() {
+  g_engine.delete_note(track_id, clip_id, channel, edit_result.note_id);
+  // g_engine.delete_note()
+}
+
 }  // namespace wb

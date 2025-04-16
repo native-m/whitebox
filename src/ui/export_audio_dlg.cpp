@@ -176,7 +176,7 @@ void export_audio_dialog() {
 
     ImGui::Separator();
 
-    ImGui::ProgressBar(0.9f, ImVec2(-FLT_MIN, 0.0f), nullptr);
+    ImGui::ProgressBar(0.0f, ImVec2(-FLT_MIN, 0.0f), nullptr);
 
     if (!is_rendering) {
       if (ImGui::Button("Start")) {

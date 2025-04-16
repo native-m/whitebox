@@ -5,16 +5,22 @@
 #include <optional>
 
 #include "IconsMaterialSymbols.h"
+#include "command_manager.h"
 #include "controls.h"
 #include "core/color.h"
 #include "engine/engine.h"
-#include "grid.h"
 #include "file_dialog.h"
 #include "font.h"
+#include "grid.h"
+#include "timeline.h"
 #include "window.h"
 
 #define WB_GRID_SIZE_HEADER_TUPLETS (const char*)1
 #define WB_GRID_SIZE_HEADER_BARS    (const char*)2
+
+#ifndef NDEBUG
+#define WB_ENABLE_PIANO_ROLL_DEBUG_MENU
+#endif
 
 namespace wb {
 
@@ -40,12 +46,16 @@ ClipEditorWindow::ClipEditorWindow() {
 void ClipEditorWindow::set_clip(uint32_t track_id, uint32_t clip_id) {
   current_track = g_engine.tracks[track_id];
   current_clip = current_track->clips[clip_id];
+  current_track_id = track_id;
+  current_clip_id = clip_id;
   force_redraw = true;
 }
 
 void ClipEditorWindow::unset_clip() {
   current_track = {};
   current_clip = {};
+  current_track_id.reset();
+  current_clip_id.reset();
   force_redraw = true;
 }
 
@@ -165,15 +175,50 @@ void ClipEditorWindow::render() {
       ImGui::PopStyleVar(2);
       set_current_font(FontType::Normal);
 
-      static float velocity = 100.0f;
-      static int channel = 1;
-      static bool use_last_note = false;
       ImGui::Checkbox("Use last selected note", &use_last_note);
-      ImGui::TextUnformatted("New note properties:");
       ImGui::PushItemWidth(-FLT_MIN);
-      ImGui::SliderInt("##note_ch", &channel, 1, 16, "Note channel: %d");
-      ImGui::SliderFloat("##note_velocity", &velocity, 0.0f, 127.0f, "Note velocity: %.1f");
+      if (piano_roll_tool == PianoRollTool::Draw || piano_roll_tool == PianoRollTool::Paint) {
+        switch (piano_roll_tool) {
+          case PianoRollTool::Draw: ImGui::TextUnformatted("Draw tool:"); break;
+          case PianoRollTool::Paint: ImGui::TextUnformatted("Paint tool:"); break;
+        }
+
+        ImGui::SliderInt("##note_ch", &new_channel, 1, 16, "Note channel: %d");
+        ImGui::SliderFloat("##note_velocity", &new_velocity, 0.0f, 127.0f, "Note velocity: %.1f");
+        ImGui::DragFloat("##note_length", &new_length, 0.1f, 0.125f, 8.0f, "Note length: %.1f");
+
+        /*const char* note_length_str;
+        if (new_length < 0) {
+          ImFormatStringToTempBuffer(&note_length_str, nullptr, "Note length: 1/%d beat", math::abs(new_length));
+        } else {
+          ImFormatStringToTempBuffer(
+              &note_length_str, nullptr, new_length == 1 ? "Note length: %d beat" : "Note length: %d beats", new_length);
+        }*/
+        /*int old_length = new_length;
+        if (ImGui::DragInt(
+                "##note_length",
+                &new_length,
+                0.25f,
+                -32,
+                8,
+                note_length_str,
+                ImGuiSliderFlags_Vertical | ImGuiSliderFlags_NoInput)) {
+          if (old_length == 1 && old_length > new_length) {
+            new_length = -2;
+          } else if (old_length == -2 && old_length < new_length) {
+            new_length = 1;
+          }
+        }*/
+
+        if (piano_roll_tool == PianoRollTool::Paint) {
+          ImGui::Checkbox("Repeat mode", &repeat_mode);
+        }
+      }
       ImGui::PopItemWidth();
+
+#ifdef WB_ENABLE_PIANO_ROLL_DEBUG_MENU
+      ImGui::Checkbox("Display note id", &display_note_id);
+#endif
     }
     ImGui::EndChild();
   }
@@ -322,13 +367,15 @@ void ClipEditorWindow::render_note_editor() {
   ImVec2 mouse_pos = ImGui::GetMousePos();
   float mouse_wheel = ImGui::GetIO().MouseWheel;
   float mouse_wheel_h = ImGui::GetIO().MouseWheelH;
+  bool is_active = ImGui::IsItemActive();
+  bool is_activated = ImGui::IsItemActivated();
+  bool is_piano_roll_hovered = ImGui::IsItemHovered();
   bool holding_ctrl = ImGui::IsKeyDown(ImGuiKey_ModCtrl);
   bool left_mouse_clicked = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
   bool left_mouse_down = ImGui::IsMouseDown(ImGuiMouseButton_Left);
   bool middle_mouse_clicked = ImGui::IsMouseClicked(ImGuiMouseButton_Middle);
   bool middle_mouse_down = ImGui::IsMouseDown(ImGuiMouseButton_Middle);
   bool right_mouse_clicked = ImGui::IsMouseDown(ImGuiMouseButton_Right);
-  bool is_piano_roll_hovered = ImGui::IsItemHovered();
 
   if (is_piano_roll_hovered && mouse_wheel_h != 0.0f) {
     scroll_horizontal(mouse_wheel_h, song_length, -view_scale * 64.0);
@@ -354,14 +401,22 @@ void ClipEditorWindow::render_note_editor() {
     scroll_delta_y = 0.0f;
   }
 
+  ImVec2 area_size = ImVec2(timeline_width, region_size.y);
   ImU32 guidestrip_color = Color(ImGui::GetColorU32(ImGuiCol_Separator)).change_alpha(0.13f).to_uint32();
   ImU32 grid_color = Color(ImGui::GetColorU32(ImGuiCol_Separator)).change_alpha(0.55f).to_uint32();
   double scroll_pos_x = std::round((min_hscroll * song_length) / view_scale);
   double scroll_offset_x = (double)cursor_pos.x - scroll_pos_x;
   double clip_scale = inv_view_scale;
+  double mouse_at_time_pos = 0.0;
+  double mouse_at_gridline = 0.0;
+
+  hovered_key = MidiData::max_notes - (int32_t)((mouse_pos.y - cursor_pos.y) / note_height_in_pixel) - 1;
+  if (is_piano_roll_hovered || is_active) {
+    mouse_at_time_pos = ((double)(mouse_pos.x - cursor_pos.x) * view_scale + min_hscroll * song_length);
+    mouse_at_gridline = std::round(mouse_at_time_pos * (double)grid_scale) / (double)grid_scale;
+  }
 
   // Draw guidestripes & grid
-  ImVec2 area_size = ImVec2(timeline_width, region_size.y);
   draw_musical_guidestripes(dl, view_min, area_size, scroll_pos_x, view_scale);
   draw_musical_grid(dl, view_min, area_size, scroll_pos_x, inv_view_scale, 0.5f);
 
@@ -393,36 +448,36 @@ void ClipEditorWindow::render_note_editor() {
   static constexpr ImU32 channel_color = main_color.brighten(0.6f).to_uint32();
   static constexpr ImU32 text_color = main_color.darken(1.25f).to_uint32();
   auto font = ImGui::GetFont();
-  float half_font_size = font->FontSize * 0.5f;
+  float font_size = font->FontSize;
+  float half_font_size = font_size * 0.5f;
   float half_note_size = note_height_in_pixel * 0.5f;
   float end_x = cursor_pos.x + timeline_width;
   float end_y = main_cursor_pos.y + content_height;
-  std::optional<uint32_t> note_id;
+  ImU32 handle_color = ImGui::GetColorU32(ImGuiCol_ButtonActive);
+  std::optional<uint32_t> hovered_note_id;
 
-  if (current_track && current_clip && current_clip->is_midi()) {
-    for (auto midi_data = current_clip->midi.asset; auto& note : midi_data->data.channels[0]) {
-      float pos_y = (float)(131 - note.note_number) * note_height_in_pixel;
-      float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * clip_scale);
-      float max_pos_x = (float)math::round(scroll_offset_x + note.max_time * clip_scale);
+  auto draw_note = [&]<bool WithCommand>(
+                       float min_pos_x, float max_pos_x, float vel, uint32_t note_id, uint16_t key) -> PianoRollTool {
+    float pos_y = (float)(131 - key) * note_height_in_pixel;
+    float min_pos_y = cursor_pos.y + pos_y;
+    float max_pos_y = min_pos_y + note_height_in_pixel;
+    PianoRollTool command{};
 
-      if (max_pos_x < cursor_pos.x)
-        continue;
-      if (min_pos_x > end_x)
-        break;
+    ImVec2 a(min_pos_x + 0.5f, min_pos_y);
+    ImVec2 b(max_pos_x + 0.5f, max_pos_y - 0.5f);
+    if (a.y > end_y || b.y < main_cursor_pos.y)
+      return PianoRollTool::None;
 
-      float min_pos_y = cursor_pos.y + pos_y;
-      float max_pos_y = min_pos_y + note_height_in_pixel;
-      ImRect note_rect(min_pos_x, min_pos_y, max_pos_x, max_pos_y);
-      if (note_rect.Contains(mouse_pos) && is_piano_roll_hovered)
-        note_id = note.id;
+#ifdef WB_ENABLE_PIANO_ROLL_DEBUG_MENU
+    if (display_note_id) {
+      char id[16]{};
+      fmt::format_to_n(id, sizeof(id), "{}", note_id);
+      dl->AddText(ImVec2(a.x, a.y - font_size), 0xFFFFFFFF, id);
+    }
+#endif
 
-      ImVec2 a(min_pos_x + 0.5f, min_pos_y);
-      ImVec2 b(max_pos_x + 0.5f, max_pos_y - 0.5f);
-      if (a.y > end_y || b.y < main_cursor_pos.y)
-        continue;
-
-      // Draw note rect
-      dl->PathLineTo(a);
+    // Draw note rect
+    dl->PathLineTo(a);
       dl->PathLineTo(ImVec2(b.x, a.y));
       dl->PathLineTo(b);
       dl->PathLineTo(ImVec2(a.x, b.y));
@@ -439,37 +494,111 @@ void ClipEditorWindow::render_note_editor() {
         float note_text_padding_y;
         if (note_height_in_pixel > 22.0f) {
           // Draw velocity indicator
-          float indicator_width = max_pos_x - min_pos_x - 5.0f;
-          if (indicator_width > 1.0f) {
-            im_draw_box_filled(dl, min_pos_x + 3.0f, b.y - 6.0f, indicator_width, 4.0f, indicator_frame_color);
-            im_draw_box_filled(dl, min_pos_x + 3.0f, b.y - 6.0f, indicator_width * note.velocity, 4.0f, indicator_color);
-          }
-          note_text_padding_y = 2.0f;
-        } else {
+        float indicator_width = max_pos_x - min_pos_x - 5.0f;
+        if (indicator_width > 1.0f) {
+          im_draw_box_filled(dl, min_pos_x + 3.0f, b.y - 6.0f, indicator_width, 4.0f, indicator_frame_color);
+          im_draw_box_filled(dl, min_pos_x + 3.0f, b.y - 6.0f, indicator_width * vel, 4.0f, indicator_color);
+        }
+        note_text_padding_y = 2.0f;
+      } else {
           note_text_padding_y = half_note_size - half_font_size;
         }
 
-        // Draw note text
-        ImVec4 label_rect(a.x, a.y, b.x - 4.0f, b.y);
-        char note_name[5]{};
-        const char* scale = note_scale[note.note_number % 12];
-        fmt::format_to_n(note_name, sizeof(note_name), "{}{}", scale, note.note_number / 12);
-        dl->AddText(
-            font,
-            font->FontSize,
-            ImVec2(std::max(cursor_pos.x, min_pos_x) + 3.0f, a.y + note_text_padding_y),
-            text_color,
-            note_name,
-            nullptr,
-            0.0f,
-            &label_rect);
+      // Draw note text
+      ImVec4 label_rect(a.x, a.y, b.x - 4.0f, b.y);
+      char note_name[5]{};
+      const char* scale = note_scale[key % 12];
+      fmt::format_to_n(note_name, sizeof(note_name), "{}{}", scale, key / 12);
+      dl->AddText(
+          font,
+          font_size,
+          ImVec2(std::max(cursor_pos.x, min_pos_x) + 3.0f, a.y + note_text_padding_y),
+          text_color,
+          note_name,
+          nullptr,
+          0.0f,
+          &label_rect);
+    }
+
+    if constexpr (WithCommand) {
+      ImRect note_rect(min_pos_x, min_pos_y, max_pos_x, max_pos_y);
+      if (note_rect.Contains(mouse_pos) && is_piano_roll_hovered) {
+        static constexpr float handle_offset = 4.0f;
+        ImRect left_handle(min_pos_x, min_pos_y, min_pos_x + handle_offset, max_pos_y);
+        ImRect right_handle(max_pos_x - handle_offset, min_pos_y, max_pos_x, max_pos_y);
+        if (left_handle.Contains(mouse_pos)) {
+          dl->AddRectFilled(left_handle.Min, left_handle.Max, handle_color);
+          ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+          command = PianoRollTool::ResizeLeft;
+        } else if (right_handle.Contains(mouse_pos)) {
+          dl->AddRectFilled(right_handle.Min, right_handle.Max, handle_color);
+          ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+          command = PianoRollTool::ResizeRight;
+        } else {
+          command = PianoRollTool::Move;
+        }
+        hovered_note_id = note_id;
       }
     }
+
+    return command;
+  };
+
+  for (auto midi_data = current_clip->midi.asset; auto& note : midi_data->data.channels[0]) {
+    float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * clip_scale);
+    float max_pos_x = (float)math::round(scroll_offset_x + note.max_time * clip_scale);
+
+    if (max_pos_x < cursor_pos.x)
+      continue;
+    if (min_pos_x > end_x)
+      break;
+
+    // Can't directly call with function call syntax :'(
+    draw_note.operator()<true>(min_pos_x, max_pos_x, note.velocity, note.id, note.key);
   }
 
-  if (note_id) {
+  // Activate action
+  if (is_activated && left_mouse_clicked && edit_command == PianoRollTool::None) {
+    edit_command = hovered_note_id.has_value() ? PianoRollTool::Move : piano_roll_tool;
+    initial_time_pos = mouse_at_gridline;
+  }
+
+  if (edit_command == PianoRollTool::Draw) {
+    uint16_t key = math::clamp(hovered_key, 0, (int32_t)MidiData::max_notes);
+    double min_time = math::max(mouse_at_gridline, 0.0);
+    double max_time = mouse_at_gridline + new_length;
+    float min_pos_x = (float)math::round(scroll_offset_x + min_time * clip_scale);
+    float max_pos_x = (float)math::round(scroll_offset_x + max_time * clip_scale);
+    draw_note.operator()<false>(min_pos_x, max_pos_x, new_velocity, 0, key);
     ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
-    Log::debug("{}", note_id.value());
+  } else if (edit_command == PianoRollTool::Paint) {
+  
+  }
+
+  // Release action
+  if (!is_active && edit_command != PianoRollTool::None) {
+    switch (edit_command) {
+      case PianoRollTool::Draw: {
+        MidiAddNoteCmd* cmd = new MidiAddNoteCmd();
+        cmd->track_id = current_track_id.value();
+        cmd->clip_id = current_clip_id.value();
+        cmd->min_time = mouse_at_gridline;
+        cmd->max_time = mouse_at_gridline + new_length;
+        cmd->velocity = new_velocity / 127.0f;
+        cmd->note_key = hovered_key;
+        cmd->channel = 0;
+        g_cmd_manager.execute("Add note", cmd);
+        g_timeline.redraw_screen();
+        break;
+      }
+    }
+    edit_command = PianoRollTool::None;
+    initial_time_pos = 0.0;
+  }
+
+  if (hovered_note_id && false) {
+    ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+    Log::debug("{}", hovered_note_id.value());
   }
 
   if (is_piano_roll_hovered && holding_ctrl && mouse_wheel != 0.0f) {

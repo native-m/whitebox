@@ -94,6 +94,10 @@ struct Color {
     return Color(r * a, g * a, b * a, 1.0f);
   }
 
+  inline constexpr Color multiply_alpha(float alpha) const {
+    return Color(r, g, b, a * alpha);
+  }
+
   inline constexpr Color change_alpha(float alpha) const {
     return Color(r, g, b, alpha);
   }

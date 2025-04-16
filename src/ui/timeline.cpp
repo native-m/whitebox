@@ -1804,7 +1804,7 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
                 continue;
               if (min_pos_x > max_view)
                 break;
-              const float pos_y = offset_y + (float)(max_note - note.note_number) * max_note_size;
+              const float pos_y = offset_y + (float)(max_note - note.key) * max_note_size;
               min_pos_x = math::max(min_pos_x, min_view);
               max_pos_x = math::min(max_pos_x, max_view);
               if (min_pos_x >= max_pos_x)

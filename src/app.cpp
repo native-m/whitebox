@@ -185,16 +185,18 @@ void app_init() {
 }
 
 void app_render() {
-  // FIXME(native-m): This break the mouse scroll
+  // FIXME(native-m): This breaks the mouse scroll
   // handle_scroll();
   g_renderer->begin_frame();
   ImGui_ImplSDL2_NewFrame();
   ImGui::NewFrame();
-
+  
   static auto first_time = true;
   ImGuiViewport* main_viewport = ImGui::GetMainViewport();
   ImGuiID main_dockspace_id = ImGui::DockSpaceOverViewport(0, main_viewport, ImGuiDockNodeFlags_PassthruCentralNode);
-  if (first_time) {
+
+  // FIXME(native-m): Investigate why this breaks maximized window
+  /*if (first_time) {
     ImGui::DockBuilderRemoveNode(main_dockspace_id);
     ImGui::DockBuilderAddNode(main_dockspace_id, ImGuiDockNodeFlags_PassthruCentralNode);
     ImGui::DockBuilderSetNodePos(main_dockspace_id, main_viewport->WorkPos);
@@ -215,7 +217,7 @@ void app_render() {
     ImGui::DockBuilderDockWindow("Env Editor", dock_bottom_right);
     ImGui::DockBuilderFinish(main_dockspace_id);
     first_time = false;
-  }
+  }*/
 
   if (!g_file_drop.empty()) {
     if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceExtern)) {

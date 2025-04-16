@@ -118,6 +118,17 @@ inline static constexpr bool near_equal_to_zero(T value, T eps = small_value<T>)
   return abs(value) < eps;
 }
 
+template<std::floating_point T>
+inline static constexpr T sign(T value) {
+  if (value < 0) {
+    return -1;
+  } else if (value > 0) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
 template<typename T>
 inline static constexpr bool in_range(T x, T min_val, T max_val) {
   return (x >= min_val) && (x <= max_val);

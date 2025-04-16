@@ -1011,6 +1011,80 @@ MultiEditResult Engine::delete_region(
   return result;
 }
 
+std::optional<MidiEditResult> Engine::add_note(
+    uint32_t track_id,
+    uint32_t clip_id,
+    double min_time,
+    double max_time,
+    float velocity,
+    uint16_t note_key,
+    uint16_t channel) {
+  if (tracks.size() == 0 || track_id >= tracks.size()) {
+    Log::error("add_note(): Invalid track id");
+    return {};
+  }
+
+  Track* track = tracks[track_id];
+  if (track->clips.size() == 0 || clip_id >= track->clips.size()) {
+    Log::error("add_note(): Cannot find clip");
+    return {};
+  }
+
+  Clip* clip = track->clips[clip_id];
+  if (!clip->is_midi()) {
+    Log::error("add_note(): Clip is not a midi clip");
+    return {};
+  }
+
+  MidiAsset* asset = clip->midi.asset;
+  MidiNoteBuffer& buffer = asset->data.channels[channel];
+  std::unique_lock lock(editor_lock);
+
+  buffer.push_back({
+    .min_time = min_time,
+    .max_time = max_time,
+    .key = note_key,
+    .flags = MidiNoteFlags::Modified,
+    .velocity = velocity,
+  });
+
+  Vector<uint32_t> modified_notes = asset->data.update_channel(channel);
+
+  return MidiEditResult{
+    .track_id = track_id,
+    .clip_id = clip_id,
+    .note_id = !modified_notes.empty() ? modified_notes.front() : 0,
+  };
+}
+
+
+std::optional<MidiEditResult> Engine::delete_note(uint32_t track_id, uint32_t clip_id, uint32_t channel, uint32_t note_id) {
+  if (tracks.size() == 0 || track_id >= tracks.size()) {
+    Log::error("move_note(): Invalid track id");
+    return {};
+  }
+
+  Track* track = tracks[track_id];
+  if (track->clips.size() == 0 || clip_id >= track->clips.size()) {
+    Log::error("move_note(): Cannot find clip");
+    return {};
+  }
+
+  Clip* clip = track->clips[clip_id];
+  if (!clip->is_midi()) {
+    Log::error("move_note(): Clip is not a midi clip");
+    return {};
+  }
+
+  MidiAsset* asset = clip->midi.asset;
+  MidiNoteBuffer& buffer = asset->data.channels[channel];
+  std::unique_lock lock(editor_lock);
+  buffer.erase(note_id);
+  asset->data.update_channel(channel);
+
+  return {};
+}
+
 void Engine::set_clip_gain(Track* track, uint32_t clip_id, float gain) {
   Clip* clip = track->clips[clip_id];
   if (clip->is_audio())
@@ -1108,9 +1182,9 @@ double Engine::get_song_length() const {
   for (auto track : tracks) {
     if (!track->clips.empty()) {
       Clip* clip = track->clips.back();
-      max_length = math::max(max_length, clip->max_time * ppq);
+      max_length = math::max(max_length, clip->max_time);
     } else {
-      max_length = math::max(max_length, 10000.0);
+      max_length = math::max(max_length, 80.0);
     }
   }
   return max_length;

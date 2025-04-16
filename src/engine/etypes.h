@@ -35,7 +35,7 @@ struct ClipQueryResult {
   uint32_t last;
   double first_offset;
   double last_offset;
-  
+
   bool right_side_partially_selected(uint32_t id) const {
     return first == id && first_offset > 0.0;
   }
@@ -78,6 +78,12 @@ struct MultiEditResult {
   Vector<Pair<uint32_t, Clip>> deleted_clips;
   Vector<Pair<uint32_t, Clip*>> added_clips;
   Vector<Pair<uint32_t, Clip*>> modified_clips;
+};
+
+struct MidiEditResult {
+  uint32_t track_id;
+  uint32_t clip_id;
+  uint32_t note_id;
 };
 
 }  // namespace wb

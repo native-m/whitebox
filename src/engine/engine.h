@@ -171,6 +171,17 @@ struct Engine {
       double max_pos,
       bool should_update_tracks = true);
 
+  std::optional<MidiEditResult> add_note(
+      uint32_t track_id,
+      uint32_t clip_id,
+      double min_time,
+      double max_time,
+      float velocity,
+      uint16_t note_number,
+      uint16_t channel);
+
+  std::optional<MidiEditResult> delete_note(uint32_t track_id, uint32_t clip_id, uint32_t channel, uint32_t note_id);
+
   void set_clip_gain(Track* track, uint32_t clip_id, float gain);
 
   PluginInterface* add_plugin_to_track(Track* track, PluginUID uid);
