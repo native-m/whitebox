@@ -93,18 +93,23 @@ struct Vector {
   inline bool empty() const {
     return intern_.size == 0;
   }
+  
   inline size_t size() const {
     return intern_.size;
   }
+  
   inline size_t max_size() const {
     return SIZE_MAX / sizeof(T);
   }
+  
   inline size_t capacity() const {
     return intern_.capacity;
   }
+  
   inline T* data() {
     return intern_.data;
   }
+
   inline const T* data() const {
     return intern_.data;
   }
@@ -243,6 +248,26 @@ struct Vector {
     T* new_item = intern_.data + intern_.size;
     intern_.size++;
     return new_item;
+  }
+
+  inline void erase(size_t idx) {
+    if (idx < intern_.size) {
+      T* end_ptr = intern_.data + intern_.size;
+      T* dst_ptr = intern_.data + idx;
+      T* src_ptr = dst_ptr + 1;
+      while (src_ptr < end_ptr) {
+        if constexpr (std::is_move_assignable_v<T>)
+          *dst_ptr++ = std::move(*src_ptr);
+        else if constexpr (std::is_copy_assignable_v<T>)
+          *dst_ptr++ = *src_ptr;
+        src_ptr++;
+      }
+      if constexpr (!std::is_trivially_destructible_v<T>) {
+        T* last_item = end_ptr - 1;
+        last_item->~T();
+      }
+      intern_.size--;
+    }
   }
 
   inline void push_front(const T& item)

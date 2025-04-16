@@ -204,6 +204,35 @@ TEST_CASE("Vector emplace_back") {
   }
 }
 
+TEST_CASE("Vector erase") {
+  SECTION("trivial") {
+    wb::Vector<int> vec;
+    vec.push_back(1);
+    vec.push_back(2);
+    vec.push_back(3);
+    vec.push_back(4);
+    vec.push_back(5);
+    vec.push_back(6);
+    vec.push_back(7);
+    vec.push_back(8);
+    vec.erase(3);
+    REQUIRE(vec[3] == 5);
+    vec.erase(vec.size() - 1);
+    REQUIRE(vec[vec.size() - 1] == 7);
+  }
+
+  SECTION("non-trivial") {
+    wb::Vector<TestType2> vec;
+    vec.emplace_back(1);
+    vec.emplace_back(2);
+    vec.emplace_back(3);
+    vec.emplace_back(4);
+    vec.emplace_back(5);
+    vec.erase(2);
+    REQUIRE(vec[2].a == 4);
+  }
+}
+
 TEST_CASE("Vector reserve & resize") {
   SECTION("Reserve (trivial)") {
     wb::Vector<int> vec;
