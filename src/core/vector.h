@@ -30,11 +30,11 @@ struct Vector {
 
   Vector() noexcept {
   }
-  
+
   Vector(size_t size) {
     resize(size);
   }
-  
+
   Vector(Vector<T>&& other) noexcept : intern_(std::exchange(other.intern_, {})) {
   }
 
@@ -93,19 +93,19 @@ struct Vector {
   inline bool empty() const {
     return intern_.size == 0;
   }
-  
+
   inline size_t size() const {
     return intern_.size;
   }
-  
+
   inline size_t max_size() const {
     return SIZE_MAX / sizeof(T);
   }
-  
+
   inline size_t capacity() const {
     return intern_.capacity;
   }
-  
+
   inline T* data() {
     return intern_.data;
   }
@@ -234,7 +234,7 @@ struct Vector {
 
   template<typename... Args>
   inline T& emplace_back(Args&&... args) {
-    if (intern_.size == intern_.capacity) [[unlikely]] 
+    if (intern_.size == intern_.capacity) [[unlikely]]
       reserve_internal_(grow_capacity_());
     T* new_item = new (intern_.data + intern_.size) T(std::forward<Args>(args)...);
     intern_.size++;
@@ -285,7 +285,7 @@ struct Vector {
   inline void push_back(const T& item)
     requires std::copy_constructible<T>
   {
-    if (intern_.size == intern_.capacity) [[unlikely]] 
+    if (intern_.size == intern_.capacity) [[unlikely]]
       reserve_internal_(grow_capacity_());
     new (intern_.data + intern_.size) T(item);
     intern_.size++;
@@ -294,7 +294,7 @@ struct Vector {
   inline void push_back(T&& item)
     requires std::move_constructible<T>
   {
-    if (intern_.size == intern_.capacity) [[unlikely]] 
+    if (intern_.size == intern_.capacity) [[unlikely]]
       reserve_internal_(grow_capacity_());
     new (intern_.data + intern_.size) T(std::move(item));
     intern_.size++;
@@ -305,6 +305,22 @@ struct Vector {
     intern_.size--;
     if constexpr (!std::is_trivially_destructible_v<T>)
       intern_.data[intern_.size].~T();
+  }
+
+  template<typename It>
+  inline void append(It first, It last) noexcept {
+    if constexpr (std::random_access_iterator<It>) {
+      auto dist = std::distance(first, last);
+      reserve(intern_.size + dist);
+      for (T* dst = intern_.data + intern_.size; first != last; dst++, first++) {
+        new (dst) T(*first);
+      }
+      intern_.size += dist;
+    } else {
+      for (; first != last; first++) {
+        push_back(*first);
+      }
+    }
   }
 
   inline void clear() noexcept {

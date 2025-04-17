@@ -171,7 +171,7 @@ struct Engine {
       double max_pos,
       bool should_update_tracks = true);
 
-  std::optional<MidiEditResult> add_note(
+  MidiEditResult add_note(
       uint32_t track_id,
       uint32_t clip_id,
       double min_time,
@@ -180,7 +180,10 @@ struct Engine {
       uint16_t note_number,
       uint16_t channel);
 
-  std::optional<MidiEditResult> delete_note(uint32_t track_id, uint32_t clip_id, uint32_t channel, uint32_t note_id);
+  MidiEditResult add_note(uint32_t track_id, uint32_t clip_id, uint32_t channel, const Vector<MidiNote>& midi_notes);
+
+
+  MidiEditResult delete_note(uint32_t track_id, uint32_t clip_id, uint32_t channel, const Vector<uint32_t>& note_ids);
 
   void set_clip_gain(Track* track, uint32_t clip_id, float gain);
 

@@ -270,19 +270,19 @@ void Engine::preview_sample(const std::filesystem::path& path) {
   }
 }
 
-TrackEditResult Engine::add_clip_from_file(Track* track, const std::filesystem::path& path, double min_time) {
+TrackEditResult Engine::add_clip_from_file(Track* track, const std::filesystem::path& path, double time_pos) {
   bool is_midi = false;
   Clip* clip = nullptr;
 
   if (SampleAsset* sample_asset = g_sample_table.load_from_file(path)) {
     double sample_rate = (double)sample_asset->sample_instance.sample_rate;
     double clip_length = samples_to_beat(sample_asset->sample_instance.count, sample_rate, beat_duration);
-    double max_time = min_time + math::uround(clip_length * ppq) / ppq;
-    return add_audio_clip(track, path.filename().string(), min_time, max_time, 0.0, { .asset = sample_asset, .gain = 1.0f });
+    double max_time = time_pos + math::uround(clip_length * ppq) / ppq;
+    return add_audio_clip(track, path.filename().string(), time_pos, max_time, 0.0, { .asset = sample_asset, .gain = 1.0f });
   }
 
   if (MidiAsset* midi_asset = g_midi_table.load_from_file(path)) {
-    return add_midi_clip(track, "", min_time, min_time + midi_asset->data.max_length, 0.0, { .asset = midi_asset });
+    return add_midi_clip(track, "", time_pos, time_pos + midi_asset->data.max_length, 0.0, { .asset = midi_asset });
   }
 
   return {};
@@ -1011,7 +1011,7 @@ MultiEditResult Engine::delete_region(
   return result;
 }
 
-std::optional<MidiEditResult> Engine::add_note(
+MidiEditResult Engine::add_note(
     uint32_t track_id,
     uint32_t clip_id,
     double min_time,
@@ -1051,14 +1051,11 @@ std::optional<MidiEditResult> Engine::add_note(
   Vector<uint32_t> modified_notes = asset->data.update_channel(channel);
 
   return MidiEditResult{
-    .track_id = track_id,
-    .clip_id = clip_id,
-    .note_id = !modified_notes.empty() ? modified_notes.front() : 0,
+    .modified_notes = std::move(modified_notes),
   };
 }
 
-
-std::optional<MidiEditResult> Engine::delete_note(uint32_t track_id, uint32_t clip_id, uint32_t channel, uint32_t note_id) {
+MidiEditResult Engine::add_note(uint32_t track_id, uint32_t clip_id, uint32_t channel, const Vector<MidiNote>& midi_notes) {
   if (tracks.size() == 0 || track_id >= tracks.size()) {
     Log::error("move_note(): Invalid track id");
     return {};
@@ -1079,7 +1076,39 @@ std::optional<MidiEditResult> Engine::delete_note(uint32_t track_id, uint32_t cl
   MidiAsset* asset = clip->midi.asset;
   MidiNoteBuffer& buffer = asset->data.channels[channel];
   std::unique_lock lock(editor_lock);
-  buffer.erase(note_id);
+  buffer.append(midi_notes.begin(), midi_notes.end());
+
+  Vector<uint32_t> modified_notes = asset->data.update_channel(channel);
+
+  return {
+    .modified_notes = std::move(modified_notes),
+  };
+}
+
+MidiEditResult Engine::delete_note(uint32_t track_id, uint32_t clip_id, uint32_t channel, const Vector<uint32_t>& note_ids) {
+  if (tracks.size() == 0 || track_id >= tracks.size()) {
+    Log::error("move_note(): Invalid track id");
+    return {};
+  }
+
+  Track* track = tracks[track_id];
+  if (track->clips.size() == 0 || clip_id >= track->clips.size()) {
+    Log::error("move_note(): Cannot find clip");
+    return {};
+  }
+
+  Clip* clip = track->clips[clip_id];
+  if (!clip->is_midi()) {
+    Log::error("move_note(): Clip is not a midi clip");
+    return {};
+  }
+
+  MidiAsset* asset = clip->midi.asset;
+  MidiNoteBuffer& buffer = asset->data.channels[channel];
+  std::unique_lock lock(editor_lock);
+  for (uint32_t id : note_ids) {
+    buffer.erase(id);
+  }
   asset->data.update_channel(channel);
 
   return {};

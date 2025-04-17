@@ -48,6 +48,10 @@ struct ClipEditorWindow : public TimelineBase {
   float last_scroll_pos_y_normalized = 0.0f;
   bool scrolling = false;
   bool zooming_vertically = false;
+  bool holding_shift = false;
+  bool holding_ctrl = false;
+  bool holding_alt = false;
+  bool selecting_notes = false;
   bool force_redraw = false;
   bool redraw = false;
 
@@ -61,10 +65,15 @@ struct ClipEditorWindow : public TimelineBase {
   int new_channel = 1;
   bool use_last_note = true;
   bool repeat_mode = true;
+  bool lock_pitch = true;
 
   PianoRollTool edit_command{};
   double initial_time_pos = 0.0;
+  int32_t initial_key = -1;
   int32_t hovered_key = -1;
+  int32_t min_paint = INT32_MAX;
+  int32_t max_paint = INT32_MIN;
+  Vector<MidiNote> painted_notes;
 
   // debug
   bool display_note_id = false;

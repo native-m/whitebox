@@ -1,6 +1,7 @@
 #include "file_dialog.h"
 
 namespace wb {
+
 void init_file_dialog() {
   NFD::Init();
 }
@@ -38,4 +39,5 @@ std::optional<std::filesystem::path> save_file_dialog(std::initializer_list<nfdu
   }
   return {};
 }
+
 }  // namespace wb

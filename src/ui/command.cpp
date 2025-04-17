@@ -417,13 +417,36 @@ void ClipDeleteCmd2::undo() {
 
 //
 
+void MidiCmd::backup(MidiEditResult&& edit_result) {
+  modified_notes = std::move(edit_result.modified_notes);
+  deleted_notes = std::move(edit_result.deleted_notes);
+}
+
+void MidiCmd::undo(uint32_t track_id, uint32_t clip_id, uint32_t channel) {
+  Track* track = g_engine.tracks[track_id];
+  Clip* clip = track->clips[clip_id];
+  g_engine.delete_note(track_id, clip_id, channel, modified_notes);
+}
+
+//
+
 void MidiAddNoteCmd::execute() {
-  g_engine.add_note(track_id, clip_id, min_time, max_time, velocity, note_key, channel);
+  backup(g_engine.add_note(track_id, clip_id, min_time, max_time, velocity, note_key, channel));
 }
 
 void MidiAddNoteCmd::undo() {
-  g_engine.delete_note(track_id, clip_id, channel, edit_result.note_id);
+  MidiCmd::undo(track_id, clip_id, channel);
   // g_engine.delete_note()
+}
+
+//
+
+void MidiPaintNotesCmd::execute() {
+  backup(g_engine.add_note(track_id, clip_id, channel, notes));
+}
+
+void MidiPaintNotesCmd::undo() {
+  MidiCmd::undo(track_id, clip_id, channel);
 }
 
 }  // namespace wb

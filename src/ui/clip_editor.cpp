@@ -212,6 +212,9 @@ void ClipEditorWindow::render() {
 
         if (piano_roll_tool == PianoRollTool::Paint) {
           ImGui::Checkbox("Repeat mode", &repeat_mode);
+          ImGui::BeginDisabled(!repeat_mode);
+          ImGui::Checkbox("Lock pitch", &lock_pitch);
+          ImGui::EndDisabled();
         }
       }
       ImGui::PopItemWidth();
@@ -370,12 +373,15 @@ void ClipEditorWindow::render_note_editor() {
   bool is_active = ImGui::IsItemActive();
   bool is_activated = ImGui::IsItemActivated();
   bool is_piano_roll_hovered = ImGui::IsItemHovered();
-  bool holding_ctrl = ImGui::IsKeyDown(ImGuiKey_ModCtrl);
   bool left_mouse_clicked = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
   bool left_mouse_down = ImGui::IsMouseDown(ImGuiMouseButton_Left);
   bool middle_mouse_clicked = ImGui::IsMouseClicked(ImGuiMouseButton_Middle);
   bool middle_mouse_down = ImGui::IsMouseDown(ImGuiMouseButton_Middle);
   bool right_mouse_clicked = ImGui::IsMouseDown(ImGuiMouseButton_Right);
+
+  holding_shift = ImGui::IsKeyDown(ImGuiKey_ModShift);
+  holding_ctrl = ImGui::IsKeyDown(ImGuiKey_ModCtrl);
+  holding_alt = ImGui::IsKeyDown(ImGuiKey_ModAlt);
 
   if (is_piano_roll_hovered && mouse_wheel_h != 0.0f) {
     scroll_horizontal(mouse_wheel_h, song_length, -view_scale * 64.0);
@@ -407,13 +413,53 @@ void ClipEditorWindow::render_note_editor() {
   double scroll_pos_x = std::round((min_hscroll * song_length) / view_scale);
   double scroll_offset_x = (double)cursor_pos.x - scroll_pos_x;
   double clip_scale = inv_view_scale;
-  double mouse_at_time_pos = 0.0;
-  double mouse_at_gridline = 0.0;
+  double hovered_position = 0.0;
+  double hovered_position_grid = 0.0;
 
   hovered_key = MidiData::max_notes - (int32_t)((mouse_pos.y - cursor_pos.y) / note_height_in_pixel) - 1;
   if (is_piano_roll_hovered || is_active) {
-    mouse_at_time_pos = ((double)(mouse_pos.x - cursor_pos.x) * view_scale + min_hscroll * song_length);
-    mouse_at_gridline = std::round(mouse_at_time_pos * (double)grid_scale) / (double)grid_scale;
+    hovered_position = ((double)(mouse_pos.x - cursor_pos.x) * view_scale + min_hscroll * song_length);
+    hovered_position_grid = std::round(hovered_position * (double)grid_scale) / (double)grid_scale;
+  }
+
+
+  // Release action
+  if (!is_active && edit_command != PianoRollTool::None) {
+    // NOTE(native-m):
+    // Any edits will not be applied until the action is released.
+    switch (edit_command) {
+      case PianoRollTool::Draw: {
+        MidiAddNoteCmd* cmd = new MidiAddNoteCmd();
+        cmd->track_id = current_track_id.value();
+        cmd->clip_id = current_clip_id.value();
+        cmd->min_time = hovered_position_grid;
+        cmd->max_time = hovered_position_grid + new_length;
+        cmd->velocity = new_velocity / 127.0f;
+        cmd->note_key = hovered_key;
+        cmd->channel = 0;
+        g_cmd_manager.execute("Add note", cmd);
+        g_timeline.redraw_screen();
+        break;
+      }
+      case PianoRollTool::Paint: {
+        MidiPaintNotesCmd* cmd = new MidiPaintNotesCmd();
+        cmd->track_id = current_track_id.value();
+        cmd->clip_id = current_clip_id.value();
+        cmd->notes = std::move(painted_notes);
+        cmd->channel = 0;
+        g_cmd_manager.execute("Paint note", cmd);
+        g_timeline.redraw_screen();
+        break;
+      }
+    }
+    edit_command = PianoRollTool::None;
+    initial_time_pos = 0.0;
+    initial_key = -1;
+    min_paint = INT32_MAX;
+    max_paint = INT32_MIN;
+    if (!painted_notes.empty()) {
+      painted_notes.resize(0);
+    }
   }
 
   // Draw guidestripes & grid
@@ -558,42 +604,61 @@ void ClipEditorWindow::render_note_editor() {
   }
 
   // Activate action
-  if (is_activated && left_mouse_clicked && edit_command == PianoRollTool::None) {
+  if (!holding_ctrl && is_activated && edit_command == PianoRollTool::None) {
     edit_command = hovered_note_id.has_value() ? PianoRollTool::Move : piano_roll_tool;
-    initial_time_pos = mouse_at_gridline;
+    initial_time_pos = hovered_position_grid;
+    initial_key = hovered_key;
   }
 
   if (edit_command == PianoRollTool::Draw) {
     uint16_t key = math::clamp(hovered_key, 0, (int32_t)MidiData::max_notes);
-    double min_time = math::max(mouse_at_gridline, 0.0);
-    double max_time = mouse_at_gridline + new_length;
+    double min_time = math::max(hovered_position_grid, 0.0);
+    double max_time = hovered_position_grid + new_length;
     float min_pos_x = (float)math::round(scroll_offset_x + min_time * clip_scale);
     float max_pos_x = (float)math::round(scroll_offset_x + max_time * clip_scale);
     draw_note.operator()<false>(min_pos_x, max_pos_x, new_velocity, 0, key);
     ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
   } else if (edit_command == PianoRollTool::Paint) {
-  
-  }
+    uint16_t key = lock_pitch ? initial_key : math::clamp(hovered_key, 0, (int32_t)MidiData::max_notes);
+    double relative_pos = hovered_position_grid - initial_time_pos;
+    int32_t paint_pos = (int32_t)std::floor(relative_pos / (double)new_length);
 
-  // Release action
-  if (!is_active && edit_command != PianoRollTool::None) {
-    switch (edit_command) {
-      case PianoRollTool::Draw: {
-        MidiAddNoteCmd* cmd = new MidiAddNoteCmd();
-        cmd->track_id = current_track_id.value();
-        cmd->clip_id = current_clip_id.value();
-        cmd->min_time = mouse_at_gridline;
-        cmd->max_time = mouse_at_gridline + new_length;
-        cmd->velocity = new_velocity / 127.0f;
-        cmd->note_key = hovered_key;
-        cmd->channel = 0;
-        g_cmd_manager.execute("Add note", cmd);
-        g_timeline.redraw_screen();
-        break;
-      }
+    if (paint_pos < min_paint) {
+      // Put notes on the front
+      double time_pos = initial_time_pos + (double)new_length * (double)paint_pos;
+      min_paint = paint_pos;
+      painted_notes.emplace_at(
+          0,
+          MidiNote{
+            .min_time = time_pos,
+            .max_time = time_pos + (double)new_length,
+            .key = key,
+            .flags = MidiNoteFlags::Modified,
+            .velocity = new_velocity / 127.0f,
+          });
+    } else if (paint_pos > max_paint) {
+      // Put notes on the back
+      double time_pos = initial_time_pos + (double)new_length * (double)paint_pos;
+      max_paint = paint_pos;
+      painted_notes.push_back(MidiNote{
+        .min_time = time_pos,
+        .max_time = time_pos + (double)new_length,
+        .key = key,
+        .flags = MidiNoteFlags::Modified,
+        .velocity = new_velocity / 127.0f,
+      });
     }
-    edit_command = PianoRollTool::None;
-    initial_time_pos = 0.0;
+
+    // Draw painted notes
+    for (auto& note : painted_notes) {
+      float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * clip_scale);
+      float max_pos_x = (float)math::round(scroll_offset_x + note.max_time * clip_scale);
+      if (max_pos_x < cursor_pos.x)
+        continue;
+      if (min_pos_x > end_x)
+        break;
+      draw_note.operator()<false>(min_pos_x, max_pos_x, note.velocity, note.id, note.key);
+    }
   }
 
   if (hovered_note_id && false) {

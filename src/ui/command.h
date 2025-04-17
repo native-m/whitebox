@@ -212,8 +212,15 @@ struct ClipDeleteCmd2 : public ClipCmd {
   void undo() override;
 };
 
-struct MidiAddNoteCmd : public ClipCmd {
-  MidiEditResult edit_result;
+struct MidiCmd : public Command {
+  Vector<uint32_t> modified_notes;
+  Vector<MidiNote> deleted_notes;
+
+  void backup(MidiEditResult&& edit_result);
+  void undo(uint32_t track_id, uint32_t clip_id, uint32_t channel);
+};
+
+struct MidiAddNoteCmd : public MidiCmd {
   uint32_t track_id;
   uint32_t clip_id;
   double min_time;
@@ -222,6 +229,16 @@ struct MidiAddNoteCmd : public ClipCmd {
   uint16_t note_key;
   uint16_t channel;
   
+  void execute() override;
+  void undo() override;
+};
+
+struct MidiPaintNotesCmd : public MidiCmd {
+  uint32_t track_id;
+  uint32_t clip_id;
+  Vector<MidiNote> notes;
+  uint16_t channel;
+
   void execute() override;
   void undo() override;
 };
