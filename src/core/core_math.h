@@ -139,6 +139,10 @@ inline static constexpr bool is_multiple_of(T x, T mult) {
   return (x % mult) == 0;
 }
 
+inline double note_to_hz(uint16_t note_number) {
+  return 440.0f * std::exp2((double)(note_number - 69) / 12.0);
+}
+
 }  // namespace math
 
 template<typename T, typename V>

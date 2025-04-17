@@ -1,7 +1,6 @@
 #pragma once
 
 #include <array>
-#include <filesystem>
 
 #include "common.h"
 #include "math.h"
@@ -54,13 +53,7 @@ struct MidiData {
   Vector<uint32_t> update_channel(uint16_t channel);
 };
 
-bool load_notes_from_file(MidiData& result, const std::filesystem::path& path);
-double get_midi_file_content_length(const std::filesystem::path& path);
 const char* get_midi_note_scale(uint16_t key);
 int get_midi_note_octave(uint16_t key);
-
-static inline double get_midi_frequency(uint16_t note_number) {
-  return 440.0f * std::exp2((double)(note_number - 69) / 12.0);
-}
 
 }  // namespace wb

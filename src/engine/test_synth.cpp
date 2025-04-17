@@ -1,4 +1,5 @@
 #include "test_synth.h"
+#include "core/core_math.h"
 
 namespace wb {
 
@@ -11,7 +12,7 @@ void TestSynth::add_voice(const MidiEvent& voice) {
   // std::uniform_real_distribution<double> dis(0.0, 2.0);
   voices[free_voice] = {
     .phase = 0.0,
-    .frequency = get_midi_frequency(voice.note_on.key),
+    .frequency = math::note_to_hz(voice.note_on.key),
     .volume = voice.note_on.velocity,
     .amp = 1.0f,
     .note_number = voice.note_on.key,
@@ -45,7 +46,7 @@ void TestSynth::render(AudioBuffer<float>& output_buffer, double sample_rate, ui
       double osc = voice.phase >= 1.0 ? 1.0f : -1.0f;
       sample += (float)osc * voice.amp * voice.volume * 0.5f;
       voice.phase += voice.frequency / sample_rate;
-      voice.amp = std::max(voice.amp - env_speed, 0.0f);
+      voice.amp = math::max(voice.amp - env_speed, 0.0f);
       if (voice.phase >= 2.0)
         voice.phase -= 2.0;
     }

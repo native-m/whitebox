@@ -2,7 +2,7 @@
 
 #include "core/algorithm.h"
 #include "core/debug.h"
-#include "core/midi.h"
+#include "core/midi_file.h"
 #include "extern/xxhash.h"
 
 namespace wb {
