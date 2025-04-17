@@ -84,6 +84,10 @@ inline void im_draw_rect_filled(ImDrawList* dl, float x0, float y0, float x1, fl
   dl->AddRectFilled(ImVec2(x0, y0), ImVec2(x1, y1), col, rounding);
 }
 
+inline void im_draw_rect(ImDrawList* dl, float x0, float y0, float x1, float y1, ImU32 col, float rounding = 0.0f) {
+  dl->AddRect(ImVec2(x0, y0), ImVec2(x1, y1), col, rounding);
+}
+
 inline void im_draw_box_filled(ImDrawList* dl, float x, float y, float w, float h, ImU32 col, float rounding = 0.0f) {
   dl->AddRectFilled(ImVec2(x, y), ImVec2(x + w, y + h), col, rounding);
 }
@@ -98,6 +102,41 @@ inline void im_draw_hline(ImDrawList* dl, float y, float x0, float x1, ImU32 col
 
 inline void im_draw_vline(ImDrawList* dl, float x, float y0, float y1, ImU32 col, float thickness = 1.0f) {
   dl->AddLine({ x, y0 }, { x, y1 }, col, thickness);
+}
+
+inline void im_draw_simple_quad(
+    ImDrawList* dl,
+    const ImVec2& a,
+    const ImVec2& b,
+    const ImVec2& c,
+    const ImVec2& d,
+    const ImVec2& uv,
+    ImU32 col) {
+  dl->PrimReserve(6, 4);
+  ImDrawVert* vtx_write_ptr = dl->_VtxWritePtr;
+  uint32_t* idx_write_ptr = dl->_IdxWritePtr;
+  ImDrawIdx idx = dl->_VtxCurrentIdx;
+  idx_write_ptr[0] = idx;
+  idx_write_ptr[1] = (ImDrawIdx)(idx + 1);
+  idx_write_ptr[2] = (ImDrawIdx)(idx + 2);
+  idx_write_ptr[3] = idx;
+  idx_write_ptr[4] = (ImDrawIdx)(idx + 2);
+  idx_write_ptr[5] = (ImDrawIdx)(idx + 3);
+  vtx_write_ptr[0].pos = a;
+  vtx_write_ptr[0].uv = uv;
+  vtx_write_ptr[0].col = col;
+  vtx_write_ptr[1].pos = b;
+  vtx_write_ptr[1].uv = uv;
+  vtx_write_ptr[1].col = col;
+  vtx_write_ptr[2].pos = c;
+  vtx_write_ptr[2].uv = uv;
+  vtx_write_ptr[2].col = col;
+  vtx_write_ptr[3].pos = d;
+  vtx_write_ptr[3].uv = uv;
+  vtx_write_ptr[3].col = col;
+  dl->_VtxCurrentIdx += 4;
+  dl->_VtxWritePtr += 4;
+  dl->_IdxWritePtr += 6;
 }
 
 ImVec2 im_draw_simple_text(ImDrawList* draw_list, const char* text, ImVec2 pos, ImU32 text_color);

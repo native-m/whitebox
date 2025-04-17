@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core/common.h"
-#include "core/vector.h"
+#include "core/midi.h"
 
 namespace wb {
 
@@ -81,9 +81,8 @@ struct MultiEditResult {
 };
 
 struct MidiEditResult {
-  uint32_t track_id;
-  uint32_t clip_id;
-  uint32_t note_id;
+  Vector<uint32_t> modified_notes;
+  Vector<MidiNote> deleted_notes;
 };
 
 }  // namespace wb

@@ -422,6 +422,31 @@ void ClipEditorWindow::render_note_editor() {
     hovered_position_grid = std::round(hovered_position * (double)grid_scale) / (double)grid_scale;
   }
 
+  if (holding_ctrl && is_activated && edit_command == PianoRollTool::None) {
+    selection_start_pos = hovered_position;
+    first_selected_key = hovered_key;
+    selecting_notes = true;
+    Log::debug("Start selection");
+  }
+
+  if (!is_active && selecting_notes) {
+    selection_end_pos = hovered_position;
+    last_selected_key = hovered_key;
+    if (last_selected_key < first_selected_key) {
+      std::swap(last_selected_key, first_selected_key);
+    }
+    if (selection_start_pos < selection_end_pos) {
+      std::swap(selection_start_pos, selection_end_pos);
+    }
+    query_selected_range();
+    selecting_notes = false;
+    Log::debug("End selection");
+  }
+
+  if (selecting_notes) {
+    selection_end_pos = hovered_position;
+    last_selected_key = hovered_key;
+  }
 
   // Release action
   if (!is_active && edit_command != PianoRollTool::None) {
@@ -661,6 +686,21 @@ void ClipEditorWindow::render_note_editor() {
     }
   }
 
+  if (selecting_notes) {
+    static const ImU32 selection_range_fill = Color(28, 150, 237, 72).to_uint32();
+    static const ImU32 selection_range_border = Color(28, 150, 237, 255).to_uint32();
+    double start_pos = math::min(selection_start_pos, selection_end_pos);
+    double end_pos = math::max(selection_start_pos, selection_end_pos);
+    uint32_t first_key = math::max(first_selected_key, last_selected_key);
+    uint32_t last_key = math::min(first_selected_key, last_selected_key);
+    float a_x = (float)math::round(scroll_offset_x + start_pos * clip_scale);
+    float b_x = (float)math::round(scroll_offset_x + end_pos * clip_scale);
+    float a_y = (float)(131 - first_key) * note_height_in_pixel;
+    float b_y = (float)(131 - last_key + 1) * note_height_in_pixel;
+    im_draw_rect_filled(dl, a_x, a_y + cursor_pos.y, b_x, b_y + cursor_pos.y, selection_range_fill);
+    im_draw_rect(dl, a_x, a_y + cursor_pos.y, b_x, b_y + cursor_pos.y, selection_range_border);
+  }
+
   if (hovered_note_id && false) {
     ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
     Log::debug("{}", hovered_note_id.value());
@@ -749,6 +789,9 @@ void ClipEditorWindow::draw_piano_keys(ImDrawList* draw_list, ImVec2& pos, const
   im_draw_simple_text(draw_list, note_name, ImVec2(pos.x + 4.0f, note_pos.y - font->FontSize - 4.0f), 0xFFFFFFFF);
   im_draw_hline(draw_list, note_pos.y - 1.0f, pos.x, pos.x + half_size.x, separator);
   pos.y = note_pos.y;
+}
+
+void ClipEditorWindow::query_selected_range() {
 }
 
 void ClipEditorWindow::zoom_vertically(float mouse_pos_y, float height, float mouse_wheel) {

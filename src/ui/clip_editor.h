@@ -52,8 +52,14 @@ struct ClipEditorWindow : public TimelineBase {
   bool holding_ctrl = false;
   bool holding_alt = false;
   bool selecting_notes = false;
+  bool notes_selected = false;
   bool force_redraw = false;
   bool redraw = false;
+
+  double selection_start_pos = 0.0;
+  double selection_end_pos = 0.0;
+  uint32_t first_selected_key = 0;
+  uint32_t last_selected_key = 0;
 
   PianoRollTool piano_roll_tool = PianoRollTool::Draw;
   bool triplet_grid = false;
@@ -89,6 +95,7 @@ struct ClipEditorWindow : public TimelineBase {
   void render_event_editor();
   void draw_piano_keys(ImDrawList* draw_list, ImVec2& pos, const ImVec2& note_size, uint32_t oct);
   void draw_note(ImDrawList* draw_list, double min_time, double max_time, uint16_t key);
+  void query_selected_range();
   void zoom_vertically(float mouse_pos_y, float height, float mouse_wheel);
 };
 
