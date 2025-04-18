@@ -671,7 +671,7 @@ void ClipEditorWindow::render_note_editor() {
   }
 
   // Activate action
-  if (!holding_ctrl && left_mouse_clicked && edit_command == PianoRollTool::None) {
+  if (!holding_ctrl && is_activated && left_mouse_clicked && edit_command == PianoRollTool::None) {
     edit_command = hovered_note_id.has_value() ? PianoRollTool::Move : piano_roll_tool;
     initial_time_pos = hovered_position_grid;
     initial_key = hovered_key;
