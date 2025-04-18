@@ -77,7 +77,7 @@ struct ClipEditorWindow : public TimelineBase {
   double initial_time_pos = 0.0;
   int32_t initial_key = -1;
   int32_t hovered_key = -1;
-  int32_t min_paint = INT32_MAX;
+  int32_t min_paint = 1;
   int32_t max_paint = INT32_MIN;
   Vector<MidiNote> painted_notes;
 
