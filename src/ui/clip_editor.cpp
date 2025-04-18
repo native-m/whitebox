@@ -185,7 +185,7 @@ void ClipEditorWindow::render() {
 
         ImGui::SliderInt("##note_ch", &new_channel, 1, 16, "Note channel: %d");
         ImGui::SliderFloat("##note_velocity", &new_velocity, 0.0f, 127.0f, "Note velocity: %.1f");
-        ImGui::DragFloat("##note_length", &new_length, 0.1f, 0.125f, 8.0f, "Note length: %.1f");
+        ImGui::DragFloat("##note_length", &new_length, 0.1f, 0.125f, 8.0f, "Note length: %.1f bar");
 
         /*const char* note_length_str;
         if (new_length < 0) {
@@ -407,6 +407,34 @@ void ClipEditorWindow::render_note_editor() {
     scroll_delta_y = 0.0f;
   }
 
+  if (edit_command != PianoRollTool::None) {
+    static constexpr float speed = 0.1f;
+    static constexpr float drag_offset_x = 20.0f;
+    static constexpr float drag_offset_y = 40.0f;
+    float min_offset_x = view_min.x;
+    float max_offset_x = view_max.x;
+    float min_offset_y = view_min.y;
+    float max_offset_y = view_max.y;
+
+    // Scroll automatically when dragging stuff
+    if (mouse_pos.x < min_offset_x) {
+      float distance = min_offset_x - mouse_pos.x;
+      scroll_horizontal(distance * speed, song_length, -view_scale);
+    }
+    if (mouse_pos.x > max_offset_x) {
+      float distance = max_offset_x - mouse_pos.x;
+      scroll_horizontal(distance * speed, song_length, -view_scale);
+    }
+    if (mouse_pos.y < min_offset_y) {
+      float distance = min_offset_y - mouse_pos.y;
+      scroll_delta_y = distance * speed;
+    }
+    if (mouse_pos.y > max_offset_y) {
+      float distance = max_offset_y - mouse_pos.y;
+      scroll_delta_y = distance * speed;
+    }
+  }
+
   ImVec2 area_size = ImVec2(timeline_width, region_size.y);
   ImU32 guidestrip_color = Color(ImGui::GetColorU32(ImGuiCol_Separator)).change_alpha(0.13f).to_uint32();
   ImU32 grid_color = Color(ImGui::GetColorU32(ImGuiCol_Separator)).change_alpha(0.55f).to_uint32();
@@ -585,10 +613,10 @@ void ClipEditorWindow::render_note_editor() {
         }
         note_text_padding_y = 2.0f;
       } else {
-          note_text_padding_y = half_note_size - half_font_size;
-        }
+        note_text_padding_y = half_note_size - half_font_size;
+      }
 
-      // Draw note text
+      // Draw note pitch
       ImVec4 label_rect(a.x, a.y, b.x - 4.0f, b.y);
       char note_name[5]{};
       const char* scale = note_scale[key % 12];
@@ -628,6 +656,7 @@ void ClipEditorWindow::render_note_editor() {
     return command;
   };
 
+  // Draw them notes
   for (auto midi_data = current_clip->midi.asset; auto& note : midi_data->data.channels[0]) {
     float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * clip_scale);
     float max_pos_x = (float)math::round(scroll_offset_x + note.max_time * clip_scale);
@@ -642,7 +671,7 @@ void ClipEditorWindow::render_note_editor() {
   }
 
   // Activate action
-  if (!holding_ctrl && is_activated && edit_command == PianoRollTool::None) {
+  if (!holding_ctrl && left_mouse_clicked && edit_command == PianoRollTool::None) {
     edit_command = hovered_note_id.has_value() ? PianoRollTool::Move : piano_roll_tool;
     initial_time_pos = hovered_position_grid;
     initial_key = hovered_key;
