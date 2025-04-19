@@ -1040,13 +1040,15 @@ MidiEditResult Engine::add_note(
   MidiNoteBuffer& buffer = asset->data.channels[channel];
   std::unique_lock lock(editor_lock);
 
-  buffer.push_back({
+  MidiNote* note = buffer.emplace_back_raw();
+  new (note) MidiNote{
     .min_time = min_time,
     .max_time = max_time,
     .key = note_key,
     .flags = MidiNoteFlags::Modified,
     .velocity = velocity,
-  });
+  };
+  asset->data.create_metadata(note, 1);
 
   Vector<uint32_t> modified_notes = asset->data.update_channel(channel);
 
@@ -1076,8 +1078,8 @@ MidiEditResult Engine::add_note(uint32_t track_id, uint32_t clip_id, uint32_t ch
   MidiAsset* asset = clip->midi.asset;
   MidiNoteBuffer& buffer = asset->data.channels[channel];
   std::unique_lock lock(editor_lock);
-  buffer.append(midi_notes.begin(), midi_notes.end());
-
+  MidiNote* added_notes = buffer.append(midi_notes.begin(), midi_notes.end());
+  asset->data.create_metadata(added_notes, midi_notes.size());
   Vector<uint32_t> modified_notes = asset->data.update_channel(channel);
 
   return {
@@ -1105,10 +1107,17 @@ MidiEditResult Engine::delete_note(uint32_t track_id, uint32_t clip_id, uint32_t
 
   MidiAsset* asset = clip->midi.asset;
   MidiNoteBuffer& buffer = asset->data.channels[channel];
+  MidiNoteMetadataPool& metadata_pool = asset->data.note_metadata_pool;
   std::unique_lock lock(editor_lock);
+  uint32_t num_erased = 0;
+
   for (uint32_t id : note_ids) {
-    buffer.erase(id);
+    MidiNoteMetadata& metadata = metadata_pool[id];
+    buffer.erase(metadata.data_id - num_erased);
+    asset->data.free_metadata(id);
+    num_erased++;
   }
+
   asset->data.update_channel(channel);
 
   return {};

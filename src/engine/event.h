@@ -1,12 +1,12 @@
 #pragma once
 
-#include "clip.h"
+// #include "clip.h"
 #include "core/common.h"
-#include "core/midi.h"
 
 namespace wb {
 
 struct Clip;
+struct Sample;
 
 enum class EventType {
   None,

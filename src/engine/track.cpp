@@ -546,7 +546,7 @@ void Track::process_midi_event(
         "{}{}",
         get_midi_note_scale(note.key),
         get_midi_note_octave(note.key));
-    Log::debug("Note on: {} {} {} -> {} at {}", note.id, note_str, min_time, max_time, buffer_offset);
+    Log::debug("Note on: {} {} -> {} at {}", note_str, min_time, max_time, buffer_offset);
 #endif
 
     midi_note_idx++;

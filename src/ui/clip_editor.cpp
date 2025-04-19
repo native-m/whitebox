@@ -667,7 +667,7 @@ void ClipEditorWindow::render_note_editor() {
       break;
 
     // Can't directly call with function call syntax :'(
-    draw_note.operator()<true>(min_pos_x, max_pos_x, note.velocity, note.id, note.key);
+    draw_note.operator()<true>(min_pos_x, max_pos_x, note.velocity, note.meta_id, note.key);
   }
 
   // Activate action
@@ -731,10 +731,10 @@ void ClipEditorWindow::render_note_editor() {
       float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * clip_scale);
       float max_pos_x = (float)math::round(scroll_offset_x + note.max_time * clip_scale);
       if (max_pos_x < cursor_pos.x)
-        continue;
-      if (min_pos_x > end_x)
+          continue;
+        if (min_pos_x > end_x)
           break;
-        draw_note.operator()<false>(min_pos_x, max_pos_x, note.velocity, note.id, note.key);
+        draw_note.operator()<false>(min_pos_x, max_pos_x, note.velocity, 0, note.key);
       }
     } else {
       double min_time = math::max(initial_time_pos, 0.0);
@@ -745,6 +745,7 @@ void ClipEditorWindow::render_note_editor() {
     }
   }
 
+  // Display selection rectangle
   if (selecting_notes) {
     static const ImU32 selection_range_fill = Color(28, 150, 237, 72).to_uint32();
     static const ImU32 selection_range_border = Color(28, 150, 237, 255).to_uint32();

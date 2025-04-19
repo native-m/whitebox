@@ -241,7 +241,6 @@ struct Vector {
     return *new_item;
   }
 
-  template<typename... Args>
   inline T* emplace_back_raw() {
     [[unlikely]] if (intern_.size == intern_.capacity)
       reserve_internal_(grow_capacity_());
@@ -308,7 +307,8 @@ struct Vector {
   }
 
   template<typename It>
-  inline void append(It first, It last) noexcept {
+  inline T* append(It first, It last) noexcept {
+    size_t old_size = intern_.size;
     if constexpr (std::random_access_iterator<It>) {
       auto dist = std::distance(first, last);
       reserve(intern_.size + dist);
@@ -321,6 +321,7 @@ struct Vector {
         push_back(*first);
       }
     }
+    return intern_.data + old_size;
   }
 
   inline void clear() noexcept {

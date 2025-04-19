@@ -4,6 +4,7 @@
 #include "event.h"
 
 namespace wb {
+
 struct MidiEventList {
   Vector<MidiEvent> events;
   inline uint32_t size() const {
@@ -25,4 +26,5 @@ struct MidiEventList {
     events.resize(0);
   }
 };
+
 }  // namespace wb

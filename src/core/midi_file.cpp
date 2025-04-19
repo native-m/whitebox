@@ -74,7 +74,6 @@ bool load_notes_from_file(MidiData& result, const std::filesystem::path& path) {
             notes.push_back(MidiNote{
               .min_time = min_time,
               .max_time = max_time,
-              .id = note_id++,
               .key = parser.midi.param1,
               .velocity = state.velocity,
             });
