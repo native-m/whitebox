@@ -107,7 +107,7 @@ void ClipEditorWindow::render() {
       ImGui::EndMenuBar();
     }
 
-    const ImVec4 tool_select_color =
+    const ImVec4 selected_tool_color =
         ImGui::ColorConvertU32ToFloat4(Color(ImGui::GetStyleColorVec4(ImGuiCol_Button)).brighten(0.15f).to_uint32());
 
     if (current_clip->is_midi()) {
@@ -134,6 +134,7 @@ void ClipEditorWindow::render() {
       ImGui::Separator();
 
       bool draw_tool = piano_roll_tool == PianoRollTool::Draw;
+      bool marker_tool = piano_roll_tool == PianoRollTool::Marker;
       bool paint_tool = piano_roll_tool == PianoRollTool::Paint;
       bool slice_tool = piano_roll_tool == PianoRollTool::Slice;
       bool erase_tool = piano_roll_tool == PianoRollTool::Erase;
@@ -143,31 +144,37 @@ void ClipEditorWindow::render() {
       ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0f);
       ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(3.0f, 1.0f));
 
-      if (controls::toggle_button(ICON_MS_STYLUS "##pr_draw", draw_tool, tool_select_color)) {
+      if (controls::toggle_button(ICON_MS_STYLUS "##pr_draw", draw_tool, selected_tool_color)) {
         piano_roll_tool = PianoRollTool::Draw;
       }
       controls::item_tooltip("Draw tool");
       ImGui::SameLine(0.0f, 0.0f);
 
-      if (controls::toggle_button(ICON_MS_BORDER_COLOR "##pr_paint", paint_tool, tool_select_color)) {
+      if (controls::toggle_button(ICON_MS_INK_HIGHLIGHTER_MOVE "##pr_marker", marker_tool, selected_tool_color)) {
+        piano_roll_tool = PianoRollTool::Marker;
+      }
+      controls::item_tooltip("Marker tool");
+      ImGui::SameLine(0.0f, 0.0f);
+
+      if (controls::toggle_button(ICON_MS_DRAW "##pr_paint", paint_tool, selected_tool_color)) {
         piano_roll_tool = PianoRollTool::Paint;
       }
       controls::item_tooltip("Paint tool");
       ImGui::SameLine(0.0f, 0.0f);
 
-      if (controls::toggle_button(ICON_MS_SPLIT_SCENE "##pr_slice", slice_tool, tool_select_color)) {
+      if (controls::toggle_button(ICON_MS_SPLIT_SCENE "##pr_slice", slice_tool, selected_tool_color)) {
         piano_roll_tool = PianoRollTool::Slice;
       }
       controls::item_tooltip("Slice tool");
       ImGui::SameLine(0.0f, 0.0f);
 
-      if (controls::toggle_button(ICON_MS_INK_ERASER "##pr_erase", erase_tool, tool_select_color)) {
+      if (controls::toggle_button(ICON_MS_INK_ERASER "##pr_erase", erase_tool, selected_tool_color)) {
         piano_roll_tool = PianoRollTool::Erase;
       }
       controls::item_tooltip("Erase tool");
       ImGui::SameLine(0.0f, 0.0f);
 
-      if (controls::toggle_button(ICON_MS_MUSIC_OFF "##pr_mute", mute_tool, tool_select_color)) {
+      if (controls::toggle_button(ICON_MS_MUSIC_OFF "##pr_mute", mute_tool, selected_tool_color)) {
         piano_roll_tool = PianoRollTool::Mute;
       }
       controls::item_tooltip("Mute tool");
@@ -177,15 +184,20 @@ void ClipEditorWindow::render() {
 
       ImGui::Checkbox("Use last selected note", &use_last_note);
       ImGui::PushItemWidth(-FLT_MIN);
-      if (piano_roll_tool == PianoRollTool::Draw || piano_roll_tool == PianoRollTool::Paint) {
+      if (any_of(piano_roll_tool, PianoRollTool::Draw, PianoRollTool::Marker, PianoRollTool::Paint)) {
         switch (piano_roll_tool) {
           case PianoRollTool::Draw: ImGui::TextUnformatted("Draw tool:"); break;
+          case PianoRollTool::Marker: ImGui::TextUnformatted("Marker tool:"); break;
           case PianoRollTool::Paint: ImGui::TextUnformatted("Paint tool:"); break;
         }
 
         ImGui::SliderInt("##note_ch", &new_channel, 1, 16, "Note channel: %d");
         ImGui::SliderFloat("##note_velocity", &new_velocity, 0.0f, 127.0f, "Note velocity: %.1f");
-        ImGui::DragFloat("##note_length", &new_length, 0.1f, 0.125f, 8.0f, "Note length: %.1f bar");
+
+        if (piano_roll_tool != PianoRollTool::Marker) {
+          ImGui::DragFloat(
+              "##note_length", &new_length, 0.1f, 0.125f, 8.0f, "Note length: %.1f bar", ImGuiSliderFlags_Vertical);
+        }
 
         /*const char* note_length_str;
         if (new_length < 0) {
@@ -211,10 +223,7 @@ void ClipEditorWindow::render() {
         }*/
 
         if (piano_roll_tool == PianoRollTool::Paint) {
-          ImGui::Checkbox("Repeat mode", &repeat_mode);
-          ImGui::BeginDisabled(!repeat_mode);
           ImGui::Checkbox("Lock pitch", &lock_pitch);
-          ImGui::EndDisabled();
         }
       }
       ImGui::PopItemWidth();
@@ -490,34 +499,32 @@ void ClipEditorWindow::render_note_editor() {
         cmd->velocity = new_velocity / 127.0f;
         cmd->note_key = hovered_key;
         cmd->channel = 0;
-        g_cmd_manager.execute("Add note", cmd);
-        g_timeline.redraw_screen();
+        g_cmd_manager.execute("Clip editor: Draw tool", cmd);
+        break;
+      }
+      case PianoRollTool::Marker: {
+        MidiAddNoteCmd* cmd = new MidiAddNoteCmd();
+        cmd->track_id = current_track_id.value();
+        cmd->clip_id = current_clip_id.value();
+        cmd->min_time = initial_time_pos;
+        cmd->max_time = math::max(hovered_position_grid, initial_time_pos);
+        cmd->velocity = new_velocity / 127.0f;
+        cmd->note_key = initial_key;
+        cmd->channel = 0;
+        g_cmd_manager.execute("Clip editor: Marker tool", cmd);
         break;
       }
       case PianoRollTool::Paint: {
-        if (repeat_mode) {
-          MidiPaintNotesCmd* cmd = new MidiPaintNotesCmd();
-          cmd->track_id = current_track_id.value();
-          cmd->clip_id = current_clip_id.value();
-          cmd->notes = std::move(painted_notes);
-          cmd->channel = 0;
-          g_cmd_manager.execute("Paint note", cmd);
-        } else {
-          MidiAddNoteCmd* cmd = new MidiAddNoteCmd();
-          cmd->track_id = current_track_id.value();
-          cmd->clip_id = current_clip_id.value();
-          cmd->min_time = initial_time_pos;
-          cmd->max_time = math::max(hovered_position_grid, initial_time_pos);
-          cmd->velocity = new_velocity / 127.0f;
-          cmd->note_key = initial_key;
-          cmd->channel = 0;
-          g_cmd_manager.execute("Paint note", cmd);
-        }
-        g_timeline.redraw_screen();
-        Log::debug("------ Paint end ------");
+        MidiPaintNotesCmd* cmd = new MidiPaintNotesCmd();
+        cmd->track_id = current_track_id.value();
+        cmd->clip_id = current_clip_id.value();
+        cmd->notes = std::move(painted_notes);
+        cmd->channel = 0;
+        g_cmd_manager.execute("Clip eidtor: Paint tool", cmd);
         break;
       }
     }
+    g_timeline.redraw_screen();
     edit_command = PianoRollTool::None;
     initial_time_pos = 0.0;
     initial_key = -1;
@@ -686,11 +693,16 @@ void ClipEditorWindow::render_note_editor() {
     float max_pos_x = (float)math::round(scroll_offset_x + max_time * clip_scale);
     draw_note.operator()<false>(min_pos_x, max_pos_x, new_velocity, 0, key);
     ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+  } else if (edit_command == PianoRollTool::Marker) {
+    double min_time = math::max(initial_time_pos, 0.0);
+    double max_time = math::max(hovered_position_grid, min_time);
+    float min_pos_x = (float)math::round(scroll_offset_x + min_time * clip_scale);
+    float max_pos_x = (float)math::round(scroll_offset_x + max_time * clip_scale);
+    draw_note.operator()<false>(min_pos_x, max_pos_x, new_velocity, 0, initial_key);
   } else if (edit_command == PianoRollTool::Paint) {
-    if (repeat_mode) {
-      uint16_t key = lock_pitch ? initial_key : math::clamp(hovered_key, 0, (int32_t)MidiData::max_notes);
-      double relative_pos = hovered_position_grid - initial_time_pos;
-      int32_t paint_pos = (int32_t)std::floor(relative_pos / (double)new_length);
+    uint16_t key = lock_pitch ? initial_key : math::clamp(hovered_key, 0, (int32_t)MidiData::max_notes);
+    double relative_pos = hovered_position_grid - initial_time_pos;
+    int32_t paint_pos = (int32_t)std::floor(relative_pos / (double)new_length);
 
       if (paint_pos < min_paint) {
         // Put notes on the front
@@ -733,15 +745,8 @@ void ClipEditorWindow::render_note_editor() {
       if (max_pos_x < cursor_pos.x)
           continue;
         if (min_pos_x > end_x)
-          break;
-        draw_note.operator()<false>(min_pos_x, max_pos_x, note.velocity, 0, note.key);
-      }
-    } else {
-      double min_time = math::max(initial_time_pos, 0.0);
-      double max_time = math::max(hovered_position_grid, min_time);
-      float min_pos_x = (float)math::round(scroll_offset_x + min_time * clip_scale);
-      float max_pos_x = (float)math::round(scroll_offset_x + max_time * clip_scale);
-      draw_note.operator()<false>(min_pos_x, max_pos_x, new_velocity, 0, initial_key);
+        break;
+      draw_note.operator()<false>(min_pos_x, max_pos_x, note.velocity, 0, note.key);
     }
   }
 

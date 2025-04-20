@@ -9,6 +9,7 @@ namespace wb {
 enum class PianoRollTool {
   None,
   Draw,
+  Marker,
   Paint,
   Slice,
   Erase,
@@ -70,7 +71,6 @@ struct ClipEditorWindow : public TimelineBase {
   float new_length = 1.0f;
   int new_channel = 1;
   bool use_last_note = true;
-  bool repeat_mode = true;
   bool lock_pitch = true;
 
   PianoRollTool edit_command{};
@@ -82,7 +82,7 @@ struct ClipEditorWindow : public TimelineBase {
   Vector<MidiNote> painted_notes;
 
   // debug
-  bool display_note_id = false;
+  bool display_note_id = true;
 
   ClipEditorWindow();
   void set_clip(uint32_t track_id, uint32_t clip_id);
@@ -94,7 +94,6 @@ struct ClipEditorWindow : public TimelineBase {
   void render_note_editor();
   void render_event_editor();
   void draw_piano_keys(ImDrawList* draw_list, ImVec2& pos, const ImVec2& note_size, uint32_t oct);
-  void draw_note(ImDrawList* draw_list, double min_time, double max_time, uint16_t key);
   void query_selected_range();
   void zoom_vertically(float mouse_pos_y, float height, float mouse_wheel);
 };

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <initializer_list>
 #include <iterator>
 #include <memory>
 #include <utility>
@@ -33,6 +34,12 @@ struct Vector {
 
   Vector(size_t size) {
     resize(size);
+  }
+
+  Vector(std::initializer_list<T> init_list) {
+    for (auto& item : init_list) {
+      push_back(item);
+    }
   }
 
   Vector(Vector<T>&& other) noexcept : intern_(std::exchange(other.intern_, {})) {

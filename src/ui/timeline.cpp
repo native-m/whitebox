@@ -1464,7 +1464,7 @@ void TimelineWindow::render_edited_clips(double mouse_at_gridline) {
 
       double min_move = 0.0;
       if (any_of(edit_command, TimelineCommand::ClipMove, TimelineCommand::ClipDuplicate)) {
-        // Insert substitute clips on carved regions
+        // Display substitute clips on carved regions
         for (uint32_t j = selected_region.range.first; j <= selected_region.range.last; j++) {
           Clip* clip = src_track->clips[j];
           double min_time = clip->min_time;
