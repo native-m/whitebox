@@ -50,6 +50,19 @@ void MidiData::free_metadata(uint32_t id) {
   num_free_metadata++;
 }
 
+NoteSequenceID MidiData::find_note_sequence_id(double pos, uint16_t key, uint16_t channel) {
+  const MidiNoteBuffer& buffer = channels[channel];
+  uint32_t seq_id = (uint32_t)-1;
+  for (uint32_t i = 0; i < buffer.size(); i++) {
+    const MidiNote& note = buffer[i];
+    if (pos >= note.min_time && pos < note.max_time && note.key == key) {
+      seq_id = i; // TODO: Should probably return multiple notes!
+      break;
+    }
+  }
+  return seq_id;
+}
+
 Vector<uint32_t> MidiData::find_notes(double min_pos, double max_pos, uint16_t min_key, uint16_t max_key, uint16_t channel) {
   MidiNoteBuffer& buffer = channels[channel];
   Vector<uint32_t> notes;

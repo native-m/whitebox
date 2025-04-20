@@ -1050,10 +1050,8 @@ MidiEditResult Engine::add_note(
   };
   asset->data.create_metadata(note, 1);
 
-  Vector<uint32_t> modified_notes = asset->data.update_channel(channel);
-
   return MidiEditResult{
-    .modified_notes = std::move(modified_notes),
+    .modified_notes = asset->data.update_channel(channel),
   };
 }
 
@@ -1080,11 +1078,65 @@ MidiEditResult Engine::add_note(uint32_t track_id, uint32_t clip_id, uint32_t ch
   std::unique_lock lock(editor_lock);
   MidiNote* added_notes = buffer.append(midi_notes.begin(), midi_notes.end());
   asset->data.create_metadata(added_notes, midi_notes.size());
-  Vector<uint32_t> modified_notes = asset->data.update_channel(channel);
 
   return {
-    .modified_notes = std::move(modified_notes),
+    .modified_notes = asset->data.update_channel(channel),
   };
+}
+
+MidiEditResult Engine::slice_note(
+    uint32_t track_id,
+    uint32_t clip_id,
+    double slice_pos,
+    float velocity,
+    uint16_t note_key,
+    uint16_t channel) {
+  if (tracks.size() == 0 || track_id >= tracks.size()) {
+    Log::error("move_note(): Invalid track id");
+    return {};
+  }
+
+  Track* track = tracks[track_id];
+  if (track->clips.size() == 0 || clip_id >= track->clips.size()) {
+    Log::error("move_note(): Cannot find clip");
+    return {};
+  }
+
+  Clip* clip = track->clips[clip_id];
+  if (!clip->is_midi()) {
+    Log::error("move_note(): Clip is not a midi clip");
+    return {};
+  }
+
+  MidiAsset* asset = clip->midi.asset;
+  MidiNoteBuffer& buffer = asset->data.channels[channel];
+  NoteSequenceID seq_id = asset->data.find_note_sequence_id(slice_pos, note_key, channel);
+  std::unique_lock lock(editor_lock);
+  MidiNote& note = buffer[seq_id];
+
+  if (slice_pos > note.min_time && slice_pos < note.max_time) {
+    Vector<MidiNote> deleted_notes{note};
+    double tmp_max_time = note.max_time;
+    note.max_time = slice_pos;
+    note.flags |= MidiNoteFlags::Modified;
+
+    MidiNote* note = buffer.emplace_back_raw();
+    new (note) MidiNote{
+      .min_time = slice_pos,
+      .max_time = tmp_max_time,
+      .key = note_key,
+      .flags = MidiNoteFlags::Modified,
+      .velocity = velocity,
+    };
+    asset->data.create_metadata(note, 1);
+
+    return {
+      .modified_notes = asset->data.update_channel(channel),
+      .deleted_notes = std::move(deleted_notes),
+    };
+  }
+
+  return MidiEditResult{};
 }
 
 MidiEditResult Engine::delete_note(uint32_t track_id, uint32_t clip_id, uint32_t channel, const Vector<uint32_t>& note_ids) {

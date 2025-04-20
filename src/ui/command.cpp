@@ -425,7 +425,23 @@ void MidiCmd::backup(MidiEditResult&& edit_result) {
 void MidiCmd::undo(uint32_t track_id, uint32_t clip_id, uint32_t channel) {
   Track* track = g_engine.tracks[track_id];
   Clip* clip = track->clips[clip_id];
-  g_engine.delete_note(track_id, clip_id, channel, modified_notes);
+  MidiAsset* asset = clip->midi.asset;
+  MidiNoteBuffer& buffer = asset->data.channels[channel];
+  MidiNoteMetadataPool& metadata_pool = asset->data.note_metadata_pool;
+  uint32_t num_erased = 0;
+
+  // Delete modified notes
+  for (uint32_t id : modified_notes) {
+    MidiNoteMetadata& metadata = metadata_pool[id];
+    buffer.erase(metadata.data_id - num_erased);
+    asset->data.free_metadata(id);
+    num_erased++;
+  }
+
+  // Restore deleted notes
+  MidiNote* added_notes = buffer.append(deleted_notes.begin(), deleted_notes.end());
+  asset->data.create_metadata(added_notes, deleted_notes.size());
+  asset->data.update_channel(channel);
 }
 
 //
@@ -435,6 +451,7 @@ void MidiAddNoteCmd::execute() {
 }
 
 void MidiAddNoteCmd::undo() {
+  std::unique_lock lock(g_engine.editor_lock);
   MidiCmd::undo(track_id, clip_id, channel);
   // g_engine.delete_note()
 }
@@ -446,6 +463,18 @@ void MidiPaintNotesCmd::execute() {
 }
 
 void MidiPaintNotesCmd::undo() {
+  std::unique_lock lock(g_engine.editor_lock);
+  MidiCmd::undo(track_id, clip_id, channel);
+}
+
+//
+
+void MidiSliceNoteCmd::execute() {
+  backup(g_engine.slice_note(track_id, clip_id, pos, velocity, note_key, channel));
+}
+
+void MidiSliceNoteCmd::undo() {
+  std::unique_lock lock(g_engine.editor_lock);
   MidiCmd::undo(track_id, clip_id, channel);
 }
 

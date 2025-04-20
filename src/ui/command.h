@@ -243,6 +243,18 @@ struct MidiPaintNotesCmd : public MidiCmd {
   void undo() override;
 };
 
+struct MidiSliceNoteCmd : public MidiCmd {
+  uint32_t track_id;
+  uint32_t clip_id;
+  double pos;
+  float velocity;
+  uint16_t note_key;
+  uint16_t channel;
+
+  void execute() override;
+  void undo() override;
+};
+
 struct TrackParameterChangeCmd {
   uint32_t track_id;
   uint16_t param_id;

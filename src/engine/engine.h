@@ -115,7 +115,7 @@ struct Engine {
   TrackEditResult emplace_clip(Track* track, const Clip& new_clip);
   TrackEditResult duplicate_clip(Track* track, Clip* clip_to_duplicate, double min_time, double max_time);
   TrackEditResult move_clip(Track* track, Clip* clip, double relative_pos);
-  
+
   TrackEditResult resize_clip(
       Track* track,
       Clip* clip,
@@ -177,11 +177,13 @@ struct Engine {
       double min_time,
       double max_time,
       float velocity,
-      uint16_t note_number,
+      uint16_t note_key,
       uint16_t channel);
 
   MidiEditResult add_note(uint32_t track_id, uint32_t clip_id, uint32_t channel, const Vector<MidiNote>& midi_notes);
 
+  MidiEditResult
+  slice_note(uint32_t track_id, uint32_t clip_id, double slice_pos, float velocity, uint16_t note_key, uint16_t channel);
 
   MidiEditResult delete_note(uint32_t track_id, uint32_t clip_id, uint32_t channel, const Vector<uint32_t>& note_ids);
 

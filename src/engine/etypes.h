@@ -80,9 +80,4 @@ struct MultiEditResult {
   Vector<Pair<uint32_t, Clip*>> modified_clips;
 };
 
-struct MidiEditResult {
-  Vector<uint32_t> modified_notes;
-  Vector<MidiNote> deleted_notes;
-};
-
 }  // namespace wb

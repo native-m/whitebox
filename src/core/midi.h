@@ -9,6 +9,9 @@
 
 namespace wb {
 
+using NoteID = uint32_t;
+using NoteSequenceID = uint32_t;
+
 struct MidiNoteFlags {
   enum : uint16_t {
     Deactivated = 1 << 0,
@@ -29,8 +32,8 @@ struct alignas(8) MidiNote {
 using MidiNoteBuffer = Vector<MidiNote>;
 
 struct MidiNoteMetadata {
-  uint32_t next_free_id; // Next free metadata ID
-  uint32_t data_id; // The owner of this metadata
+  uint32_t next_free_id;  // Next free metadata ID
+  uint32_t data_id;       // The owner of this metadata
 };
 using MidiNoteMetadataPool = Vector<MidiNoteMetadata>;
 
@@ -38,6 +41,11 @@ struct MidiNoteState {
   uint64_t last_tick;
   float velocity;
   bool on;
+};
+
+struct MidiEditResult {
+  Vector<uint32_t> modified_notes;
+  Vector<MidiNote> deleted_notes;
 };
 
 struct MidiData {
@@ -61,12 +69,9 @@ struct MidiData {
     channel_count++;
   }
 
-  inline uint32_t get_next_free_metadata(uint32_t id) const {
-    return note_metadata_pool[id].next_free_id;
-  }
-  
   void create_metadata(MidiNote* notes, uint32_t count);
   void free_metadata(uint32_t id);
+  NoteSequenceID find_note_sequence_id(double pos, uint16_t key, uint16_t channel);
   Vector<uint32_t> find_notes(double min_pos, double max_pos, uint16_t min_key, uint16_t max_key, uint16_t channel);
   Vector<uint32_t> update_channel(uint16_t channel);
 };
