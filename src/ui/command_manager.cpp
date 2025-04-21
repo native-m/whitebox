@@ -11,14 +11,18 @@ void CommandManager::init(uint32_t max_items) {
 }
 
 void CommandManager::execute(const std::string& name, Command* cmd) {
+  if (!cmd->execute()) {
+    delete cmd;
+    return;
+  }
+
+  cmd->name = name;
+
   if (num_history == max_history) {
     if (Command* cmd = static_cast<Command*>(commands.pop_next_item())) {
       delete cmd;
     }
   }
-
-  cmd->name = name;
-  cmd->execute();
 
   if (current_command == nullptr) {
     commands.push_item(cmd);

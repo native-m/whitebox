@@ -52,6 +52,9 @@ void MidiData::free_metadata(uint32_t id) {
 
 NoteSequenceID MidiData::find_note_sequence_id(double pos, uint16_t key, uint16_t channel) {
   const MidiNoteBuffer& buffer = channels[channel];
+  if (buffer.size() == 0)
+    return (uint32_t)-1;
+
   uint32_t seq_id = (uint32_t)-1;
   for (uint32_t i = 0; i < buffer.size(); i++) {
     const MidiNote& note = buffer[i];
@@ -60,6 +63,7 @@ NoteSequenceID MidiData::find_note_sequence_id(double pos, uint16_t key, uint16_
       break;
     }
   }
+  
   return seq_id;
 }
 

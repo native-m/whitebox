@@ -25,7 +25,7 @@ struct Command : public InplaceList<Command> {
   std::string name;
   virtual ~Command() {
   }
-  virtual void execute() = 0;
+  virtual bool execute() = 0;
   virtual void undo() = 0;
 };
 
@@ -33,7 +33,9 @@ struct TrackAddCmd : public Command {
   Color color;
   uint32_t track_id;
 
-  void execute() override;
+  bool execute() override;
+  void undo() override;
+};
   void undo() override;
 };
 
@@ -43,7 +45,7 @@ struct TrackMoveCmd : public Command {
   uint32_t src_slot;
   uint32_t dst_slot;
 
-  void execute() override;
+  bool execute() override;
   void undo() override;
 };
 
@@ -54,7 +56,7 @@ struct ClipAddFromFileCmd : public Command {
   TrackHistory history;
   Clip new_clip;
 
-  void execute() override;
+  bool execute() override;
   void undo() override;
 };
 
@@ -64,7 +66,7 @@ struct ClipRenameCmd : public Command {
   std::string old_name;
   std::string new_name;
 
-  void execute() override;
+  bool execute() override;
   void undo() override;
 };
 
@@ -74,7 +76,7 @@ struct ClipChangeColorCmd : public Command {
   Color old_color;
   Color new_color;
 
-  void execute() override;
+  bool execute() override;
   void undo() override;
 };
 
@@ -86,7 +88,7 @@ struct ClipMoveCmd : public Command {
   TrackHistory src_track_history;
   TrackHistory dst_track_history;
 
-  void execute() override;
+  bool execute() override;
   void undo() override;
 };
 
@@ -96,7 +98,7 @@ struct ClipShiftCmd : public Command {
   double relative_pos;
   double last_beat_duration;
 
-  void execute() override;
+  bool execute() override;
   void undo() override;
 };
 
@@ -110,7 +112,7 @@ struct ClipResizeCmd : public Command {
   double last_beat_duration;
   TrackHistory history;
 
-  void execute() override;
+  bool execute() override;
   void undo() override;
 };
 
@@ -121,7 +123,7 @@ struct ClipDuplicateCmd : public Command {
   double relative_pos;
   TrackHistory track_history;
 
-  void execute() override;
+  bool execute() override;
   void undo() override;
 };
 
@@ -130,7 +132,7 @@ struct ClipDeleteCmd : public Command {
   uint32_t clip_id;
   TrackHistory history;
 
-  void execute() override;
+  bool execute() override;
   void undo() override;
 };
 
@@ -141,7 +143,7 @@ struct ClipDeleteRegionCmd : public Command {
   double max_time;
   Vector<TrackHistory> histories;
 
-  void execute() override;
+  bool execute() override;
   void undo() override;
 };
 
@@ -151,7 +153,7 @@ struct ClipAdjustGainCmd : public Command {
   float gain_before;
   float gain_after;
 
-  void execute() override;
+  bool execute() override;
   void undo() override;
 };
 
@@ -171,7 +173,7 @@ struct CreateMidiClipCmd : public ClipCmd {
   double min_pos;
   double max_pos;
 
-  void execute() override;
+  bool execute() override;
   void undo() override;
 };
 
@@ -184,7 +186,7 @@ struct ClipMoveCmd2 : public ClipCmd {
   double relative_move_pos;
   bool duplicate;
 
-  void execute() override;
+  bool execute() override;
   void undo() override;
 };
 
@@ -198,7 +200,7 @@ struct ClipResizeCmd2 : public ClipCmd {
   bool right_side;
   bool shift;
 
-  void execute() override;
+  bool execute() override;
   void undo() override;
 };
 
@@ -208,7 +210,7 @@ struct ClipDeleteCmd2 : public ClipCmd {
   double min_pos;
   double max_pos;
 
-  void execute() override;
+  bool execute() override;
   void undo() override;
 };
 
@@ -228,8 +230,8 @@ struct MidiAddNoteCmd : public MidiCmd {
   float velocity;
   uint16_t note_key;
   uint16_t channel;
-  
-  void execute() override;
+
+  bool execute() override;
   void undo() override;
 };
 
@@ -239,7 +241,7 @@ struct MidiPaintNotesCmd : public MidiCmd {
   Vector<MidiNote> notes;
   uint16_t channel;
 
-  void execute() override;
+  bool execute() override;
   void undo() override;
 };
 
@@ -251,7 +253,7 @@ struct MidiSliceNoteCmd : public MidiCmd {
   uint16_t note_key;
   uint16_t channel;
 
-  void execute() override;
+  bool execute() override;
   void undo() override;
 };
 

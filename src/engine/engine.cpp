@@ -1084,7 +1084,7 @@ MidiEditResult Engine::add_note(uint32_t track_id, uint32_t clip_id, uint32_t ch
   };
 }
 
-MidiEditResult Engine::slice_note(
+std::optional<MidiEditResult> Engine::slice_note(
     uint32_t track_id,
     uint32_t clip_id,
     double slice_pos,
@@ -1111,6 +1111,8 @@ MidiEditResult Engine::slice_note(
   MidiAsset* asset = clip->midi.asset;
   MidiNoteBuffer& buffer = asset->data.channels[channel];
   NoteSequenceID seq_id = asset->data.find_note_sequence_id(slice_pos, note_key, channel);
+  if (seq_id == (uint32_t)-1)
+    return {};
   std::unique_lock lock(editor_lock);
   MidiNote& note = buffer[seq_id];
 
@@ -1120,23 +1122,23 @@ MidiEditResult Engine::slice_note(
     note.max_time = slice_pos;
     note.flags |= MidiNoteFlags::Modified;
 
-    MidiNote* note = buffer.emplace_back_raw();
-    new (note) MidiNote{
+    MidiNote* new_note = buffer.emplace_back_raw();
+    new (new_note) MidiNote{
       .min_time = slice_pos,
       .max_time = tmp_max_time,
       .key = note_key,
       .flags = MidiNoteFlags::Modified,
-      .velocity = velocity,
+      .velocity = note.velocity,
     };
-    asset->data.create_metadata(note, 1);
+    asset->data.create_metadata(new_note, 1);
 
-    return {
+    return MidiEditResult{
       .modified_notes = asset->data.update_channel(channel),
       .deleted_notes = std::move(deleted_notes),
     };
   }
 
-  return MidiEditResult{};
+  return {};
 }
 
 MidiEditResult Engine::delete_note(uint32_t track_id, uint32_t clip_id, uint32_t channel, const Vector<uint32_t>& note_ids) {

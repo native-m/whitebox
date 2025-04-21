@@ -56,10 +56,11 @@ void TrackHistory::undo(Track* track) {
 
 //
 
-void TrackAddCmd::execute() {
+bool TrackAddCmd::execute() {
   Track* track = g_engine.add_track("New track");
   track->color = color;
   track_id = g_engine.tracks.size() - 1;
+  return true;
 }
 
 void TrackAddCmd::undo() {
@@ -68,8 +69,9 @@ void TrackAddCmd::undo() {
 
 //
 
-void TrackMoveCmd::execute() {
+bool TrackMoveCmd::execute() {
   g_engine.move_track(src_slot, dst_slot);
+  return true;
 }
 
 void TrackMoveCmd::undo() {
@@ -78,11 +80,12 @@ void TrackMoveCmd::undo() {
 
 //
 
-void ClipAddFromFileCmd::execute() {
+bool wb::ClipAddFromFileCmd::execute() {
   Track* track = g_engine.tracks[track_id];
   auto result = g_engine.add_clip_from_file(track, file, cursor_pos);
   assert(result.added_clips.size() && "Cannot create clip");
   history.backup(std::move(result));
+  return true;
 }
 
 void ClipAddFromFileCmd::undo() {
@@ -95,10 +98,11 @@ void ClipAddFromFileCmd::undo() {
 
 //
 
-void ClipRenameCmd::execute() {
+bool ClipRenameCmd::execute() {
   Track* track = g_engine.tracks[track_id];
   Clip* clip = track->clips[clip_id];
   clip->name = new_name;
+  return true;
 }
 
 void ClipRenameCmd::undo() {
@@ -109,10 +113,11 @@ void ClipRenameCmd::undo() {
 
 //
 
-void ClipChangeColorCmd::execute() {
+bool ClipChangeColorCmd::execute() {
   Track* track = g_engine.tracks[track_id];
   Clip* clip = track->clips[clip_id];
   clip->color = new_color;
+  return true;
 }
 
 void ClipChangeColorCmd::undo() {
@@ -123,7 +128,7 @@ void ClipChangeColorCmd::undo() {
 
 //
 
-void ClipMoveCmd::execute() {
+bool ClipMoveCmd::execute() {
   Track* src_track = g_engine.tracks[src_track_id];
   Clip* clip = src_track->clips[clip_id];
   if (src_track_id == dst_track_id) {
@@ -135,6 +140,7 @@ void ClipMoveCmd::execute() {
     dst_track_history.backup(g_engine.duplicate_clip(dst_track, clip, new_pos, new_pos + length));
     src_track_history.backup(g_engine.delete_clip(src_track, clip));
   }
+  return true;
 }
 
 void ClipMoveCmd::undo() {
@@ -157,13 +163,14 @@ void ClipMoveCmd::undo() {
 
 //
 
-void ClipShiftCmd::execute() {
+bool ClipShiftCmd::execute() {
   Track* track = g_engine.tracks[track_id];
   Clip* clip = track->clips[clip_id];
   g_engine.edit_lock();
   clip->start_offset = shift_clip_content(clip, relative_pos, last_beat_duration);
   clip->start_offset_changed = true;
   g_engine.edit_unlock();
+  return true;
 }
 
 void ClipShiftCmd::undo() {
@@ -178,12 +185,13 @@ void ClipShiftCmd::undo() {
 
 //
 
-void ClipResizeCmd::execute() {
+bool ClipResizeCmd::execute() {
   Track* track = g_engine.tracks[track_id];
   Clip* clip = track->clips[clip_id];
   double resize_limit = left_side ? clip->max_time : clip->min_time;
   auto result = g_engine.resize_clip(track, clip, relative_pos, resize_limit, min_length, left_side, shift);
   history.backup(std::move(result));
+  return true;
 }
 
 void ClipResizeCmd::undo() {
@@ -197,7 +205,7 @@ void ClipResizeCmd::undo() {
 
 //
 
-void ClipDuplicateCmd::execute() {
+bool ClipDuplicateCmd::execute() {
   Track* src_track = g_engine.tracks[src_track_id];
   Clip* clip = src_track->clips[clip_id];
   const double min_time = math::max(clip->min_time + relative_pos, 0.0);
@@ -209,6 +217,7 @@ void ClipDuplicateCmd::execute() {
     Track* dst_track = g_engine.tracks[dst_track_id];
     track_history.backup(g_engine.duplicate_clip(dst_track, clip, min_time, max_time));
   }
+  return true;
 }
 
 void ClipDuplicateCmd::undo() {
@@ -221,11 +230,12 @@ void ClipDuplicateCmd::undo() {
 
 //
 
-void ClipDeleteCmd::execute() {
+bool ClipDeleteCmd::execute() {
   Track* track = g_engine.tracks[track_id];
   Clip* clip = track->clips[clip_id];
   // TODO: backup the clip directly
   history.backup(g_engine.delete_clip(track, clip));
+  return true;
 }
 
 void ClipDeleteCmd::undo() {
@@ -238,7 +248,7 @@ void ClipDeleteCmd::undo() {
 
 //
 
-void ClipDeleteRegionCmd::execute() {
+bool ClipDeleteRegionCmd::execute() {
   uint32_t first_track = first_track_id;
   uint32_t last_track = last_track_id;
   if (last_track < first_track)
@@ -251,6 +261,7 @@ void ClipDeleteRegionCmd::execute() {
     auto& history = histories.emplace_back();
     history.backup(std::move(result));
   }
+  return true;
 }
 
 void ClipDeleteRegionCmd::undo() {
@@ -271,9 +282,10 @@ void ClipDeleteRegionCmd::undo() {
 
 //
 
-void ClipAdjustGainCmd::execute() {
+bool ClipAdjustGainCmd::execute() {
   Track* track = g_engine.tracks[track_id];
   g_engine.set_clip_gain(track, clip_id, gain_after);
+  return true;
 }
 
 void ClipAdjustGainCmd::undo() {
@@ -355,8 +367,9 @@ void ClipCmd::clean_edit_result() {
 
 //
 
-void CreateMidiClipCmd::execute() {
+bool CreateMidiClipCmd::execute() {
   backup(g_engine.create_midi_clips(selected_track_regions, first_track, min_pos, max_pos));
+  return true;
 }
 
 void CreateMidiClipCmd::undo() {
@@ -367,9 +380,10 @@ void CreateMidiClipCmd::undo() {
 
 //
 
-void ClipMoveCmd2::execute() {
+bool ClipMoveCmd2::execute() {
   backup(g_engine.move_or_duplicate_region(
       selected_track_regions, src_track_idx, dst_track_relative_idx, min_pos, max_pos, relative_move_pos, duplicate));
+  return true;
 }
 
 void ClipMoveCmd2::undo() {
@@ -394,9 +408,10 @@ void ClipMoveCmd2::undo() {
 
 //
 
-void ClipResizeCmd2::execute() {
+bool ClipResizeCmd2::execute() {
   backup(g_engine.resize_clips(
       track_clip, first_track, relative_pos, resize_limit, min_length, min_resize_pos, right_side, shift));
+  return true;
 }
 
 void ClipResizeCmd2::undo() {
@@ -406,8 +421,9 @@ void ClipResizeCmd2::undo() {
 
 //
 
-void ClipDeleteCmd2::execute() {
+bool ClipDeleteCmd2::execute() {
   backup(g_engine.delete_region(selected_track_regions, first_track, min_pos, max_pos));
+  return true;
 }
 
 void ClipDeleteCmd2::undo() {
@@ -446,8 +462,9 @@ void MidiCmd::undo(uint32_t track_id, uint32_t clip_id, uint32_t channel) {
 
 //
 
-void MidiAddNoteCmd::execute() {
+bool MidiAddNoteCmd::execute() {
   backup(g_engine.add_note(track_id, clip_id, min_time, max_time, velocity, note_key, channel));
+  return true;
 }
 
 void MidiAddNoteCmd::undo() {
@@ -458,8 +475,9 @@ void MidiAddNoteCmd::undo() {
 
 //
 
-void MidiPaintNotesCmd::execute() {
+bool MidiPaintNotesCmd::execute() {
   backup(g_engine.add_note(track_id, clip_id, channel, notes));
+  return true;
 }
 
 void MidiPaintNotesCmd::undo() {
@@ -469,8 +487,12 @@ void MidiPaintNotesCmd::undo() {
 
 //
 
-void MidiSliceNoteCmd::execute() {
-  backup(g_engine.slice_note(track_id, clip_id, pos, velocity, note_key, channel));
+bool MidiSliceNoteCmd::execute() {
+  if (auto result = g_engine.slice_note(track_id, clip_id, pos, velocity, note_key, channel)) {
+    backup(std::move(result.value()));
+    return true;
+  }
+  return false;
 }
 
 void MidiSliceNoteCmd::undo() {
