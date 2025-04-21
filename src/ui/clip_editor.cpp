@@ -677,7 +677,16 @@ void ClipEditorWindow::render_note_editor() {
     draw_note.operator()<true>(min_pos_x, max_pos_x, note.velocity, note.meta_id, note.key);
   }
 
-  // Activate action
+  // Highlight slice position
+  if (is_piano_roll_hovered && hovered_note_id && piano_roll_tool == PianoRollTool::Slice) {
+    static constexpr ColorU32 slice_highlight_color = Color(0.951f, 0.322f, 0.322f, 1.000f).to_uint32();
+    float highlight_pos = (float)math::round(scroll_offset_x + hovered_position_grid * clip_scale);
+    float min_pos_y = cursor_pos.y + (float)(131 - hovered_key) * note_height_in_pixel;
+    float max_pos_y = min_pos_y + note_height_in_pixel;
+    im_draw_vline(dl, highlight_pos, min_pos_y, max_pos_y, slice_highlight_color);
+  }
+
+  // Activate command
   if (!holding_ctrl && is_activated && left_mouse_clicked && edit_command == PianoRollTool::None) {
     edit_command = hovered_note_id.has_value() ? PianoRollTool::Move : piano_roll_tool;
     initial_time_pos = hovered_position_grid;
