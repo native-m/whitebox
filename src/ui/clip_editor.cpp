@@ -684,21 +684,21 @@ void ClipEditorWindow::render_note_editor() {
     initial_key = hovered_key;
   }
 
-  // Process action
+  // Process command
   if (edit_command == PianoRollTool::Draw) {
     uint16_t key = math::clamp(hovered_key, 0, (int32_t)MidiData::max_notes);
     double min_time = math::max(hovered_position_grid, 0.0);
     double max_time = hovered_position_grid + new_length;
     float min_pos_x = (float)math::round(scroll_offset_x + min_time * clip_scale);
     float max_pos_x = (float)math::round(scroll_offset_x + max_time * clip_scale);
-    draw_note.operator()<false>(min_pos_x, max_pos_x, new_velocity, 0, key);
+    draw_note.operator()<false>(min_pos_x, max_pos_x, new_velocity / 127.0f, 0, key);
     ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
   } else if (edit_command == PianoRollTool::Marker) {
     double min_time = math::max(initial_time_pos, 0.0);
     double max_time = math::max(hovered_position_grid, min_time);
     float min_pos_x = (float)math::round(scroll_offset_x + min_time * clip_scale);
     float max_pos_x = (float)math::round(scroll_offset_x + max_time * clip_scale);
-    draw_note.operator()<false>(min_pos_x, max_pos_x, new_velocity, 0, initial_key);
+    draw_note.operator()<false>(min_pos_x, max_pos_x, new_velocity / 127.0f, 0, initial_key);
   } else if (edit_command == PianoRollTool::Paint) {
     uint16_t key = lock_pitch ? initial_key : math::clamp(hovered_key, 0, (int32_t)MidiData::max_notes);
     double relative_pos = hovered_position_grid - initial_time_pos;
