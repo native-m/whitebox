@@ -10,7 +10,7 @@
 
 namespace wb {
 
-bool load_notes_from_file(MidiData& result, const std::filesystem::path& path) {
+bool load_notes_from_file(MidiData& midi_data, const std::filesystem::path& path) {
   std::ifstream file(path, std::ios::binary);
   if (!file.is_open()) {
     return {};
@@ -29,7 +29,7 @@ bool load_notes_from_file(MidiData& result, const std::filesystem::path& path) {
 
   file.seekg(0);
 
-  Vector<MidiNote> notes;
+  MidiNoteBuffer& notes = midi_data.channels[0];
   Vector<uint8_t> bytes(size);
   file.read((char*)bytes.data(), size);
 
@@ -99,12 +99,13 @@ bool load_notes_from_file(MidiData& result, const std::filesystem::path& path) {
     return {};
   }
 
-  std::sort(notes.begin(), notes.end(), [](const MidiNote& a, const MidiNote& b) { return a.min_time < b.min_time; });
+  //std::sort(notes.begin(), notes.end(), [](const MidiNote& a, const MidiNote& b) { return a.min_time < b.min_time; });
 
-  result.max_length = length;
-  result.min_note = min_note;
-  result.max_note = max_note;
-  result.add_channel(std::move(notes));
+  midi_data.max_length = length;
+  midi_data.min_note = min_note;
+  midi_data.max_note = max_note;
+  midi_data.create_metadata(notes.begin(), notes.size());
+  midi_data.update_channel(0);
 
   return true;
 }
