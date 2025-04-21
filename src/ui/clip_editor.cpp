@@ -561,11 +561,11 @@ void ClipEditorWindow::render_note_editor() {
     key_pos.y += note_height_in_pixel;
   }
 
-  static constexpr Color main_color = Color(121, 166, 91);
-  static constexpr ImU32 indicator_frame_color = main_color.change_alpha(0.5f).darken(0.5f).to_uint32();
-  static constexpr ImU32 indicator_color = main_color.darken(0.5f).to_uint32();
-  static constexpr ImU32 channel_color = main_color.brighten(0.6f).to_uint32();
-  static constexpr ImU32 text_color = main_color.darken(1.25f).to_uint32();
+  const Color base_color = current_clip->color;
+  const ImU32 indicator_frame_color = base_color.change_alpha(0.5f).darken(0.5f).to_uint32();
+  const ImU32 indicator_color = base_color.darken(0.5f).to_uint32();
+  const ImU32 channel_color = base_color.brighten(0.6f).to_uint32();
+  const ImU32 text_color = base_color.darken(1.25f).to_uint32();
   auto font = ImGui::GetFont();
   float font_size = font->FontSize;
   float half_font_size = font_size * 0.5f;
@@ -573,10 +573,12 @@ void ClipEditorWindow::render_note_editor() {
   float end_x = cursor_pos.x + timeline_width;
   float end_y = main_cursor_pos.y + content_height;
   ImU32 handle_color = ImGui::GetColorU32(ImGuiCol_ButtonActive);
+  bool start_command = !holding_ctrl && is_activated && left_mouse_clicked && edit_command == PianoRollTool::None;
   std::optional<uint32_t> hovered_note_id;
 
   auto draw_note = [&]<bool WithCommand>(
-                       float min_pos_x, float max_pos_x, float vel, uint32_t note_id, uint16_t key) -> PianoRollTool {
+                       float min_pos_x, float max_pos_x, float vel, uint32_t note_id, uint16_t key, bool selected = false)
+      -> PianoRollTool {
     float pos_y = (float)(131 - key) * note_height_in_pixel;
     float min_pos_y = cursor_pos.y + pos_y;
     float max_pos_y = min_pos_y + note_height_in_pixel;
