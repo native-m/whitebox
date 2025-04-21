@@ -80,7 +80,7 @@ void ClipEditorWindow::render() {
   }
   ImGui::PopStyleVar();
 
-  if (current_track == nullptr && current_clip == nullptr) {
+  if (current_track == nullptr && current_clip == nullptr && !current_clip->is_midi()) {
     controls::end_window();
     return;
   }
@@ -601,13 +601,13 @@ void ClipEditorWindow::render_note_editor() {
     dl->PathLineTo(a);
       dl->PathLineTo(ImVec2(b.x, a.y));
       dl->PathLineTo(b);
-      dl->PathLineTo(ImVec2(a.x, b.y));
-      dl->PathFillConvex(channel_color);
+    dl->PathLineTo(ImVec2(a.x, b.y));
+    dl->PathFillConvex(channel_color);
 
-      // Draw note rect
-      dl->PathLineTo(a);
-      dl->PathLineTo(ImVec2(b.x, a.y));
-      dl->PathLineTo(b);
+    // Draw note border
+    dl->PathLineTo(a);
+    dl->PathLineTo(ImVec2(b.x, a.y));
+    dl->PathLineTo(b);
       dl->PathLineTo(ImVec2(a.x, b.y));
       dl->PathStroke(0x44000000, ImDrawFlags_Closed);
 
@@ -643,7 +643,7 @@ void ClipEditorWindow::render_note_editor() {
 
     if constexpr (WithCommand) {
       ImRect note_rect(min_pos_x, min_pos_y, max_pos_x, max_pos_y);
-      if (note_rect.Contains(mouse_pos) && is_piano_roll_hovered) {
+      if (is_piano_roll_hovered && note_rect.Contains(mouse_pos)) {
         static constexpr float handle_offset = 4.0f;
         ImRect left_handle(min_pos_x, min_pos_y, min_pos_x + handle_offset, max_pos_y);
         ImRect right_handle(max_pos_x - handle_offset, min_pos_y, max_pos_x, max_pos_y);
@@ -655,8 +655,9 @@ void ClipEditorWindow::render_note_editor() {
           dl->AddRectFilled(right_handle.Min, right_handle.Max, handle_color);
           ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
           command = PianoRollTool::ResizeRight;
-        } else {
+        } else if (piano_roll_tool != PianoRollTool::Slice) {
           command = PianoRollTool::Move;
+          ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
         }
         hovered_note_id = note_id;
       }
