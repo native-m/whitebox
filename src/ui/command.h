@@ -36,8 +36,6 @@ struct TrackAddCmd : public Command {
   bool execute() override;
   void undo() override;
 };
-  void undo() override;
-};
 
 struct TrackDeleteCmd { };
 
