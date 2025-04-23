@@ -80,7 +80,12 @@ void ClipEditorWindow::render() {
   }
   ImGui::PopStyleVar();
 
-  if (current_track == nullptr && current_clip == nullptr && !current_clip->is_midi()) {
+  if (current_track == nullptr && current_clip == nullptr) {
+    controls::end_window();
+    return;
+  }
+
+  if (!current_clip->is_midi()) {
     controls::end_window();
     return;
   }
