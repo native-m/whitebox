@@ -1117,7 +1117,8 @@ std::optional<MidiEditResult> Engine::slice_note(
   MidiNote& note = buffer[seq_id];
 
   if (slice_pos > note.min_time && slice_pos < note.max_time) {
-    Vector<MidiNote> deleted_notes{note};
+    Vector<MidiNote> deleted_notes{ note };
+    float tmp_velocity = note.velocity;
     double tmp_max_time = note.max_time;
     note.max_time = slice_pos;
     note.flags |= MidiNoteFlags::Modified;
@@ -1128,7 +1129,7 @@ std::optional<MidiEditResult> Engine::slice_note(
       .max_time = tmp_max_time,
       .key = note_key,
       .flags = MidiNoteFlags::Modified,
-      .velocity = note.velocity,
+      .velocity = tmp_velocity,
     };
     asset->data.create_metadata(new_note, 1);
 
