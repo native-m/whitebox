@@ -19,8 +19,6 @@ struct TrackHistory {
   void undo(Track* track);
 };
 
-struct TimelineHistory { };
-
 struct Command : public InplaceList<Command> {
   std::string name;
   virtual ~Command() {
@@ -36,8 +34,6 @@ struct TrackAddCmd : public Command {
   bool execute() override;
   void undo() override;
 };
-
-struct TrackDeleteCmd { };
 
 struct TrackMoveCmd : public Command {
   uint32_t src_slot;
