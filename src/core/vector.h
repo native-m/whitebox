@@ -314,11 +314,11 @@ struct Vector {
   }
 
   template<typename It>
-  inline T* append(It first, It last) noexcept {
+  inline T* append(It first, It last) {
     size_t old_size = intern_.size;
     if constexpr (std::random_access_iterator<It>) {
       auto dist = std::distance(first, last);
-      reserve(intern_.size + dist);
+      reserve_internal_(intern_.size + dist);
       for (T* dst = intern_.data + intern_.size; first != last; dst++, first++) {
         new (dst) T(*first);
       }
@@ -385,8 +385,12 @@ struct Vector {
     reserve_internal_(new_capacity);
   }
 
-  inline void expand_capacity(size_t size) {
-    reserve_internal_(intern_.size + size);
+  inline void expand_size(size_t added_size) {
+    resize(intern_.size + added_size);
+  }
+
+  inline void expand_capacity(size_t added_capacity) {
+    reserve_internal_(intern_.size + added_capacity);
   }
 
   inline size_t grow_capacity_() {

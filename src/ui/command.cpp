@@ -442,21 +442,32 @@ void MidiCmd::undo(uint32_t track_id, uint32_t clip_id, uint32_t channel) {
   Track* track = g_engine.tracks[track_id];
   Clip* clip = track->clips[clip_id];
   MidiAsset* asset = clip->midi.asset;
-  MidiNoteBuffer& buffer = asset->data.channels[channel];
   MidiNoteMetadataPool& metadata_pool = asset->data.note_metadata_pool;
+  MidiNoteBuffer& note_sequence = asset->data.note_sequence;
   uint32_t num_erased = 0;
 
   // Delete modified notes
-  for (uint32_t id : modified_notes) {
-    MidiNoteMetadata& metadata = metadata_pool[id];
-    buffer.erase(metadata.data_id - num_erased);
-    asset->data.free_metadata(id);
-    num_erased++;
+  MidiNoteBuffer new_sequence;
+  new_sequence.reserve(note_sequence.size());
+
+  for (uint32_t note_id = 0; const auto& note : note_sequence) {
+    bool skip = false;
+    for (uint32_t id : modified_notes) {
+      if (id == note_id) {
+        skip = true;
+      }
+    }
+    if (!skip) {
+      new_sequence.push_back(note);
+    }
+    note_id++;
   }
 
+  note_sequence = std::move(new_sequence);
+
   // Restore deleted notes
-  MidiNote* added_notes = buffer.append(deleted_notes.begin(), deleted_notes.end());
-  asset->data.create_metadata(added_notes, deleted_notes.size());
+  MidiNote* restored_notes = note_sequence.append(deleted_notes.begin(), deleted_notes.end());
+  asset->data.create_metadata(restored_notes, deleted_notes.size());
   asset->data.update_channel(channel);
 }
 

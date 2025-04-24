@@ -471,7 +471,7 @@ void Track::process_midi_event(
     double inv_ppq,
     uint32_t buffer_size) {
   MidiAsset* asset = clip->midi.asset;
-  const MidiNoteBuffer& buffer = asset->data.channels[0];
+  const MidiNoteBuffer& buffer = asset->data.note_sequence;
   uint32_t midi_note_idx = event_state.midi_note_idx;
   uint32_t note_count = (uint32_t)buffer.size();
   double time_offset = clip->min_time - clip->start_offset;

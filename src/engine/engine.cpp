@@ -1037,10 +1037,10 @@ MidiEditResult Engine::add_note(
   }
 
   MidiAsset* asset = clip->midi.asset;
-  MidiNoteBuffer& buffer = asset->data.channels[channel];
+  MidiNoteBuffer& note_seq = asset->data.note_sequence;
   std::unique_lock lock(editor_lock);
 
-  MidiNote* note = buffer.emplace_back_raw();
+  MidiNote* note = note_seq.emplace_back_raw();
   new (note) MidiNote{
     .min_time = min_time,
     .max_time = max_time,
@@ -1074,9 +1074,9 @@ MidiEditResult Engine::add_note(uint32_t track_id, uint32_t clip_id, uint32_t ch
   }
 
   MidiAsset* asset = clip->midi.asset;
-  MidiNoteBuffer& buffer = asset->data.channels[channel];
+  MidiNoteBuffer& note_seq = asset->data.note_sequence;
   std::unique_lock lock(editor_lock);
-  MidiNote* added_notes = buffer.append(midi_notes.begin(), midi_notes.end());
+  MidiNote* added_notes = note_seq.append(midi_notes.begin(), midi_notes.end());
   asset->data.create_metadata(added_notes, midi_notes.size());
 
   return {
@@ -1109,12 +1109,12 @@ std::optional<MidiEditResult> Engine::slice_note(
   }
 
   MidiAsset* asset = clip->midi.asset;
-  MidiNoteBuffer& buffer = asset->data.channels[channel];
+  MidiNoteBuffer& note_seq = asset->data.note_sequence;
   NoteSequenceID seq_id = asset->data.find_note_sequence_id(slice_pos, note_key, channel);
   if (seq_id == (uint32_t)-1)
     return {};
   std::unique_lock lock(editor_lock);
-  MidiNote& note = buffer[seq_id];
+  MidiNote& note = note_seq[seq_id];
 
   if (slice_pos > note.min_time && slice_pos < note.max_time) {
     Vector<MidiNote> deleted_notes{ note };
@@ -1123,7 +1123,7 @@ std::optional<MidiEditResult> Engine::slice_note(
     note.max_time = slice_pos;
     note.flags |= MidiNoteFlags::Modified;
 
-    MidiNote* new_note = buffer.emplace_back_raw();
+    MidiNote* new_note = note_seq.emplace_back_raw();
     new (new_note) MidiNote{
       .min_time = slice_pos,
       .max_time = tmp_max_time,
@@ -1161,15 +1161,15 @@ MidiEditResult Engine::delete_note(uint32_t track_id, uint32_t clip_id, uint32_t
   }
 
   MidiAsset* asset = clip->midi.asset;
-  MidiNoteBuffer& buffer = asset->data.channels[channel];
+  MidiNoteBuffer& note_seq = asset->data.note_sequence;
   MidiNoteMetadataPool& metadata_pool = asset->data.note_metadata_pool;
   std::unique_lock lock(editor_lock);
   uint32_t num_erased = 0;
 
   for (uint32_t id : note_ids) {
-    MidiNoteMetadata& metadata = metadata_pool[id];
-    buffer.erase(metadata.data_id - num_erased);
-    asset->data.free_metadata(id);
+    MidiNote& note = note_seq[id];
+    note_seq.erase(id - num_erased);
+    asset->data.free_metadata(note.meta_id);
     num_erased++;
   }
 

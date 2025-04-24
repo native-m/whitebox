@@ -29,7 +29,7 @@ bool load_notes_from_file(MidiData& midi_data, const std::filesystem::path& path
 
   file.seekg(0);
 
-  MidiNoteBuffer& notes = midi_data.channels[0];
+  MidiNoteBuffer& notes = midi_data.note_sequence;
   Vector<uint8_t> bytes(size);
   file.read((char*)bytes.data(), size);
 
@@ -98,8 +98,6 @@ bool load_notes_from_file(MidiData& midi_data, const std::filesystem::path& path
   if (length < 0) {
     return {};
   }
-
-  //std::sort(notes.begin(), notes.end(), [](const MidiNote& a, const MidiNote& b) { return a.min_time < b.min_time; });
 
   midi_data.max_length = length;
   midi_data.min_note = min_note;

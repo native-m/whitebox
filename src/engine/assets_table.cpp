@@ -97,7 +97,7 @@ void MidiAsset::release() {
 }
 
 uint32_t MidiAsset::find_first_note(double pos, uint32_t channel) {
-  const MidiNoteBuffer& buffer = data.channels[channel];
+  const MidiNoteBuffer& buffer = data.note_sequence;
   auto begin = buffer.begin();
   auto end = buffer.end();
   while (begin != end && pos >= begin->max_time) {

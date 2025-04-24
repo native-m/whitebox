@@ -471,6 +471,8 @@ void ClipEditorWindow::render_note_editor() {
     Log::debug("Start selection");
   }
 
+  auto midi_asset = current_clip->midi.asset;
+
   if (!is_active && selecting_notes) {
     selection_end_pos = hovered_position;
     last_selected_key = hovered_key;
@@ -569,7 +571,7 @@ void ClipEditorWindow::render_note_editor() {
   const Color base_color = current_clip->color;
   const ImU32 indicator_frame_color = base_color.change_alpha(0.5f).darken(0.5f).to_uint32();
   const ImU32 indicator_color = base_color.darken(0.5f).to_uint32();
-  const ImU32 channel_color = base_color.brighten(0.6f).to_uint32();
+  const ImU32 channel_color = base_color.brighten(0.6f).change_alpha(0.75f).to_uint32();
   const ImU32 text_color = base_color.darken(1.25f).to_uint32();
   auto font = ImGui::GetFont();
   float font_size = font->FontSize;
@@ -671,8 +673,8 @@ void ClipEditorWindow::render_note_editor() {
     return command;
   };
 
-  // Draw them notes
-  for (auto midi_data = current_clip->midi.asset; auto& note : midi_data->data.channels[0]) {
+  uint32_t note_id = 0;
+  for (auto& note : midi_asset->data.note_sequence) {
     float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * clip_scale);
     float max_pos_x = (float)math::round(scroll_offset_x + note.max_time * clip_scale);
 
@@ -682,7 +684,14 @@ void ClipEditorWindow::render_note_editor() {
       break;
 
     // Can't directly call with function call syntax :'(
-    draw_note.operator()<true>(min_pos_x, max_pos_x, note.velocity, note.meta_id, note.key);
+    if (auto cmd = draw_note.operator()<true>(min_pos_x, max_pos_x, note.velocity, note_id, note.key);
+        start_command && cmd != PianoRollTool::None) {
+      edit_command = cmd;
+      initial_time_pos = hovered_position_grid;
+      initial_key = hovered_key;
+    }
+
+    note_id++;
   }
 
   // Highlight slice position
@@ -696,9 +705,21 @@ void ClipEditorWindow::render_note_editor() {
 
   // Activate command
   if (!holding_ctrl && is_activated && left_mouse_clicked && edit_command == PianoRollTool::None) {
-    edit_command = hovered_note_id.has_value() ? PianoRollTool::Move : piano_roll_tool;
-    initial_time_pos = hovered_position_grid;
-    initial_key = hovered_key;
+    if (piano_roll_tool == PianoRollTool::Slice) {
+      MidiSliceNoteCmd* cmd = new MidiSliceNoteCmd();
+      cmd->track_id = current_track_id.value();
+      cmd->clip_id = current_clip_id.value();
+      cmd->pos = hovered_position_grid;
+      cmd->velocity = new_velocity / 127.0f;
+      cmd->note_key = hovered_key;
+      cmd->channel = 0;
+      g_cmd_manager.execute("Clip eidtor: Slice tool", cmd);
+      g_timeline.redraw_screen();
+    } else {
+      edit_command = piano_roll_tool;
+      initial_time_pos = hovered_position_grid;
+      initial_key = hovered_key;
+    }
   }
 
   // Process command
@@ -811,7 +832,7 @@ void ClipEditorWindow::render_event_editor() {
   static const ImU32 channel_color = Color(121, 166, 91).brighten(0.6f).to_uint32();
 
   if (current_clip && current_clip->is_midi()) {
-    for (auto note_data = current_clip->midi.asset; auto& note : note_data->data.channels[0]) {
+    for (auto note_data = current_clip->midi.asset; auto& note : note_data->data.note_sequence) {
       float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * pixel_scale);
       if (min_pos_x < cursor_pos.x)
         continue;

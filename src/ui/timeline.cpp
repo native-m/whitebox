@@ -122,8 +122,8 @@ void TimelineWindow::render() {
     render_track_controls();
     render_track_lanes();
     last_vscroll = vscroll;
-    ImGui::EndChild();
   }
+  ImGui::EndChild();
 
   controls::end_window();
 }
@@ -1795,9 +1795,7 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
           uint32_t channel_count = asset->data.channel_count;
           double min_start_x = cmd.min_pos_x - start_offset * clip_scale;
           for (uint32_t i = 0; i < channel_count; i++) {
-            const MidiNoteBuffer& buffer = asset->data.channels[i];
-            for (size_t j = 0; j < buffer.size(); j++) {
-              const MidiNote& note = buffer[j];
+            for (uint32_t j = 0; const auto& note : asset->data.note_sequence) {
               float min_pos_x = (float)math::round(min_start_x + note.min_time * clip_scale);
               float max_pos_x = (float)math::round(min_start_x + note.max_time * clip_scale);
               if (max_pos_x < min_view)
@@ -1815,6 +1813,7 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
               char c[32]{};
               fmt::format_to_n(c, std::size(c), "ID: {}", j);
               layer2_draw_list->AddText(a - ImVec2(0.0f, 13.0f), 0xFFFFFFFF, c);
+              j++;
 #endif
               dl->PathLineTo(a);
               dl->PathLineTo(ImVec2(b.x, a.y));

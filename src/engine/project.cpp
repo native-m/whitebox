@@ -135,11 +135,11 @@ ProjectFileResult read_project_file(
     asset->data.channel_count = midi_asset.channel_count;
     asset->data.min_note = midi_asset.min_note;
     asset->data.max_note = midi_asset.max_note;
-    for (uint32_t j = 0; j < midi_asset.channel_count; j++) {
-      auto& midi_note_buffer = asset->data.channels[j];
-      if (file.read_array(midi_note_buffer) < 4)
-        return ProjectFileResult::ErrCorruptedFile;
-    }
+    assert(midi_asset.channel_count == 1);
+    if (file.read_array(asset->data.note_sequence) < 4)
+      return ProjectFileResult::ErrCorruptedFile;
+    asset->data.create_metadata(asset->data.note_sequence.data(), asset->data.note_sequence.size());
+    asset->data.update_channel(0);
     midi_assets[i] = asset;
   }
 
@@ -309,13 +309,8 @@ ProjectFileResult write_project_file(
     };
     if (file.write(&asset_header, sizeof(PFMidiAsset)) < sizeof(PFMidiAsset))
       return ProjectFileResult::ErrCannotAccessFile;
-    for (uint32_t i = 0; i < data.channel_count; i++) {
-      // NOTE(native-m): Here we just dump midi note buffer to the file until the MidiNote
-      // structure changed in the future.
-      const MidiNoteBuffer& note_buffer = data.channels[i];
-      if (file.write_array(note_buffer) < 4)
-        return ProjectFileResult::ErrCannotAccessFile;
-    }
+    if (file.write_array(asset->data.note_sequence) < 4)
+      return ProjectFileResult::ErrCannotAccessFile;
     midi_index_map.emplace(asset, idx);
     midi_asset_ptr = asset->next_;
     idx++;
@@ -325,7 +320,7 @@ ProjectFileResult write_project_file(
     PFTrackHeader track_header {
       .magic_numbers = fourcc("WBTR"),
       .version = project_track_version,
-      .flags = {
+      .flags {
         .has_name = track->name.size() != 0,
         .shown = track->shown,
         .mute = track->ui_parameter_state.mute,
@@ -348,7 +343,7 @@ ProjectFileResult write_project_file(
         .magic_numbers = fourcc("WBCL"),
         .version = project_clip_version,
         .type = clip->type,
-        .flags = {
+        .flags {
           .has_name = clip->name.size() != 0,
           .active = clip->is_active(),
         },
