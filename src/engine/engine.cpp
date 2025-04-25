@@ -1110,7 +1110,7 @@ std::optional<MidiEditResult> Engine::slice_note(
 
   MidiAsset* asset = clip->midi.asset;
   MidiNoteBuffer& note_seq = asset->data.note_sequence;
-  NoteSequenceID seq_id = asset->data.find_note_sequence_id(slice_pos, note_key, channel);
+  NoteSequenceID seq_id = asset->data.find_note(slice_pos, note_key, channel);
   if (seq_id == (uint32_t)-1)
     return {};
   std::unique_lock lock(editor_lock);
@@ -1166,16 +1166,62 @@ MidiEditResult Engine::delete_note(uint32_t track_id, uint32_t clip_id, uint32_t
   std::unique_lock lock(editor_lock);
   uint32_t num_erased = 0;
 
-  for (uint32_t id : note_ids) {
-    MidiNote& note = note_seq[id];
-    note_seq.erase(id - num_erased);
-    asset->data.free_metadata(note.meta_id);
-    num_erased++;
+  MidiNoteBuffer new_sequence;
+  new_sequence.reserve(note_seq.size());
+
+  for (uint32_t note_id = 0; const auto& note : note_seq) {
+    bool skip = false;
+    for (uint32_t id : note_ids) {
+      if (id == note_id) {
+        skip = true;
+      }
+    }
+    if (!skip) {
+      new_sequence.push_back(note);
+    }
+    note_id++;
   }
 
+  note_seq = std::move(new_sequence);
   asset->data.update_channel(channel);
 
   return {};
+}
+
+bool Engine::select_note(
+    uint32_t track_id,
+    uint32_t clip_id,
+    double min_pos,
+    double max_pos,
+    uint16_t min_key,
+    uint16_t max_key) {
+  Clip* clip = get_clip_(track_id, clip_id);
+  if (clip == nullptr)
+    return;
+
+
+}
+
+void Engine::append_note_selection(
+    uint32_t track_id,
+    uint32_t clip_id,
+    bool should_select,
+    const Vector<uint32_t>& note_ids) {
+  Clip* clip = get_clip_(track_id, clip_id);
+  if (clip == nullptr)
+    return;
+
+  MidiAsset* asset = clip->midi.asset;
+  MidiNoteBuffer& note_seq = asset->data.note_sequence;
+
+  for (uint32_t id : note_ids) {
+    MidiNote& note = note_seq[id];
+    if (contain_bit(note.flags, MidiNoteFlags::Selected)) {
+      note.flags &= ~MidiNoteFlags::Selected;
+    } else {
+      note.flags |= MidiNoteFlags::Selected;
+    }
+  }
 }
 
 void Engine::set_clip_gain(Track* track, uint32_t clip_id, float gain) {
@@ -1380,6 +1426,27 @@ void Engine::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>&
   editor_lock.unlock();
 
   perf_measurer.update(tm_ticks_to_ms(counter.duration()), audio_buffer_duration_ms);
+}
+
+Clip* Engine::get_clip_(uint32_t track_id, uint32_t clip_id) {
+  if (tracks.size() == 0 || track_id >= tracks.size()) {
+    Log::error("move_note(): Invalid track id");
+    return nullptr;
+  }
+
+  Track* track = tracks[track_id];
+  if (track->clips.size() == 0 || clip_id >= track->clips.size()) {
+    Log::error("move_note(): Cannot find clip");
+    return nullptr;
+  }
+
+  Clip* clip = track->clips[clip_id];
+  if (!clip->is_midi()) {
+    Log::error("move_note(): Clip is not a midi clip");
+    return nullptr;
+  }
+
+  return clip;
 }
 
 void Engine::write_recorded_samples_(uint32_t num_samples) {

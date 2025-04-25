@@ -53,6 +53,7 @@ struct ClipEditorWindow : public TimelineBase {
   bool holding_ctrl = false;
   bool holding_alt = false;
   bool selecting_notes = false;
+  bool append_selection = false;
   bool notes_selected = false;
   bool force_redraw = false;
   bool redraw = false;

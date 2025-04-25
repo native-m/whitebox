@@ -467,6 +467,7 @@ void ClipEditorWindow::render_note_editor() {
   if (holding_ctrl && is_activated && edit_command == PianoRollTool::None) {
     selection_start_pos = hovered_position;
     first_selected_key = hovered_key;
+    append_selection = holding_shift;
     selecting_notes = true;
     Log::debug("Start selection");
   }
@@ -479,11 +480,23 @@ void ClipEditorWindow::render_note_editor() {
     if (last_selected_key < first_selected_key) {
       std::swap(last_selected_key, first_selected_key);
     }
-    if (selection_start_pos < selection_end_pos) {
+    if (selection_end_pos < selection_start_pos) {
       std::swap(selection_start_pos, selection_end_pos);
     }
-    query_selected_range();
+    if (append_selection) {
+      Vector<uint32_t> note_ids =
+          midi_asset->data.find_notes(selection_start_pos, selection_end_pos, first_selected_key, last_selected_key, 0);
+      if (note_ids.size() != 0) {
+        MidiAppendNoteSelectionCmd* cmd = new MidiAppendNoteSelectionCmd();
+        cmd->track_id = current_track_id.value();
+        cmd->clip_id = current_clip_id.value();
+        cmd->select_or_deselect = true;
+        cmd->selected_note_ids = std::move(note_ids);
+        g_cmd_manager.execute("Clip editor: Append note selection", cmd);
+      }
+    }
     selecting_notes = false;
+    append_selection = false;
     Log::debug("End selection");
   }
 
@@ -569,10 +582,10 @@ void ClipEditorWindow::render_note_editor() {
   }
 
   const Color base_color = current_clip->color;
-  const ImU32 indicator_frame_color = base_color.change_alpha(0.5f).darken(0.5f).to_uint32();
-  const ImU32 indicator_color = base_color.darken(0.5f).to_uint32();
-  const ImU32 channel_color = base_color.brighten(0.6f).change_alpha(0.75f).to_uint32();
-  const ImU32 text_color = base_color.darken(1.25f).to_uint32();
+  const ImU32 indicator_frame_color = base_color.change_alpha(0.5f).darken(0.6f).to_uint32();
+  const ImU32 indicator_color = base_color.darken(0.6f).to_uint32();
+  const ImU32 note_color = base_color.brighten(0.75f).change_alpha(0.85f).to_uint32();
+  const ImU32 text_color = base_color.darken(1.5f).to_uint32();
   auto font = ImGui::GetFont();
   float font_size = font->FontSize;
   float half_font_size = font_size * 0.5f;
@@ -583,9 +596,9 @@ void ClipEditorWindow::render_note_editor() {
   bool start_command = !holding_ctrl && is_activated && left_mouse_clicked && edit_command == PianoRollTool::None;
   std::optional<uint32_t> hovered_note_id;
 
-  auto draw_note = [&]<bool WithCommand>(
-                       float min_pos_x, float max_pos_x, float vel, uint32_t note_id, uint16_t key, bool selected = false)
-      -> PianoRollTool {
+  auto draw_note =
+      [&]<bool WithCommand>(
+          float min_pos_x, float max_pos_x, float vel, uint32_t note_id, uint16_t key, uint16_t flags = 0) -> PianoRollTool {
     float pos_y = (float)(131 - key) * note_height_in_pixel;
     float min_pos_y = cursor_pos.y + pos_y;
     float max_pos_y = min_pos_y + note_height_in_pixel;
@@ -598,34 +611,36 @@ void ClipEditorWindow::render_note_editor() {
 
 #ifdef WB_ENABLE_PIANO_ROLL_DEBUG_MENU
     if (display_note_id) {
-      char id[16]{};
-      fmt::format_to_n(id, sizeof(id), "{}", note_id);
-      dl->AddText(ImVec2(a.x, a.y - font_size), 0xFFFFFFFF, id);
+      char str_id[16]{};
+      fmt::format_to_n(str_id, sizeof(str_id), "{}", note_id);
+      dl->AddText(ImVec2(a.x, a.y - font_size), 0xFFFFFFFF, str_id);
     }
 #endif
 
+    bool selected = contain_bit(flags, MidiNoteFlags::Selected);
+
     // Draw note rect
     dl->PathLineTo(a);
-      dl->PathLineTo(ImVec2(b.x, a.y));
-      dl->PathLineTo(b);
+    dl->PathLineTo(ImVec2(b.x, a.y));
+    dl->PathLineTo(b);
     dl->PathLineTo(ImVec2(a.x, b.y));
-    dl->PathFillConvex(channel_color);
+    dl->PathFillConvex(note_color);
 
     // Draw note border
     dl->PathLineTo(a);
     dl->PathLineTo(ImVec2(b.x, a.y));
     dl->PathLineTo(b);
-      dl->PathLineTo(ImVec2(a.x, b.y));
-      dl->PathStroke(0x44000000, ImDrawFlags_Closed);
+    dl->PathLineTo(ImVec2(a.x, b.y));
+    dl->PathStroke(!selected ? 0x44000000 : 0xFFFFFFFF, ImDrawFlags_Closed, !selected ? 1.0f : 2.0f);
 
-      if (note_height_in_pixel > 13.0f) {
-        float note_text_padding_y;
-        if (note_height_in_pixel > 22.0f) {
-          // Draw velocity indicator
+    if (note_height_in_pixel > 13.0f) {
+      float note_text_padding_y;
+      if (note_height_in_pixel > 22.0f) {
+        // Draw velocity indicator
         float indicator_width = max_pos_x - min_pos_x - 5.0f;
         if (indicator_width > 1.0f) {
-          im_draw_box_filled(dl, min_pos_x + 3.0f, b.y - 6.0f, indicator_width, 4.0f, indicator_frame_color);
-          im_draw_box_filled(dl, min_pos_x + 3.0f, b.y - 6.0f, indicator_width * vel, 4.0f, indicator_color);
+          im_draw_box_filled(dl, min_pos_x + 3.0f, max_pos_y - 7.0f, indicator_width, 4.0f, indicator_frame_color);
+          im_draw_box_filled(dl, min_pos_x + 3.0f, max_pos_y - 7.0f, indicator_width * vel, 4.0f, indicator_color);
         }
         note_text_padding_y = 2.0f;
       } else {
@@ -673,6 +688,18 @@ void ClipEditorWindow::render_note_editor() {
     return command;
   };
 
+  double sel_start_pos = 0.0;
+  double sel_end_pos = 0.0;
+  uint32_t sel_first_key = 0;
+  uint32_t sel_last_key = 0;
+
+  if (selecting_notes) {
+    sel_start_pos = math::min(selection_start_pos, selection_end_pos);
+    sel_end_pos = math::max(selection_start_pos, selection_end_pos);
+    sel_first_key = math::max(first_selected_key, last_selected_key);
+    sel_last_key = math::min(first_selected_key, last_selected_key);
+  }
+
   uint32_t note_id = 0;
   for (auto& note : midi_asset->data.note_sequence) {
     float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * clip_scale);
@@ -683,8 +710,19 @@ void ClipEditorWindow::render_note_editor() {
     if (min_pos_x > end_x)
       break;
 
+    uint16_t flags = note.flags;
+    if (selecting_notes) {
+      if (!append_selection) {
+        flags &= ~MidiNoteFlags::Selected;
+      }
+      if (note.min_time <= sel_end_pos && note.max_time >= sel_start_pos &&
+          (note.key >= sel_last_key && note.key <= sel_first_key)) {
+        flags |= MidiNoteFlags::Selected;
+      }
+    }
+
     // Can't directly call with function call syntax :'(
-    if (auto cmd = draw_note.operator()<true>(min_pos_x, max_pos_x, note.velocity, note_id, note.key);
+    if (auto cmd = draw_note.operator()<true>(min_pos_x, max_pos_x, note.velocity, note_id, note.key, flags);
         start_command && cmd != PianoRollTool::None) {
       edit_command = cmd;
       initial_time_pos = hovered_position_grid;
@@ -713,7 +751,7 @@ void ClipEditorWindow::render_note_editor() {
       cmd->velocity = new_velocity / 127.0f;
       cmd->note_key = hovered_key;
       cmd->channel = 0;
-      g_cmd_manager.execute("Clip eidtor: Slice tool", cmd);
+      g_cmd_manager.execute("Clip editor: Slice tool", cmd);
       g_timeline.redraw_screen();
     } else {
       edit_command = piano_roll_tool;
@@ -786,20 +824,17 @@ void ClipEditorWindow::render_note_editor() {
         break;
       draw_note.operator()<false>(min_pos_x, max_pos_x, note.velocity, 0, note.key);
     }
+  } else if (edit_command == PianoRollTool::Move) {
   }
 
   // Display selection rectangle
   if (selecting_notes) {
     static const ImU32 selection_range_fill = Color(28, 150, 237, 72).to_uint32();
     static const ImU32 selection_range_border = Color(28, 150, 237, 255).to_uint32();
-    double start_pos = math::min(selection_start_pos, selection_end_pos);
-    double end_pos = math::max(selection_start_pos, selection_end_pos);
-    uint32_t first_key = math::max(first_selected_key, last_selected_key);
-    uint32_t last_key = math::min(first_selected_key, last_selected_key);
-    float a_x = (float)math::round(scroll_offset_x + start_pos * clip_scale);
-    float b_x = (float)math::round(scroll_offset_x + end_pos * clip_scale);
-    float a_y = (float)(131 - first_key) * note_height_in_pixel;
-    float b_y = (float)(131 - last_key + 1) * note_height_in_pixel;
+    float a_x = (float)math::round(scroll_offset_x + sel_start_pos * clip_scale);
+    float b_x = (float)math::round(scroll_offset_x + sel_end_pos * clip_scale);
+    float a_y = (float)(131 - sel_first_key) * note_height_in_pixel;
+    float b_y = (float)(131 - sel_last_key + 1) * note_height_in_pixel;
     im_draw_rect_filled(dl, a_x, a_y + cursor_pos.y, b_x, b_y + cursor_pos.y, selection_range_fill);
     im_draw_rect(dl, a_x, a_y + cursor_pos.y, b_x, b_y + cursor_pos.y, selection_range_border);
   }

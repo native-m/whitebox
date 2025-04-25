@@ -511,4 +511,15 @@ void MidiSliceNoteCmd::undo() {
   MidiCmd::undo(track_id, clip_id, channel);
 }
 
+//
+
+bool MidiAppendNoteSelectionCmd::execute() {
+  g_engine.append_note_selection(track_id, clip_id, select_or_deselect, selected_note_ids);
+  return true;
+}
+
+void MidiAppendNoteSelectionCmd::undo() {
+  g_engine.append_note_selection(track_id, clip_id, !select_or_deselect, selected_note_ids);
+}
+
 }  // namespace wb

@@ -35,7 +35,7 @@ using MidiNoteBuffer = Vector<MidiNote>;
 // Store additional note data
 struct MidiNoteMetadata {
   uint32_t next_free_id;  // Next free note ID
-  uint32_t seq_id;       // The owner of this metadata
+  uint32_t seq_id;        // The owner of this metadata
 };
 using MidiNoteMetadataPool = Vector<MidiNoteMetadata>;
 
@@ -50,13 +50,15 @@ struct MidiEditResult {
   Vector<MidiNote> deleted_notes;
 };
 
+using NoteCallback = void (*)(void* userdata, uint32_t id, const MidiNote& note);
+
 struct MidiData {
   static constexpr uint16_t max_notes = 132;
   static constexpr uint32_t max_channels = 16;
   double max_length = 0.0;
   MidiNoteMetadataPool note_metadata_pool;
   MidiNoteBuffer note_sequence;
-  //std::array<MidiNoteBuffer, max_channels> channels;
+  // std::array<MidiNoteBuffer, max_channels> channels;
   uint32_t first_free_id = WB_INVALID_NOTE_METADATA_ID;
   uint32_t num_free_metadata = 0;
   uint32_t id_counter = 0;
@@ -69,8 +71,16 @@ struct MidiData {
 
   void create_metadata(MidiNote* notes, uint32_t count);
   void free_metadata(uint32_t id);
-  NoteSequenceID find_note_sequence_id(double pos, uint16_t key, uint16_t channel);
-  Vector<uint32_t> find_notes_sequence_id(double min_pos, double max_pos, uint16_t min_key, uint16_t max_key, uint16_t channel);
+  NoteSequenceID find_note(double pos, uint16_t key, uint16_t channel);
+  Vector<uint32_t> find_notes(double min_pos, double max_pos, uint16_t min_key, uint16_t max_key, uint16_t channel);
+  void query_notes(
+      double min_pos,
+      double max_pos,
+      uint16_t min_key,
+      uint16_t max_key,
+      uint16_t channel,
+      void* cb_userdata,
+      NoteCallback cb);
   Vector<uint32_t> update_channel(uint16_t channel);
 };
 

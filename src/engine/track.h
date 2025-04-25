@@ -163,7 +163,7 @@ struct Track {
   void prepare_effect_buffer(uint32_t num_channels, uint32_t num_samples);
 
   /**
-   * @brief Reset track playback state. When track state changes, this must be called to update the playback state and
+   * @brief Reset playback state. When the playback state changes, this must be called to update the playback state and
    * make sure everything keep sync.
    *
    * @param time_pos Starting point of the playback.

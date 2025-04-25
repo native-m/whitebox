@@ -185,7 +185,13 @@ struct Engine {
   std::optional<MidiEditResult>
   slice_note(uint32_t track_id, uint32_t clip_id, double slice_pos, float velocity, uint16_t note_key, uint16_t channel);
 
+  MidiEditResult move_note(uint32_t track_id, uint32_t clip_id, uint32_t note_id, double relative_pos);
+
   MidiEditResult delete_note(uint32_t track_id, uint32_t clip_id, uint32_t channel, const Vector<uint32_t>& note_ids);
+
+  bool select_note(uint32_t track_id, uint32_t clip_id, double min_pos, double max_pos, uint16_t min_key, uint16_t max_key);
+  
+  void append_note_selection(uint32_t track_id, uint32_t clip_id, bool should_select, const Vector<uint32_t>& note_ids);
 
   void set_clip_gain(Track* track, uint32_t clip_id, float gain);
 
@@ -226,6 +232,8 @@ struct Engine {
   void add_on_bpm_change_listener(Fn&& fn) {
     on_bpm_change_listener.push_back(fn);
   }
+  
+  Clip* get_clip_(uint32_t track_id, uint32_t clip_id);
 
   void write_recorded_samples_(uint32_t num_samples);
 

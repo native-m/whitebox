@@ -55,33 +55,57 @@ void MidiData::free_metadata(uint32_t id) {
   num_free_metadata++;
 }
 
-NoteSequenceID MidiData::find_note_sequence_id(double pos, uint16_t key, uint16_t channel) {
+NoteSequenceID MidiData::find_note(double pos, uint16_t key, uint16_t channel) {
   if (note_sequence.size() == 0)
     return (uint32_t)-1;
 
-  uint32_t seq_id = (uint32_t)-1;
+  uint32_t note_id = (uint32_t)-1;
   for (uint32_t id = 0; const auto& note : note_sequence) {
     if (pos >= note.min_time && pos < note.max_time && note.key == key) {
-      seq_id = id;  // TODO: Should probably return multiple notes!
+      note_id = id;  // TODO: Should probably return multiple notes!
       break;
     }
     id++;
   }
 
-  return seq_id;
+  return note_id;
 }
 
-Vector<uint32_t> MidiData::find_notes_sequence_id(double min_pos, double max_pos, uint16_t min_key, uint16_t max_key, uint16_t channel) {
+Vector<uint32_t> MidiData::find_notes(double min_pos, double max_pos, uint16_t min_key, uint16_t max_key, uint16_t channel) {
   Vector<uint32_t> notes;
-  for (uint32_t seq_id = 0; const auto& note : note_sequence) {
-    if (note.max_time < min_pos || note.key < min_key || note.key > max_key)
+  for (uint32_t note_id = 0; const auto& note : note_sequence) {
+    if (note.max_time < min_pos || note.key < min_key || note.key > max_key) {
+      note_id++;
       continue;
-    if (note.min_time > max_pos)
+    }
+    if (note.min_time > max_pos) {
       break;
-    notes.push_back(seq_id);
-    seq_id++;
+    }
+    notes.push_back(note_id);
+    note_id++;
   }
   return notes;
+}
+
+void MidiData::query_notes(
+    double min_pos,
+    double max_pos,
+    uint16_t min_key,
+    uint16_t max_key,
+    uint16_t channel,
+    void* cb_userdata,
+    NoteCallback cb) {
+  for (uint32_t note_id = 0; const auto& note : note_sequence) {
+    if (note.max_time < min_pos || note.key < min_key || note.key > max_key) {
+      note_id++;
+      continue;
+    }
+    if (note.min_time > max_pos) {
+      break;
+    }
+    cb(cb_userdata, note_id, note);
+    note_id++;
+  }
 }
 
 Vector<uint32_t> MidiData::update_channel(uint16_t channel) {
@@ -89,7 +113,10 @@ Vector<uint32_t> MidiData::update_channel(uint16_t channel) {
     if (a.min_time != b.min_time) {
       return a.min_time < b.min_time;
     }
-    return a.key < b.key;
+    if (a.key != b.key) {
+      return a.key < b.key;
+    }
+    return a.velocity < b.velocity;
   });
 
   Vector<uint32_t> modified_notes;
