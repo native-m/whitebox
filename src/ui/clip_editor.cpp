@@ -483,6 +483,7 @@ void ClipEditorWindow::render_note_editor() {
     if (selection_end_pos < selection_start_pos) {
       std::swap(selection_start_pos, selection_end_pos);
     }
+
     if (append_selection) {
       Vector<uint32_t> note_ids =
           midi_asset->data.find_notes(selection_start_pos, selection_end_pos, first_selected_key, last_selected_key, 0);
@@ -494,7 +495,17 @@ void ClipEditorWindow::render_note_editor() {
         cmd->selected_note_ids = std::move(note_ids);
         g_cmd_manager.execute("Clip editor: Append note selection", cmd);
       }
+    } else {
+      MidiSelectNoteCmd* cmd = new MidiSelectNoteCmd();
+      cmd->track_id = current_track_id.value();
+      cmd->clip_id = current_clip_id.value();
+      cmd->min_pos = selection_start_pos;
+      cmd->max_pos = selection_end_pos;
+      cmd->min_key = first_selected_key;
+      cmd->max_key = last_selected_key;
+      g_cmd_manager.execute("Clip editor: Select/deselect note", cmd);
     }
+
     selecting_notes = false;
     append_selection = false;
     Log::debug("End selection");
@@ -701,7 +712,7 @@ void ClipEditorWindow::render_note_editor() {
   }
 
   uint32_t note_id = 0;
-  for (auto& note : midi_asset->data.note_sequence) {
+  for (const auto& note : midi_asset->data.note_sequence) {
     float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * clip_scale);
     float max_pos_x = (float)math::round(scroll_offset_x + note.max_time * clip_scale);
 
@@ -713,10 +724,10 @@ void ClipEditorWindow::render_note_editor() {
     uint16_t flags = note.flags;
     if (selecting_notes) {
       if (!append_selection) {
-        flags &= ~MidiNoteFlags::Selected;
+        flags &= ~MidiNoteFlags::Selected; // The note may selected, make it appear deselected
       }
-      if (note.min_time <= sel_end_pos && note.max_time >= sel_start_pos &&
-          (note.key >= sel_last_key && note.key <= sel_first_key)) {
+      if (note.min_time <= sel_end_pos && note.max_time >= sel_start_pos && note.key >= sel_last_key &&
+          note.key <= sel_first_key) {
         flags |= MidiNoteFlags::Selected;
       }
     }

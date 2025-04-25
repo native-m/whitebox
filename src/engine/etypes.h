@@ -74,6 +74,11 @@ struct TrackEditResult {
   Clip* new_clip;
 };
 
+struct NoteSelectResult {
+  Vector<uint32_t> selected;
+  Vector<uint32_t> deselected;
+};
+
 struct MultiEditResult {
   Vector<Pair<uint32_t, Clip>> deleted_clips;
   Vector<Pair<uint32_t, Clip*>> added_clips;

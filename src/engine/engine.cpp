@@ -1084,6 +1084,27 @@ MidiEditResult Engine::add_note(uint32_t track_id, uint32_t clip_id, uint32_t ch
   };
 }
 
+MidiEditResult Engine::move_note(uint32_t track_id, uint32_t clip_id, uint32_t note_id, double relative_pos) {
+  if (tracks.size() == 0 || track_id >= tracks.size()) {
+    Log::error("move_note(): Invalid track id");
+    return {};
+  }
+
+  Track* track = tracks[track_id];
+  if (track->clips.size() == 0 || clip_id >= track->clips.size()) {
+    Log::error("move_note(): Cannot find clip");
+    return {};
+  }
+
+  Clip* clip = track->clips[clip_id];
+  if (!clip->is_midi()) {
+    Log::error("move_note(): Clip is not a midi clip");
+    return {};
+  }
+
+  return MidiEditResult{};
+}
+
 std::optional<MidiEditResult> Engine::slice_note(
     uint32_t track_id,
     uint32_t clip_id,
@@ -1188,7 +1209,7 @@ MidiEditResult Engine::delete_note(uint32_t track_id, uint32_t clip_id, uint32_t
   return {};
 }
 
-bool Engine::select_note(
+NoteSelectResult Engine::select_note(
     uint32_t track_id,
     uint32_t clip_id,
     double min_pos,
@@ -1197,9 +1218,27 @@ bool Engine::select_note(
     uint16_t max_key) {
   Clip* clip = get_clip_(track_id, clip_id);
   if (clip == nullptr)
-    return;
+    return {};
 
+  MidiAsset* asset = clip->midi.asset;
+  MidiNoteBuffer& note_seq = asset->data.note_sequence;
+  NoteSelectResult result;
 
+  for (uint32_t id = 0; auto& note : note_seq) {
+    if (contain_bit(note.flags, MidiNoteFlags::Selected)) {
+      result.deselected.push_back(id);
+    }
+    uint16_t flags = note.flags & ~MidiNoteFlags::Selected;
+    if (note.min_time <= max_pos && note.max_time >= min_pos && note.key >= min_key && note.key <= max_key) {
+      note.flags = flags | MidiNoteFlags::Selected;
+      result.selected.push_back(id);
+    } else {
+      note.flags = flags;
+    }
+    id++;
+  }
+
+  return result;
 }
 
 void Engine::append_note_selection(

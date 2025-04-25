@@ -442,8 +442,8 @@ void MidiCmd::undo(uint32_t track_id, uint32_t clip_id, uint32_t channel) {
   Track* track = g_engine.tracks[track_id];
   Clip* clip = track->clips[clip_id];
   MidiAsset* asset = clip->midi.asset;
-  MidiNoteMetadataPool& metadata_pool = asset->data.note_metadata_pool;
   MidiNoteBuffer& note_sequence = asset->data.note_sequence;
+  MidiNoteMetadataPool& metadata_pool = asset->data.note_metadata_pool;
   uint32_t num_erased = 0;
 
   // Delete modified notes
@@ -509,6 +509,29 @@ bool MidiSliceNoteCmd::execute() {
 void MidiSliceNoteCmd::undo() {
   std::unique_lock lock(g_engine.editor_lock);
   MidiCmd::undo(track_id, clip_id, channel);
+}
+
+//
+
+bool MidiSelectNoteCmd::execute() {
+  result = g_engine.select_note(track_id, clip_id, min_pos, max_pos, min_key, max_key);
+  return !result.selected.empty() && !result.deselected.empty();
+}
+
+void MidiSelectNoteCmd::undo() {
+  Track* track = g_engine.tracks[track_id];
+  Clip* clip = track->clips[clip_id];
+  MidiNoteBuffer& note_sequence = clip->get_midi_data()->note_sequence;
+  
+  for (uint32_t id : result.selected) {
+    MidiNote& note = note_sequence[id];
+    note.flags &= ~MidiNoteFlags::Selected;
+  }
+
+  for (uint32_t id : result.deselected) {
+    MidiNote& note = note_sequence[id];
+    note.flags |= MidiNoteFlags::Selected;
+  }
 }
 
 //

@@ -194,7 +194,11 @@ struct Clip {
     deleted = true;
   }
 
-  inline double get_asset_sample_rate() {
+  inline MidiData* get_midi_data() {
+    return (type == ClipType::Midi && midi.asset) ? &midi.asset->data : nullptr;
+  } 
+
+  inline double get_asset_sample_rate() const {
     if (type == ClipType::Audio && audio.asset) {
       return audio.asset->sample_instance.sample_rate;
     }
