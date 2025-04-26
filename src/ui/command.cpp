@@ -515,7 +515,7 @@ void MidiSliceNoteCmd::undo() {
 
 bool MidiSelectNoteCmd::execute() {
   result = g_engine.select_note(track_id, clip_id, min_pos, max_pos, min_key, max_key);
-  return !result.selected.empty() && !result.deselected.empty();
+  return !result.selected.empty() || !result.deselected.empty();
 }
 
 void MidiSelectNoteCmd::undo() {
@@ -523,6 +523,29 @@ void MidiSelectNoteCmd::undo() {
   Clip* clip = track->clips[clip_id];
   MidiNoteBuffer& note_sequence = clip->get_midi_data()->note_sequence;
   
+  for (uint32_t id : result.selected) {
+    MidiNote& note = note_sequence[id];
+    note.flags &= ~MidiNoteFlags::Selected;
+  }
+
+  for (uint32_t id : result.deselected) {
+    MidiNote& note = note_sequence[id];
+    note.flags |= MidiNoteFlags::Selected;
+  }
+}
+
+//
+
+bool MidiSelectOrDeselectNotesCmd::execute() {
+  result = g_engine.select_or_deselect_notes(track_id, clip_id, should_select);
+  return !result.selected.empty() || !result.deselected.empty();
+}
+
+void MidiSelectOrDeselectNotesCmd::undo() {
+  Track* track = g_engine.tracks[track_id];
+  Clip* clip = track->clips[clip_id];
+  MidiNoteBuffer& note_sequence = clip->get_midi_data()->note_sequence;
+
   for (uint32_t id : result.selected) {
     MidiNote& note = note_sequence[id];
     note.flags &= ~MidiNoteFlags::Selected;

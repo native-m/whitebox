@@ -264,6 +264,16 @@ struct MidiSelectNoteCmd : public Command {
   void undo() override;
 };
 
+struct MidiSelectOrDeselectNotesCmd : public Command {
+  uint32_t track_id;
+  uint32_t clip_id;
+  bool should_select;
+  NoteSelectResult result;
+
+  bool execute() override;
+  void undo() override;
+};
+
 struct MidiAppendNoteSelectionCmd : public Command {
   uint32_t track_id;
   uint32_t clip_id;

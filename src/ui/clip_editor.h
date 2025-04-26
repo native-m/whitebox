@@ -68,8 +68,6 @@ struct ClipEditorWindow : public TimelineBase {
   bool notes_selected = false;
   bool force_redraw = false;
 
-  Vector<uint32_t> selected_seq_id;
-  Vector<uint32_t> selected_note_id;
   double selection_start_pos = 0.0;
   double selection_end_pos = 0.0;
   uint32_t first_selected_key = 0;
@@ -88,11 +86,15 @@ struct ClipEditorWindow : public TimelineBase {
 
   PianoRollTool edit_command{};
   double initial_time_pos = 0.0;
+  double min_note_pos = 0.0;
+  double max_relative_pos = 0.0;
+  uint32_t edited_note_id = (uint32_t)-1;
   int32_t initial_key = -1;
   int32_t hovered_key = -1;
   int32_t min_paint = 1;
   int32_t max_paint = INT32_MIN;
   Vector<MidiNote> painted_notes;
+  Vector<uint32_t> fg_notes;
 
   // debug
   bool display_note_id = true;
@@ -109,6 +111,7 @@ struct ClipEditorWindow : public TimelineBase {
   void render_note_editor();
   void render_event_editor();
   void draw_piano_keys(ImDrawList* draw_list, ImVec2& pos, const ImVec2& note_size, uint32_t oct);
+  void select_or_deselect_all_notes(bool should_select);
   void query_selected_range();
   void zoom_vertically(float mouse_pos_y, float height, float mouse_wheel);
 };

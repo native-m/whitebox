@@ -192,6 +192,8 @@ struct Engine {
   NoteSelectResult
   select_note(uint32_t track_id, uint32_t clip_id, double min_pos, double max_pos, uint16_t min_key, uint16_t max_key);
 
+  NoteSelectResult select_or_deselect_notes(uint32_t track_id, uint32_t clip_id, bool should_select = true);
+
   void append_note_selection(uint32_t track_id, uint32_t clip_id, bool should_select, const Vector<uint32_t>& note_ids);
 
   void set_clip_gain(Track* track, uint32_t clip_id, float gain);

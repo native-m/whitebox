@@ -1164,22 +1164,9 @@ std::optional<MidiEditResult> Engine::slice_note(
 }
 
 MidiEditResult Engine::delete_note(uint32_t track_id, uint32_t clip_id, uint32_t channel, const Vector<uint32_t>& note_ids) {
-  if (tracks.size() == 0 || track_id >= tracks.size()) {
-    Log::error("move_note(): Invalid track id");
+  Clip* clip = get_clip_(track_id, clip_id);
+  if (clip == nullptr)
     return {};
-  }
-
-  Track* track = tracks[track_id];
-  if (track->clips.size() == 0 || clip_id >= track->clips.size()) {
-    Log::error("move_note(): Cannot find clip");
-    return {};
-  }
-
-  Clip* clip = track->clips[clip_id];
-  if (!clip->is_midi()) {
-    Log::error("move_note(): Clip is not a midi clip");
-    return {};
-  }
 
   MidiAsset* asset = clip->midi.asset;
   MidiNoteBuffer& note_seq = asset->data.note_sequence;
@@ -1220,8 +1207,7 @@ NoteSelectResult Engine::select_note(
   if (clip == nullptr)
     return {};
 
-  MidiAsset* asset = clip->midi.asset;
-  MidiNoteBuffer& note_seq = asset->data.note_sequence;
+  MidiNoteBuffer& note_seq = clip->get_midi_data()->note_sequence;
   NoteSelectResult result;
 
   for (uint32_t id = 0; auto& note : note_seq) {
@@ -1234,6 +1220,26 @@ NoteSelectResult Engine::select_note(
       result.selected.push_back(id);
     } else {
       note.flags = flags;
+    }
+    id++;
+  }
+
+  return result;
+}
+
+NoteSelectResult Engine::select_or_deselect_notes(uint32_t track_id, uint32_t clip_id, bool should_select) {
+  Clip* clip = get_clip_(track_id, clip_id);
+  if (clip == nullptr)
+    return {};
+
+  MidiNoteBuffer& note_seq = clip->get_midi_data()->note_sequence;
+  NoteSelectResult result;
+
+  for (uint32_t id = 0; auto& note : note_seq) {
+    if (contain_bit(note.flags, MidiNoteFlags::Selected)) {
+      result.deselected.push_back(id);
+      result.selected.push_back(id);
+      note.flags &= ~MidiNoteFlags::Selected;
     }
     id++;
   }
