@@ -11,8 +11,10 @@
 #include "plugins.h"
 #include "settings.h"
 #include "timeline.h"
+#include "window.h"
 
 namespace wb {
+
 bool g_browser_window_open = true;
 bool g_plugins_window_open = true;
 bool g_history_window_open = true;
@@ -25,6 +27,44 @@ bool g_plugin_mgr_window_open = false;
 bool g_env_editor_window_open = true;
 bool g_project_info_window_open = false;
 bool g_performance_counter_window_open = true;
+
+void init_windows() {
+  g_timeline.init();
+  g_clip_editor.init();
+}
+
+void shutdown_windows() {
+  g_timeline.shutdown();
+  g_clip_editor.shutdown();
+}
+
+void render_windows() {
+  ImGui::ShowDemoWindow();
+  controls::render_test_controls();
+  if (g_settings_window_open)
+    g_settings.render();
+  if (g_plugin_mgr_window_open)
+    g_plugin_manager.render();
+  if (g_browser_window_open)
+    g_browser.render();
+  if (g_plugins_window_open)
+    g_plugins_window.render();
+  if (g_history_window_open)
+    history_window();
+  if (g_asset_window_open)
+    asset_window();
+  if (g_mixer_window_open)
+    g_mixer.render();
+  if (g_timeline_window_open)
+    g_timeline.render();
+  if (g_piano_roll_window_open)
+    g_clip_editor.render();
+  if (g_env_editor_window_open)
+    g_env_window.render();
+  if (g_project_info_window_open)
+    project_info_window();
+  // performance_counter_window();
+}
 
 void project_info_window() {
   ImGui::SetNextWindowSize(ImVec2(300, 300), ImGuiCond_Once);
@@ -111,31 +151,4 @@ void performance_counter_window() {
   controls::end_window();
 }
 
-void render_windows() {
-  ImGui::ShowDemoWindow();
-  controls::render_test_controls();
-  if (g_settings_window_open)
-    g_settings.render();
-  if (g_plugin_mgr_window_open)
-    g_plugin_manager.render();
-  if (g_browser_window_open)
-    g_browser.render();
-  if (g_plugins_window_open)
-    g_plugins_window.render();
-  if (g_history_window_open)
-    history_window();
-  if (g_asset_window_open)
-    asset_window();
-  if (g_mixer_window_open)
-    g_mixer.render();
-  if (g_timeline_window_open)
-    g_timeline.render();
-  if (g_piano_roll_window_open)
-    g_clip_editor.render();
-  if (g_env_editor_window_open)
-    g_env_window.render();
-  if (g_project_info_window_open)
-    project_info_window();
-  // performance_counter_window();
-}
 }  // namespace wb

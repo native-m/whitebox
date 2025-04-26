@@ -3,6 +3,7 @@
 #include "core/midi.h"
 #include "engine/track.h"
 #include "timeline_base.h"
+#include "gfx/renderer.h"
 
 namespace wb {
 
@@ -27,13 +28,23 @@ struct ClipEditorWindow : public TimelineBase {
   static constexpr float max_oct_count = note_count / note_count_per_oct;
 
   ImDrawList* piano_roll_dl{};
+  ImDrawList* layer1_dl{};
+  ImDrawList* layer2_dl{};
+  ImDrawData layer_draw_data;
+  GPUTexture* piano_roll_fb{};
+
   ImFont* font{};
   Track* current_track{};
   Clip* current_clip{};
   std::optional<uint32_t> current_track_id;
   std::optional<uint32_t> current_clip_id;
+  ImU32 indicator_frame_color{};
+  ImU32 indicator_color{};
+  ImU32 note_color{};
+  ImU32 text_color{};
 
   ImVec2 content_size;
+  ImVec2 old_piano_roll_size;
   ImVec2 main_cursor_pos;
   ImVec2 child_content_size;
   double ppq = 0.0;
@@ -56,8 +67,9 @@ struct ClipEditorWindow : public TimelineBase {
   bool append_selection = false;
   bool notes_selected = false;
   bool force_redraw = false;
-  bool redraw = false;
 
+  Vector<uint32_t> selected_seq_id;
+  Vector<uint32_t> selected_note_id;
   double selection_start_pos = 0.0;
   double selection_end_pos = 0.0;
   uint32_t first_selected_key = 0;
@@ -86,6 +98,8 @@ struct ClipEditorWindow : public TimelineBase {
   bool display_note_id = true;
 
   ClipEditorWindow();
+  void init();
+  void shutdown();
   void set_clip(uint32_t track_id, uint32_t clip_id);
   void unset_clip();
   bool contains_clip();

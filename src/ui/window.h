@@ -13,8 +13,12 @@ extern bool g_plugin_mgr_window_open;
 extern bool g_env_editor_window_open;
 extern bool g_project_info_window_open;
 
+void init_windows();
+void shutdown_windows();
+void render_windows();
+
 void project_info_window();
 void history_window();
 void asset_window();
-void render_windows();
+
 } // namespace wb

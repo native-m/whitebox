@@ -178,9 +178,9 @@ void app_init() {
   init_font_assets();
   apply_theme(ImGui::GetStyle());
   init_renderer(wm_get_main_window());
+  init_windows();
 
   g_cmd_manager.init(10);
-  g_timeline.init();
   g_engine.set_bpm(150.0f);
 }
 
@@ -311,7 +311,7 @@ void app_shutdown() {
   Log::info("Closing application...");
   wm_close_all_plugin_window();
   save_settings_data();
-  g_timeline.shutdown();
+  shutdown_windows();
   shutdown_audio_io();
   g_cmd_manager.reset();
   g_engine.clear_all();
