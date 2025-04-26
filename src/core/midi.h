@@ -6,6 +6,7 @@
 #include "vector.h"
 
 #define WB_INVALID_NOTE_METADATA_ID 0xFFFFFFFF
+#define WB_INVALID_NOTE_ID          0xFFFFFFFF
 
 namespace wb {
 
@@ -16,7 +17,8 @@ struct MidiNoteFlags {
   enum : uint16_t {
     Deactivated = 1 << 0,
     Modified = 1 << 1,
-    Selected = 1 << 1,
+    Selected = 1 << 2,
+    PrivateFlags = Modified | Selected,
   };
 };
 
