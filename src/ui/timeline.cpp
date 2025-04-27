@@ -192,7 +192,7 @@ void TimelineWindow::render_track_controls() {
 
   for (uint32_t i = 0; i < num_tracks; i++) {
     Track* track = tracks[i];
-    const float height = track->height;
+    float height = track->get_height();
     const char* begin_name_str = track->name.c_str();
     const char* end_name_str = begin_name_str + track->name.size();
     const ImVec2 tmp_item_spacing = style.ItemSpacing;
@@ -220,7 +220,9 @@ void TimelineWindow::render_track_controls() {
       ImGui::PopStyleVar();
       ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, tmp_item_spacing);
       ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.0f, style.FramePadding.y));
-      controls::collapse_button("##track_collapse", &track->shown);
+      if (controls::collapse_button("##track_collapse", &track->shown)) {
+        redraw = true;
+      }
       ImGui::PopStyleVar();
 
       ImGui::SameLine(0.0f, 5.0f);
@@ -403,8 +405,10 @@ void TimelineWindow::render_track_controls() {
     ImGui::Unindent(track_color_width);
 
     const float total_width = pos_end.x - pos_start.x + track_color_width + vu_meter_space;
-    if (controls::hsplitter(i, &track->height, 60.0f, 30.f, 600.f, total_width))
+    if (controls::hsplitter(i, &height, 60.0f, 20.f, 600.f, total_width)) {
+      track->height = height;
       redraw = true;
+    }
 
     ImGui::PopStyleVar();
   }
@@ -688,12 +692,13 @@ void TimelineWindow::render_track_lanes() {
       float mouse_pos_at_timeline_y = mouse_pos.y - timeline_view_pos.y;
       for (uint32_t i = 0; i < g_engine.tracks.size(); i++) {
         Track* track = g_engine.tracks[i];
-        const float next_pos_y = track_pos_y + track->height + track_separator_height;
+        const float height = track->get_height();
+        const float next_pos_y = track_pos_y + height + track_separator_height;
         if (mouse_pos_at_timeline_y >= track_pos_y && mouse_pos_at_timeline_y < next_pos_y) {
           hovered_track = track;
           hovered_track_id = i;
           hovered_track_y = track_pos_y + timeline_view_pos.y;
-          hovered_track_height = track->height;
+          hovered_track_height = height;
           break;
         }
         track_pos_y = next_pos_y;
@@ -813,7 +818,7 @@ void TimelineWindow::render_track_lanes() {
 
   for (uint32_t i = 0; i < g_engine.tracks.size(); i++) {
     Track* track = tracks[i];
-    const float height = track->height;
+    const float height = track->get_height();
     const float track_view_min_y = offset_y - height - track_separator_height;
     const float expand_min_y = !dragging ? 0.0f : math::max(track_view_min_y - mouse_pos.y, 0.0f);
 
@@ -925,17 +930,18 @@ void TimelineWindow::render_track_lanes() {
 
       for (uint32_t i = 0; i <= last_track; i++) {
         Track* track = g_engine.tracks[i];
+        const float height = track->get_height();
         if (selecting_range || range_selected) {
           if (first_track == i) {
             selection_start_y = track_pos_y;
-            selection_start_height = track->height;
+            selection_start_height = height;
           }
           if (last_track == i) {
             selection_end_y = track_pos_y;
-            selection_end_height = track->height;
+            selection_end_height = height;
           }
         }
-        track_pos_y += track->height + track_separator_height;
+        track_pos_y += height + track_separator_height;
       }
 
       static const ImU32 selection_range_fill = ImColor(28, 150, 237, 76);
@@ -1078,7 +1084,8 @@ void TimelineWindow::render_track(
     double mouse_at_gridline,
     bool track_hovered,
     bool is_mouse_in_selection_range) {
-  const float height = track->height;
+  const float height = track->get_height();
+  const bool can_adjust_gain = track->shown || height <= 30.0f;
   double relative_pos = 0.0;
   bool has_clip_selected = false;
   SelectedTrackRegion* selected_region = nullptr;
@@ -1258,7 +1265,7 @@ void TimelineWindow::render_track(
         float gain_ctrl_pos_y = track_pos_y + height - 17.0f;
         ImRect gain_ctrl(gain_ctrl_pos_x, gain_ctrl_pos_y, gain_ctrl_pos_x + 50.0f, gain_ctrl_pos_y + 13.0f);
 
-        if (clip->is_audio() && gain_ctrl.Contains(mouse_pos)) {
+        if (can_adjust_gain && clip->is_audio() && gain_ctrl.Contains(mouse_pos)) {
           if (left_mouse_clicked) {
             if (!holding_alt) {
               current_value = math::linear_to_db(clip->audio.gain);
@@ -1672,183 +1679,186 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
       dl->AddText(font, font_size, label_pos, text_color, str, str + clip->name.size(), 0.0f, &clip_label_rect);
     }
 
-    switch (clip->type) {
-      case ClipType::Audio: {
-        SampleAsset* asset = clip->audio.asset;
-        if (asset) {
-          WaveformVisual* waveform = cmd.audio;
-          if (!waveform)
-            break;
-          const double scale_x = sample_scale * (double)waveform->sample_rate;
-          const double inv_scale_x = 1.0 / scale_x;
-          double mip_index = std::log(scale_x * 0.5) * log_base4;  // Scale -> Index
-          const int32_t index = math::clamp((int32_t)mip_index, 0, waveform->mipmap_count - 1);
-          double mip_scale = std::pow(4.0, mip_index - (double)index) * 2.0;  // Index -> Mip Scale
-          // const double mip_index = (std::log(scale_x * 0.5) * log_base4) * 0.5; // Scale -> Index
-          // const int32_t index = math::clamp((int32_t)mip_index, 0, sample_peaks->mipmap_count - 1);
-          // const double mult = std::pow(4.0, (double)index - 1.0);
-          // const double mip_scale =
-          //     std::pow(4.0, 2.0 * (mip_index - (double)index)) * 8.0 * mult; // Index -> Mip Scale
-          // const double mip_div = math::round(scale_x / mip_scale);
+    if (cmd.height > 30.0f) {
+      switch (clip->type) {
+        case ClipType::Audio: {
+          SampleAsset* asset = clip->audio.asset;
+          if (asset) {
+            WaveformVisual* waveform = cmd.audio;
+            if (!waveform)
+              break;
+            const double scale_x = sample_scale * (double)waveform->sample_rate;
+            const double inv_scale_x = 1.0 / scale_x;
+            double mip_index = std::log(scale_x * 0.5) * log_base4;  // Scale -> Index
+            const int32_t index = math::clamp((int32_t)mip_index, 0, waveform->mipmap_count - 1);
+            double mip_scale = std::pow(4.0, mip_index - (double)index) * 2.0;  // Index -> Mip Scale
+            // const double mip_index = (std::log(scale_x * 0.5) * log_base4) * 0.5; // Scale -> Index
+            // const int32_t index = math::clamp((int32_t)mip_index, 0, sample_peaks->mipmap_count - 1);
+            // const double mult = std::pow(4.0, (double)index - 1.0);
+            // const double mip_scale =
+            //     std::pow(4.0, 2.0 * (mip_index - (double)index)) * 8.0 * mult; // Index -> Mip Scale
+            // const double mip_div = math::round(scale_x / mip_scale);
 
-          const double waveform_len = ((double)waveform->sample_count - start_offset) * inv_scale_x;
-          const double rel_min_x = cmd.min_pos_x - (double)min_draw_x;
-          const double rel_max_x = cmd.max_pos_x - (double)min_draw_x;
-          const double min_pos_x = math::max(rel_min_x, 0.0);
-          const double max_pos_x = math::min(math::min(rel_max_x, rel_min_x + waveform_len), (double)(timeline_width + 2.0));
-          const double draw_count = math::max(max_pos_x - min_pos_x, 0.0);
-          const double length = rel_max_x - rel_min_x;
-          const float gap_size = (float)(length / std::floor(length));
+            const double waveform_len = ((double)waveform->sample_count - start_offset) * inv_scale_x;
+            const double rel_min_x = cmd.min_pos_x - (double)min_draw_x;
+            const double rel_max_x = cmd.max_pos_x - (double)min_draw_x;
+            const double min_pos_x = math::max(rel_min_x, 0.0);
+            const double max_pos_x =
+                math::min(math::min(rel_max_x, rel_min_x + waveform_len), (double)(timeline_width + 2.0));
+            const double draw_count = math::max(max_pos_x - min_pos_x, 0.0);
+            const double length = rel_max_x - rel_min_x;
+            const float gap_size = (float)(length / std::floor(length));
 
-          // Log::debug("{} {} {}", index, mip_scale, (double)sample_peaks->sample_count / mip_index);
-          /*Log::debug("{} {} {} {} {}", sample_peaks->sample_count / (size_t)mip_div, mip_div, index,
-                     math::round(start_offset / mip_div), mip_scale);*/
+            // Log::debug("{} {} {}", index, mip_scale, (double)sample_peaks->sample_count / mip_index);
+            /*Log::debug("{} {} {} {} {}", sample_peaks->sample_count / (size_t)mip_div, mip_div, index,
+                       math::round(start_offset / mip_div), mip_scale);*/
 
-          if (draw_count) {
-            auto& waveform_cmd_list = !draw_in_layer2 ? waveform_cmd_list1 : waveform_cmd_list2;
-            double waveform_start = start_offset * inv_scale_x;
-            const double start_idx = std::round(math::max(-rel_min_x, 0.0) + waveform_start);
-            const float min_bb_x = (float)math::round(min_pos_x);
-            const float max_bb_x = (float)math::round(max_pos_x);
-            const float pos_y = clip_content_min.y - offset_y;
-            const ColorU32 waveform_color = content_color.to_uint32();
-            if (waveform->channels == 2) {
-              const float height = std::floor((clip_content_max.y - clip_content_min.y) * 0.5f);
-              waveform_cmd_list.push_back({
-                .waveform_vis = waveform,
-                .min_x = min_bb_x,
-                .min_y = pos_y,
-                .max_x = max_bb_x,
-                .max_y = pos_y + height,
-                .gain = cmd.gain,
-                .scale_x = (float)mip_scale,
-                .gap_size = gap_size,
-                .color = waveform_color,
-                .mip_index = index,
-                .channel = 0,
-                .start_idx = (uint32_t)start_idx,
-                .draw_count = (uint32_t)draw_count + 2,
-              });
-              waveform_cmd_list.push_back({
-                .waveform_vis = waveform,
-                .min_x = min_bb_x,
-                .min_y = pos_y + height,
-                .max_x = max_bb_x,
-                .max_y = pos_y + height * 2.0f,
-                .gain = cmd.gain,
-                .scale_x = (float)mip_scale,
-                .gap_size = gap_size,
-                .color = waveform_color,
-                .mip_index = index,
-                .channel = 1,
-                .start_idx = (uint32_t)start_idx,
-                .draw_count = (uint32_t)draw_count + 2,
-              });
-            } else {
-              waveform_cmd_list.push_back({
-                .waveform_vis = waveform,
-                .min_x = min_bb_x,
-                .min_y = pos_y,
-                .max_x = max_bb_x,
-                .max_y = clip_content_max.y - offset_y,
-                .gain = cmd.gain,
-                .scale_x = (float)mip_scale,
-                .gap_size = gap_size,
-                .color = waveform_color,
-                .mip_index = index,
-                .start_idx = (uint32_t)start_idx,
-                .draw_count = (uint32_t)draw_count + 2,
-              });
+            if (draw_count) {
+              auto& waveform_cmd_list = !draw_in_layer2 ? waveform_cmd_list1 : waveform_cmd_list2;
+              double waveform_start = start_offset * inv_scale_x;
+              const double start_idx = std::round(math::max(-rel_min_x, 0.0) + waveform_start);
+              const float min_bb_x = (float)math::round(min_pos_x);
+              const float max_bb_x = (float)math::round(max_pos_x);
+              const float pos_y = clip_content_min.y - offset_y;
+              const ColorU32 waveform_color = content_color.to_uint32();
+              if (waveform->channels == 2) {
+                const float height = std::floor((clip_content_max.y - clip_content_min.y) * 0.5f);
+                waveform_cmd_list.push_back({
+                  .waveform_vis = waveform,
+                  .min_x = min_bb_x,
+                  .min_y = pos_y,
+                  .max_x = max_bb_x,
+                  .max_y = pos_y + height,
+                  .gain = cmd.gain,
+                  .scale_x = (float)mip_scale,
+                  .gap_size = gap_size,
+                  .color = waveform_color,
+                  .mip_index = index,
+                  .channel = 0,
+                  .start_idx = (uint32_t)start_idx,
+                  .draw_count = (uint32_t)draw_count + 2,
+                });
+                waveform_cmd_list.push_back({
+                  .waveform_vis = waveform,
+                  .min_x = min_bb_x,
+                  .min_y = pos_y + height,
+                  .max_x = max_bb_x,
+                  .max_y = pos_y + height * 2.0f,
+                  .gain = cmd.gain,
+                  .scale_x = (float)mip_scale,
+                  .gap_size = gap_size,
+                  .color = waveform_color,
+                  .mip_index = index,
+                  .channel = 1,
+                  .start_idx = (uint32_t)start_idx,
+                  .draw_count = (uint32_t)draw_count + 2,
+                });
+              } else {
+                waveform_cmd_list.push_back({
+                  .waveform_vis = waveform,
+                  .min_x = min_bb_x,
+                  .min_y = pos_y,
+                  .max_x = max_bb_x,
+                  .max_y = clip_content_max.y - offset_y,
+                  .gain = cmd.gain,
+                  .scale_x = (float)mip_scale,
+                  .gap_size = gap_size,
+                  .color = waveform_color,
+                  .mip_index = index,
+                  .start_idx = (uint32_t)start_idx,
+                  .draw_count = (uint32_t)draw_count + 2,
+                });
+              }
             }
           }
+          break;
         }
-        break;
-      }
-      case ClipType::Midi: {
-        constexpr float min_note_size_px = 2.5f;
-        constexpr float max_note_size_px = 10.0f;
-        constexpr uint32_t min_note_range = 4;
-        const MidiAsset* asset = clip->midi.asset;
-        const uint32_t min_note = asset->data.min_note;
-        const uint32_t max_note = asset->data.max_note;
-        uint32_t note_range = (asset->data.max_note + 1) - min_note;
+        case ClipType::Midi: {
+          constexpr float min_note_size_px = 2.5f;
+          constexpr float max_note_size_px = 10.0f;
+          constexpr uint32_t min_note_range = 4;
+          const MidiAsset* asset = clip->midi.asset;
+          const uint32_t min_note = asset->data.min_note;
+          const uint32_t max_note = asset->data.max_note;
+          uint32_t note_range = (asset->data.max_note + 1) - min_note;
 
-        if (note_range < min_note_range)
-          note_range = 13;
+          if (note_range < min_note_range)
+            note_range = 13;
 
-        const float content_height = clip_content_max.y - clip_content_min.y;
-        const float note_height = content_height / (float)note_range;
-        float max_note_size = math::min(note_height, max_note_size_px);
-        const float min_note_size = math::max(max_note_size, min_note_size_px);
-        const float offset_y = clip_content_min.y + ((content_height * 0.5f) - (max_note_size * note_range * 0.5f));
+          const float content_height = clip_content_max.y - clip_content_min.y;
+          const float note_height = content_height / (float)note_range;
+          float max_note_size = math::min(note_height, max_note_size_px);
+          const float min_note_size = math::max(max_note_size, min_note_size_px);
+          const float offset_y = clip_content_min.y + ((content_height * 0.5f) - (max_note_size * note_range * 0.5f));
 
-        // Fix note overflow
-        if (content_height < math::round(min_note_size * note_range)) {
-          max_note_size = (content_height - 2.0f) / (float)(note_range - 1u);
-        }
+          // Fix note overflow
+          if (content_height < math::round(min_note_size * note_range)) {
+            max_note_size = (content_height - 2.0f) / (float)(note_range - 1u);
+          }
 
-        const float min_view = math::max(min_pos_clamped_x, min_draw_x);
-        const float max_view = math::min(max_pos_clamped_x, min_draw_x + timeline_width);
-        const ColorU32 note_color = content_color.to_uint32();
+          const float min_view = math::max(min_pos_clamped_x, min_draw_x);
+          const float max_view = math::min(max_pos_clamped_x, min_draw_x + timeline_width);
+          const ColorU32 note_color = content_color.to_uint32();
 
-        if (asset) {
-          uint32_t channel_count = asset->data.channel_count;
-          double min_start_x = cmd.min_pos_x - start_offset * clip_scale;
-          for (uint32_t i = 0; i < channel_count; i++) {
-            for (uint32_t j = 0; const auto& note : asset->data.note_sequence) {
-              float min_pos_x = (float)math::round(min_start_x + note.min_time * clip_scale);
-              float max_pos_x = (float)math::round(min_start_x + note.max_time * clip_scale);
-              if (max_pos_x < min_view)
-                continue;
-              if (min_pos_x > max_view)
-                break;
-              const float pos_y = offset_y + (float)(max_note - note.key) * max_note_size;
-              min_pos_x = math::max(min_pos_x, min_view);
-              max_pos_x = math::min(max_pos_x, max_view);
-              if (min_pos_x >= max_pos_x)
-                continue;
-              const ImVec2 a(min_pos_x + 0.5f, pos_y);
-              const ImVec2 b(max_pos_x, pos_y + min_note_size - 0.5f);
+          if (asset) {
+            uint32_t channel_count = asset->data.channel_count;
+            double min_start_x = cmd.min_pos_x - start_offset * clip_scale;
+            for (uint32_t i = 0; i < channel_count; i++) {
+              for (uint32_t j = 0; const auto& note : asset->data.note_sequence) {
+                float min_pos_x = (float)math::round(min_start_x + note.min_time * clip_scale);
+                float max_pos_x = (float)math::round(min_start_x + note.max_time * clip_scale);
+                if (max_pos_x < min_view)
+                  continue;
+                if (min_pos_x > max_view)
+                  break;
+                const float pos_y = offset_y + (float)(max_note - note.key) * max_note_size;
+                min_pos_x = math::max(min_pos_x, min_view);
+                max_pos_x = math::min(max_pos_x, max_view);
+                if (min_pos_x >= max_pos_x)
+                  continue;
+                const ImVec2 a(min_pos_x + 0.5f, pos_y);
+                const ImVec2 b(max_pos_x, pos_y + min_note_size - 0.5f);
 #if DEBUG_MIDI_CLIPS == 1
-              char c[32]{};
-              fmt::format_to_n(c, std::size(c), "ID: {}", j);
-              layer2_draw_list->AddText(a - ImVec2(0.0f, 13.0f), 0xFFFFFFFF, c);
-              j++;
+                char c[32]{};
+                fmt::format_to_n(c, std::size(c), "ID: {}", j);
+                layer2_draw_list->AddText(a - ImVec2(0.0f, 13.0f), 0xFFFFFFFF, c);
+                j++;
 #endif
-              dl->PathLineTo(a);
-              dl->PathLineTo(ImVec2(b.x, a.y));
-              dl->PathLineTo(b);
-              dl->PathLineTo(ImVec2(a.x, b.y));
-              dl->PathFillConvex(note_color);
+                dl->PathLineTo(a);
+                dl->PathLineTo(ImVec2(b.x, a.y));
+                dl->PathLineTo(b);
+                dl->PathLineTo(ImVec2(a.x, b.y));
+                dl->PathFillConvex(note_color);
+              }
             }
           }
+          break;
         }
-        break;
+        default: break;
       }
-      default: break;
-    }
 
-    layer3_draw_list->PushClipRect(clip_content_min, clip_content_max);
+      layer3_draw_list->PushClipRect(clip_content_min, clip_content_max);
 
-    if (clip->is_audio()) {
-      ImVec2 content_rect_min = layer3_draw_list->GetClipRectMin();
-      float ctrl_pos_x = math::max(clip_content_min.x, content_rect_min.x);
-      float width = max_pos_clamped_x - ctrl_pos_x;
-      float gain = cmd.gain;
+      if (clip->is_audio()) {
+        ImVec2 content_rect_min = layer3_draw_list->GetClipRectMin();
+        float ctrl_pos_x = math::max(clip_content_min.x, content_rect_min.x);
+        float width = max_pos_clamped_x - ctrl_pos_x;
+        float gain = cmd.gain;
 
-      if (!math::near_equal(gain, 1.0f) || cmd.hover_state == ClipHover::All) {
-        char gain_str[8]{};
-        float gain_db = math::linear_to_db(gain);
-        fmt::format_to(gain_str, "{:.1f}db", gain_db);
+        if (!math::near_equal(gain, 1.0f) || cmd.hover_state == ClipHover::All) {
+          char gain_str[8]{};
+          float gain_db = math::linear_to_db(gain);
+          fmt::format_to(gain_str, "{:.1f}db", gain_db);
 
-        constexpr float min_width = 60.0f;
-        float alpha = (width >= min_width) ? 1.0f : width / min_width;
-        ImVec2 ctrl_pos(ctrl_pos_x + 4.0f, clip_content_max.y - 16.0f);
-        draw_clip_overlay(ctrl_pos, 50.0f, alpha, bg_color, gain_str);
+          constexpr float min_width = 60.0f;
+          float alpha = (width >= min_width) ? 1.0f : width / min_width;
+          ImVec2 ctrl_pos(ctrl_pos_x + 4.0f, clip_content_max.y - 16.0f);
+          draw_clip_overlay(ctrl_pos, 50.0f, alpha, bg_color, gain_str);
+        }
       }
-    }
 
-    layer3_draw_list->PopClipRect();
+      layer3_draw_list->PopClipRect();
+    }
 
     if (clip->hover_state != ClipHover::None) {
       switch (clip->hover_state) {
@@ -2206,7 +2216,7 @@ float TimelineWindow::get_track_position_y(uint32_t id) {
   float track_pos_y = timeline_view_pos.y;
   for (uint32_t i = 0; i < id; i++) {
     Track* track = g_engine.tracks[i];
-    track_pos_y += track->height + track_separator_height;
+    track_pos_y += track->get_height() + track_separator_height;
   }
   return track_pos_y;
 }

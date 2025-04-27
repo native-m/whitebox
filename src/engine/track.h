@@ -115,6 +115,10 @@ struct Track {
   void set_pan(float pan);
   void set_mute(bool mute);
 
+  inline float get_height() const {
+    return shown ? height : 20.0f;
+  }
+
   inline bool has_clips() const {
     return !clips.empty();
   }
