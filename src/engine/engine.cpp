@@ -1207,17 +1207,25 @@ NoteSelectResult Engine::select_note(
   if (clip == nullptr)
     return {};
 
-  MidiNoteBuffer& note_seq = clip->get_midi_data()->note_sequence;
-  NoteSelectResult result;
+  MidiData* data = clip->get_midi_data();
+  MidiNoteBuffer& note_seq = data->note_sequence;
+  NoteSelectResult result{
+    .min_key = MidiData::max_keys,
+    .max_key = 0,
+  };
 
   for (uint32_t id = 0; auto& note : note_seq) {
     if (contain_bit(note.flags, MidiNoteFlags::Selected)) {
       result.deselected.push_back(id);
+      data->num_selected--;
     }
     uint16_t flags = note.flags & ~MidiNoteFlags::Selected;
     if (note.min_time <= max_pos && note.max_time >= min_pos && note.key >= min_key && note.key <= max_key) {
       note.flags = flags | MidiNoteFlags::Selected;
       result.selected.push_back(id);
+      result.min_key = math::min(result.min_key, note.key);
+      result.max_key = math::max(result.max_key, note.key);
+      data->num_selected++;
     } else {
       note.flags = flags;
     }
@@ -1232,7 +1240,8 @@ NoteSelectResult Engine::select_or_deselect_notes(uint32_t track_id, uint32_t cl
   if (clip == nullptr)
     return {};
 
-  MidiNoteBuffer& note_seq = clip->get_midi_data()->note_sequence;
+  MidiData* data = clip->get_midi_data();
+  MidiNoteBuffer& note_seq = data->note_sequence;
   NoteSelectResult result;
 
   for (uint32_t id = 0; auto& note : note_seq) {
@@ -1240,6 +1249,7 @@ NoteSelectResult Engine::select_or_deselect_notes(uint32_t track_id, uint32_t cl
       result.deselected.push_back(id);
       result.selected.push_back(id);
       note.flags &= ~MidiNoteFlags::Selected;
+      data->num_selected--;
     }
     id++;
   }
@@ -1256,15 +1266,17 @@ void Engine::append_note_selection(
   if (clip == nullptr)
     return;
 
-  MidiAsset* asset = clip->midi.asset;
-  MidiNoteBuffer& note_seq = asset->data.note_sequence;
+  MidiData* data = clip->get_midi_data();
+  MidiNoteBuffer& note_seq = data->note_sequence;
 
   for (uint32_t id : note_ids) {
     MidiNote& note = note_seq[id];
     if (contain_bit(note.flags, MidiNoteFlags::Selected)) {
       note.flags &= ~MidiNoteFlags::Selected;
+      data->num_selected--;
     } else {
       note.flags |= MidiNoteFlags::Selected;
+      data->num_selected++;
     }
   }
 }

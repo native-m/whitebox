@@ -55,7 +55,7 @@ struct MidiEditResult {
 using NoteCallback = void (*)(void* userdata, uint32_t id, const MidiNote& note);
 
 struct MidiData {
-  static constexpr uint16_t max_notes = 132;
+  static constexpr uint16_t max_keys = 132;
   static constexpr uint32_t max_channels = 16;
   double max_length = 0.0;
   MidiNoteMetadataPool note_metadata_pool;
@@ -65,6 +65,7 @@ struct MidiData {
   uint32_t num_free_metadata = 0;
   uint32_t id_counter = 0;
   uint32_t channel_count = 0;
+  uint32_t num_selected;
 
   // This is for GUI, we need to know which note is the lowest or highest note in the
   // midi buffer so we can calculate the Y-scale for each note.

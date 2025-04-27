@@ -120,7 +120,7 @@ Vector<uint32_t> MidiData::update_channel(uint16_t channel) {
   });
 
   Vector<uint32_t> modified_notes;
-  uint16_t new_min_note = max_notes;
+  uint16_t new_min_note = max_keys;
   uint16_t new_max_note = 0;
   double length = max_length;
 

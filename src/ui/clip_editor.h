@@ -65,7 +65,6 @@ struct ClipEditorWindow : public TimelineBase {
   bool holding_alt = false;
   bool selecting_notes = false;
   bool append_selection = false;
-  bool notes_selected = false;
   bool force_redraw = false;
 
   double selection_start_pos = 0.0;
@@ -89,6 +88,8 @@ struct ClipEditorWindow : public TimelineBase {
   double min_note_pos = 0.0;
   double max_relative_pos = 0.0;
   uint32_t edited_note_id = (uint32_t)-1;
+  uint16_t min_note_key = 0;
+  uint16_t max_note_key = 0;
   int32_t initial_key = -1;
   int32_t hovered_key = -1;
   int32_t min_paint = 1;
