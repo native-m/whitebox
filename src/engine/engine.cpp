@@ -1019,22 +1019,9 @@ MidiEditResult Engine::add_note(
     float velocity,
     uint16_t note_key,
     uint16_t channel) {
-  if (tracks.size() == 0 || track_id >= tracks.size()) {
-    Log::error("add_note(): Invalid track id");
+  Clip* clip = get_midi_clip_(track_id, clip_id);
+  if (clip == nullptr)
     return {};
-  }
-
-  Track* track = tracks[track_id];
-  if (track->clips.size() == 0 || clip_id >= track->clips.size()) {
-    Log::error("add_note(): Cannot find clip");
-    return {};
-  }
-
-  Clip* clip = track->clips[clip_id];
-  if (!clip->is_midi()) {
-    Log::error("add_note(): Clip is not a midi clip");
-    return {};
-  }
 
   MidiAsset* asset = clip->midi.asset;
   MidiNoteBuffer& note_seq = asset->data.note_sequence;
@@ -1056,22 +1043,9 @@ MidiEditResult Engine::add_note(
 }
 
 MidiEditResult Engine::add_note(uint32_t track_id, uint32_t clip_id, uint32_t channel, const Vector<MidiNote>& midi_notes) {
-  if (tracks.size() == 0 || track_id >= tracks.size()) {
-    Log::error("move_note(): Invalid track id");
+  Clip* clip = get_midi_clip_(track_id, clip_id);
+  if (clip == nullptr)
     return {};
-  }
-
-  Track* track = tracks[track_id];
-  if (track->clips.size() == 0 || clip_id >= track->clips.size()) {
-    Log::error("move_note(): Cannot find clip");
-    return {};
-  }
-
-  Clip* clip = track->clips[clip_id];
-  if (!clip->is_midi()) {
-    Log::error("move_note(): Clip is not a midi clip");
-    return {};
-  }
 
   MidiAsset* asset = clip->midi.asset;
   MidiNoteBuffer& note_seq = asset->data.note_sequence;
@@ -1084,25 +1058,51 @@ MidiEditResult Engine::add_note(uint32_t track_id, uint32_t clip_id, uint32_t ch
   };
 }
 
-MidiEditResult Engine::move_note(uint32_t track_id, uint32_t clip_id, uint32_t note_id, double relative_pos) {
-  if (tracks.size() == 0 || track_id >= tracks.size()) {
-    Log::error("move_note(): Invalid track id");
+MidiEditResult
+Engine::move_note(uint32_t track_id, uint32_t clip_id, uint32_t note_id, int32_t relative_key_pos, double relative_pos) {
+  Clip* clip = get_midi_clip_(track_id, clip_id);
+  if (clip == nullptr)
     return {};
+
+  MidiData* data = clip->get_midi_data();
+  MidiNoteBuffer& note_seq = data->note_sequence;
+  MidiNote& note = note_seq[note_id];
+  MidiEditResult result{};
+
+  result.deleted_notes.push_back(note);
+  note.min_time += relative_pos;
+  note.max_time += relative_pos;
+  note.key = (uint16_t)((int32_t)note.key + relative_key_pos);
+  note.flags |= MidiNoteFlags::Modified;
+  result.modified_notes = data->update_channel(0);
+
+  return result;
+}
+
+MidiEditResult
+Engine::move_selected_note(uint32_t track_id, uint32_t clip_id, int32_t relative_key_pos, double relative_pos) {
+  Clip* clip = get_midi_clip_(track_id, clip_id);
+  if (clip == nullptr)
+    return {};
+
+  MidiData* data = clip->get_midi_data();
+  MidiNoteBuffer& note_seq = data->note_sequence;
+  Vector<MidiNote> backup;
+
+  for (auto& note : note_seq) {
+    if (contain_bit(note.flags, MidiNoteFlags::Selected)) {
+      backup.push_back(note);
+      note.min_time += relative_pos;
+      note.max_time += relative_pos;
+      note.key = (uint16_t)((int32_t)note.key + relative_key_pos);
+      note.flags |= MidiNoteFlags::Modified;
+    }
   }
 
-  Track* track = tracks[track_id];
-  if (track->clips.size() == 0 || clip_id >= track->clips.size()) {
-    Log::error("move_note(): Cannot find clip");
-    return {};
-  }
-
-  Clip* clip = track->clips[clip_id];
-  if (!clip->is_midi()) {
-    Log::error("move_note(): Clip is not a midi clip");
-    return {};
-  }
-
-  return MidiEditResult{};
+  return MidiEditResult{
+    .modified_notes = data->update_channel(0),
+    .deleted_notes = std::move(backup),
+  };
 }
 
 std::optional<MidiEditResult> Engine::slice_note(
@@ -1112,22 +1112,9 @@ std::optional<MidiEditResult> Engine::slice_note(
     float velocity,
     uint16_t note_key,
     uint16_t channel) {
-  if (tracks.size() == 0 || track_id >= tracks.size()) {
-    Log::error("move_note(): Invalid track id");
+  Clip* clip = get_midi_clip_(track_id, clip_id);
+  if (clip == nullptr)
     return {};
-  }
-
-  Track* track = tracks[track_id];
-  if (track->clips.size() == 0 || clip_id >= track->clips.size()) {
-    Log::error("move_note(): Cannot find clip");
-    return {};
-  }
-
-  Clip* clip = track->clips[clip_id];
-  if (!clip->is_midi()) {
-    Log::error("move_note(): Clip is not a midi clip");
-    return {};
-  }
 
   MidiAsset* asset = clip->midi.asset;
   MidiNoteBuffer& note_seq = asset->data.note_sequence;
@@ -1164,7 +1151,7 @@ std::optional<MidiEditResult> Engine::slice_note(
 }
 
 MidiEditResult Engine::delete_note(uint32_t track_id, uint32_t clip_id, uint32_t channel, const Vector<uint32_t>& note_ids) {
-  Clip* clip = get_clip_(track_id, clip_id);
+  Clip* clip = get_midi_clip_(track_id, clip_id);
   if (clip == nullptr)
     return {};
 
@@ -1203,7 +1190,7 @@ NoteSelectResult Engine::select_note(
     double max_pos,
     uint16_t min_key,
     uint16_t max_key) {
-  Clip* clip = get_clip_(track_id, clip_id);
+  Clip* clip = get_midi_clip_(track_id, clip_id);
   if (clip == nullptr)
     return {};
 
@@ -1236,7 +1223,7 @@ NoteSelectResult Engine::select_note(
 }
 
 NoteSelectResult Engine::select_or_deselect_notes(uint32_t track_id, uint32_t clip_id, bool should_select) {
-  Clip* clip = get_clip_(track_id, clip_id);
+  Clip* clip = get_midi_clip_(track_id, clip_id);
   if (clip == nullptr)
     return {};
 
@@ -1262,7 +1249,7 @@ void Engine::append_note_selection(
     uint32_t clip_id,
     bool should_select,
     const Vector<uint32_t>& note_ids) {
-  Clip* clip = get_clip_(track_id, clip_id);
+  Clip* clip = get_midi_clip_(track_id, clip_id);
   if (clip == nullptr)
     return;
 
@@ -1485,7 +1472,7 @@ void Engine::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>&
   perf_measurer.update(tm_ticks_to_ms(counter.duration()), audio_buffer_duration_ms);
 }
 
-Clip* Engine::get_clip_(uint32_t track_id, uint32_t clip_id) {
+Clip* Engine::get_midi_clip_(uint32_t track_id, uint32_t clip_id) {
   if (tracks.size() == 0 || track_id >= tracks.size()) {
     Log::error("move_note(): Invalid track id");
     return nullptr;

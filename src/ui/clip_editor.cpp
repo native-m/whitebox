@@ -536,6 +536,18 @@ void ClipEditorWindow::render_note_editor() {
         cmd->select_or_deselect = true;
         cmd->selected_note_ids = std::move(note_ids);
         g_cmd_manager.execute("Clip editor: Append note selection", cmd);
+
+        // Recalculate minimum and maximum move bounds
+        uint32_t first_note = note_ids[0];
+        uint32_t num_selected = midi_asset->data.num_selected;
+        const MidiNoteBuffer& note_seq = midi_asset->data.note_sequence;
+        min_note_pos = note_seq[first_note].min_time;
+        min_note_key = UINT16_MAX;
+        max_note_key = 0;
+        for (const auto& note : note_seq) {
+          min_note_key = math::min(min_note_key, note.key);
+          max_note_key = math::max(max_note_key, note.key);
+        }
       }
     } else {
       MidiSelectNoteCmd* cmd = new MidiSelectNoteCmd();
@@ -563,6 +575,18 @@ void ClipEditorWindow::render_note_editor() {
   if (selecting_notes) {
     selection_end_pos = hovered_position;
     last_selected_key = hovered_key;
+  }
+
+  bool notes_selected = midi_asset->data.num_selected > 0;
+  double min_move_pos = initial_time_pos - min_note_pos;
+  int32_t min_key_move = initial_key - min_note_key;
+  int32_t max_key_move = MidiData::max_keys - (max_note_key - initial_key) - 1;
+  int32_t relative_key_pos = 0;
+  double relative_pos = 0.0;
+
+  if (edit_command == PianoRollTool::Move) {
+    relative_pos = math::max(hovered_position_grid, min_move_pos) - initial_time_pos;
+    relative_key_pos = math::clamp(hovered_key, min_key_move, max_key_move) - initial_key;
   }
 
   // Release action
@@ -600,7 +624,20 @@ void ClipEditorWindow::render_note_editor() {
         cmd->clip_id = current_clip_id.value();
         cmd->notes = std::move(painted_notes);
         cmd->channel = 0;
-        g_cmd_manager.execute("Clip eidtor: Paint tool", cmd);
+        g_cmd_manager.execute("Clip editor: Paint tool", cmd);
+        break;
+      }
+      case PianoRollTool::Move: {
+        if (relative_pos != 0.0 || relative_key_pos != 0) {
+          MidiMoveNoteCmd* cmd = new MidiMoveNoteCmd();
+          cmd->track_id = current_track_id.value();
+          cmd->clip_id = current_clip_id.value();
+          cmd->note_id = edited_note_id;
+          cmd->move_selected = notes_selected;
+          cmd->relative_pos = relative_pos;
+          cmd->relative_key_pos = relative_key_pos;
+          g_cmd_manager.execute("Clip editor: Move tool", cmd);
+        }
         break;
       }
     }
@@ -662,7 +699,6 @@ void ClipEditorWindow::render_note_editor() {
   float end_x = cursor_pos.x + timeline_width;
   float end_y = main_cursor_pos.y + content_height;
   ImU32 handle_color = ImGui::GetColorU32(ImGuiCol_ButtonActive);
-  bool notes_selected = midi_asset->data.num_selected > 0;
   bool start_command = !holding_ctrl && is_activated && left_mouse_clicked && edit_command == PianoRollTool::None;
   std::optional<uint32_t> hovered_note_id;
 
@@ -821,6 +857,8 @@ void ClipEditorWindow::render_note_editor() {
       edited_note_id = note_id;
       if (!notes_selected) {
         min_note_pos = note.min_time;
+        min_note_key = note.key;
+        max_note_key = note.key;
       }
       if (notes_selected && !selected) {
         select_or_deselect_all_notes(false);
@@ -922,23 +960,12 @@ void ClipEditorWindow::render_note_editor() {
     }
   } else if (edit_command == PianoRollTool::Move) {
     if (redraw) {
-      double min_move_pos = initial_time_pos - min_note_pos;
-      int32_t min_key_move = initial_key - min_note_key;
-      int32_t max_key_move = MidiData::max_keys - (max_note_key - initial_key) - 1;
-      int32_t key_move_pos = 0;
-      double move_pos = 0.0;
-
-      if (edit_command == PianoRollTool::Move) {
-        move_pos = math::max(hovered_position_grid, min_move_pos) - initial_time_pos;
-        key_move_pos = math::clamp(hovered_key, min_key_move, max_key_move) - initial_key;
-      }
-
       const MidiNoteBuffer& seq = midi_asset->data.note_sequence;
       for (uint32_t id : fg_notes) {
         const MidiNote& note = seq[id];
-        double min_time = note.min_time + move_pos;
-        double max_time = note.max_time + move_pos;
-        uint16_t key = (uint16_t)((int32_t)note.key + key_move_pos);
+        double min_time = note.min_time + relative_pos;
+        double max_time = note.max_time + relative_pos;
+        uint16_t key = (uint16_t)((int32_t)note.key + relative_key_pos);
         float min_pos_x = (float)math::round(scroll_offset_x + min_time * clip_scale);
         float max_pos_x = (float)math::round(scroll_offset_x + max_time * clip_scale);
         if (max_pos_x < cursor_pos.x)

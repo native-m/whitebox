@@ -251,6 +251,18 @@ struct MidiSliceNoteCmd : public MidiCmd {
   void undo() override;
 };
 
+struct MidiMoveNoteCmd : public MidiCmd {
+  uint32_t track_id;
+  uint32_t clip_id;
+  uint32_t note_id; // Valid only if move_selected is true
+  bool move_selected;
+  double relative_pos;
+  uint16_t relative_key_pos;
+
+  bool execute() override;
+  void undo() override;
+};
+
 struct MidiSelectNoteCmd : public Command {
   uint32_t track_id;
   uint32_t clip_id;
