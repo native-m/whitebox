@@ -1371,7 +1371,7 @@ void TimelineWindow::render_edited_clips(double mouse_at_gridline) {
 
   if (edited_clip) {
     float track_pos_y = edited_track_pos_y;
-    float track_height = edited_track->height;
+    float track_height = edited_track->get_height();
     double min_time = edited_clip->min_time;
     double max_time = edited_clip->max_time;
     double start_offset = edited_clip->start_offset;
@@ -1384,7 +1384,7 @@ void TimelineWindow::render_edited_clips(double mouse_at_gridline) {
         min_time = new_min_time;
         max_time = new_max_time;
         track_pos_y = get_track_position_y(track_id);
-        track_height = g_engine.tracks[track_id]->height;
+        track_height = g_engine.tracks[track_id]->get_height();
         break;
       }
       case TimelineCommand::ClipResizeLeft: {
@@ -1456,7 +1456,7 @@ void TimelineWindow::render_edited_clips(double mouse_at_gridline) {
     for (int32_t i = first_selected_track; i <= (int32_t)last_selected_track; i++) {
       Track* src_track = g_engine.tracks[i];
       Track* dst_track = g_engine.tracks[i + move_offset];
-      const float height = dst_track->height;
+      const float height = dst_track->get_height();
       const float track_view_min_y = timeline_bounds_min_y - height - track_separator_height;
 
       if (track_pos_y > timeline_bounds_max_x) {
@@ -1609,6 +1609,7 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
   Color text_col(text_color);
   ImVec2 half(0.5f, 0.5f);
   const ImVec4& rect = layer1_draw_list->_ClipRectStack.back();
+  const float font_size = font->FontSize;
 
   for (auto& cmd : clip_cmd_list) {
     static constexpr float border_contrast_ratio = 1.0f / 3.5f;
@@ -1632,7 +1633,6 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
     const float max_pos_clamped_x = math::min(max_pos_x, rect.z + 3.0f);
     const float min_pos_y = cmd.min_pos_y;
     const float height = cmd.height;
-    const float font_size = font->FontSize;
     const float clip_title_max_y = min_pos_y + font_size + 4.0f;
     const ImVec2 clip_title_min_bb(min_pos_clamped_x, min_pos_y);
     const ImVec2 clip_title_max_bb(max_pos_clamped_x, clip_title_max_y);
@@ -1674,9 +1674,9 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
     if (clip->name.size() != 0) {
       const char* str = clip->name.c_str();
       static constexpr float label_padding_x = 5.0f;
-      static constexpr float label_padding_y = 2.0f;
+      const float label_padding_y = show_content ? 2.0f : (height - font_size) * 0.5f;
       const ImVec2 label_pos(std::max(clip_title_min_bb.x, rect.x) + label_padding_x, min_pos_y + label_padding_y);
-      const ImVec4 clip_label_rect(clip_title_min_bb.x, clip_title_min_bb.y, clip_title_max_bb.x - 6.0f, clip_title_max_y);
+      const ImVec4 clip_label_rect(clip_title_min_bb.x, clip_title_min_bb.y, clip_title_max_bb.x - 6.0f, clip_content_max.y);
       dl->AddText(font, font_size, label_pos, text_color, str, str + clip->name.size(), 0.0f, &clip_label_rect);
     }
 
