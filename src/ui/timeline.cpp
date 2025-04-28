@@ -226,6 +226,7 @@ void TimelineWindow::render_track_controls() {
       ImGui::PopStyleVar();
 
       ImGui::SameLine(0.0f, 5.0f);
+      ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 1.0f); // Re-align track name
       if (track->name.size() > 0) {
         ImGui::TextUnformatted(begin_name_str, end_name_str);
       } else {
@@ -233,6 +234,7 @@ void TimelineWindow::render_track_controls() {
         ImGui::TextUnformatted("(unnamed)");
         ImGui::EndDisabled();
       }
+      ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 1.0f); // Restore
 
       if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
         ImGui::SetDragDropPayload("WB_MOVE_TRACK", &i, sizeof(uint32_t), ImGuiCond_Once);
@@ -406,7 +408,8 @@ void TimelineWindow::render_track_controls() {
 
     const float total_width = pos_end.x - pos_start.x + track_color_width + vu_meter_space;
     if (controls::hsplitter(i, &height, 60.0f, 20.f, 600.f, total_width)) {
-      track->height = height;
+      if (track->shown)
+        track->height = height;
       redraw = true;
     }
 
@@ -1085,7 +1088,7 @@ void TimelineWindow::render_track(
     bool track_hovered,
     bool is_mouse_in_selection_range) {
   const float height = track->get_height();
-  const bool can_adjust_gain = track->shown || height <= 30.0f;
+  const bool can_adjust_gain = height > 30.0f;
   double relative_pos = 0.0;
   bool has_clip_selected = false;
   SelectedTrackRegion* selected_region = nullptr;
