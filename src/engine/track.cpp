@@ -13,7 +13,7 @@
 
 #ifndef _NDEBUG
 #define WB_DBG_LOG_CLIP_ORDERING    1
-#define WB_DBG_LOG_NOTE_ON_EVENT    1
+#define WB_DBG_LOG_NOTE_EVENT       1
 #define WB_DBG_LOG_AUDIO_EVENT      0
 #define WB_DBG_LOG_PARAMETER_UPDATE 1
 #endif
@@ -429,32 +429,6 @@ void Track::process_event(
     next_clip++;
   }
 
-  while (auto voice = midi_voice_state.release_voice(end_time)) {
-    double offset_from_start = beat_to_samples(voice->max_time - start_time, sample_rate, beat_duration);
-    double sample_offset = sample_position + offset_from_start;
-    uint32_t buffer_offset = (uint32_t)((uint64_t)sample_offset % (uint64_t)buffer_size);
-    midi_event_list.add_event({
-      .type = MidiEventType::NoteOff,
-      .buffer_offset = buffer_offset,
-      .time = voice->max_time,
-      .note_off = {
-        .channel = 0,
-        .key = voice->key,
-        .velocity = voice->velocity,
-      },
-    });
-#if WB_DBG_LOG_NOTE_ON_EVENT
-    char note_str[8]{};
-    fmt::format_to_n(
-        note_str,
-        std::size(note_str),
-        "{}{}",
-        get_midi_note_scale(voice->key),
-        get_midi_note_octave(voice->key));
-    Log::debug("Note off: {} length: {} at: {}", note_str, voice->max_time, buffer_offset);
-#endif
-  }
-
   if (input_attr.recording)
     record_max_time += buffer_duration;
   event_state.clip_idx = next_clip;
@@ -474,12 +448,14 @@ void Track::process_midi_event(
   const MidiNoteBuffer& buffer = asset->data.note_sequence;
   uint32_t midi_note_idx = event_state.midi_note_idx;
   uint32_t note_count = (uint32_t)buffer.size();
+  double max_clip_time = clip->max_time;
   double time_offset = clip->min_time - clip->start_offset;
 
   while (midi_note_idx < note_count) {
     const MidiNote& note = buffer[midi_note_idx];
-    double min_time = math::round((time_offset + note.min_time) * ppq) * inv_ppq;
-    double max_time = math::round((time_offset + note.max_time) * ppq) * inv_ppq;
+    double min_time = time_offset + note.min_time;  // math::round((time_offset + note.min_time) * ppq) * inv_ppq;
+    double max_time = math::min(
+        time_offset + note.max_time, max_clip_time);  // math::round((time_offset + note.max_time) * ppq) * inv_ppq;
 
     if (min_time > end_time || min_time >= clip->max_time)
       break;
@@ -498,14 +474,10 @@ void Track::process_midi_event(
           .velocity = voice->velocity,
         },
       });
-#if WB_DBG_LOG_NOTE_ON_EVENT
+#if WB_DBG_LOG_NOTE_EVENT
       char note_str[8]{};
       fmt::format_to_n(
-          note_str,
-          std::size(note_str),
-          "{}{}",
-          get_midi_note_scale(voice->key),
-          get_midi_note_octave(voice->key));
+          note_str, std::size(note_str), "{}{}", get_midi_note_scale(voice->key), get_midi_note_octave(voice->key));
       Log::debug("Note off: {} length: {} at: {}", note_str, voice->max_time, buffer_offset);
 #endif
     }
@@ -538,14 +510,9 @@ void Track::process_midi_event(
       },
     });
 
-#if WB_DBG_LOG_NOTE_ON_EVENT
+#if WB_DBG_LOG_NOTE_EVENT
     char note_str[8]{};
-    fmt::format_to_n(
-        note_str,
-        std::size(note_str),
-        "{}{}",
-        get_midi_note_scale(note.key),
-        get_midi_note_octave(note.key));
+    fmt::format_to_n(note_str, std::size(note_str), "{}{}", get_midi_note_scale(note.key), get_midi_note_octave(note.key));
     Log::debug("Note on: {} {} -> {} at {}", note_str, min_time, max_time, buffer_offset);
 #endif
 
@@ -566,14 +533,10 @@ void Track::process_midi_event(
         .velocity = voice->velocity,
       },
     });
-#if WB_DBG_LOG_NOTE_ON_EVENT
+#if WB_DBG_LOG_NOTE_EVENT
     char note_str[8]{};
     fmt::format_to_n(
-        note_str,
-        std::size(note_str),
-        "{}{}",
-        get_midi_note_scale(voice->key),
-        get_midi_note_octave(voice->key));
+        note_str, std::size(note_str), "{}{}", get_midi_note_scale(voice->key), get_midi_note_octave(voice->key));
     Log::debug("Note off: {} length: {} at: {}", note_str, voice->max_time, buffer_offset);
 #endif
   }

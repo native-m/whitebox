@@ -417,7 +417,7 @@ void ClipEditorWindow::render_note_editor() {
         0,
         nullptr);
     assert(piano_roll_fb != nullptr);
-    Log::debug("Timeline framebuffer resized ({}x{})", (int)width, (int)height);
+    Log::debug("Piano roll framebuffer resized ({}x{})", (int)width, (int)height);
     old_piano_roll_size = region_size;
     redraw = redraw || true;
   }
@@ -506,16 +506,17 @@ void ClipEditorWindow::render_note_editor() {
     hovered_position_grid = std::round(hovered_position * (double)grid_scale) / (double)grid_scale;
   }
 
+  // Start selection
   if (holding_ctrl && is_activated && edit_command == PianoRollTool::None) {
     selection_start_pos = hovered_position;
     first_selected_key = hovered_key;
     append_selection = holding_shift;
     selecting_notes = true;
-    Log::debug("Start selection");
   }
 
   auto midi_asset = current_clip->midi.asset;
 
+  // Release selection
   if (!is_active && selecting_notes) {
     selection_end_pos = hovered_position;
     last_selected_key = hovered_key;
@@ -569,9 +570,9 @@ void ClipEditorWindow::render_note_editor() {
 
     selecting_notes = false;
     append_selection = false;
-    Log::debug("End selection");
   }
 
+  // Update selection bounds
   if (selecting_notes) {
     selection_end_pos = hovered_position;
     last_selected_key = hovered_key;
@@ -885,6 +886,7 @@ void ClipEditorWindow::render_note_editor() {
       cmd->channel = 0;
       g_cmd_manager.execute("Clip editor: Slice tool", cmd);
       g_timeline.redraw_screen();
+      force_redraw = true;
     } else {
       edit_command = piano_roll_tool;
       initial_time_pos = hovered_position_grid;
