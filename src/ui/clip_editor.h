@@ -112,6 +112,7 @@ struct ClipEditorWindow : public TimelineBase {
   void render_note_editor();
   void render_event_editor();
   void draw_piano_keys(ImDrawList* draw_list, ImVec2& pos, const ImVec2& note_size, uint32_t oct);
+  void prepare_resize();
   void select_or_deselect_all_notes(bool should_select);
   void query_selected_range();
   void zoom_vertically(float mouse_pos_y, float height, float mouse_wheel);

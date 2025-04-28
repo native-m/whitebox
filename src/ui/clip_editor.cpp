@@ -584,10 +584,18 @@ void ClipEditorWindow::render_note_editor() {
   int32_t max_key_move = MidiData::max_keys - (max_note_key - initial_key) - 1;
   int32_t relative_key_pos = 0;
   double relative_pos = 0.0;
+  double min_relative_pos = 0.0;
+  double max_relative_pos = 0.0;
 
   if (edit_command == PianoRollTool::Move) {
     relative_pos = math::max(hovered_position_grid, min_move_pos) - initial_time_pos;
     relative_key_pos = math::clamp(hovered_key, min_key_move, max_key_move) - initial_key;
+    min_relative_pos = relative_pos;
+    max_relative_pos = relative_pos;
+  } else if (edit_command == PianoRollTool::ResizeLeft) {
+    min_relative_pos = math::max(hovered_position_grid, min_move_pos) - initial_time_pos;
+  } else if (edit_command == PianoRollTool::ResizeRight) {
+    max_relative_pos = math::max(hovered_position_grid, min_move_pos) - initial_time_pos;
   }
 
   // Release action
@@ -783,11 +791,11 @@ void ClipEditorWindow::render_note_editor() {
         ImRect left_handle(min_pos_x, min_pos_y, min_pos_x + handle_offset, max_pos_y);
         ImRect right_handle(max_pos_x - handle_offset, min_pos_y, max_pos_x, max_pos_y);
         if (left_handle.Contains(mouse_pos)) {
-          layer1_dl->AddRectFilled(left_handle.Min, left_handle.Max, handle_color);
+          // layer1_dl->AddRectFilled(left_handle.Min, left_handle.Max, handle_color);
           ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
           command = PianoRollTool::ResizeLeft;
         } else if (right_handle.Contains(mouse_pos)) {
-          layer1_dl->AddRectFilled(right_handle.Min, right_handle.Max, handle_color);
+          // layer1_dl->AddRectFilled(right_handle.Min, right_handle.Max, handle_color);
           ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
           command = PianoRollTool::ResizeRight;
         } else if (piano_roll_tool != PianoRollTool::Slice) {
@@ -814,11 +822,13 @@ void ClipEditorWindow::render_note_editor() {
   }
 
   uint32_t note_id = 0;
+  bool is_edit_command = any_of(edit_command, PianoRollTool::Move, PianoRollTool::ResizeLeft, PianoRollTool::ResizeRight);
+
   for (const auto& note : midi_asset->data.note_sequence) {
     uint16_t flags = note.flags;
     bool selected = contain_bit(flags, MidiNoteFlags::Selected);
 
-    if (edit_command == PianoRollTool::Move && (selected || note_id == edited_note_id)) {
+    if (is_edit_command && (selected || note_id == edited_note_id)) {
       fg_notes.push_back(note_id);
       note_id++;
       continue;
@@ -960,22 +970,20 @@ void ClipEditorWindow::render_note_editor() {
         draw_note.operator()<false>(min_pos_x, max_pos_x, note.velocity, 0, note.key);
       }
     }
-  } else if (edit_command == PianoRollTool::Move) {
-    if (redraw) {
-      const MidiNoteBuffer& seq = midi_asset->data.note_sequence;
-      for (uint32_t id : fg_notes) {
-        const MidiNote& note = seq[id];
-        double min_time = note.min_time + relative_pos;
-        double max_time = note.max_time + relative_pos;
-        uint16_t key = (uint16_t)((int32_t)note.key + relative_key_pos);
-        float min_pos_x = (float)math::round(scroll_offset_x + min_time * clip_scale);
-        float max_pos_x = (float)math::round(scroll_offset_x + max_time * clip_scale);
+  } else if (is_edit_command && redraw) {
+    const MidiNoteBuffer& seq = midi_asset->data.note_sequence;
+    for (uint32_t id : fg_notes) {
+      const MidiNote& note = seq[id];
+      double min_time = note.min_time + min_relative_pos;
+      double max_time = note.max_time + max_relative_pos;
+      uint16_t key = (uint16_t)((int32_t)note.key + relative_key_pos);
+      float min_pos_x = (float)math::round(scroll_offset_x + min_time * clip_scale);
+      float max_pos_x = (float)math::round(scroll_offset_x + max_time * clip_scale);
         if (max_pos_x < cursor_pos.x)
           continue;
         if (min_pos_x > end_x)
           break;
-        draw_note.operator()<false>(min_pos_x, max_pos_x, note.velocity, 0, key, note.flags);
-      }
+      draw_note.operator()<false>(min_pos_x, max_pos_x, note.velocity, 0, key, note.flags);
     }
   }
 
@@ -1105,6 +1113,9 @@ void ClipEditorWindow::draw_piano_keys(ImDrawList* draw_list, ImVec2& pos, const
   im_draw_simple_text(draw_list, note_name, ImVec2(pos.x + 4.0f, note_pos.y - font->FontSize - 4.0f), 0xFFFFFFFF);
   im_draw_hline(draw_list, note_pos.y - 1.0f, pos.x, pos.x + half_size.x, separator);
   pos.y = note_pos.y;
+}
+
+void ClipEditorWindow::prepare_resize() {
 }
 
 void ClipEditorWindow::select_or_deselect_all_notes(bool should_select) {

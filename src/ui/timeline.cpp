@@ -1644,6 +1644,7 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
     const Color content_color = is_active ? base_color.brighten(1.2f) : base_color.brighten(0.5f);
     const bool draw_in_layer2 = has_bit(cmd.draw_flags, ClipDrawCmd::Layer2);
     const bool highlighted = has_bit(cmd.draw_flags, ClipDrawCmd::Highlighted);
+    const bool show_content = cmd.height > 30.0f;
     auto* dl = !draw_in_layer2 ? layer1_draw_list : layer2_draw_list;
 
     if (draw_in_layer2) {
@@ -1679,7 +1680,7 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
       dl->AddText(font, font_size, label_pos, text_color, str, str + clip->name.size(), 0.0f, &clip_label_rect);
     }
 
-    if (cmd.height > 30.0f) {
+    if (show_content) {
       switch (clip->type) {
         case ClipType::Audio: {
           SampleAsset* asset = clip->audio.asset;
