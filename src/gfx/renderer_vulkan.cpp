@@ -1347,6 +1347,7 @@ void GPURendererVK::enqueue_resource_upload_(VkBuffer buffer, uint32_t size, con
     .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
   };
 
+  // NOTE(native-m): Use ring buffer to enqueue resource data
   VkBuffer staging_buffer;
   VmaAllocation allocation;
   VmaAllocationInfo alloc_result;
@@ -1381,6 +1382,7 @@ void GPURendererVK::enqueue_resource_upload_(
     .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
   };
 
+  // NOTE(native-m): Use ring buffer to enqueue resource data
   VkBuffer buffer;
   VmaAllocation allocation;
   VmaAllocationInfo alloc_result;

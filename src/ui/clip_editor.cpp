@@ -824,9 +824,10 @@ void ClipEditorWindow::render_note_editor() {
   uint32_t note_id = 0;
   bool is_edit_command = any_of(edit_command, PianoRollTool::Move, PianoRollTool::ResizeLeft, PianoRollTool::ResizeRight);
 
-  for (const auto& note : midi_asset->data.note_sequence) {
-    uint16_t flags = note.flags;
-    bool selected = contain_bit(flags, MidiNoteFlags::Selected);
+  if (is_piano_roll_hovered || is_active || redraw) {
+    for (const auto& note : midi_asset->data.note_sequence) {
+      uint16_t flags = note.flags;
+      bool selected = contain_bit(flags, MidiNoteFlags::Selected);
 
     if (is_edit_command && (selected || note_id == edited_note_id)) {
       fg_notes.push_back(note_id);
@@ -877,7 +878,8 @@ void ClipEditorWindow::render_note_editor() {
       }
     }
 
-    note_id++;
+      note_id++;
+    }
   }
 
   // Register command

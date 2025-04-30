@@ -24,13 +24,17 @@ uint64_t tm_get_ticks() {
   return 0;
 #endif
 }
+
+#if defined(WB_PLATFORM_WINDOWS)
+static uint64_t perf_freq = []() -> uint64_t {
+  LARGE_INTEGER perf_freq;
+  QueryPerformanceFrequency(&perf_freq);
+  return perf_freq.QuadPart;
+}();
+#endif
+
 uint64_t tm_get_ticks_per_seconds() {
 #if defined(WB_PLATFORM_WINDOWS)
-  static uint64_t perf_freq = []() -> uint64_t {
-    LARGE_INTEGER perf_freq;
-    QueryPerformanceFrequency(&perf_freq);
-    return perf_freq.QuadPart;
-  }();
   return perf_freq;
 #elif defined(WB_PLATFORM_LINUX)
   return 1000000000;
