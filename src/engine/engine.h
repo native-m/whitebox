@@ -41,7 +41,7 @@ struct Engine {
   mutable Spinlock editor_lock;
 
   double ppq = 96.0;
-  double playhead{};
+  volatile double playhead{};
   double playhead_start{};
   double sample_position{};
   std::atomic<double> beat_duration;

@@ -115,6 +115,7 @@ void ClipEditorWindow::render() {
   }
 
   font = ImGui::GetFont();
+  playhead = g_engine.playhead;
   note_height_in_pixel = math::round(note_height);
 
   if (ImGui::BeginChild("PianoRollControl", ImVec2(200.0f, 0.0f), ImGuiChildFlags_Border, ImGuiWindowFlags_MenuBar)) {
@@ -247,7 +248,9 @@ void ClipEditorWindow::render() {
       ImGui::PopItemWidth();
 
 #ifdef WB_ENABLE_PIANO_ROLL_DEBUG_MENU
-      ImGui::Checkbox("Display note id", &display_note_id);
+      if (ImGui::Checkbox("Display note id", &display_note_id)) {
+        redraw = true;
+      }
       ImGui::Text("Num selected: %d", current_clip->get_midi_data()->num_selected);
 #endif
     }
@@ -261,8 +264,8 @@ void ClipEditorWindow::render() {
 
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
     render_horizontal_scrollbar();
-    double new_time_pos = 0.0;
-    if (render_time_ruler(&new_time_pos)) {
+    double new_time_pos = playhead - current_clip->min_time;
+    if (render_time_ruler(&new_time_pos, g_engine.playhead_start - current_clip->min_time)) {
       // TODO
     }
     ImGui::PopStyleVar();
@@ -399,7 +402,10 @@ void ClipEditorWindow::render_note_editor() {
   ImVec2 view_max(cursor_pos.x + timeline_width, offset_y + region_size.y);
   ImGui::PushClipRect(view_min, view_max, true);
 
-  ImGui::InvisibleButton("PianoRollContent", ImVec2(region_size.x, max_height));
+  ImGui::InvisibleButton(
+      "PianoRollContent",
+      ImVec2(region_size.x, max_height),
+      ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonMiddle);
 
   // Resize piano roll framebuffer
   if (old_piano_roll_size.x != region_size.x || old_piano_roll_size.y != region_size.y) {
@@ -425,13 +431,13 @@ void ClipEditorWindow::render_note_editor() {
   ImVec2 mouse_pos = ImGui::GetMousePos();
   float mouse_wheel = ImGui::GetIO().MouseWheel;
   float mouse_wheel_h = ImGui::GetIO().MouseWheelH;
+  bool is_piano_roll_hovered = ImGui::IsItemHovered();
   bool is_active = ImGui::IsItemActive();
   bool is_activated = ImGui::IsItemActivated();
-  bool is_piano_roll_hovered = ImGui::IsItemHovered();
-  bool left_mouse_clicked = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
-  bool left_mouse_down = ImGui::IsMouseDown(ImGuiMouseButton_Left);
-  bool middle_mouse_clicked = ImGui::IsMouseClicked(ImGuiMouseButton_Middle);
-  bool middle_mouse_down = ImGui::IsMouseDown(ImGuiMouseButton_Middle);
+  bool left_mouse_clicked = is_activated && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+  bool left_mouse_down = is_active && ImGui::IsMouseDown(ImGuiMouseButton_Left);
+  bool middle_mouse_clicked = is_activated && ImGui::IsMouseClicked(ImGuiMouseButton_Middle);
+  bool middle_mouse_down = is_active && ImGui::IsMouseDown(ImGuiMouseButton_Middle);
   bool right_mouse_clicked = ImGui::IsMouseDown(ImGuiMouseButton_Right);
 
   holding_shift = ImGui::IsKeyDown(ImGuiKey_ModShift);
@@ -1032,6 +1038,14 @@ void ClipEditorWindow::render_note_editor() {
   const ImVec2 fb_image_pos(view_min.x, offset_y);
   ImDrawList* dl = ImGui::GetWindowDrawList();
   dl->AddImage(fb_tex_id, fb_image_pos, fb_image_pos + region_size);
+
+  if (g_engine.is_playing()) {
+    const double playhead_offset = (playhead - current_clip->min_time) * inv_view_scale;
+    const float playhead_pos = (float)math::round(view_min.x - scroll_pos_x + playhead_offset);
+    if (math::in_range(playhead_pos, view_min.x, view_max.x)) {
+      im_draw_vline(dl, playhead_pos, offset_y, offset_y + region_size.y, playhead_color);
+    }
+  }
 
   if (is_piano_roll_hovered && holding_ctrl && mouse_wheel != 0.0f) {
     zoom(mouse_pos.x, cursor_pos.x, view_scale, mouse_wheel * zoom_rate);

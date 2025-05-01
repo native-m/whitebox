@@ -26,7 +26,7 @@ struct TimelineBase {
     static constexpr uint32_t playhead_color = 0xE553A3F9;
 
     void render_horizontal_scrollbar();
-    bool render_time_ruler(double* time_value);
+    bool render_time_ruler(double* time_value, double playhead_start);
 
     void scroll_horizontal(float drag_delta, double max_length, double direction = 1.0);
     void zoom(float mouse_pos_x, float cursor_pos_x, double view_scale, float mouse_wheel);

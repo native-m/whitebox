@@ -136,7 +136,7 @@ void TimelineBase::render_horizontal_scrollbar() {
   }
 }
 
-bool TimelineBase::render_time_ruler(double* time_value) {
+bool TimelineBase::render_time_ruler(double* time_value, double playhead_start) {
   ImGuiStyle& style = ImGui::GetStyle();
   auto col = ImGui::GetColorU32(ImGuiCol_Separator, 1.0f);
   auto dl = ImGui::GetWindowDrawList();
@@ -147,7 +147,8 @@ bool TimelineBase::render_time_ruler(double* time_value) {
   double view_scale = calc_view_scale();
   ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
   ImVec2 drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left);
-  auto size = ImVec2(ImGui::GetContentRegionAvail().x, ImGui::GetFontSize() + style.FramePadding.y * 2.0f);
+  ImVec2 size(ImGui::GetContentRegionAvail().x, ImGui::GetFontSize() + style.FramePadding.y * 2.0f);
+  ImVec2 end_pos = cursor_pos + size;
   ImGui::InvisibleButton(
       "##time_ruler_control", size, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonMiddle);
   bool hovered = ImGui::IsItemHovered();
@@ -223,14 +224,18 @@ bool TimelineBase::render_time_ruler(double* time_value) {
 
   // Draw playhead indicator
   bool is_playing = g_engine.is_playing();
+  double playhead = *time_value;
+  float playhead_size = size.y;
+  float playhead_half_size = size.y * 0.5f;
   if (is_playing) {
-    double playhead_start = g_engine.playhead_start * inv_view_scale;
-    float position = (float)std::round(scroll_offset + playhead_start) - size.y * 0.5f;
-    dl->AddTriangleFilled(
-        ImVec2(position, cursor_pos.y + 2.5f),
-        ImVec2(position + size.y, cursor_pos.y + 2.5f),
-        ImVec2(position + size.y * 0.5f, cursor_pos.y + size.y - 2.5f),
-        col);
+    float position = (float)std::round(scroll_offset + playhead_start * inv_view_scale) - size.y * 0.5f;
+    if (math::in_range(position, cursor_pos.x - playhead_size, end_pos.x + playhead_size)) {
+      dl->AddTriangleFilled(
+          ImVec2(position, cursor_pos.y + 2.5f),
+          ImVec2(position + playhead_size, cursor_pos.y + 2.5f),
+          ImVec2(position + playhead_size * 0.5f, cursor_pos.y + playhead_size - 2.5f),
+          col);
+    }
   }
 
   // Draw tick
@@ -247,13 +252,14 @@ bool TimelineBase::render_time_ruler(double* time_value) {
     gridline_pos_x += grid_inc_x;
   }
 
-  float playhead_screen_position =
-      (float)std::round(scroll_offset + playhead * inv_view_scale) - size.y * 0.5f;
-  dl->AddTriangleFilled(
-      ImVec2(playhead_screen_position, cursor_pos.y + 2.5f),
-      ImVec2(playhead_screen_position + size.y, cursor_pos.y + 2.5f),
-      ImVec2(playhead_screen_position + size.y * 0.5f, cursor_pos.y + size.y - 2.5f),
-      playhead_color);
+  float playhead_sc_position = (float)std::round(scroll_offset + playhead * inv_view_scale) - playhead_half_size;
+  if (math::in_range(playhead_sc_position, cursor_pos.x - playhead_size, end_pos.x + playhead_size)) {
+    dl->AddTriangleFilled(
+        ImVec2(playhead_sc_position, cursor_pos.y + 2.5f),
+        ImVec2(playhead_sc_position + playhead_size, cursor_pos.y + 2.5f),
+        ImVec2(playhead_sc_position + playhead_half_size, cursor_pos.y + playhead_size - 2.5f),
+        playhead_color);
+  }
 
   dl->PopClipRect();
 

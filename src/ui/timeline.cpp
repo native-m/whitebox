@@ -95,8 +95,8 @@ void TimelineWindow::render() {
 
   ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
   render_horizontal_scrollbar();
-  double new_playhead_pos = 0.0;
-  if (render_time_ruler(&new_playhead_pos)) {
+  double new_playhead_pos = playhead;
+  if (render_time_ruler(&new_playhead_pos, g_engine.playhead_start)) {
     g_engine.set_playhead_position(new_playhead_pos);
   }
   ImGui::PopStyleVar();
