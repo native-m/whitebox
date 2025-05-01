@@ -129,7 +129,7 @@ Vector<uint32_t> MidiData::update_channel(uint16_t channel) {
     length = math::max(length, note.max_time);
     new_min_note = math::min(new_min_note, note.key);
     new_max_note = math::max(new_max_note, note.key);
-    note_metadata_pool[note.meta_id].seq_id = i;
+    note_metadata_pool[note.meta_id].note_id = i;
     if (has_bit(note.flags, MidiNoteFlags::Modified)) {
       note.flags &= ~MidiNoteFlags::Modified;
       modified_notes.push_back(i);

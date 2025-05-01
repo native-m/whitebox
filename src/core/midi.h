@@ -18,7 +18,8 @@ struct MidiNoteFlags {
     Deactivated = 1 << 0,
     Modified = 1 << 1,
     Selected = 1 << 2,
-    PrivateFlags = Modified | Selected,
+    Deleted = 1 << 3,
+    PrivateFlags = Modified | Selected | Deleted,
   };
 };
 
@@ -37,7 +38,7 @@ using MidiNoteBuffer = Vector<MidiNote>;
 // Store additional note data
 struct MidiNoteMetadata {
   uint32_t next_free_id;  // Next free note ID
-  uint32_t seq_id;        // The owner of this metadata
+  uint32_t note_id;        // The owner of this metadata
 };
 using MidiNoteMetadataPool = Vector<MidiNoteMetadata>;
 

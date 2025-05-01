@@ -590,4 +590,16 @@ void MidiAppendNoteSelectionCmd::undo() {
   g_engine.append_note_selection(track_id, clip_id, !select_or_deselect, selected_note_ids);
 }
 
+//
+
+bool MidiDeleteNoteCmd::execute() {
+  backup(g_engine.delete_marked_notes(track_id, clip_id));
+  return true;
+}
+
+void MidiDeleteNoteCmd::undo() {
+  std::unique_lock lock(g_engine.editor_lock);
+  MidiCmd::undo(track_id, clip_id, 0);
+}
+
 }  // namespace wb

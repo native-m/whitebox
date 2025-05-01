@@ -254,7 +254,7 @@ struct MidiSliceNoteCmd : public MidiCmd {
 struct MidiMoveNoteCmd : public MidiCmd {
   uint32_t track_id;
   uint32_t clip_id;
-  uint32_t note_id; // Valid only if move_selected is true
+  uint32_t note_id;  // Valid only if move_selected is true
   bool move_selected;
   double relative_pos;
   uint16_t relative_key_pos;
@@ -291,6 +291,14 @@ struct MidiAppendNoteSelectionCmd : public Command {
   uint32_t clip_id;
   bool select_or_deselect;
   Vector<uint32_t> selected_note_ids;
+
+  bool execute() override;
+  void undo() override;
+};
+
+struct MidiDeleteNoteCmd : public MidiCmd {
+  uint32_t track_id;
+  uint32_t clip_id;
 
   bool execute() override;
   void undo() override;

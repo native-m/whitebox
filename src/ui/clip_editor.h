@@ -20,6 +20,7 @@ enum class PianoRollTool {
   Move,
   ResizeLeft,
   ResizeRight,
+  Delete,
 };
 
 struct ClipEditorWindow : public TimelineBase {
@@ -64,6 +65,7 @@ struct ClipEditorWindow : public TimelineBase {
   bool holding_ctrl = false;
   bool holding_alt = false;
   bool selecting_notes = false;
+  bool deleting_notes = false;
   bool append_selection = false;
   bool force_redraw = false;
 

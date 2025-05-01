@@ -405,7 +405,7 @@ void ClipEditorWindow::render_note_editor() {
   ImGui::InvisibleButton(
       "PianoRollContent",
       ImVec2(region_size.x, max_height),
-      ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonMiddle);
+      ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonMiddle | ImGuiButtonFlags_MouseButtonRight);
 
   // Resize piano roll framebuffer
   if (old_piano_roll_size.x != region_size.x || old_piano_roll_size.y != region_size.y) {
@@ -438,7 +438,8 @@ void ClipEditorWindow::render_note_editor() {
   bool left_mouse_down = is_active && ImGui::IsMouseDown(ImGuiMouseButton_Left);
   bool middle_mouse_clicked = is_activated && ImGui::IsMouseClicked(ImGuiMouseButton_Middle);
   bool middle_mouse_down = is_active && ImGui::IsMouseDown(ImGuiMouseButton_Middle);
-  bool right_mouse_clicked = ImGui::IsMouseDown(ImGuiMouseButton_Right);
+  bool right_mouse_clicked = is_activated && ImGui::IsMouseClicked(ImGuiMouseButton_Right);
+  bool right_mouse_down = is_active && ImGui::IsMouseDown(ImGuiMouseButton_Right);
 
   holding_shift = ImGui::IsKeyDown(ImGuiKey_ModShift);
   holding_ctrl = ImGui::IsKeyDown(ImGuiKey_ModCtrl);
@@ -512,8 +513,22 @@ void ClipEditorWindow::render_note_editor() {
     hovered_position_grid = std::round(hovered_position * (double)grid_scale) / (double)grid_scale;
   }
 
+  if (holding_alt && right_mouse_clicked && edit_command == PianoRollTool::None) {
+    Log::debug("Start delete");
+    deleting_notes = true;
+  }
+
+  if (!right_mouse_down && deleting_notes) {
+    MidiDeleteNoteCmd* cmd = new MidiDeleteNoteCmd();
+    cmd->track_id = current_track_id.value();
+    cmd->clip_id = current_clip_id.value();
+    g_cmd_manager.execute("Clip editor: Delete notes", cmd);   
+    deleting_notes = false;
+    redraw = true;
+  }
+
   // Start selection
-  if (holding_ctrl && is_activated && edit_command == PianoRollTool::None) {
+  if (holding_ctrl && left_mouse_clicked && edit_command == PianoRollTool::None) {
     selection_start_pos = hovered_position;
     first_selected_key = hovered_key;
     append_selection = holding_shift;
@@ -605,7 +620,7 @@ void ClipEditorWindow::render_note_editor() {
   }
 
   // Release action
-  if (!is_active && edit_command != PianoRollTool::None) {
+  if (!left_mouse_down && edit_command != PianoRollTool::None) {
     // NOTE(native-m):
     // Any edits will not be applied until the action is released.
     switch (edit_command) {
@@ -714,7 +729,8 @@ void ClipEditorWindow::render_note_editor() {
   float end_x = cursor_pos.x + timeline_width;
   float end_y = main_cursor_pos.y + content_height;
   ImU32 handle_color = ImGui::GetColorU32(ImGuiCol_ButtonActive);
-  bool start_command = !holding_ctrl && is_activated && left_mouse_clicked && edit_command == PianoRollTool::None;
+  bool start_command = !holding_ctrl && left_mouse_clicked && edit_command == PianoRollTool::None;
+  bool disable_command = selecting_notes;
   std::optional<uint32_t> hovered_note_id;
 
   auto draw_note =
@@ -729,7 +745,8 @@ void ClipEditorWindow::render_note_editor() {
     if (a.y > end_y || b.y < main_cursor_pos.y)
       return PianoRollTool::None;
 
-    if (redraw) {
+    bool deleted = contain_bit(flags, MidiNoteFlags::Deleted);
+    if (redraw && !deleted) {
 #ifdef WB_ENABLE_PIANO_ROLL_DEBUG_MENU
       if (display_note_id) {
         char str_id[16]{};
@@ -787,7 +804,7 @@ void ClipEditorWindow::render_note_editor() {
 
     PianoRollTool command{};
     if constexpr (WithCommand) {
-      if (holding_ctrl) {
+      if (holding_ctrl || selecting_notes) {
         return PianoRollTool::None;
       }
 
@@ -796,17 +813,21 @@ void ClipEditorWindow::render_note_editor() {
         static constexpr float handle_offset = 4.0f;
         ImRect left_handle(min_pos_x, min_pos_y, min_pos_x + handle_offset, max_pos_y);
         ImRect right_handle(max_pos_x - handle_offset, min_pos_y, max_pos_x, max_pos_y);
-        if (left_handle.Contains(mouse_pos)) {
-          // layer1_dl->AddRectFilled(left_handle.Min, left_handle.Max, handle_color);
-          ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+        if (!deleting_notes) {
+          if (left_handle.Contains(mouse_pos)) {
+            // layer1_dl->AddRectFilled(left_handle.Min, left_handle.Max, handle_color);
+            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
           command = PianoRollTool::ResizeLeft;
         } else if (right_handle.Contains(mouse_pos)) {
           // layer1_dl->AddRectFilled(right_handle.Min, right_handle.Max, handle_color);
           ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
           command = PianoRollTool::ResizeRight;
         } else if (piano_roll_tool != PianoRollTool::Slice) {
-          command = PianoRollTool::Move;
-          ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+            command = PianoRollTool::Move;
+            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+          }
+        } else {
+          command = PianoRollTool::Delete;
         }
         hovered_note_id = note_id;
       }
@@ -864,14 +885,21 @@ void ClipEditorWindow::render_note_editor() {
           flags |= MidiNoteFlags::Selected;
         }
       }
-    }
+      }
 
-    // Can't directly call with function call syntax :'(
-    if (auto cmd = draw_note.operator()<true>(min_pos_x, max_pos_x, note.velocity, note_id, note.key, flags);
-        start_command && cmd != PianoRollTool::None) {
-      edit_command = cmd;
-      initial_time_pos = hovered_position_grid;
-      initial_key = hovered_key;
+      // Can't directly call with function call syntax :'(
+      auto cmd = draw_note.operator()<true>(min_pos_x, max_pos_x, note.velocity, note_id, note.key, flags);
+      
+      if (cmd == PianoRollTool::Delete) {
+        auto& note_delete = midi_asset->data.note_sequence[note_id];
+        note_delete.flags |= MidiNoteFlags::Deleted;  // Mark this note deleted
+        force_redraw = true;
+      }
+
+      if (start_command && cmd != PianoRollTool::None) {
+        edit_command = cmd;
+        initial_time_pos = hovered_position_grid;
+        initial_key = hovered_key;
       edited_note_id = note_id;
       if (!notes_selected) {
         min_note_pos = note.min_time;
@@ -889,7 +917,7 @@ void ClipEditorWindow::render_note_editor() {
   }
 
   // Register command
-  if (!holding_ctrl && is_activated && left_mouse_clicked && edit_command == PianoRollTool::None) {
+  if (!holding_ctrl && left_mouse_clicked && edit_command == PianoRollTool::None) {
     if (notes_selected) {
       select_or_deselect_all_notes(false);
       notes_selected = false;
