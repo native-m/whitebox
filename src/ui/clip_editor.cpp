@@ -266,7 +266,7 @@ void ClipEditorWindow::render() {
     render_horizontal_scrollbar();
     double new_time_pos = playhead - current_clip->min_time;
     if (render_time_ruler(&new_time_pos, g_engine.playhead_start - current_clip->min_time)) {
-      // TODO
+      g_engine.set_playhead_position(new_time_pos + current_clip->min_time);
     }
     ImGui::PopStyleVar();
 
