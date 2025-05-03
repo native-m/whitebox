@@ -1934,7 +1934,7 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
             ClipResizeCmd* cmd = new ClipResizeCmd();
             cmd->track_id = edit_src_track_id.value();
             cmd->clip_id = edited_clip->id;
-            cmd->left_side = true;
+            cmd->right_side = false;
             cmd->relative_pos = relative_pos;
             cmd->min_length = 1.0 / grid_scale;
             cmd->last_beat_duration = beat_duration;
@@ -1950,7 +1950,7 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
             ClipResizeCmd* cmd = new ClipResizeCmd();
             cmd->track_id = edit_src_track_id.value();
             cmd->clip_id = edited_clip->id;
-            cmd->left_side = false;
+            cmd->right_side = true;
             cmd->relative_pos = relative_pos;
             cmd->min_length = 1.0 / grid_scale;
             cmd->last_beat_duration = beat_duration;
@@ -1966,7 +1966,7 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
             ClipResizeCmd* cmd = new ClipResizeCmd();
             cmd->track_id = edit_src_track_id.value();
             cmd->clip_id = edited_clip->id;
-            cmd->left_side = true;
+            cmd->right_side = false;
             cmd->shift = true;
             cmd->relative_pos = relative_pos;
             cmd->min_length = 1.0 / grid_scale;
@@ -1983,7 +1983,7 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
             ClipResizeCmd* cmd = new ClipResizeCmd();
             cmd->track_id = edit_src_track_id.value();
             cmd->clip_id = edited_clip->id;
-            cmd->left_side = false;
+            cmd->right_side = true;
             cmd->shift = true;
             cmd->relative_pos = relative_pos;
             cmd->min_length = 1.0 / grid_scale;
