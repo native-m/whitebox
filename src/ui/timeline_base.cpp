@@ -209,17 +209,16 @@ bool TimelineBase::render_time_ruler(double* time_value, double playhead_start) 
 
   ImFont* font = ImGui::GetFont();
   ImU32 time_point_color = ImGui::GetColorU32(ImGuiCol_Text);
-  double division = math::max(std::exp2(math::round(std::log2(view_scale / 8.0))), 1.0);
+  double mult = math::max(std::exp2(math::round(std::log2(view_scale * 12.0))), 1.0);
   double inv_view_scale = 1.0 / view_scale;
   double bar = 4.0 * inv_view_scale;
-  float grid_inc_x = (float)(bar * 4.0);
+  float grid_inc_x = (float)(bar * mult);
   float inv_grid_inc_x = 1.0f / grid_inc_x;
   float scroll_pos_x = (float)std::round((min_hscroll * song_length) * inv_view_scale);
   float gridline_pos_x = cursor_pos.x - std::fmod(scroll_pos_x, grid_inc_x);
   float scroll_offset = cursor_pos.x - scroll_pos_x;
   int line_count = (uint32_t)(size.x * inv_grid_inc_x) + 1;
   int count_offset = (uint32_t)(scroll_pos_x * inv_grid_inc_x);
-
   dl->PushClipRect(cursor_pos, ImVec2(cursor_pos.x + size.x, cursor_pos.y + size.y));
 
   // Draw playhead indicator
@@ -240,7 +239,7 @@ bool TimelineBase::render_time_ruler(double* time_value, double playhead_start) 
 
   // Draw tick
   float tick_pos_y = cursor_pos.y + size.y;
-  uint32_t step = (uint32_t)division;
+  uint32_t step = (uint32_t)mult;
   for (int i = 0; i <= line_count; i++) {
     char digits[24]{};
     int bar_point = i + count_offset;

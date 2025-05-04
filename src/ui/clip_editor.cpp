@@ -697,7 +697,7 @@ void ClipEditorWindow::render_note_editor() {
 
     // Draw guidestripes & grid
     draw_musical_guidestripes(layer1_dl, view_min, area_size, scroll_pos_x, view_scale);
-    draw_musical_grid(layer1_dl, view_min, area_size, scroll_pos_x, inv_view_scale, 0.5f);
+    draw_musical_grid(layer1_dl, view_min, area_size, scroll_pos_x, inv_view_scale, 0.0, 0.5f);
 
     // Draw horizontal gridlines
     float key_pos_y = main_cursor_pos.y - std::fmod(vscroll, note_height_in_pixel);

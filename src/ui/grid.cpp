@@ -1,6 +1,7 @@
 #include "grid.h"
 
 #include "core/color.h"
+#include "core/debug.h"
 
 namespace wb {
 
@@ -30,7 +31,9 @@ void draw_musical_grid(
     const ImVec2& size,
     double scroll_pos_x,
     double length_per_beat,
-    float alpha) {
+    double max_grid_division,
+    float alpha,
+    bool triplet) {
   static constexpr float beat_line_alpha = 0.28f;
   static constexpr float bar_line_alpha = 0.5f;
   const ImU32 line_color = ImGui::GetColorU32(ImGuiCol_Separator);
@@ -39,9 +42,11 @@ void draw_musical_grid(
   const ImU32 bar_line_color = Color(line_color).change_alpha(bar_line_alpha * alpha).to_uint32();
   const double beat = length_per_beat;
   const double bar = 4.0 * beat;
-  const double division = std::exp2(std::round(std::log2(length_per_beat)));
-  const double grid_inc_x = beat * 16.0 / division;
+  const double division = std::exp2(std::round(std::log2(length_per_beat / 8.0)));
+  const double div_scale = triplet && (division >= 1.0) ? 3.0 : 2.0;
+  const double grid_inc_x = bar / (division * div_scale);
   const double inv_grid_inc_x = 1.0 / grid_inc_x;
+  Log::debug("{} {}", division * div_scale, division);
   const uint32_t lines_per_bar = math::max((uint32_t)(bar / grid_inc_x), 1u);
   const uint32_t lines_per_beat = math::max((uint32_t)(beat / grid_inc_x), 1u);
   const uint32_t gridline_count = (uint32_t)((double)size.x * inv_grid_inc_x);

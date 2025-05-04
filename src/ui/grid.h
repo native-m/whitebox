@@ -18,6 +18,8 @@ void draw_musical_grid(
     const ImVec2& size,
     double scroll_pos_x,
     double length_per_beat,
-    float alpha);
+    double max_grid_division,
+    float alpha,
+    bool triplet = false);
 
 }  // namespace wb
