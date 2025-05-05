@@ -446,7 +446,7 @@ void ClipEditorWindow::render_note_editor() {
   ImGui::PushClipRect(view_min, view_max, true);
 
   const GridProperties& grid_prop = grid_div_table[grid_mode];
-  double triplet_div = (triplet_grid) ? 1.5 : 1.0;
+  double triplet_div = (grid_prop.max_division > 1.0 && triplet_grid) ? 1.5 : 1.0;
   beat_division = grid_prop.max_division == DBL_MAX
                       ? calc_bar_division(inv_view_scale, grid_div_table[grid_mode].gap_scale, triplet_grid) * 0.25
                       : grid_prop.max_division * triplet_div * 0.25;
