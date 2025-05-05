@@ -577,6 +577,7 @@ void ClipEditorWindow::render_note_editor() {
     cmd->track_id = current_track_id.value();
     cmd->clip_id = current_clip_id.value();
     g_cmd_manager.execute("Clip editor: Delete notes", cmd);
+    g_timeline.redraw_screen();
     deleting_notes = false;
     redraw = true;
   }
@@ -797,8 +798,7 @@ void ClipEditorWindow::render_note_editor() {
     if (a.y > end_y || b.y < main_cursor_pos.y)
       return PianoRollTool::None;
 
-    bool deleted = contain_bit(flags, MidiNoteFlags::Deleted);
-    if (redraw && !deleted) {
+    if (redraw) {
 #ifdef WB_ENABLE_PIANO_ROLL_DEBUG_MENU
       if (display_note_id) {
         char str_id[16]{};
@@ -916,6 +916,10 @@ void ClipEditorWindow::render_note_editor() {
 
       float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * clip_scale);
       float max_pos_x = (float)math::round(scroll_offset_x + note.max_time * clip_scale);
+
+      if (contain_bit(flags, MidiNoteFlags::Deleted)) {
+        continue;
+      }
 
       if (max_pos_x < cursor_pos.x) {
         note_id++;
