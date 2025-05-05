@@ -188,13 +188,14 @@ bool TimelineBase::render_time_ruler(double* time_value, double playhead_start) 
     wm_set_mouse_pos((int)pos.x, (int)pos.y);
     wm_reset_relative_mouse_state();
     wm_enable_relative_mouse_mode(true);
+    zoom_position = mouse_pos.x;
   }
 
   if (zooming_on_ruler) {
     int x, y;
     wm_get_relative_mouse_state(&x, &y);
     if (y != 0) {
-      zoom(mouse_pos.x, cursor_pos.x, view_scale, (float)y * 0.01f);
+      zoom(zoom_position, cursor_pos.x, view_scale, (float)y * 0.01f);
       view_scale = calc_view_scale();
     }
   }

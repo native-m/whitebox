@@ -11,6 +11,7 @@ struct TimelineBase {
     double min_hscroll = 0.0;
     double max_hscroll = 1.0;
     double song_length = 100.0;  // 100 beats
+    float zoom_position = 0.0;
     float timeline_width = 0.0f;
     float vsplitter_size = 150.0f;
     float vsplitter_min_size = 100.0f;

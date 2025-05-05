@@ -4,6 +4,11 @@
 
 namespace wb {
 
+struct GridProperties {
+  double max_grid_division;
+  double gap_scale;
+};
+
 void draw_musical_guidestripes(
     ImDrawList* dl,
     const ImVec2& pos,
@@ -18,7 +23,7 @@ void draw_musical_grid(
     const ImVec2& size,
     double scroll_pos_x,
     double length_per_beat,
-    double max_grid_division,
+    const GridProperties& properties,
     float alpha,
     bool triplet = false);
 

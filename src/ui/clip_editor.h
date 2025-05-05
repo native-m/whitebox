@@ -77,7 +77,7 @@ struct ClipEditorWindow : public TimelineBase {
   PianoRollTool piano_roll_tool = PianoRollTool::Draw;
   bool triplet_grid = false;
   bool preview_note = false;
-  int32_t grid_mode = 0;
+  int32_t grid_mode = 4;
 
   float new_velocity = 100.0f;
   float new_length = 1.0f;

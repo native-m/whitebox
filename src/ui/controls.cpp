@@ -13,6 +13,16 @@
 
 namespace wb::controls {
 
+void push_style_compact() {
+  ImGuiStyle& style = ImGui::GetStyle();
+  ImGui::PushStyleVarY(ImGuiStyleVar_FramePadding, (float)(int)(style.FramePadding.y * 0.60f));
+  ImGui::PushStyleVarY(ImGuiStyleVar_ItemSpacing, (float)(int)(style.ItemSpacing.y * 0.60f));
+}
+
+void pop_style_compact() {
+  ImGui::PopStyleVar(2);
+}
+
 bool begin_window(const char* title, bool* p_open, ImGuiWindowFlags flags) {
   ImGui::PushID(title);
   auto state_storage = ImGui::GetStateStorage();
@@ -58,10 +68,10 @@ void end_window() {
 }
 
 bool begin_floating_window(const char* str_id, const ImVec2& pos) {
-  static constexpr uint32_t window_flags =
-      ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
-      ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDocking |
-      ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoFocusOnAppearing;
+  static constexpr uint32_t window_flags = ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
+                                           ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings |
+                                           ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDocking |
+                                           ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoFocusOnAppearing;
   ImGui::SetNextWindowPos(pos, ImGuiCond_None);
   return ImGui::Begin(str_id, nullptr, window_flags);
 }

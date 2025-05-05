@@ -351,6 +351,8 @@ static bool knob(
   return dragging;
 }
 
+void push_style_compact();
+void pop_style_compact();
 bool begin_window(const char* title, bool* p_open = nullptr, ImGuiWindowFlags flags = 0);
 void end_window();
 bool begin_floating_window(const char* str_id, const ImVec2& pos);

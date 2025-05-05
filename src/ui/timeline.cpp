@@ -810,7 +810,7 @@ void TimelineWindow::render_track_lanes() {
     // Draw guidestripes & grid
     ImVec2 area_size = ImVec2(timeline_width, content_size.y);
     draw_musical_guidestripes(layer1_draw_list, view_min, area_size, scroll_pos_x, view_scale);
-    draw_musical_grid(layer1_draw_list, view_min, area_size, scroll_pos_x, inv_view_scale, 0.0, 1.0f, false);
+    draw_musical_grid(layer1_draw_list, view_min, area_size, scroll_pos_x, inv_view_scale, { DBL_MAX, 8.0 }, 1.0f, false);
   }
 
   auto& tracks = g_engine.tracks;
