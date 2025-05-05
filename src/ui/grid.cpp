@@ -5,6 +5,12 @@
 
 namespace wb {
 
+double calc_bar_division(double length_per_beat, double gap_scale, bool triplet) {
+  const double division = std::exp2(std::round(std::log2(length_per_beat / gap_scale)));
+  const double div_scale = triplet && (division >= 1.0) ? 3.0 : 2.0;
+  return division * div_scale;
+}
+
 void draw_musical_guidestripes(
     ImDrawList* dl,
     const ImVec2& pos,
@@ -42,8 +48,8 @@ void draw_musical_grid(
   const ImU32 bar_line_color = Color(line_color).change_alpha(bar_line_alpha * alpha).to_uint32();
   const double beat = length_per_beat;
   const double bar = 4.0 * beat;
-  const double division = std::exp2(std::round(std::log2(length_per_beat / properties.gap_scale)));
-  const double max_division = math::min(division, properties.max_grid_division * 0.5);
+  const double division = std::exp2(std::round(std::log2(beat / properties.gap_scale)));
+  const double max_division = math::min(division, properties.max_division * 0.5);
   const double div_scale = triplet && (max_division >= 1.0) ? 3.0 : 2.0;
   const double grid_inc_x = bar / (max_division * div_scale);
   const double inv_grid_inc_x = 1.0 / grid_inc_x;

@@ -718,7 +718,7 @@ void TimelineWindow::render_track_lanes() {
 
   // Map mouse position to time position
   const double mouse_at_time_pos = ((double)(mouse_pos.x - timeline_view_pos.x) * view_scale + min_hscroll * song_length);
-  const double mouse_at_gridline = std::round(mouse_at_time_pos * (double)grid_scale) / (double)grid_scale;
+  const double mouse_at_gridline = std::round(mouse_at_time_pos * (double)beat_division) / (double)beat_division;
 
   timeline_scroll_offset_x = (double)timeline_view_pos.x - scroll_pos_x;
   timeline_scroll_offset_x_f32 = (float)timeline_scroll_offset_x;
@@ -1391,7 +1391,7 @@ void TimelineWindow::render_edited_clips(double mouse_at_gridline) {
         break;
       }
       case TimelineCommand::ClipResizeLeft: {
-        const double min_length = 1.0 / grid_scale;
+        const double min_length = 1.0 / beat_division;
         auto [new_min_time, new_max_time, new_start_offset] =
             calc_resize_clip(edited_clip, relative_pos, edited_clip->max_time, min_length, 0.0, beat_duration, true);
         start_offset = new_start_offset;
@@ -1399,14 +1399,14 @@ void TimelineWindow::render_edited_clips(double mouse_at_gridline) {
         break;
       }
       case TimelineCommand::ClipResizeRight: {
-        const double min_length = 1.0 / grid_scale;
+        const double min_length = 1.0 / beat_division;
         auto [new_min_time, new_max_time, new_start_offset] =
             calc_resize_clip(edited_clip, relative_pos, edited_clip->min_time, min_length, 0.0, beat_duration, false);
         max_time = new_max_time;
         break;
       }
       case TimelineCommand::ClipShiftLeft: {
-        const double min_length = 1.0 / grid_scale;
+        const double min_length = 1.0 / beat_division;
         auto [new_min_time, new_max_time, rel_offset] =
             calc_resize_clip(edited_clip, relative_pos, edited_clip->max_time, min_length, 0.0, beat_duration, true, true);
         start_offset = rel_offset;
@@ -1414,7 +1414,7 @@ void TimelineWindow::render_edited_clips(double mouse_at_gridline) {
         break;
       }
       case TimelineCommand::ClipShiftRight: {
-        const double min_length = 1.0 / grid_scale;
+        const double min_length = 1.0 / beat_division;
         auto [new_min_time, new_max_time, rel_offset] =
             calc_resize_clip(edited_clip, relative_pos, edited_clip->min_time, min_length, 0.0, beat_duration, false, true);
         start_offset = rel_offset;
@@ -1442,7 +1442,7 @@ void TimelineWindow::render_edited_clips(double mouse_at_gridline) {
       return;
     }
 
-    double min_length = 1.0 / grid_scale;
+    double min_length = 1.0 / beat_division;
     int32_t first_track = first_selected_track;
     int32_t move_offset = 0;
 
@@ -1933,7 +1933,7 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
             cmd->clip_id = edited_clip->id;
             cmd->right_side = false;
             cmd->relative_pos = relative_pos;
-            cmd->min_length = 1.0 / grid_scale;
+            cmd->min_length = 1.0 / beat_division;
             cmd->last_beat_duration = beat_duration;
             g_cmd_manager.execute("Resize clip", cmd);
           }
@@ -1949,7 +1949,7 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
             cmd->clip_id = edited_clip->id;
             cmd->right_side = true;
             cmd->relative_pos = relative_pos;
-            cmd->min_length = 1.0 / grid_scale;
+            cmd->min_length = 1.0 / beat_division;
             cmd->last_beat_duration = beat_duration;
             g_cmd_manager.execute("Resize clip", cmd);
           }
@@ -1966,7 +1966,7 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
             cmd->right_side = false;
             cmd->shift = true;
             cmd->relative_pos = relative_pos;
-            cmd->min_length = 1.0 / grid_scale;
+            cmd->min_length = 1.0 / beat_division;
             cmd->last_beat_duration = beat_duration;
             g_cmd_manager.execute("Resize and shift clip", cmd);
           }
@@ -1983,7 +1983,7 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
             cmd->right_side = true;
             cmd->shift = true;
             cmd->relative_pos = relative_pos;
-            cmd->min_length = 1.0 / grid_scale;
+            cmd->min_length = 1.0 / beat_division;
             cmd->last_beat_duration = beat_duration;
             g_cmd_manager.execute("Resize and shift clip", cmd);
           }
@@ -2075,7 +2075,7 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
             cmd->first_track = first_selected_track;
             cmd->relative_pos = relative_pos;
             cmd->resize_limit = clip_resize_limit;
-            cmd->min_length = 1.0 / grid_scale;
+            cmd->min_length = 1.0 / beat_division;
             cmd->min_resize_pos = clip_min_resize_pos;
             cmd->right_side = edit_command == TimelineCommand::ClipResizeRight;
             cmd->shift = false;
@@ -2094,7 +2094,7 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
             cmd->first_track = first_selected_track;
             cmd->relative_pos = relative_pos;
             cmd->resize_limit = clip_resize_limit;
-            cmd->min_length = 1.0 / grid_scale;
+            cmd->min_length = 1.0 / beat_division;
             cmd->right_side = edit_command == TimelineCommand::ClipShiftRight;
             cmd->shift = true;
             g_cmd_manager.execute("Shift clip", cmd);

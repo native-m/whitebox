@@ -5,9 +5,11 @@
 namespace wb {
 
 struct GridProperties {
-  double max_grid_division;
+  double max_division;
   double gap_scale;
 };
+
+double calc_bar_division(double length_per_beat, double gap_scale, bool triplet);
 
 void draw_musical_guidestripes(
     ImDrawList* dl,

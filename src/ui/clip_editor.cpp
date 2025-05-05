@@ -185,6 +185,7 @@ void ClipEditorWindow::render() {
             if (ImGui::Selectable(type, grid_mode == i)) {
               redraw = true;
               grid_mode = i;
+              beat_division = grid_div_table[i].max_division * 0.25;
             }
           }
           i++;
@@ -444,6 +445,12 @@ void ClipEditorWindow::render_note_editor() {
   ImVec2 view_max(cursor_pos.x + timeline_width, offset_y + region_size.y);
   ImGui::PushClipRect(view_min, view_max, true);
 
+  const GridProperties& grid_prop = grid_div_table[grid_mode];
+  double triplet_div = (triplet_grid) ? 1.5 : 1.0;
+  beat_division = grid_prop.max_division == DBL_MAX
+                      ? calc_bar_division(inv_view_scale, grid_div_table[grid_mode].gap_scale, triplet_grid) * 0.25
+                      : grid_prop.max_division * triplet_div * 0.25;
+
   ImGui::InvisibleButton(
       "PianoRollContent",
       ImVec2(region_size.x, max_height),
@@ -552,7 +559,7 @@ void ClipEditorWindow::render_note_editor() {
   hovered_key = MidiData::max_keys - (int32_t)((mouse_pos.y - cursor_pos.y) / note_height_in_pixel) - 1;
   if (is_piano_roll_hovered || is_active) {
     hovered_position = ((double)(mouse_pos.x - cursor_pos.x) * view_scale + min_hscroll * song_length);
-    hovered_position_grid = std::round(hovered_position * (double)grid_scale) / (double)grid_scale;
+    hovered_position_grid = std::round(hovered_position * (double)beat_division) / (double)beat_division;
   }
 
   auto midi_asset = current_clip->midi.asset;

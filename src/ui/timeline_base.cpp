@@ -164,7 +164,7 @@ bool TimelineBase::render_time_ruler(double* time_value, double playhead_start) 
   if (left_clicked || (holding_left && std::abs(drag_delta.x) > 0.001f)) {
     double mapped_x_pos = (double)(mouse_pos.x - cursor_pos.x) / song_length * view_scale + min_hscroll;
     double mouse_time_pos = mapped_x_pos * song_length;
-    double mouse_time_pos_grid = math::max(std::round(mouse_time_pos * grid_scale) / grid_scale, 0.0);
+    double mouse_time_pos_grid = math::max(std::round(mouse_time_pos * beat_division) / beat_division, 0.0);
     *time_value = mouse_time_pos_grid;
     // g_engine.set_playhead_position(mouse_time_pos_grid);
     ImGui::ResetMouseDragDelta();
