@@ -239,7 +239,7 @@ if (imgui_ADDED)
     target_link_libraries(imgui-sdl2
         PUBLIC SDL2::SDL2-static imgui imgui-backends)
 
-    if(WIN32)
+    if(WB_PLATFORM_WINDOWS)
         set(IMGUI_BACKEND_D3D11_SOURCES
             "${imgui_SOURCE_DIR}/backends/imgui_impl_dx11.cpp"
             "${imgui_SOURCE_DIR}/backends/imgui_impl_dx11.h")
@@ -401,15 +401,19 @@ if (vst3sdk_ADDED)
         "${VST3_PUBLICSDK_PATH}/source/common/threadchecker.h"
         "${VST3_PUBLICSDK_PATH}/source/common/threadchecker_linux.cpp")
     
-    if (WIN32)
+    if (WB_PLATFORM_WINDOWS)
         set(VST3_SDK_COMMON_SRC ${VST3_SDK_COMMON_SRC}
             "${VST3_PUBLICSDK_PATH}/source/common/systemclipboard_win32.cpp"
             "${VST3_PUBLICSDK_PATH}/source/common/threadchecker_win32.cpp"
         )
-    elseif (LINUX)
+    elseif (WB_PLATFORM_LINUX)
         set(VST3_SDK_COMMON_SRC ${VST3_SDK_COMMON_SRC}
             "${VST3_PUBLICSDK_PATH}/source/common/systemclipboard_linux.cpp"
             "${VST3_PUBLICSDK_PATH}/source/common/threadchecker_linux.cpp")
+    elseif (WB_PLATFORM_MAC)
+        set(VST3_SDK_COMMON_SRC ${VST3_SDK_COMMON_SRC}
+            "${VST3_PUBLICSDK_PATH}/source/common/systemclipboard_mac.mm"
+            "${VST3_PUBLICSDK_PATH}/source/common/threadchecker_mac.mm")
     endif ()
     
     add_library(vst3-sdk-common STATIC ${VST3_SDK_COMMON_SRC})
@@ -438,15 +442,19 @@ if (vst3sdk_ADDED)
         "${VST3_PUBLICSDK_PATH}/source/vst/utility/stringconvert.h"
         "${VST3_PUBLICSDK_PATH}/source/vst/utility/uid.h"
         "${VST3_PUBLICSDK_PATH}/source/vst/utility/versionparser.h"
-        "${VST3_PUBLICSDK_PATH}/source/vst/vstinitiids.cpp")
+        "${VST3_PUBLICSDK_PATH}/source/vst/vstinitiids.cpp"
+    )
     
-    if (WIN32)
+    if (WB_PLATFORM_WINDOWS)
         set(VST3_SDK_HOSTING_SRC ${VST3_SDK_HOSTING_SRC}
             "${VST3_PUBLICSDK_PATH}/source/vst/hosting/module_win32.cpp")
-    elseif (LINUX)
+    elseif (WB_PLATFORM_LINUX)
         set(VST3_SDK_HOSTING_SRC ${VST3_SDK_HOSTING_SRC}
             "${VST3_PUBLICSDK_PATH}/source/vst/hosting/module_linux.cpp")
-    endif ()
+    elseif (WB_PLATFORM_MAC)
+        set(VST3_SDK_HOSTING_SRC ${VST3_SDK_HOSTING_SRC}
+            "${VST3_PUBLICSDK_PATH}/source/vst/hosting/module_mac.mm")
+    endif()
     
     add_library(vst3-sdk-hosting STATIC ${VST3_SDK_HOSTING_SRC})
     target_link_libraries(vst3-sdk-hosting PUBLIC vst3-sdk-common)

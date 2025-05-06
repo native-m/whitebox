@@ -5,12 +5,6 @@ cmake_minimum_required(VERSION 3.20)
 
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 
-# Enable Hot Reload for MSVC compilers if supported.
-if (MSVC AND POLICY CMP0141)
-    cmake_policy(SET CMP0141 NEW)
-  set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
-endif()
-
 project("whitebox" VERSION 0.1.0)
 
 include(CMakeDependentOption)
@@ -21,8 +15,16 @@ cmake_dependent_option(WB_ENABLE_PACKAGING "Enable packaging with CPack" OFF "WB
 
 if (WB_ENABLE_ASAN AND (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC"))
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fsanitize=address")
-elseif (WB_ENABLE_ASAN AND (CMAKE_CXX_COMPILER_ID STREQUAL "Clang"))
+elseif (WB_ENABLE_ASAN AND (CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU"))
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
+endif()
+
+if (WIN32)
+    set(WB_PLATFORM_WINDOWS 1)
+elseif (LINUX)
+    set(WB_PLATFORM_LINUX 1)
+elseif (APPLE AND (NOT IOS))
+    set(WB_PLATFORM_MACOS 1)
 endif()
 
 set(CMAKE_CXX_STANDARD 20)
@@ -228,9 +230,9 @@ set(WB_LINK_LIBRARIES
     nfd
     vst3-sdk-hosting)
 
-if (WIN32)
+if (WB_PLATFORM_WINDOWS)
     set(WB_LINK_LIBRARIES ${WB_LINK_LIBRARIES} imgui-d3d11 Avrt Dwmapi)
-elseif (UNIX AND NOT APPLE)
+elseif (WB_PLATFORM_LINUX)
     set(WB_LINK_LIBRARIES ${WB_LINK_LIBRARIES} PkgConfig::LIBPULSE xcb X11 X11-xcb)
 endif ()
 
@@ -241,11 +243,14 @@ set_target_properties(whitebox-lib PROPERTIES
     CXX_STANDARD 20
     DEBUG_POSTFIX "-debug")
 
+target_precompile_headers(whitebox-lib PRIVATE
+    "$<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/src/core_math.h>")
+
 if (WB_IPO_SUPPORTED)
     set_target_properties(whitebox-lib PROPERTIES INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
 endif()
 
-if (WIN32)
+if (WB_PLATFORM_WINDOWS)
     target_compile_definitions(whitebox-lib PUBLIC -DUNICODE -D_UNICODE)
 endif()
 
