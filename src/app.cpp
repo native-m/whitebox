@@ -165,7 +165,6 @@ void app_init() {
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
   load_settings_data();
-  init_plugin_manager();
   start_audio_engine();
 
   ImGuiIO& io = ImGui::GetIO();
@@ -318,7 +317,6 @@ void app_shutdown() {
   g_sample_table.shutdown();
   g_midi_table.shutdown();
   shutdown_renderer();
-  shutdown_plugin_manager();
   ImGui_ImplSDL2_Shutdown();
   ImGui::DestroyContext();
   wm_destroy_main_window();

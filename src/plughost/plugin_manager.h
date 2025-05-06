@@ -33,9 +33,6 @@ struct PluginInfo {
 using PluginFetchFn = void (*)(void* userdata, PluginInfo&& info);
 using PluginDBUpdateListenerFn = void (*)(void* userdata);
 
-void init_plugin_manager();
-void shutdown_plugin_manager();
-
 void pm_add_plugin_db_update_listener(void* userdata, PluginDBUpdateListenerFn fn);
 void pm_fetch_registered_plugins(const std::string& name_search, void* userdata, PluginFetchFn fn);
 void pm_update_plugin_info(const PluginInfo& info);

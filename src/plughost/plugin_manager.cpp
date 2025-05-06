@@ -10,6 +10,7 @@
 
 #include "core/byte_buffer.h"
 #include "core/debug.h"
+#include "core/defer.h"
 #include "core/stream.h"
 #include "extern/xxhash.h"
 #include "platform/path_def.h"
@@ -26,9 +27,14 @@ struct PluginDBUpdateListenerData {
   PluginDBUpdateListenerFn fn;
 };
 
-static ldb::DB* plugin_db;
 static fs::path vst3_extension{ ".vst3" };
 static Vector<PluginDBUpdateListenerData> plugin_db_update_listeners;
+
+static void notify_update_listeners() {
+  for (const auto& [userdata, fn] : plugin_db_update_listeners) {
+    fn(userdata);
+  }
+}
 
 static void decode_plugin_info(ByteBuffer& buffer, PluginInfo* info) {
   info->descriptor_id.resize(sizeof(VST3::UID::TUID));
@@ -61,7 +67,24 @@ static void encode_plugin_info(
   io_write(buffer, format);
 }
 
+static ldb::DB* open_plugin_db() {
+  ldb::DB* db;
+  ldb::Options options;
+  std::string plugin_db_path = (path_def::wbpath / "plugin_db").string();
+  options.create_if_missing = true;
+  ldb::Status status = ldb::DB::Open(options, plugin_db_path, &db);
+  if (!status.ok()) {
+    Log::error("Cannot create plugin database {}", status.ToString());
+    assert(false);
+    return nullptr;
+  }
+  return db;
+}
+
 static void scan_vst3_plugins() {
+  ldb::DB* db = open_plugin_db();
+  assert(db != nullptr);
+
   VST3::Hosting::Module::PathList path_list = VST3::Hosting::Module::getModulePaths();
   ldb::WriteBatch batch;
   std::string error;
@@ -127,28 +150,11 @@ static void scan_vst3_plugins() {
 
   Log::info("Write plugin data into database");
   // Write this into database
-  ldb::Status status = plugin_db->Write({}, &batch);
+  ldb::Status status = db->Write({}, &batch);
   if (!status.ok())
     Log::error("Cannot write plugin data into the database: {}", status.ToString());
-}
 
-void init_plugin_manager() {
-  ldb::DB* db;
-  ldb::Options options;
-  std::string plugin_db_path = (path_def::wbpath / "plugin_db").string();
-  options.create_if_missing = true;
-  ldb::Status status = ldb::DB::Open(options, plugin_db_path, &db);
-  if (!status.ok()) {
-    Log::error("Cannot create plugin database {}", status.ToString());
-    assert(false);
-    return;
-  }
-  plugin_db = db;
-}
-
-void shutdown_plugin_manager() {
-  if (plugin_db)
-    delete plugin_db;
+  delete db;
 }
 
 void pm_add_plugin_db_update_listener(void* userdata, PluginDBUpdateListenerFn fn) {
@@ -156,10 +162,15 @@ void pm_add_plugin_db_update_listener(void* userdata, PluginDBUpdateListenerFn f
 }
 
 void pm_fetch_registered_plugins(const std::string& name_search, void* userdata, PluginFetchFn fn) {
+  ldb::DB* db = open_plugin_db();
+  assert(db != nullptr);
+
   ldb::ReadOptions read_options;
   read_options.fill_cache = false;
 
-  ldb::Iterator* iter = plugin_db->NewIterator(read_options);
+  ldb::Iterator* iter = db->NewIterator(read_options);
+  assert(iter != nullptr);
+
   PluginInfo info;
   if (name_search.size() != 0) {
     auto search_lowercase = name_search | std::views::transform([](char ch) { return std::tolower(ch); });
@@ -187,26 +198,39 @@ void pm_fetch_registered_plugins(const std::string& name_search, void* userdata,
   }
 
   delete iter;
+  delete db;
 }
 
 void pm_update_plugin_info(const PluginInfo& info) {
+  ldb::DB* db = open_plugin_db();
+  assert(db != nullptr);
+
   ByteBuffer buffer;
   VST3::UID id = VST3::UID::fromTUID(info.descriptor_id.data());
   encode_plugin_info(buffer, id, info.name, info.vendor, info.version, info.path, info.flags, info.format);
-  auto status = plugin_db->Put({}, ldb::Slice((char*)info.uid, 16), ldb::Slice((char*)buffer.data(), buffer.position()));
+  auto status = db->Put({}, ldb::Slice((char*)info.uid, 16), ldb::Slice((char*)buffer.data(), buffer.position()));
   if (!status.ok()) {
     Log::error("Cannot write plugin data into the database");
     Log::error("Reason: {}", status.ToString());
   }
+
+  delete db;
+  notify_update_listeners();
 }
 
 void pm_delete_plugin(uint8_t plugin_uid[16]) {
+  ldb::DB* db = open_plugin_db();
+  assert(db != nullptr);
+
   ldb::Slice key((char*)plugin_uid, 16);
-  auto status = plugin_db->Delete({}, key);
+  auto status = db->Delete({}, key);
   if (!status.ok()) {
     Log::error("Cannot delete plugin data from the database");
     Log::error("Reason: {}", status.ToString());
   }
+
+  delete db;
+  notify_update_listeners();
 }
 
 void pm_scan_plugins() {
@@ -218,10 +242,14 @@ void pm_scan_plugins() {
 }
 
 PluginInterface* pm_open_plugin(PluginUID uid) {
+  ldb::DB* db = open_plugin_db();
+  assert(db != nullptr);
+
   ldb::ReadOptions read_options;
   read_options.fill_cache = false;
+
   std::string bytes;
-  plugin_db->Get(read_options, ldb::Slice((char*)uid, sizeof(PluginUID)), &bytes);
+  db->Get(read_options, ldb::Slice((char*)uid, sizeof(PluginUID)), &bytes);
 
   ByteBuffer buffer((std::byte*)bytes.data(), bytes.size(), false);
   PluginInfo plugin_info;
@@ -235,6 +263,7 @@ PluginInterface* pm_open_plugin(PluginUID uid) {
     default: WB_UNREACHABLE();
   }
 
+  delete db;
   return nullptr;
 }
 
