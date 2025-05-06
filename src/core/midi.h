@@ -16,9 +16,9 @@ using NoteSequenceID = uint32_t;
 struct MidiNoteFlags {
   enum : uint16_t {
     Deactivated = 1 << 0,
-    Modified = 1 << 1,
-    Selected = 1 << 2,
-    Deleted = 1 << 3,
+    Modified = 1 << 13,
+    Selected = 1 << 14,
+    Deleted = 1 << 15,
     PrivateFlags = Modified | Selected | Deleted,
   };
 };
@@ -65,8 +65,7 @@ struct MidiData {
   uint32_t first_free_id = WB_INVALID_NOTE_METADATA_ID;
   uint32_t num_free_metadata = 0;
   uint32_t id_counter = 0;
-  uint32_t channel_count = 0;
-  uint32_t num_selected;
+  uint32_t num_selected = 0;
 
   // This is for GUI, we need to know which note is the lowest or highest note in the
   // midi buffer so we can calculate the Y-scale for each note.

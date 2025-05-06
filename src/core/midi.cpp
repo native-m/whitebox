@@ -139,7 +139,6 @@ Vector<uint32_t> MidiData::update_channel(uint16_t channel) {
   max_length = length;
   min_note = new_min_note;
   max_note = new_max_note;
-  channel_count = math::max(channel_count, (uint32_t)channel + 1);
 
   return modified_notes;
 }

@@ -1789,35 +1789,32 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
         const ColorU32 note_color = content_color.change_alpha(full_size_clip ? 1.0f : 0.20f).to_uint32();
 
         if (asset) {
-          uint32_t channel_count = asset->data.channel_count;
           double min_start_x = cmd.min_pos_x - start_offset * clip_scale;
-          for (uint32_t i = 0; i < channel_count; i++) {
-            for (uint32_t j = 0; const auto& note : asset->data.note_sequence) {
-              float min_pos_x = (float)math::round(min_start_x + note.min_time * clip_scale);
-              float max_pos_x = (float)math::round(min_start_x + note.max_time * clip_scale);
-              if (max_pos_x < min_view)
-                continue;
-              if (min_pos_x > max_view)
-                break;
-              const float pos_y = offset_y + (float)(max_note - note.key) * max_note_size;
-              min_pos_x = math::max(min_pos_x, min_view);
-              max_pos_x = math::min(max_pos_x, max_view);
-              if (min_pos_x >= max_pos_x)
-                continue;
-              const ImVec2 a(min_pos_x + 0.5f, pos_y);
-              const ImVec2 b(max_pos_x, pos_y + min_note_size - 0.5f);
+          for (uint32_t j = 0; const auto& note : asset->data.note_sequence) {
+            float min_pos_x = (float)math::round(min_start_x + note.min_time * clip_scale);
+            float max_pos_x = (float)math::round(min_start_x + note.max_time * clip_scale);
+            if (max_pos_x < min_view)
+              continue;
+            if (min_pos_x > max_view)
+              break;
+            const float pos_y = offset_y + (float)(max_note - note.key) * max_note_size;
+            min_pos_x = math::max(min_pos_x, min_view);
+            max_pos_x = math::min(max_pos_x, max_view);
+            if (min_pos_x >= max_pos_x)
+              continue;
+            const ImVec2 a(min_pos_x + 0.5f, pos_y);
+            const ImVec2 b(max_pos_x, pos_y + min_note_size - 0.5f);
 #if DEBUG_MIDI_CLIPS == 1
-              char c[32]{};
-              fmt::format_to_n(c, std::size(c), "ID: {}", j);
-              layer2_draw_list->AddText(a - ImVec2(0.0f, 13.0f), 0xFFFFFFFF, c);
-              j++;
+            char c[32]{};
+            fmt::format_to_n(c, std::size(c), "ID: {}", j);
+            layer2_draw_list->AddText(a - ImVec2(0.0f, 13.0f), 0xFFFFFFFF, c);
+            j++;
 #endif
-              dl->PathLineTo(a);
-              dl->PathLineTo(ImVec2(b.x, a.y));
-              dl->PathLineTo(b);
-              dl->PathLineTo(ImVec2(a.x, b.y));
-              dl->PathFillConvex(note_color);
-            }
+            dl->PathLineTo(a);
+            dl->PathLineTo(ImVec2(b.x, a.y));
+            dl->PathLineTo(b);
+            dl->PathLineTo(ImVec2(a.x, b.y));
+            dl->PathFillConvex(note_color);
           }
         }
         break;

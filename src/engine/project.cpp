@@ -132,7 +132,6 @@ ProjectFileResult read_project_file(
     MidiAsset* asset = midi_table.create_midi();
     midi_asset.channel_count = math::min(midi_asset.channel_count, 16u);
     asset->data.max_length = midi_asset.max_length;
-    asset->data.channel_count = midi_asset.channel_count;
     asset->data.min_note = midi_asset.min_note;
     asset->data.max_note = midi_asset.max_note;
     assert(midi_asset.channel_count == 1);
@@ -303,7 +302,6 @@ ProjectFileResult write_project_file(
     MidiData& data = asset->data;
     PFMidiAsset asset_header{
       .max_length = data.max_length,
-      .channel_count = data.channel_count,
       .min_note = data.min_note,
       .max_note = data.max_note,
     };

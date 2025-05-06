@@ -913,13 +913,14 @@ void ClipEditorWindow::render_note_editor() {
         note_id++;
         continue;
       }
+      
+      if (contain_bit(flags, MidiNoteFlags::Deleted)) {
+        note_id++;
+        continue;
+      }
 
       float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * clip_scale);
       float max_pos_x = (float)math::round(scroll_offset_x + note.max_time * clip_scale);
-
-      if (contain_bit(flags, MidiNoteFlags::Deleted)) {
-        continue;
-      }
 
       if (max_pos_x < cursor_pos.x) {
         note_id++;
@@ -928,7 +929,7 @@ void ClipEditorWindow::render_note_editor() {
 
       if (min_pos_x > end_x)
         break;
-
+      
       // make it appear selected/deselected
       if (selecting_notes) {
         if (!append_selection) {
