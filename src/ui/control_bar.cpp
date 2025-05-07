@@ -135,7 +135,6 @@ void main_control_bar() {
   }
 
   // Transport button
-
   if (ImGui::Button(!is_playing ? ICON_MS_PLAY_ARROW "##wb_play" : ICON_MS_PAUSE "##wb_play")) {
     if (is_playing) {
       if (g_engine.recording)
@@ -172,14 +171,16 @@ void main_control_bar() {
   ImGui::SameLine(0.0f, 4.0f);
 
   // Song position
-  ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 8.5f));
+  ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 3.0f));
   ImGui::PushItemWidth(85.0f);
   set_current_font(FontType::MonoMedium);
   controls::song_position();
   set_current_font(FontType::Normal);
   ImGui::SameLine(0.0f, 4.0f);
+  ImGui::PopStyleVar();
 
   // Tempo
+  ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 8.5f));
   float tempo = (float)g_engine.get_bpm();
   if (ImGui::DragFloat("##tempo_drag", &tempo, 1.0f, 0.0f, 0.0f, "%.2f BPM", ImGuiSliderFlags_Vertical)) {
     g_engine.set_bpm((double)tempo);

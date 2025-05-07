@@ -81,27 +81,29 @@ void end_floating_window() {
 }
 
 void song_position() {
-  float font_size = 13.0f;
-  ImFont* font = ImGui::GetFont();
-  ImVec2 padding = GImGui->Style.FramePadding;
-  ImVec2 position = ImGui::GetCursorScreenPos();
-  ImVec2 size(120.0f + padding.x * 2.0f, font_size + padding.y * 2.0f);
-  ImRect bb(position, position + size);
-  ImGuiID id = ImGui::GetID("##song_position");
-  ImDrawList* draw_list = GImGui->CurrentWindow->DrawList;
-  uint32_t text_color = ImGui::GetColorU32(ImGuiCol_Text);
-  ImGui::ItemSize(size);
-  if (!ImGui::ItemAdd(bb, id))
-    return;
+  // Playhead
   double playhead = g_engine.playhead_pos();
   float bar = IM_TRUNC(playhead * 0.25) + 1.0f;
   float beat = IM_TRUNC(std::fmod(playhead, 4.0)) + 1.0f;
   float tick = IM_TRUNC(math::fract(playhead) * g_engine.ppq);
   char buf[32]{};
   fmt::format_to(buf, "{}:{}:{:03}", bar, beat, tick);
+
+  ImFont* font = ImGui::GetFont();
+  ImVec2 padding = GImGui->Style.FramePadding;
+  ImVec2 position = ImGui::GetCursorScreenPos();
   ImVec2 text_size = ImGui::CalcTextSize(buf);
-  ImVec2 text_pos = position + size * 0.5f - text_size * 0.5f;
-  float half_font_size = font->FontSize * 0.5f;
+  ImVec2 size(120.0f + padding.x * 2.0f, text_size.y + padding.y * 2.0f);
+  ImRect bb(position, position + size);
+  ImGuiID id = ImGui::GetID("##song_position");
+  ImDrawList* draw_list = GImGui->CurrentWindow->DrawList;
+  uint32_t text_color = ImGui::GetColorU32(ImGuiCol_Text);
+
+  ImGui::ItemSize(size);
+  if (!ImGui::ItemAdd(bb, id))
+    return;
+  
+  ImVec2 text_pos = position + (size - text_size) * 0.5f;
   draw_list->AddRectFilled(bb.Min, bb.Max, ImGui::GetColorU32(ImGuiCol_Button), 2.0f);
   draw_list->AddText(text_pos, ImGui::GetColorU32(ImGuiCol_Text), buf);
 }
