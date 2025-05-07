@@ -176,7 +176,7 @@ struct Vector {
 
   template<typename... Args>
   inline T& emplace_at(size_t idx, Args&&... args) {
-    assert(idx >= 0 && idx <= intern_.size);
+    assert(idx <= intern_.size);
 
     if (idx == intern_.size) {
       return emplace_back(std::forward<Args>(args)...);
@@ -219,15 +219,15 @@ struct Vector {
     T* dst_ptr = begin_ptr + 1;
     T* end_ptr = intern_.data + idx;
     while (begin_ptr >= end_ptr) {
-      if constexpr (std::is_move_assignable_v<T>)
-        *dst_ptr-- = std::move(*begin_ptr);
-      else if constexpr (std::is_copy_assignable_v<T>)
-        *dst_ptr-- = *begin_ptr;
+      if constexpr (std::move_constructible<T>) {
+        new (dst_ptr) T(std::move(*begin_ptr));
+      } else if constexpr (std::copy_constructible<T>) {
+        new (dst_ptr) T(*begin_ptr);
+        begin_ptr->~T();
+      }
+      dst_ptr--;
       begin_ptr--;
     }
-
-    if constexpr (!std::is_trivially_destructible_v<T>)
-      (intern_.data + idx)->~T();
 
     T* item;
     if constexpr (std::is_aggregate_v<T>)
