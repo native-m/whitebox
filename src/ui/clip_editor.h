@@ -9,12 +9,11 @@ namespace wb {
 
 enum class PianoRollTool {
   None,
+  Select,
   Draw,
   Marker,
   Paint,
   Slice,
-  Erase,
-  Mute,
 
   // Implicit command
   Move,
@@ -42,6 +41,7 @@ struct ClipEditorWindow : public TimelineBase {
   ImU32 indicator_frame_color{};
   ImU32 indicator_color{};
   ImU32 note_color{};
+  ImU32 muted_note_color{};
   ImU32 text_color{};
 
   ImVec2 content_size;
@@ -67,6 +67,7 @@ struct ClipEditorWindow : public TimelineBase {
   bool selecting_notes = false;
   bool deleting_notes = false;
   bool append_selection = false;
+  bool open_context_menu = false;
   bool force_redraw = false;
 
   double selection_start_pos = 0.0;
@@ -113,6 +114,7 @@ struct ClipEditorWindow : public TimelineBase {
   void render_note_keys();
   void render_note_editor();
   void render_event_editor();
+  void render_context_menu();
   void draw_piano_keys(ImDrawList* draw_list, ImVec2& pos, const ImVec2& note_size, uint32_t oct);
   void prepare_resize();
   void select_or_deselect_all_notes(bool should_select);
