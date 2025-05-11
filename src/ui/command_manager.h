@@ -21,7 +21,7 @@ struct CommandManager {
   bool is_modified = false;
 
   void init(uint32_t max_items);
-  void execute(const std::string& name, Command* cmd);
+  bool execute(const std::string& name, Command* cmd);
   void undo();
   void redo();
   void reset(bool empty_project = false);

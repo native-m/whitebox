@@ -10,10 +10,10 @@ void CommandManager::init(uint32_t max_items) {
   max_history = max_items;
 }
 
-void CommandManager::execute(const std::string& name, Command* cmd) {
+bool CommandManager::execute(const std::string& name, Command* cmd) {
   if (!cmd->execute()) {
     delete cmd;
-    return;
+    return false;
   }
 
   cmd->name = name;
@@ -40,6 +40,8 @@ void CommandManager::execute(const std::string& name, Command* cmd) {
   if (num_history < max_history) {
     ++num_history;
   }
+
+  return true;
 }
 
 void CommandManager::undo() {

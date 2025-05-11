@@ -614,17 +614,16 @@ void ClipEditorWindow::render_note_editor() {
         cmd->clip_id = current_clip_id.value();
         cmd->select_or_deselect = true;
         cmd->selected_note_ids = std::move(note_ids);
-        g_cmd_manager.execute("Clip editor: Append note selection", cmd);
-
-        // Recalculate minimum and maximum move bounds
-        uint32_t num_selected = midi_asset->data.num_selected;
-        const MidiNoteBuffer& note_seq = midi_asset->data.note_sequence;
-        min_note_pos = note_seq[first_note].min_time;
-        min_note_key = UINT16_MAX;
-        max_note_key = 0;
-        for (const auto& note : note_seq) {
-          min_note_key = math::min(min_note_key, note.key);
-          max_note_key = math::max(max_note_key, note.key);
+        if (g_cmd_manager.execute("Clip editor: Append note selection", cmd)) {
+          uint32_t num_selected = midi_asset->data.num_selected;
+          const MidiNoteBuffer& note_seq = midi_asset->data.note_sequence;
+          min_note_pos = note_seq[first_note].min_time;
+          min_note_key = UINT16_MAX;
+          max_note_key = 0;
+          for (const auto& note : note_seq) {
+            min_note_key = math::min(min_note_key, note.key);
+            max_note_key = math::max(max_note_key, note.key);
+          }
         }
       }
     } else {
@@ -635,8 +634,7 @@ void ClipEditorWindow::render_note_editor() {
       cmd->max_pos = selection_end_pos;
       cmd->min_key = first_selected_key;
       cmd->max_key = last_selected_key;
-      g_cmd_manager.execute("Clip editor: Select/deselect note", cmd);
-      if (!cmd->result.selected.empty()) {
+      if (g_cmd_manager.execute("Clip editor: Select/deselect note", cmd)) {
         uint32_t first_note = cmd->result.selected[0];
         MidiNote& note = midi_asset->data.note_sequence[first_note];
         min_note_pos = note.min_time;
@@ -989,6 +987,11 @@ void ClipEditorWindow::render_note_editor() {
       g_cmd_manager.execute("Clip editor: Slice tool", cmd);
       g_timeline.redraw_screen();
       force_redraw = true;
+    } else if (piano_roll_tool == PianoRollTool::Select) {
+      selection_start_pos = hovered_position;
+      first_selected_key = hovered_key;
+      append_selection = holding_shift;
+      selecting_notes = true;
     } else {
       edit_command = piano_roll_tool;
       initial_time_pos = hovered_position_grid;
