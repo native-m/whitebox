@@ -19,6 +19,7 @@
 #include "ui/file_dialog.h"
 #include "ui/file_dropper.h"
 #include "ui/font.h"
+#include "ui/hotkeys.h"
 #include "ui/timeline.h"
 #include "ui/window.h"
 
@@ -225,14 +226,24 @@ void app_render() {
     }
   }
 
+  hkey_process();
+
   bool is_playing = g_engine.is_playing();
-  if (!ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Space)) {
+  if (hkey_pressed(Hotkey::Play)) {
     if (is_playing) {
       g_engine.stop();
       g_timeline.redraw_screen();
     } else {
       g_engine.play();
     }
+  }
+  
+  if (hkey_pressed(Hotkey::Undo)) {
+    g_cmd_manager.undo();
+  }
+
+  if (hkey_pressed(Hotkey::Redo)) {
+    g_cmd_manager.redo();
   }
 
   g_engine.update_audio_visualization(GImGui->IO.Framerate);

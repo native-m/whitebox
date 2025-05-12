@@ -188,6 +188,8 @@ set(WB_SOURCES
     "src/ui/forms.h"
     "src/ui/grid.h"
     "src/ui/grid.cpp"
+    "src/ui/hotkeys.h"
+    "src/ui/hotkeys.cpp"
     "src/ui/IconsMaterialSymbols.h"
     "src/ui/mixer.cpp"
     "src/ui/mixer.h"

@@ -12,6 +12,7 @@
 #include "file_dialog.h"
 #include "font.h"
 #include "grid.h"
+#include "hotkeys.h"
 #include "timeline.h"
 #include "window.h"
 
@@ -152,6 +153,8 @@ void ClipEditorWindow::render() {
   playhead = g_engine.playhead;
   note_height_in_pixel = math::round(note_height);
   const Color base_color = current_clip->color;
+
+  process_hotkeys();
 
   if (ImGui::BeginChild("PianoRollControl", ImVec2(200.0f, 0.0f), ImGuiChildFlags_Border, ImGuiWindowFlags_MenuBar)) {
     if (ImGui::BeginMenuBar()) {
@@ -1231,6 +1234,20 @@ void ClipEditorWindow::draw_piano_keys(ImDrawList* draw_list, ImVec2& pos, const
   im_draw_simple_text(draw_list, note_name, ImVec2(pos.x + 4.0f, note_pos.y - font->FontSize - 4.0f), 0xFFFFFFFF);
   im_draw_hline(draw_list, note_pos.y - 1.0f, pos.x, pos.x + half_size.x, separator);
   pos.y = note_pos.y;
+}
+
+void ClipEditorWindow::process_hotkeys() {
+  if (hkey_pressed(Hotkey::PianoRollSelectTool)) {
+    piano_roll_tool = PianoRollTool::Select;
+  } else if (hkey_pressed(Hotkey::PianoRollDrawTool)) {
+    piano_roll_tool = PianoRollTool::Draw;
+  } else if (hkey_pressed(Hotkey::PianoRollMarkerTool)) {
+    piano_roll_tool = PianoRollTool::Marker;
+  } else if (hkey_pressed(Hotkey::PianoRollPaintTool)) {
+    piano_roll_tool = PianoRollTool::Paint;
+  } else if (hkey_pressed(Hotkey::PianoRollSliceTool)) {
+    piano_roll_tool = PianoRollTool::Slice;
+  }
 }
 
 void ClipEditorWindow::prepare_resize() {
