@@ -15,7 +15,7 @@ using NoteSequenceID = uint32_t;
 
 struct MidiNoteFlags {
   enum : uint16_t {
-    Deactivated = 1 << 0,
+    Muted = 1 << 0,
     Modified = 1 << 13,
     Selected = 1 << 14,
     Deleted = 1 << 15,

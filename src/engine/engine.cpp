@@ -378,7 +378,7 @@ TrackEditResult Engine::resize_clip(
       query_result ? reserve_track_region(track, query_result->first, query_result->last, min_time, max_time, true, clip)
                    : TrackEditResult{};
   trim_result.deleted_clips.push_back(*clip);
-  if (right_side) {
+  if (!right_side) {
     clip->min_time = min_time;
     clip->start_offset = start_offset;
   } else {
