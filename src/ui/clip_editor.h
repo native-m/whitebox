@@ -117,6 +117,7 @@ struct ClipEditorWindow : public TimelineBase {
   void render_context_menu();
   void draw_piano_keys(ImDrawList* draw_list, ImVec2& pos, const ImVec2& note_size, uint32_t oct);
   void process_hotkeys();
+  void delete_notes(bool selected);
   void prepare_resize();
   void select_or_deselect_all_notes(bool should_select);
   void query_selected_range();

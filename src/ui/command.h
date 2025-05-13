@@ -299,6 +299,7 @@ struct MidiAppendNoteSelectionCmd : public Command {
 struct MidiDeleteNoteCmd : public MidiCmd {
   uint32_t track_id;
   uint32_t clip_id;
+  bool selected;
 
   bool execute() override;
   void undo() override;

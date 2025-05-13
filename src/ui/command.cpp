@@ -593,7 +593,7 @@ void MidiAppendNoteSelectionCmd::undo() {
 //
 
 bool MidiDeleteNoteCmd::execute() {
-  backup(g_engine.delete_marked_notes(track_id, clip_id));
+  backup(g_engine.delete_marked_notes(track_id, clip_id, selected));
   return !deleted_notes.empty();
 }
 

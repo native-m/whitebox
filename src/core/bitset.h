@@ -67,17 +67,17 @@ struct BitSet {
     return (data_[n >> shift_amount] >> (n & mask)) & 1;
   }
 
-  bool get(uint32_t n) const {
+  inline bool get(uint32_t n) const {
     assert(n < size_ && "Index out of bounds");
     return (data_[n >> shift_amount] >> (n & mask)) & 1;
   }
 
-  void set(uint32_t n) {
+  inline void set(uint32_t n) {
     assert(n < size_ && "Index out of bounds");
     data_[n >> shift_amount] |= 1 << (n & mask);
   }
 
-  void unset(uint32_t n) {
+  inline void unset(uint32_t n) {
     assert(n < size_ && "Index out of bounds");
     data_[n >> shift_amount] &= ~(1 << (n & mask));
   }

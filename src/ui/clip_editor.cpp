@@ -579,13 +579,7 @@ void ClipEditorWindow::render_note_editor() {
   }
 
   if (!right_mouse_down && deleting_notes) {
-    MidiDeleteNoteCmd* cmd = new MidiDeleteNoteCmd();
-    cmd->track_id = current_track_id.value();
-    cmd->clip_id = current_clip_id.value();
-    g_cmd_manager.execute("Clip editor: Delete notes", cmd);
-    g_timeline.redraw_screen();
-    deleting_notes = false;
-    redraw = true;
+    delete_notes(false);
   }
 
   // Start selection
@@ -1034,7 +1028,7 @@ void ClipEditorWindow::render_note_editor() {
                 .min_time = time_pos,
                 .max_time = time_pos + (double)new_length,
                 .key = key,
-                .flags = MidiNoteFlags::Modified,
+                .flags = MidiNoteFlags::Modified | MidiNoteFlags::Selected,
                 .velocity = new_velocity / 127.0f,
               });
         }
@@ -1049,7 +1043,7 @@ void ClipEditorWindow::render_note_editor() {
           .min_time = time_pos,
           .max_time = time_pos + (double)new_length,
           .key = key,
-          .flags = MidiNoteFlags::Modified,
+          .flags = MidiNoteFlags::Modified | MidiNoteFlags::Selected,
           .velocity = new_velocity / 127.0f,
         });
       }
@@ -1065,7 +1059,7 @@ void ClipEditorWindow::render_note_editor() {
           continue;
         if (min_pos_x > end_x)
           break;
-        draw_note.operator()<false>(min_pos_x, max_pos_x, note.velocity, 0, note.key);
+        draw_note.operator()<false>(min_pos_x, max_pos_x, note.velocity, 0, note.key, note.flags);
       }
     }
   } else if (is_edit_command && redraw) {
@@ -1180,7 +1174,9 @@ void ClipEditorWindow::render_context_menu() {
   if (ImGui::BeginPopup("##piano_roll_context_menu")) {
     ImGui::MenuItem("Invert selection");
     ImGui::MenuItem("Duplicate", "Ctrl+D");
-    ImGui::MenuItem("Delete", "Del");
+    if (ImGui::MenuItem("Delete", "Del")) {
+      delete_notes(true);
+    }
     ImGui::MenuItem("Mute", "Ctrl+M");
     ImGui::Separator();
     ImGui::MenuItem("Quantize");
@@ -1248,6 +1244,24 @@ void ClipEditorWindow::process_hotkeys() {
   } else if (hkey_pressed(Hotkey::PianoRollSliceTool)) {
     piano_roll_tool = PianoRollTool::Slice;
   }
+
+  if (ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows)) {
+    if (hkey_pressed(Hotkey::CommonDelete)) {
+      delete_notes(true);
+    }
+  }
+}
+
+void ClipEditorWindow::delete_notes(bool selected) {
+  MidiDeleteNoteCmd* cmd = new MidiDeleteNoteCmd();
+  cmd->track_id = current_track_id.value();
+  cmd->clip_id = current_clip_id.value();
+  cmd->selected = selected;
+  g_cmd_manager.execute("Clip editor: Delete notes", cmd);
+  g_timeline.redraw_screen();
+  deleting_notes = false;
+  force_redraw = true;
+  redraw = true;
 }
 
 void ClipEditorWindow::prepare_resize() {

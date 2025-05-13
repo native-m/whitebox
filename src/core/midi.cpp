@@ -123,6 +123,7 @@ Vector<uint32_t> MidiData::update_channel(uint16_t channel) {
   uint16_t new_min_note = max_keys;
   uint16_t new_max_note = 0;
   double length = max_length;
+  uint32_t selected_count = 0;
 
   for (uint32_t i = 0; i < (uint32_t)note_sequence.size(); i++) {
     MidiNote& note = note_sequence[i];
@@ -134,11 +135,15 @@ Vector<uint32_t> MidiData::update_channel(uint16_t channel) {
       note.flags &= ~MidiNoteFlags::Modified;
       modified_notes.push_back(i);
     }
+    if (has_bit(note.flags, MidiNoteFlags::Selected)) {
+      selected_count++;
+    }
   }
 
   max_length = length;
   min_note = new_min_note;
   max_note = new_max_note;
+  num_selected = selected_count;
 
   return modified_notes;
 }

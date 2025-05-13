@@ -192,6 +192,8 @@ struct Engine {
 
   MidiEditResult delete_marked_notes(uint32_t track_id, uint32_t clip_id);
 
+  MidiEditResult delete_marked_notes(uint32_t track_id, uint32_t clip_id, bool selected);
+
   NoteSelectResult
   select_note(uint32_t track_id, uint32_t clip_id, double min_pos, double max_pos, uint16_t min_key, uint16_t max_key);
 
