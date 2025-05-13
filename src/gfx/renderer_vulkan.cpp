@@ -23,6 +23,11 @@ extern "C" {
 #endif
 
 #define WB_LOG_VULKAN_RESOURCE_DISPOSAL 0
+#define WB_VULKAN_ENABLE_VALIDATION     1
+
+#ifdef NDEBUG
+#undef WB_VULKAN_ENABLE_VALIDATION
+#endif
 
 namespace wb {
 
@@ -1981,7 +1986,9 @@ GPURenderer* GPURendererVK::create(SDL_Window* window) {
   VkInstanceCreateInfo instance_info{
     .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
     .pApplicationInfo = &app_info,
+#ifdef WB_VULKAN_ENABLE_VALIDATION
     .enabledLayerCount = 1,
+#endif
     .ppEnabledLayerNames = &instance_layer,
     .enabledExtensionCount = (uint32_t)enabled_extensions.size(),
     .ppEnabledExtensionNames = enabled_extensions.data(),
