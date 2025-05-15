@@ -99,7 +99,7 @@ struct ClipShiftCmd : public Command {
 struct ClipResizeCmd : public Command {
   uint32_t track_id;
   uint32_t clip_id;
-  bool right_side;
+  bool left_side;
   bool shift;
   double relative_pos;
   double min_length;
@@ -191,7 +191,7 @@ struct ClipResizeCmd2 : public ClipCmd {
   double resize_limit;
   double min_length;
   double min_resize_pos;
-  bool right_side;
+  bool left_side;
   bool shift;
 
   bool execute() override;

@@ -122,7 +122,7 @@ struct Engine {
       double relative_pos,
       double min_resize_pos,
       double min_length,
-      bool right_side,
+      bool left_side,
       bool shift);
 
   TrackEditResult delete_clip(Track* track, Clip* clip);
@@ -161,7 +161,7 @@ struct Engine {
       double resize_limit,
       double min_length,
       double min_resize_pos,
-      bool right_side,
+      bool left_side,
       bool shift);
 
   MultiEditResult delete_region(

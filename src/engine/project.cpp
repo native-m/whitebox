@@ -134,7 +134,7 @@ ProjectFileResult read_project_file(
     asset->data.max_length = midi_asset.max_length;
     asset->data.min_note = midi_asset.min_note;
     asset->data.max_note = midi_asset.max_note;
-    assert(midi_asset.channel_count == 1);
+    assert(midi_asset.channel_count == 0);
     if (file.read_array(asset->data.note_sequence) < 4)
       return ProjectFileResult::ErrCorruptedFile;
     asset->data.create_metadata(asset->data.note_sequence.data(), asset->data.note_sequence.size());

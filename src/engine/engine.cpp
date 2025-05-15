@@ -366,19 +366,19 @@ TrackEditResult Engine::resize_clip(
     double relative_pos,
     double resize_limit,
     double min_length,
-    bool right_side,
+    bool left_side,
     bool shift) {
   if (relative_pos == 0.0)
     return {};
   std::unique_lock lock(editor_lock);
   auto [min_time, max_time, start_offset] =
-      calc_resize_clip(clip, relative_pos, resize_limit, min_length, beat_duration, right_side, shift);
+      calc_resize_clip(clip, relative_pos, resize_limit, min_length, clip->min_time, beat_duration, left_side, shift);
   auto query_result = track->query_clip_by_range(min_time, max_time);
   TrackEditResult trim_result =
       query_result ? reserve_track_region(track, query_result->first, query_result->last, min_time, max_time, true, clip)
                    : TrackEditResult{};
   trim_result.deleted_clips.push_back(*clip);
-  if (!right_side) {
+  if (left_side) {
     clip->min_time = min_time;
     clip->start_offset = start_offset;
   } else {
@@ -873,7 +873,7 @@ MultiEditResult Engine::resize_clips(
     double resize_limit,
     double min_length,
     double min_resize_pos,
-    bool right_side,
+    bool left_side,
     bool shift) {
   double current_beat_duration = beat_duration.load(std::memory_order_relaxed);
   MultiEditResult result;
@@ -899,11 +899,11 @@ MultiEditResult Engine::resize_clips(
         min_length,
         min_resize_pos,
         current_beat_duration,
-        !right_side,
+        left_side,
         shift,
         true);
 
-    if (!right_side) {
+    if (left_side) {
       clear_start_pos = new_min_time;
       clear_end_pos = resized_clip->min_time;
     } else {
@@ -911,7 +911,7 @@ MultiEditResult Engine::resize_clips(
       clear_end_pos = new_max_time;
     }
 
-    // Clear the region below the resized clip
+    // Clear region below the resized clip
     if (clear_end_pos > clear_start_pos) {
       auto deleted_clips = track->query_clip_by_range(clear_start_pos, clear_end_pos);
       if (deleted_clips) {

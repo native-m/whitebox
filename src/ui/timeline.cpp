@@ -1855,6 +1855,7 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
         ImVec2 ctrl_pos(ctrl_pos_x + 4.0f, clip_content_max.y - 16.0f);
         draw_clip_overlay(ctrl_pos, 50.0f, alpha, bg_color, gain_str);
       }
+
       layer3_draw_list->PopClipRect();
     }
 
@@ -1928,7 +1929,7 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
             ClipResizeCmd* cmd = new ClipResizeCmd();
             cmd->track_id = edit_src_track_id.value();
             cmd->clip_id = edited_clip->id;
-            cmd->right_side = false;
+            cmd->left_side = true;
             cmd->relative_pos = relative_pos;
             cmd->min_length = 1.0 / beat_division;
             cmd->last_beat_duration = beat_duration;
@@ -1944,7 +1945,7 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
             ClipResizeCmd* cmd = new ClipResizeCmd();
             cmd->track_id = edit_src_track_id.value();
             cmd->clip_id = edited_clip->id;
-            cmd->right_side = true;
+            cmd->left_side = false;
             cmd->relative_pos = relative_pos;
             cmd->min_length = 1.0 / beat_division;
             cmd->last_beat_duration = beat_duration;
@@ -1960,7 +1961,7 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
             ClipResizeCmd* cmd = new ClipResizeCmd();
             cmd->track_id = edit_src_track_id.value();
             cmd->clip_id = edited_clip->id;
-            cmd->right_side = false;
+            cmd->left_side = true;
             cmd->shift = true;
             cmd->relative_pos = relative_pos;
             cmd->min_length = 1.0 / beat_division;
@@ -1977,7 +1978,7 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
             ClipResizeCmd* cmd = new ClipResizeCmd();
             cmd->track_id = edit_src_track_id.value();
             cmd->clip_id = edited_clip->id;
-            cmd->right_side = true;
+            cmd->left_side = false;
             cmd->shift = true;
             cmd->relative_pos = relative_pos;
             cmd->min_length = 1.0 / beat_division;
@@ -2074,7 +2075,7 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
             cmd->resize_limit = clip_resize_limit;
             cmd->min_length = 1.0 / beat_division;
             cmd->min_resize_pos = clip_min_resize_pos;
-            cmd->right_side = edit_command == TimelineCommand::ClipResizeRight;
+            cmd->left_side = edit_command == TimelineCommand::ClipResizeLeft;
             cmd->shift = false;
             g_cmd_manager.execute("Resize clip", cmd);
           }
@@ -2092,7 +2093,7 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
             cmd->relative_pos = relative_pos;
             cmd->resize_limit = clip_resize_limit;
             cmd->min_length = 1.0 / beat_division;
-            cmd->right_side = edit_command == TimelineCommand::ClipShiftRight;
+            cmd->left_side = edit_command == TimelineCommand::ClipShiftLeft;
             cmd->shift = true;
             g_cmd_manager.execute("Shift clip", cmd);
           }
@@ -2174,7 +2175,7 @@ bool TimelineWindow::prepare_resize_for_selected_range(Clip* src_clip, bool dir)
       } else {
         Clip* clip = track->clips[selected_region.range.first];
         if (!dir) {
-          if (clip->min_time == resize_pos && selected_region.range.first_offset < 0.0) {
+          if (clip->min_time == resize_pos && selected_region.range.first_offset <= 0.0) {
             double start_offset = clip->get_start_offset(beat_duration);
             should_resize = true;
             clip_id = clip->id;
@@ -2182,7 +2183,7 @@ bool TimelineWindow::prepare_resize_for_selected_range(Clip* src_clip, bool dir)
             min_resize_pos = math::max(min_resize_pos, clip->min_time - start_offset);
           }
         } else {
-          if (clip->max_time == resize_pos && selected_region.range.last_offset > 0.0) {
+          if (clip->max_time == resize_pos && selected_region.range.last_offset >= 0.0) {
             should_resize = true;
             clip_id = clip->id;
             resize_limit = math::max(resize_limit, clip->min_time);
