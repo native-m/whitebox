@@ -190,8 +190,6 @@ struct Engine {
 
   MidiEditResult move_selected_note(uint32_t track_id, uint32_t clip_id, int32_t relative_key_pos, double relative_pos);
 
-  MidiEditResult delete_marked_notes(uint32_t track_id, uint32_t clip_id);
-
   MidiEditResult delete_marked_notes(uint32_t track_id, uint32_t clip_id, bool selected);
 
   NoteSelectResult
