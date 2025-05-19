@@ -220,7 +220,6 @@ set(WB_LINK_LIBRARIES
     Vulkan::Headers
     VulkanMemoryAllocator
     volk_headers
-    vk-bootstrap
     imgui-sdl2
     imgui-cpp
     imgui-freetype

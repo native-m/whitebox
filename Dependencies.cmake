@@ -28,7 +28,7 @@ CPMAddPackage(
 CPMAddPackage(
     NAME                VulkanMemoryAllocator
     GITHUB_REPOSITORY   GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
-    VERSION             3.2.1
+    VERSION             3.3.0
     DOWNLOAD_ONLY       YES
 )
 
@@ -40,12 +40,6 @@ CPMAddPackage(
     OPTIONS             "VOLK_PULL_IN_VULKAN OFF"
                         "VOLK_HEADERS_ONLY ON"
                         "VOLK_INSTALL OFF"
-)
-
-CPMAddPackage(
-    NAME                vk-bootstrap
-    GITHUB_REPOSITORY   charles-lunarg/vk-bootstrap
-    VERSION             1.3.282
 )
 
 CPMAddPackage(
@@ -83,16 +77,20 @@ CPMAddPackage(
     EXCLUDE_FROM_ALL
 )
 
-# CPMAddPackage(
-#     NAME                compile-time-regular-expressions
-#     VERSION             3.9.0
-#     GITHUB_REPOSITORY   hanickadot/compile-time-regular-expressions
-#     OPTIONS             "CTRE_BUILD_TESTS OFF"
-#                         "CTRE_BUILD_PACKAGE OFF"
-#                         "CTRE_BUILD_PACKAGE_DEB OFF"
-#                         "CTRE_BUILD_PACKAGE_RPM OFF"
-#     EXCLUDE_FROM_ALL
-# )
+CPMAddPackage(
+    NAME                msgpack-c
+    GIT_TAG             c-6.1.0
+    GITHUB_REPOSITORY   msgpack/msgpack-c
+    EXCLUDE_FROM_ALL
+)
+
+CPMAddPackage(
+    NAME                reflect-cpp
+    VERSION             0.19.0
+    GITHUB_REPOSITORY   getml/reflect-cpp
+    OPTIONS             "REFLECTCPP_MSGPACK ON"
+    EXCLUDE_FROM_ALL
+)
 
 CPMAddPackage(
     NAME                spdlog
@@ -100,6 +98,7 @@ CPMAddPackage(
     GITHUB_REPOSITORY   gabime/spdlog
     OPTIONS             "SPDLOG_NO_EXCEPTIONS OFF"
                         "SPDLOG_FMT_EXTERNAL ON"
+    EXCLUDE_FROM_ALL
 )
 
 CPMAddPackage(
