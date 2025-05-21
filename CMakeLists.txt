@@ -85,6 +85,7 @@ set(WB_SOURCES
     "src/core/panning_law.h"
     "src/core/platform_def.h"
     "src/core/queue.h"
+    "src/core/serdes.h"
     "src/core/span.h"
     "src/core/stream.h"
     "src/core/thread.cpp"
@@ -224,6 +225,8 @@ set(WB_LINK_LIBRARIES
     imgui-cpp
     imgui-freetype
     imgui-vulkan
+    reflectcpp
+    msgpack-c
     leveldb
     sndfile
     vorbisfile

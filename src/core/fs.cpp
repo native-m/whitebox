@@ -9,19 +9,24 @@
 
 namespace wb {
 
-Vector<std::byte> read_file_content(const std::filesystem::path& path) {
-  File file;
+Vector<std::byte> read_file_content(File& file) {
   Vector<std::byte> bytes;
-  if (!file.open(path, IOOpenMode::Read))
-    return {};
+  uint64_t origin_pos = file.position();
   if (!file.seek(0, IOSeekMode::End))
     return {};
   uint64_t size = file.position();
-  file.seek(0, IOSeekMode::Begin);
+  file.seek(origin_pos, IOSeekMode::Begin);
   bytes.resize(size);
   if (file.read(bytes.data(), size) < size)
     return {};
   return bytes;
+}
+
+Vector<std::byte> read_file_content(const std::filesystem::path& path) {
+  File file;
+  if (!file.open(path, IOOpenMode::Read))
+    return {};
+  return read_file_content(file);
 }
 
 std::filesystem::path to_system_preferred_path(const std::filesystem::path& path) {

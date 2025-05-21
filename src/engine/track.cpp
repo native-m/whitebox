@@ -44,11 +44,10 @@ Track::Track(const std::string& name, const Color& color, float height, bool sho
       height(height),
       shown(shown),
       ui_parameter_state(track_param) {
-  ui_parameter_state.volume_db = math::linear_to_db(track_param.volume);
   ui_param_transfer.set_capacity(64);
   ui_param_transfer.push({
     .id = TrackParameter_Volume,
-    .value = (double)ui_parameter_state.volume,
+    .value = (double)math::db_to_linear(track_param.volume_db),
   });
   ui_param_transfer.push({
     .id = TrackParameter_Pan,

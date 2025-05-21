@@ -1,13 +1,13 @@
 #pragma once
 
-//#include <imgui.h>
+// #include <imgui.h>
 
 #include <atomic>
 #include <string>
 
 #include "assets_table.h"
-#include "core/common.h"
 #include "core/color.h"
+#include "core/common.h"
 
 #define WB_INVALID_CLIP_ID (~0U)
 
@@ -196,7 +196,7 @@ struct Clip {
 
   inline MidiData* get_midi_data() {
     return (type == ClipType::Midi && midi.asset) ? &midi.asset->data : nullptr;
-  } 
+  }
 
   inline double get_asset_sample_rate() const {
     if (type == ClipType::Audio && audio.asset) {
