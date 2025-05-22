@@ -631,7 +631,7 @@ void ClipEditorWindow::render_note_editor() {
       cmd->max_pos = selection_end_pos;
       cmd->min_key = first_selected_key;
       cmd->max_key = last_selected_key;
-      if (g_cmd_manager.execute("Clip editor: Select/deselect note", cmd)) {
+      if (g_cmd_manager.execute("Clip editor: Select/deselect note", cmd) && cmd->result.selected.empty()) {
         uint32_t first_note = cmd->result.selected[0];
         MidiNote& note = midi_asset->data.note_sequence[first_note];
         min_note_pos = note.min_time;

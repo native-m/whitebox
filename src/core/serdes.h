@@ -7,13 +7,12 @@
 
 namespace wb {
 
-template<IOWriter Writer>
 struct MsgpackWriter {
-  Writer& writer_;
   msgpack_packer pk_{};
 
-  MsgpackWriter(Writer& writer) : writer_(writer) {
-    msgpack_packer_init(&pk_, &writer_, [](void* data, const char* buf, size_t len) {
+  template<IOWriter Writer>
+  MsgpackWriter(Writer& writer) {
+    msgpack_packer_init(&pk_, &writer, [](void* data, const char* buf, size_t len) {
       Writer* io = (Writer*)data;
       return io->write(buf, len) < len ? -1 : 0;
     });

@@ -211,14 +211,15 @@ struct ClipDeleteCmd2 : public ClipCmd {
 struct MidiCmd : public Command {
   Vector<uint32_t> modified_notes;
   Vector<MidiNote> deleted_notes;
+  NoteSelectResult select_result;
+  uint32_t track_id;
+  uint32_t clip_id;
 
   void backup(MidiEditResult&& edit_result);
-  void undo(uint32_t track_id, uint32_t clip_id, uint32_t channel);
+  void undo(uint32_t channel);
 };
 
 struct MidiAddNoteCmd : public MidiCmd {
-  uint32_t track_id;
-  uint32_t clip_id;
   double min_time;
   double max_time;
   float velocity;
@@ -230,8 +231,6 @@ struct MidiAddNoteCmd : public MidiCmd {
 };
 
 struct MidiPaintNotesCmd : public MidiCmd {
-  uint32_t track_id;
-  uint32_t clip_id;
   Vector<MidiNote> notes;
   uint16_t channel;
 
@@ -240,8 +239,6 @@ struct MidiPaintNotesCmd : public MidiCmd {
 };
 
 struct MidiSliceNoteCmd : public MidiCmd {
-  uint32_t track_id;
-  uint32_t clip_id;
   double pos;
   float velocity;
   uint16_t note_key;
@@ -252,8 +249,6 @@ struct MidiSliceNoteCmd : public MidiCmd {
 };
 
 struct MidiMoveNoteCmd : public MidiCmd {
-  uint32_t track_id;
-  uint32_t clip_id;
   uint32_t note_id;  // Valid only if move_selected is true
   bool move_selected;
   double relative_pos;
@@ -296,9 +291,16 @@ struct MidiAppendNoteSelectionCmd : public Command {
   void undo() override;
 };
 
-struct MidiDeleteNoteCmd : public MidiCmd {
+struct MidiMuteNoteCmd : public Command {
   uint32_t track_id;
   uint32_t clip_id;
+  Vector<uint32_t> muted_note_id;
+
+  bool execute() override;
+  void undo() override;
+};
+
+struct MidiDeleteNoteCmd : public MidiCmd {
   bool selected;
 
   bool execute() override;

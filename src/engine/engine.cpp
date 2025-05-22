@@ -893,15 +893,7 @@ MultiEditResult Engine::resize_clips(
     double clear_end_pos = 0.0;
     double actual_min_length = 0.0;
     const auto [new_min_time, new_max_time, new_start_ofs] = calc_resize_clip(
-        resized_clip,
-        relative_pos,
-        resize_limit,
-        min_length,
-        min_resize_pos,
-        current_beat_duration,
-        left_side,
-        shift,
-        true);
+        resized_clip, relative_pos, resize_limit, min_length, min_resize_pos, current_beat_duration, left_side, shift, true);
 
     if (left_side) {
       clear_start_pos = new_min_time;
@@ -1257,14 +1249,24 @@ NoteSelectResult Engine::select_or_deselect_notes(uint32_t track_id, uint32_t cl
   MidiNoteBuffer& note_seq = data->note_sequence;
   NoteSelectResult result;
 
-  for (uint32_t id = 0; auto& note : note_seq) {
-    if (contain_bit(note.flags, MidiNoteFlags::Selected)) {
-      result.deselected.push_back(id);
-      result.selected.push_back(id);
-      note.flags &= ~MidiNoteFlags::Selected;
-      data->num_selected--;
+  if (should_select) {
+    for (uint32_t id = 0; auto& note : note_seq) {
+      if (!contain_bit(note.flags, MidiNoteFlags::Selected)) {
+        result.deselected.push_back(id);
+        note.flags = MidiNoteFlags::Selected;
+        data->num_selected++;
+      }
+      id++;
     }
-    id++;
+  } else {
+    for (uint32_t id = 0; auto& note : note_seq) {
+      if (contain_bit(note.flags, MidiNoteFlags::Selected)) {
+        result.deselected.push_back(id);
+        note.flags &= ~MidiNoteFlags::Selected;
+        data->num_selected--;
+      }
+      id++;
+    }
   }
 
   return result;
