@@ -1150,7 +1150,7 @@ std::optional<MidiEditResult> Engine::slice_note(
   return {};
 }
 
-MidiEditResult Engine::delete_marked_notes(uint32_t track_id, uint32_t clip_id) {
+Vector<uint32_t> Engine::mute_marked_note(uint32_t track_id, uint32_t clip_id) {
   Clip* clip = get_midi_clip_(track_id, clip_id);
   if (clip == nullptr)
     return {};
@@ -1159,6 +1159,19 @@ MidiEditResult Engine::delete_marked_notes(uint32_t track_id, uint32_t clip_id) 
   MidiNoteBuffer& note_seq = asset->data.note_sequence;
   MidiNoteMetadataPool& metadata_pool = asset->data.note_metadata_pool;
   uint32_t num_erased = 0;
+  Vector<uint32_t> muted_note_id;
+
+  std::unique_lock lock(editor_lock);
+  for (uint32_t note_id = 0; auto& note : note_seq) {
+    if (contain_bit(note.flags, MidiNoteFlags::Muted)) {
+      muted_note_id.push_back(note_id);
+    }
+    note_id++;
+  }
+
+  return muted_note_id;
+}
+
 MidiEditResult Engine::delete_marked_notes(uint32_t track_id, uint32_t clip_id, bool delete_selected) {
   Clip* clip = get_midi_clip_(track_id, clip_id);
   if (clip == nullptr)

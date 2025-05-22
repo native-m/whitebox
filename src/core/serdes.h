@@ -126,7 +126,7 @@ struct MsgpackView {
     if (is_str()) {
       return std::string_view(obj.via.str.ptr, obj.via.str.size);
     }
-    return std::string_view();
+    return default_value;
   }
 
   bool as_bool(bool default_value = false) const {

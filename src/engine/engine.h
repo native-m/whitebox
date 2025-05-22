@@ -181,14 +181,16 @@ struct Engine {
       uint16_t channel);
 
   MidiEditResult add_note(uint32_t track_id, uint32_t clip_id, uint32_t channel, const Vector<MidiNote>& midi_notes);
-
-  std::optional<MidiEditResult>
-  slice_note(uint32_t track_id, uint32_t clip_id, double slice_pos, float velocity, uint16_t note_key, uint16_t channel);
-
+  
   MidiEditResult
   move_note(uint32_t track_id, uint32_t clip_id, uint32_t note_id, int32_t relative_key_pos, double relative_pos);
 
   MidiEditResult move_selected_note(uint32_t track_id, uint32_t clip_id, int32_t relative_key_pos, double relative_pos);
+  
+  std::optional<MidiEditResult>
+  slice_note(uint32_t track_id, uint32_t clip_id, double slice_pos, float velocity, uint16_t note_key, uint16_t channel);
+
+  Vector<uint32_t> mute_marked_note(uint32_t track_id, uint32_t clip_id);
 
   MidiEditResult delete_marked_notes(uint32_t track_id, uint32_t clip_id, bool selected);
 
