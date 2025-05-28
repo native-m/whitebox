@@ -295,6 +295,7 @@ struct MidiMuteNoteCmd : public Command {
   uint32_t track_id;
   uint32_t clip_id;
   Vector<uint32_t> muted_note_id;
+  bool should_mute;
 
   bool execute() override;
   void undo() override;

@@ -591,7 +591,24 @@ void MidiAppendNoteSelectionCmd::undo() {
 //
 
 bool MidiMuteNoteCmd::execute() {
-  muted_note_id = g_engine.mute_marked_note(track_id, clip_id);
+  if (muted_note_id.empty()) {
+    muted_note_id = g_engine.mute_marked_note(track_id, clip_id, should_mute);
+  } else {
+    Track* track = g_engine.tracks[track_id];
+    Clip* clip = track->clips[clip_id];
+    MidiData* data = clip->get_midi_data();
+    MidiNoteBuffer& note_seq = data->note_sequence;
+    std::unique_lock lock(g_engine.editor_lock);
+    if (should_mute) {
+      for (auto note_id : muted_note_id) {
+        note_seq[note_id].flags |= MidiNoteFlags::Muted;
+      }
+    } else {
+      for (auto note_id : muted_note_id) {
+        note_seq[note_id].flags &= ~MidiNoteFlags::Muted;
+      }
+    }
+  }
   return !muted_note_id.empty();
 }
 
@@ -602,8 +619,14 @@ void MidiMuteNoteCmd::undo() {
   MidiNoteBuffer& note_seq = data->note_sequence;
   std::unique_lock lock(g_engine.editor_lock);
 
-  for (auto note_id : muted_note_id) {
-    note_seq[note_id].flags &= ~MidiNoteFlags::Muted;
+  if (should_mute) {
+    for (auto note_id : muted_note_id) {
+      note_seq[note_id].flags &= ~MidiNoteFlags::Muted;
+    }
+  } else {
+    for (auto note_id : muted_note_id) {
+      note_seq[note_id].flags |= MidiNoteFlags::Muted;
+    }
   }
 }
 

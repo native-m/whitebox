@@ -493,7 +493,7 @@ void Track::process_midi_event(
     });
 
     // Skip if we have reached maximum voices
-    if (!voice_added) {
+    if (!voice_added || contain_bit(note.flags, MidiNoteFlags::Muted)) {
       midi_note_idx++;
       continue;
     }

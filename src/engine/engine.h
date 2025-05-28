@@ -190,7 +190,7 @@ struct Engine {
   std::optional<MidiEditResult>
   slice_note(uint32_t track_id, uint32_t clip_id, double slice_pos, float velocity, uint16_t note_key, uint16_t channel);
 
-  Vector<uint32_t> mute_marked_note(uint32_t track_id, uint32_t clip_id);
+  Vector<uint32_t> mute_marked_note(uint32_t track_id, uint32_t clip_id, bool should_mute);
 
   MidiEditResult delete_marked_notes(uint32_t track_id, uint32_t clip_id, bool selected);
 
