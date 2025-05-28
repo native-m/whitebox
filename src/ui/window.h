@@ -6,7 +6,6 @@ extern bool g_plugins_window_open;
 extern bool g_history_window_open;
 extern bool g_asset_window_open;
 extern bool g_mixer_window_open;
-extern bool g_piano_roll_window_open;
 extern bool g_timeline_window_open;
 extern bool g_settings_window_open;
 extern bool g_plugin_mgr_window_open;

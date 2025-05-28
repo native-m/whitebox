@@ -96,7 +96,7 @@ void TimelineWindow::render() {
   ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
   render_horizontal_scrollbar();
   double new_playhead_pos = playhead;
-  if (render_time_ruler(&new_playhead_pos, g_engine.playhead_start)) {
+  if (render_time_ruler(&new_playhead_pos, g_engine.playhead_start, selection_start_pos, selection_end_pos, false)) {
     g_engine.set_playhead_position(new_playhead_pos);
   }
   ImGui::PopStyleVar();
@@ -469,9 +469,10 @@ void TimelineWindow::render_clip_context_menu() {
     }
 
     if (ImGui::MenuItem("Delete")) {
-      Track* track = g_engine.tracks[context_menu_track_id];
-      if (track == g_clip_editor.current_track && context_menu_clip->id == g_clip_editor.current_clip->id) {
-        g_clip_editor.unset_clip();
+      if (auto clip = clip_editor_get_clip()) {
+        if (context_menu_clip->id == clip->id) {
+          clip_editor_unset_clip();
+        }
       }
 
       double beat_duration = g_engine.get_beat_duration();
@@ -759,12 +760,13 @@ void TimelineWindow::render_track_lanes() {
     if (range_selected) {
       if (ImGui::IsKeyPressed(ImGuiKey_Delete, false)) {
         // Unset clip from the clip editor
-        if (g_clip_editor.contains_clip()) {
+        Track* clip_editor_track = clip_editor_get_track();
+        if (auto clip = clip_editor_get_clip(); clip != nullptr && clip_editor_track != nullptr) {
           for (uint32_t track_idx = first_selected_track; const auto& region : selected_track_regions) {
             Track* track = g_engine.tracks[track_idx];
-            uint32_t clip_id = g_clip_editor.current_clip->id;
-            if (track == g_clip_editor.current_track && region.is_clip_selected(clip_id) != ClipSelectStatus::NotSelected) {
-              g_clip_editor.unset_clip();
+            uint32_t clip_id = clip->id;
+            if (track == clip_editor_track && region.is_clip_selected(clip_id) != ClipSelectStatus::NotSelected) {
+              clip_editor_unset_clip();
             }
             track_idx++;
           }
@@ -1019,8 +1021,10 @@ void TimelineWindow::render_track_lanes() {
     g_renderer->end_render();
   }
 
+  // Cancel the selection
   if (range_selected && !edit_selected && ((timeline_clicked && left_mouse_clicked) || escape_key_pressed)) {
     selected_track_regions.clear();
+    clip_editor_unset_clip();
     range_selected = false;
     force_redraw = true;
   }
@@ -1088,7 +1092,7 @@ void TimelineWindow::render_track(
     bool track_hovered,
     bool is_mouse_in_selection_range) {
   const float height = track->get_height();
-  const bool can_adjust_gain = height > 30.0f;
+  const bool mini_clip = height > 30.0f;
   double relative_pos = 0.0;
   bool has_clip_selected = false;
   SelectedTrackRegion* selected_region = nullptr;
@@ -1234,75 +1238,77 @@ void TimelineWindow::render_track(
     ClipHover current_hover_state{};
 
     if (track_hovered && edit_command == TimelineCommand::None && !holding_ctrl) [[unlikely]] {
-      static constexpr float handle_offset = 4.0f;
+      static constexpr float handle_size = 4.0f;
       ImRect clip_rect(min_bb, max_bb);
       // Hitboxes for sizing handle
-      ImRect left_handle(min_pos_x_in_pixel, track_pos_y, min_pos_x_in_pixel + handle_offset, max_bb.y);
-      ImRect right_handle(max_pos_x_in_pixel - handle_offset, track_pos_y, max_pos_x_in_pixel, max_bb.y);
+      ImRect left_handle(min_pos_x_in_pixel, track_pos_y, min_pos_x_in_pixel + handle_size, max_bb.y);
+      ImRect right_handle(max_pos_x_in_pixel - handle_size, track_pos_y, max_pos_x_in_pixel, max_bb.y);
 
       // Triggers command
-      if (left_handle.Contains(mouse_pos)) {
-        if (left_mouse_clicked) {
-          if (!holding_alt) {
-            edit_command = TimelineCommand::ClipResizeLeft;
-          } else {
-            edit_command = TimelineCommand::ClipShiftLeft;
-          }
-          should_edit_selected = prepare_resize_for_selected_range(clip, false);
-        }
-        ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
-        current_hover_state = ClipHover::LeftHandle;
-      } else if (right_handle.Contains(mouse_pos)) {
-        if (left_mouse_clicked) {
-          if (!holding_alt) {
-            edit_command = TimelineCommand::ClipResizeRight;
-          } else {
-            edit_command = TimelineCommand::ClipShiftRight;
-          }
-          should_edit_selected = prepare_resize_for_selected_range(clip, true);
-        }
-        ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
-        current_hover_state = ClipHover::RightHandle;
-      } else if (clip_rect.Contains(mouse_pos)) {
-        float gain_ctrl_pos_x = math::max(min_pos_x_in_pixel, timeline_view_pos.x) + 4.0f;
-        float gain_ctrl_pos_y = track_pos_y + height - 17.0f;
-        ImRect gain_ctrl(gain_ctrl_pos_x, gain_ctrl_pos_y, gain_ctrl_pos_x + 50.0f, gain_ctrl_pos_y + 13.0f);
+      if (clip_rect.Contains(mouse_pos)) {
+        bool is_audio_clip = clip->is_audio();
 
-        if (can_adjust_gain && clip->is_audio() && gain_ctrl.Contains(mouse_pos)) {
+        if (left_handle.Contains(mouse_pos)) {
           if (left_mouse_clicked) {
             if (!holding_alt) {
-              current_value = math::linear_to_db(clip->audio.gain);
-              edit_command = TimelineCommand::ClipAdjustGain;
+              edit_command = TimelineCommand::ClipResizeLeft;
             } else {
-              ClipAdjustGainCmd* cmd = new ClipAdjustGainCmd();
-              cmd->track_id = id;
-              cmd->clip_id = clip->id;
-              cmd->gain_before = clip->audio.gain;
-              cmd->gain_after = 1.0f;
-              g_cmd_manager.execute("Reset clip gain", cmd);
-              force_redraw = true;
+              edit_command = TimelineCommand::ClipShiftLeft;
             }
+            should_edit_selected = prepare_resize_for_selected_range(clip, false);
           }
-          ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
-        } else {
+          ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+          current_hover_state = ClipHover::LeftHandle;
+        } else if (right_handle.Contains(mouse_pos)) {
           if (left_mouse_clicked) {
-            if (holding_shift) {
-              edit_command = TimelineCommand::ClipDuplicate;
-            } else if (holding_alt) {
-              edit_command = TimelineCommand::ClipShift;
+            if (!holding_alt) {
+              edit_command = TimelineCommand::ClipResizeRight;
             } else {
-              edit_command = TimelineCommand::ClipMove;
+              edit_command = TimelineCommand::ClipShiftRight;
             }
-            should_edit_selected = is_mouse_in_selection_range;
-            unset_clip_editor = false;
-            g_clip_editor.set_clip(id, clip->id);
-          } else if (right_mouse_clicked) {
-            edit_command = TimelineCommand::ShowClipContextMenu;
+            should_edit_selected = prepare_resize_for_selected_range(clip, true);
           }
-          ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+          ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+          current_hover_state = ClipHover::RightHandle;
+        } else {
+          float gain_ctrl_pos_x = math::max(min_pos_x_in_pixel, timeline_view_pos.x) + 4.0f;
+          float gain_ctrl_pos_y = track_pos_y + height - 17.0f;
+          ImRect gain_ctrl(gain_ctrl_pos_x, gain_ctrl_pos_y, gain_ctrl_pos_x + 50.0f, gain_ctrl_pos_y + 13.0f);
+          if (gain_ctrl.Contains(mouse_pos) && is_audio_clip && mini_clip) {
+            if (left_mouse_clicked) {
+              if (!holding_alt) {
+                current_value = math::linear_to_db(clip->audio.gain);
+                edit_command = TimelineCommand::ClipAdjustGain;
+              } else {
+                ClipAdjustGainCmd* cmd = new ClipAdjustGainCmd();
+                cmd->track_id = id;
+                cmd->clip_id = clip->id;
+                cmd->gain_before = clip->audio.gain;
+                cmd->gain_after = 1.0f;
+                g_cmd_manager.execute("Reset clip gain", cmd);
+                force_redraw = true;
+              }
+            }
+            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
+          } else {
+            if (left_mouse_clicked) {
+              if (holding_shift) {
+                edit_command = TimelineCommand::ClipDuplicate;
+              } else if (holding_alt) {
+                edit_command = TimelineCommand::ClipShift;
+              } else {
+                edit_command = TimelineCommand::ClipMove;
+              }
+              should_edit_selected = is_mouse_in_selection_range;
+              unset_clip_editor = false;
+              clip_editor_set_clip(id, clip->id);
+            } else if (right_mouse_clicked) {
+              edit_command = TimelineCommand::ShowClipContextMenu;
+            }
+            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+          }
+          current_hover_state = ClipHover::All;
         }
-
-        current_hover_state = ClipHover::All;
       }
 
       if (left_mouse_clicked && current_hover_state == ClipHover::None) {
@@ -1327,10 +1333,10 @@ void TimelineWindow::render_track(
     }
 
     if (redraw) {
-      bool shown_in_clip_editor = g_clip_editor.current_track == track && g_clip_editor.current_clip == clip;
+      bool shown_in_clip_editor = clip_editor_get_clip() == clip;
       ClipDrawCmd* cmd = clip_draw_cmd.emplace_back_raw();
       cmd->type = clip->type;
-      cmd->hover_state = clip->hover_state;
+      cmd->hover_state = current_hover_state;
       cmd->clip = clip;
       cmd->start_offset = start_offset;
       cmd->min_pos_x = min_pos_x;
@@ -1354,7 +1360,7 @@ void TimelineWindow::render_track(
   }
 
   if (unset_clip_editor) {
-    g_clip_editor.unset_clip();
+    clip_editor_unset_clip();
     force_redraw = true;
   }
 
@@ -1637,15 +1643,16 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
     const float min_pos_y = cmd.min_pos_y;
     const float height = cmd.height;
     const float clip_title_max_y = min_pos_y + font_size + 4.0f;
-    const bool full_size_clip = cmd.height > 30.0f;
+    const bool mini_clip = cmd.height > 30.0f;
     const ImVec2 clip_title_min_bb(min_pos_clamped_x, min_pos_y);
     const ImVec2 clip_title_max_bb(max_pos_clamped_x, clip_title_max_y);
-    const ImVec2 clip_content_min(min_pos_clamped_x, full_size_clip ? clip_title_max_y : min_pos_y);
+    const ImVec2 clip_content_min(min_pos_clamped_x, mini_clip ? clip_title_max_y : min_pos_y);
     const ImVec2 clip_content_max(max_pos_clamped_x, min_pos_y + height);
     const float darkening = is_active ? 0.80f : 0.60f;
     const Color base_color = is_active ? color : color.desaturate(0.4f);
     const Color bg_color = base_color.change_alpha(base_color.a * darkening).premult_alpha();
     const Color content_color = is_active ? base_color.brighten(1.2f) : base_color.brighten(0.5f);
+    const ColorU32 content_color_u32 = content_color.to_uint32();
     const bool draw_in_layer2 = has_bit(cmd.draw_flags, ClipDrawCmd::Layer2);
     const bool highlighted = has_bit(cmd.draw_flags, ClipDrawCmd::Highlighted);
     auto* dl = !draw_in_layer2 ? layer1_draw_list : layer2_draw_list;
@@ -1661,18 +1668,13 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
       dl->AddRect(clip_title_min_bb - half, clip_content_max + half, 0x3F000000, 3.0f, ImDrawFlags_RoundCornersTop);
     } else {
       layer2_draw_list->AddRect(
-          clip_title_min_bb - half,
-          clip_content_max + half,
-          content_color.to_uint32(),
-          3.0f,
-          ImDrawFlags_RoundCornersTop,
-          1.5f);
+          clip_title_min_bb - half, clip_content_max + half, content_color_u32, 3.0f, ImDrawFlags_RoundCornersTop, 1.5f);
     }
 
     switch (clip->type) {
       case ClipType::Audio: {
         SampleAsset* asset = clip->audio.asset;
-        if (asset && full_size_clip) {
+        if (asset && mini_clip) {
           WaveformVisual* waveform = cmd.audio;
           if (!waveform)
             break;
@@ -1708,7 +1710,6 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
             const float min_bb_x = (float)math::round(min_pos_x);
             const float max_bb_x = (float)math::round(max_pos_x);
             const float pos_y = clip_content_min.y - offset_y;
-            const ColorU32 waveform_color = content_color.to_uint32();
             if (waveform->channels == 2) {
               const float height = std::floor((clip_content_max.y - clip_content_min.y) * 0.5f);
               waveform_cmd_list.push_back({
@@ -1720,7 +1721,7 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
                 .gain = cmd.gain,
                 .scale_x = (float)mip_scale,
                 .gap_size = gap_size,
-                .color = waveform_color,
+                .color = content_color_u32,
                 .mip_index = index,
                 .channel = 0,
                 .start_idx = (uint32_t)start_idx,
@@ -1735,7 +1736,7 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
                 .gain = cmd.gain,
                 .scale_x = (float)mip_scale,
                 .gap_size = gap_size,
-                .color = waveform_color,
+                .color = content_color_u32,
                 .mip_index = index,
                 .channel = 1,
                 .start_idx = (uint32_t)start_idx,
@@ -1751,7 +1752,7 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
                 .gain = cmd.gain,
                 .scale_x = (float)mip_scale,
                 .gap_size = gap_size,
-                .color = waveform_color,
+                .color = content_color_u32,
                 .mip_index = index,
                 .start_idx = (uint32_t)start_idx,
                 .draw_count = (uint32_t)draw_count + 2,
@@ -1766,33 +1767,34 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
         constexpr float max_note_size_px = 10.0f;
         constexpr uint32_t min_note_range = 4;
         const MidiAsset* asset = clip->midi.asset;
-        const uint32_t min_note = asset->data.min_note;
-        const uint32_t max_note = asset->data.max_note;
-        uint32_t note_range = (asset->data.max_note + 1) - min_note;
-
-        if (note_range < min_note_range)
-          note_range = 13;
-
-        const float content_height = clip_content_max.y - clip_content_min.y;
-        const float note_height = content_height / (float)note_range;
-        float max_note_size = math::min(note_height, max_note_size_px);
-        const float min_note_size = math::max(max_note_size, min_note_size_px);
-        const float offset_y = clip_content_min.y + ((content_height * 0.5f) - (max_note_size * note_range * 0.5f));
-
-        // Fix note overflow
-        if (content_height < math::round(min_note_size * note_range)) {
-          max_note_size = (content_height - 2.0f) / (float)(note_range - 1u);
-        }
-
-        const float min_view = math::max(min_pos_clamped_x, min_draw_x);
-        const float max_view = math::min(max_pos_clamped_x, min_draw_x + timeline_width);
-        const ColorU32 note_color = content_color.change_alpha(full_size_clip ? 1.0f : 0.20f).to_uint32();
-
         if (asset) {
-          double min_start_x = cmd.min_pos_x - start_offset * clip_scale;
+          const uint32_t min_note = asset->data.min_note;
+          const uint32_t max_note = asset->data.max_note;
+          uint32_t note_range = (asset->data.max_note + 1) - min_note;
+
+          if (note_range < min_note_range)
+            note_range = 13;
+
+          const float content_height = clip_content_max.y - clip_content_min.y;
+          const float note_height = content_height / (float)note_range;
+          float max_note_size = math::min(note_height, max_note_size_px);
+          const float min_note_size = math::max(max_note_size, min_note_size_px);
+          const float offset_y = clip_content_min.y + ((content_height * 0.5f) - (max_note_size * note_range * 0.5f));
+
+          // Fix note overflow
+          if (content_height < math::round(min_note_size * note_range)) {
+            max_note_size = (content_height - 2.0f) / (float)(note_range - 1u);
+          }
+
+          const float min_view = math::max(min_pos_clamped_x, min_draw_x);
+          const float max_view = math::min(max_pos_clamped_x, min_draw_x + timeline_width);
+          const ColorU32 note_color = content_color.change_alpha(mini_clip ? 1.0f : 0.20f).to_uint32();
+          const double note_scale = clip_scale / (double)clip->midi.rate;
+
+          double min_start_x = cmd.min_pos_x - start_offset;
           for (uint32_t j = 0; const auto& note : asset->data.note_sequence) {
-            float min_pos_x = (float)math::round(min_start_x + note.min_time * clip_scale);
-            float max_pos_x = (float)math::round(min_start_x + note.max_time * clip_scale);
+            float min_pos_x = (float)math::round(min_start_x + note.min_time * note_scale);
+            float max_pos_x = (float)math::round(min_start_x + note.max_time * note_scale);
             if (max_pos_x < min_view)
               continue;
             if (min_pos_x > max_view)
@@ -1831,19 +1833,26 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
       static constexpr float label_padding_x = 5.0f;
       const char* str = clip->name.c_str();
       const size_t str_size = clip->name.size();
-      const float label_padding_y = full_size_clip ? 2.0f : (height - font_size) * 0.5f;
+      const float label_padding_y = mini_clip ? 2.0f : (height - font_size) * 0.5f;
       const ImVec2 label_pos(std::max(clip_title_min_bb.x, rect.x) + label_padding_x, min_pos_y + label_padding_y);
       const ImVec4 clip_label_rect(clip_title_min_bb.x, clip_title_min_bb.y, clip_title_max_bb.x - 6.0f, clip_content_max.y);
 
       dl->AddText(font, font_size, label_pos, text_color, str, str + str_size, 0.0f, &clip_label_rect);
     }
 
-    if (clip->is_audio() && full_size_clip) {
+    if (clip->is_audio() && mini_clip) {
       layer3_draw_list->PushClipRect(clip_content_min, clip_content_max);
       ImVec2 content_rect_min = layer3_draw_list->GetClipRectMin();
       float ctrl_pos_x = math::max(clip_content_min.x, content_rect_min.x);
       float width = max_pos_clamped_x - ctrl_pos_x;
       float gain = cmd.gain;
+
+      if (cmd.hover_state == ClipHover::All) {
+        im_draw_box_filled(layer3_draw_list, min_pos_x - 0.5f, clip_content_min.y, 6.0f, 6.0f, content_color_u32);
+        im_draw_box(layer3_draw_list, min_pos_x - 0.5f, clip_content_min.y, 6.0f, 6.0f, 0xFF000000);
+        im_draw_box_filled(layer3_draw_list, max_pos_x - 6.5f, clip_content_min.y, 6.0f, 6.0f, content_color_u32);
+        im_draw_box(layer3_draw_list, max_pos_x - 6.5f, clip_content_min.y, 6.0f, 6.0f, 0xFF000000);
+      }
 
       if (!math::near_equal(gain, 1.0f) || cmd.hover_state == ClipHover::All) {
         char gain_str[8]{};
@@ -1917,7 +1926,7 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
             cmd->clip_id = edited_clip->id;
             cmd->relative_pos = relative_pos;
             g_cmd_manager.execute("Move Clip", cmd);
-            g_clip_editor.unset_clip();
+            clip_editor_unset_clip();
           }
           finish_edit();
         }
@@ -2012,7 +2021,7 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
             cmd->clip_id = edited_clip->id;
             cmd->relative_pos = relative_pos;
             g_cmd_manager.execute("Duplicate clip", cmd);
-            g_clip_editor.unset_clip();
+            clip_editor_unset_clip();
           }
           finish_edit();
         }

@@ -20,7 +20,6 @@ bool g_plugins_window_open = true;
 bool g_history_window_open = true;
 bool g_asset_window_open = true;
 bool g_mixer_window_open = true;
-bool g_piano_roll_window_open = true;
 bool g_timeline_window_open = true;
 bool g_settings_window_open = false;
 bool g_plugin_mgr_window_open = false;
@@ -30,12 +29,12 @@ bool g_performance_counter_window_open = true;
 
 void init_windows() {
   g_timeline.init();
-  g_clip_editor.init();
+  clip_editor_init();
 }
 
 void shutdown_windows() {
   g_timeline.shutdown();
-  g_clip_editor.shutdown();
+  clip_editor_shutdown();
 }
 
 void render_windows() {
@@ -57,10 +56,10 @@ void render_windows() {
     g_mixer.render();
   if (g_timeline_window_open)
     g_timeline.render();
-  if (g_piano_roll_window_open)
-    g_clip_editor.render();
-  if (g_env_editor_window_open)
-    g_env_window.render();
+  if (g_clip_editor_window_open)
+    render_clip_editor();
+  /*if (g_env_editor_window_open)
+    g_env_window.render();*/
   if (g_project_info_window_open)
     project_info_window();
   // performance_counter_window();

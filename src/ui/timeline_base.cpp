@@ -136,7 +136,13 @@ void TimelineBase::render_horizontal_scrollbar() {
   }
 }
 
-bool TimelineBase::render_time_ruler(double* time_value, double playhead_start) {
+bool TimelineBase::render_time_ruler(
+    double* time_value,
+    double playhead_start,
+    double sel_start_pos,
+    double sel_end_pos,
+    bool show_selection_range)
+{
   ImGuiStyle& style = ImGui::GetStyle();
   auto col = ImGui::GetColorU32(ImGuiCol_Separator, 1.0f);
   auto dl = ImGui::GetWindowDrawList();

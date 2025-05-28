@@ -19,6 +19,14 @@ enum class ClipType {
   Midi,
 };
 
+enum class ClipMode {
+  OneShot,
+  OneShotReverse,
+  LoopStraight,
+  LoopReverse,
+  LoopBidirectional,
+};
+
 enum class ClipHover {
   None,
   All,
@@ -37,7 +45,10 @@ struct AudioClip {
 
 struct MidiClip {
   MidiAsset* asset;
-  uint32_t msg;
+  double length;
+  int16_t transpose;
+  int16_t rate;
+  ClipMode mode;
 };
 
 struct Clip {

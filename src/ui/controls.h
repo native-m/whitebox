@@ -57,6 +57,76 @@ static void parameter_control(T* value, const char* parameter_name, Fn&& wrapper
   }
 }
 
+template<NumericalType T, NumericalType MinT, NumericalType MaxT>
+static bool generic_drag(
+    const char* label,
+    T* value,
+    float speed,
+    MinT min_val,
+    MaxT max_val,
+    const char* format,
+    ImGuiSliderFlags flags = 0) {
+  T cast_min_val = T(min_val);
+  T cast_max_val = T(max_val);
+  ImGuiDataType type;
+
+  if constexpr (std::same_as<T, int8_t>) {
+    type = ImGuiDataType_S8;
+  } else if constexpr (std::same_as<T, uint8_t>) {
+    type = ImGuiDataType_U8;
+  } else if constexpr (std::same_as<T, int16_t>) {
+    type = ImGuiDataType_S16;
+  } else if constexpr (std::same_as<T, uint16_t>) {
+    type = ImGuiDataType_U16;
+  } else if constexpr (std::same_as<T, int32_t>) {
+    type = ImGuiDataType_S32;
+  } else if constexpr (std::same_as<T, uint32_t>) {
+    type = ImGuiDataType_U32;
+  } else if constexpr (std::same_as<T, int64_t>) {
+    type = ImGuiDataType_S64;
+  } else if constexpr (std::same_as<T, uint64_t>) {
+    type = ImGuiDataType_U64;
+  } else if constexpr (std::same_as<T, double>) {
+    type = ImGuiDataType_Double;
+  } else if constexpr (std::same_as<T, float>) {
+    type = ImGuiDataType_Float;
+  }
+
+  return ImGui::DragScalar(label, type, value, speed, &cast_min_val, &cast_max_val, format, flags);
+}
+
+template<NumericalType T, NumericalType MinT, NumericalType MaxT>
+static bool
+generic_slider(const char* label, T* value, MinT min_val, MaxT max_val, const char* format, ImGuiSliderFlags flags) {
+  T cast_min_val = T(min_val);
+  T cast_max_val = T(max_val);
+  ImGuiDataType type;
+
+  if constexpr (std::same_as<T, int8_t>) {
+    type = ImGuiDataType_S8;
+  } else if constexpr (std::same_as<T, uint8_t>) {
+    type = ImGuiDataType_U8;
+  } else if constexpr (std::same_as<T, int16_t>) {
+    type = ImGuiDataType_S16;
+  } else if constexpr (std::same_as<T, uint16_t>) {
+    type = ImGuiDataType_U16;
+  } else if constexpr (std::same_as<T, int32_t>) {
+    type = ImGuiDataType_S32;
+  } else if constexpr (std::same_as<T, uint32_t>) {
+    type = ImGuiDataType_U32;
+  } else if constexpr (std::same_as<T, int64_t>) {
+    type = ImGuiDataType_S64;
+  } else if constexpr (std::same_as<T, uint64_t>) {
+    type = ImGuiDataType_U64;
+  } else if constexpr (std::same_as<T, double>) {
+    type = ImGuiDataType_Double;
+  } else if constexpr (std::same_as<T, float>) {
+    type = ImGuiDataType_Float;
+  }
+
+  return ImGui::SliderScalar(label, type, value, &cast_min_val, &cast_max_val, format, flags);
+}
+
 static bool collapse_button(const char* str_id, bool* shown) {
   ImGuiID id = ImGui::GetID(str_id);
   ImGuiStyle& style = GImGui->Style;
@@ -359,10 +429,13 @@ bool begin_floating_window(const char* str_id, const ImVec2& pos);
 void end_floating_window();
 void song_position();
 void item_tooltip(const char* str);
+
 bool toggle_button(const char* str, bool value, const ImVec4& toggled_color, const ImVec2& size = ImVec2());
 bool toggle_button(const char* str, bool* value, const ImVec4& toggled_color, const ImVec2& size = ImVec2());
 bool small_toggle_button(const char* str, bool value, const ImVec4& toggled_color);
 bool small_toggle_button(const char* str, bool* value, const ImVec4& toggled_color);
+bool icon_toggle_button(const char* str, bool value, const ImVec4& toggled_color);
+bool icon_toggle_button(const char* str, bool* value, const ImVec4& toggled_color);
 
 bool hsplitter(
     ImGuiID id,
@@ -371,6 +444,8 @@ bool hsplitter(
     float min_size = 0.0f,
     float max_size = 0.0f,
     float width = 0.0f);
+
+bool musical_unit_drags(const char* label, double* value);
 
 bool param_drag_db(
     const char* str_id,

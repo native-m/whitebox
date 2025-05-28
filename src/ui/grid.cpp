@@ -1,14 +1,104 @@
 #include "grid.h"
 
+#include "controls.h"
 #include "core/color.h"
 #include "core/debug.h"
 
+#define WB_GRID_SIZE_HEADER_AUTO         (const char*)1
+#define WB_GRID_SIZE_HEADER_BARS         (const char*)2
+#define WB_GRID_SIZE_HEADER_BAR_DIVISION (const char*)3
+
 namespace wb {
+    
+static const char* note_scale[] = {
+  "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
+};
+
+static GridProperties grid_div_table[] = {
+  // Auto
+  { DBL_MAX, 8.0 },
+  { DBL_MAX, 32.0 },
+  { DBL_MAX, 24.0 },
+  { DBL_MAX, 18.0 },
+  { DBL_MAX, 8.0 },
+  { DBL_MAX, 5.0 },
+  // Bars
+  { DBL_MAX, 8.0 },
+  { 0.125, 8.0 },
+  { 0.25, 8.0 },
+  { 0.5, 8.0 },
+  { 1.0, 8.0 },
+  // Bar division
+  { DBL_MAX, 8.0 },
+  { 2.0, 8.0 },
+  { 4.0, 8.0 },
+  { 8.0, 8.0 },
+  { 16.0, 8.0 },
+  { 32.0, 5.0 },
+};
+
+static const char* grid_size_table[] = {
+  WB_GRID_SIZE_HEADER_AUTO,
+  "Widest",
+  "Wide",
+  "Medium",
+  "Narrow",
+  "Narrowest",
+  WB_GRID_SIZE_HEADER_BARS,
+  "8 bars",
+  "4 bars",
+  "2 bars",
+  "1 bar",
+  WB_GRID_SIZE_HEADER_BAR_DIVISION,
+  "1/2 bar",
+  "1/4 bar",
+  "1/8 bar",
+  "1/16 bar",
+  "1/32 bar",
+};
+
+GridProperties get_grid_properties(int32_t grid_mode) {
+  return grid_div_table[grid_mode];
+}
 
 double calc_bar_division(double length_per_beat, double gap_scale, bool triplet) {
   const double division = std::exp2(std::round(std::log2(length_per_beat / gap_scale)));
   const double div_scale = triplet && (division >= 1.0) ? 3.0 : 2.0;
   return division * div_scale;
+}
+
+bool grid_combo_box(const char* str, int32_t* grid_mode, bool* triplet_grid) {
+  bool value_changed = false;
+  const char* grid_size_text = nullptr;
+  int32_t mode = *grid_mode;
+
+  ImFormatStringToTempBuffer(&grid_size_text, nullptr, "Grid: %s", grid_size_table[mode]);
+  if (ImGui::BeginCombo(str, grid_size_text, ImGuiComboFlags_HeightLarge)) {
+    controls::push_style_compact();
+    if (ImGui::Checkbox("Triplet", triplet_grid)) {
+      value_changed = true;
+    }
+    controls::pop_style_compact();
+    for (uint32_t i = 0; auto type : grid_size_table) {
+      if (type == WB_GRID_SIZE_HEADER_AUTO) {
+        ImGui::SeparatorText("Auto");
+      } else if (type == WB_GRID_SIZE_HEADER_BARS) {
+        ImGui::SeparatorText("Bars");
+      } else if (type == WB_GRID_SIZE_HEADER_BAR_DIVISION) {
+        ImGui::SeparatorText("Bar division");
+      } else {
+        if (ImGui::Selectable(type, mode == i)) {
+          value_changed = true;
+          *grid_mode = i;
+          //beat_division = grid_div_table[i].max_division * 0.25;
+        }
+      }
+      i++;
+    }
+    ImGui::EndCombo();
+  }
+
+  return value_changed;
 }
 
 void draw_musical_guidestripes(

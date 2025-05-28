@@ -12,9 +12,10 @@ enum class Hotkey : uint16_t {
   Save,
   SaveAs,
 
-  CommonDelete,
-  CommonDuplicate,
-  CommonMute,
+  SelectAll,
+  Delete,
+  Duplicate,
+  Mute,
 
   PianoRollSelectTool,
   PianoRollDrawTool,

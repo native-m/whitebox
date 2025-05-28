@@ -282,7 +282,18 @@ TrackEditResult Engine::add_clip_from_file(Track* track, const std::filesystem::
   }
 
   if (MidiAsset* midi_asset = g_midi_table.load_from_file(path)) {
-    return add_midi_clip(track, "", time_pos, time_pos + midi_asset->data.max_length, 0.0, { .asset = midi_asset });
+    double end_time = time_pos + midi_asset->data.max_length;
+    return add_midi_clip(
+        track,
+        "",
+        time_pos,
+        end_time,
+        0.0,
+        {
+          .asset = midi_asset,
+          .length = midi_asset->data.max_length,
+          .rate = 1,
+        });
   }
 
   return {};
@@ -579,6 +590,8 @@ MultiEditResult Engine::create_midi_clips(
     new (clip) Clip("", track->color, min_pos, max_pos);
     clip->init_as_midi_clip({
       .asset = asset,
+      .length = max_pos - min_pos,
+      .rate = 1,
     });
     result.added_clips.emplace_back(i, clip);
     track->clips.push_back(clip);

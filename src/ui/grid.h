@@ -9,7 +9,9 @@ struct GridProperties {
   double gap_scale;
 };
 
+GridProperties get_grid_properties(int32_t grid_mode);
 double calc_bar_division(double length_per_beat, double gap_scale, bool triplet);
+bool grid_combo_box(const char* str, int32_t* grid_mode, bool* triplet_grid);
 
 void draw_musical_guidestripes(
     ImDrawList* dl,

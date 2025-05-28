@@ -81,7 +81,10 @@ void end_floating_window() {
 }
 
 void song_position() {
-  // Playhead
+  ImGuiWindow* window = ImGui::GetCurrentWindow();
+  if (window->SkipItems)
+    return;
+
   double playhead = g_engine.playhead_pos();
   float bar = IM_TRUNC(playhead * 0.25) + 1.0f;
   float beat = IM_TRUNC(std::fmod(playhead, 4.0)) + 1.0f;
@@ -102,14 +105,16 @@ void song_position() {
   ImGui::ItemSize(size);
   if (!ImGui::ItemAdd(bb, id))
     return;
-  
+
   ImVec2 text_pos = position + (size - text_size) * 0.5f;
   draw_list->AddRectFilled(bb.Min, bb.Max, ImGui::GetColorU32(ImGuiCol_Button), 2.0f);
   draw_list->AddText(text_pos, ImGui::GetColorU32(ImGuiCol_Text), buf);
 }
 
 void item_tooltip(const char* str) {
-  if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay)) {
+  static constexpr uint32_t hover_flags = ImGuiHoveredFlags_ForTooltip | ImGuiHoveredFlags_Stationary |
+                                          ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay;
+  if (ImGui::IsItemHovered(hover_flags)) {
     ImFont* font = ImGui::GetFont();
     set_current_font(FontType::Normal);  // Force tooltip to use main font
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6.0f, 4.0f));
@@ -126,8 +131,11 @@ bool toggle_button(const char* str, bool value, const ImVec4& toggled_color, con
 bool toggle_button(const char* str, bool* value, const ImVec4& toggled_color, const ImVec2& size) {
   if (*value)
     ImGui::PushStyleColor(ImGuiCol_Button, toggled_color);
+  bool last_value = *value;
   bool ret = ImGui::Button(str, size);
-  if (*value)
+  if (ret)
+    *value = !last_value;
+  if (last_value)
     ImGui::PopStyleColor();
   return ret;
 }
@@ -143,6 +151,53 @@ bool small_toggle_button(const char* str, bool* value, const ImVec4& toggled_col
   if (*value)
     ImGui::PopStyleColor();
   return ret;
+}
+
+bool icon_toggle_button(const char* str, bool value, const ImVec4& toggled_color) {
+  return icon_toggle_button(str, &value, toggled_color);
+}
+
+bool icon_toggle_button(const char* str, bool* value, const ImVec4& toggled_color) {
+  ImGuiWindow* window = ImGui::GetCurrentWindow();
+  if (window->SkipItems)
+    return false;
+
+  ImGuiContext& g = *GImGui;
+  const ImGuiStyle& style = g.Style;
+  const ImGuiID id = window->GetID(str);
+  const ImVec2 label_size = ImGui::CalcTextSize(str, NULL, true);
+
+  ImVec2 pos = window->DC.CursorPos;
+  /*if ((flags & ImGuiButtonFlags_AlignTextBaseLine) && style.FramePadding.y < window->DC.CurrLineTextBaseOffset)
+    pos.y += window->DC.CurrLineTextBaseOffset - style.FramePadding.y;*/
+  ImVec2 size(label_size.x + style.FramePadding.x * 2.0f, label_size.y + style.FramePadding.y * 2.0f);
+
+  const ImRect bb(pos, pos + size);
+  ImGui::ItemSize(size, style.FramePadding.y);
+  if (!ImGui::ItemAdd(bb, id))
+    return false;
+
+  bool last_value = *value;
+  bool hovered, held;
+  bool pressed = ImGui::ButtonBehavior(bb, id, &hovered, &held, 0);
+
+  if (pressed)
+    *value = !last_value;
+
+  const char* text_display_end = ImGui::FindRenderedTextEnd(str, nullptr);
+  const int text_len = (int)(text_display_end - str);
+  if (text_len == 0)
+    return pressed;
+
+  ImU32 base_color = ImGui::GetColorU32(toggled_color);
+  ImU32 color =
+      last_value ? base_color : WB_IM_COLOR_U32_SET_ALPHA(ImGui::GetColorU32(ImGuiCol_Text), 0x80);
+
+  if (hovered)
+    window->DrawList->AddRect(bb.Min, bb.Max, base_color, 4.0f, 0, 1.5f);
+  window->DrawList->AddText(nullptr, 0.0f, bb.Min + style.FramePadding, color, str, text_display_end, 0.0f, nullptr);
+
+  return pressed;
 }
 
 // bool hsplitter(uint32_t id, float* size, float default_size, float min_size = 0.0f, float max_size = 0.0f) {
@@ -193,6 +248,65 @@ bool hsplitter(ImGuiID id, float* size, float default_size, float min_size, floa
       ImVec2(cur_pos.x, cur_pos.y + 0.5f), ImVec2(cur_pos.x + width, cur_pos.y + 0.5f), ImGui::GetColorU32(color), 2.0f);
 
   return is_separator_active;
+}
+
+bool musical_unit_drags(const char* label, double* value) {
+  static constexpr uint32_t drag_flags = ImGuiSliderFlags_NoInput | ImGuiSliderFlags_Vertical;
+  double beats = *value;
+  double bars = beats / 4.0;
+  double sixteenths = beats * 4.0;
+  int32_t length[3]{
+    (int32_t)bars,
+    (int32_t)beats % 4,
+    (int32_t)sixteenths % 4,
+  };
+
+  ImGui::BeginGroup();
+  ImGui::PushID(label);
+  ImGui::PushMultiItemsWidths(3, ImGui::CalcItemWidth());
+
+  const char* bars_str;
+  ImFormatStringToTempBuffer(&bars_str, nullptr, "%d", length[0]);  // Format manually to hide jumping values
+  ImGui::PushID(1);
+  bool bars_changed = ImGui::DragScalar("", ImGuiDataType_S32, &length[0], 0.25f, nullptr, nullptr, bars_str, drag_flags);
+  ImGui::PopItemWidth();
+  ImGui::PopID();
+
+  const char* beats_str;
+  ImFormatStringToTempBuffer(&beats_str, nullptr, "%d", length[1]);
+  ImGui::PushID(2);
+  ImGui::SameLine(0.0f, GImGui->Style.ItemInnerSpacing.x);
+  bool beats_changed = ImGui::DragScalar("", ImGuiDataType_S32, &length[1], 0.25f, nullptr, nullptr, beats_str, drag_flags);
+  ImGui::PopItemWidth();
+  ImGui::PopID();
+
+  const char* sixteenths_str;
+  ImFormatStringToTempBuffer(&sixteenths_str, nullptr, "%d", length[2]);
+  ImGui::PushID(3);
+  ImGui::SameLine(0.0f, GImGui->Style.ItemInnerSpacing.x);
+  bool sixteenths_changed =
+      ImGui::DragScalar("", ImGuiDataType_S32, &length[2], 0.25f, nullptr, nullptr, sixteenths_str, drag_flags);
+  ImGui::PopItemWidth();
+  ImGui::PopID();
+
+  ImGui::SameLine(0.0f, GImGui->Style.ItemInnerSpacing.x);
+  ImGui::TextEx(label, ImGui::FindRenderedTextEnd(label), ImGuiTextFlags_NoWidthForLargeClippedText);
+
+  ImGui::PopID();
+  ImGui::EndGroup();
+
+  if (bars_changed || beats_changed || sixteenths_changed) {
+    double min_length = 4.0;
+    if (beats_changed)
+      min_length = 1.0;
+    else if (sixteenths_changed)
+      min_length = 1.0 / 4.0;
+    double new_length = ((double)length[0]) * 4.0 + (double)length[1] + ((double)length[2] / 4.0);
+    *value = math::max(new_length, min_length);
+    return true;
+  }
+
+  return false;
 }
 
 bool param_drag_db(

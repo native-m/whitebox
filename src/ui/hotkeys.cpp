@@ -23,9 +23,10 @@ static HotkeyItem hotkey_table[(uint32_t)Hotkey::Count] = {
   { Hotkey::Save, ImGuiMod_Ctrl, ImGuiKey_S },
   { Hotkey::SaveAs, ImGuiMod_Ctrl | ImGuiMod_Shift, ImGuiKey_S },
 
-  { Hotkey::CommonDelete, ImGuiMod_None, ImGuiKey_Delete },
-  { Hotkey::CommonDuplicate, ImGuiMod_Ctrl, ImGuiKey_D },
-  { Hotkey::CommonMute, ImGuiMod_Ctrl, ImGuiKey_M },
+  { Hotkey::SelectAll, ImGuiMod_Ctrl, ImGuiKey_A },
+  { Hotkey::Delete, ImGuiMod_None, ImGuiKey_Delete },
+  { Hotkey::Duplicate, ImGuiMod_Ctrl, ImGuiKey_D },
+  { Hotkey::Mute, ImGuiMod_Ctrl, ImGuiKey_M },
 
   { Hotkey::PianoRollSelectTool, ImGuiMod_None, ImGuiKey_Z },
   { Hotkey::PianoRollDrawTool, ImGuiMod_None, ImGuiKey_X },
@@ -41,9 +42,8 @@ void hkey_process() {
   std::memset(hkey_map, 0, sizeof(hkey_map));  // Clear
   if (!GImGui->IO.WantTextInput) {
     for (uint32_t i = 0; auto [_, mod, key] : hotkey_table) {
-      bool mod_down = mod == mod_mask;
       bool key_pressed = ImGui::IsKeyPressed((ImGuiKey)key, 0);
-      hkey_map[i] = mod_down && key_pressed;
+      hkey_map[i] = (mod == mod_mask) && key_pressed;
       i++;
     }
   }
