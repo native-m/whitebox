@@ -12,14 +12,12 @@
 namespace wb::controls {
 
 template<typename T, typename Fn>
-concept ControlFn = requires(T val, Fn&& wrapper) {
-  { wrapper(&val) } -> std::convertible_to<bool>;
+concept ControlFn = requires(T val, Fn&& fn) {
+  { fn(&val) } -> std::convertible_to<bool>;
 };
 
 template<typename T, typename Fn>
-concept ControlActionFn = requires(T val, Fn&& wrapper) {
-  wrapper(val, val);
-};
+concept ControlActionFn = requires(T val, Fn&& fn) { fn(val, val); };
 
 enum class SliderGrabShape { Circle, Rectangle };
 

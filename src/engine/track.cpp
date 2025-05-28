@@ -449,12 +449,13 @@ void Track::process_midi_event(
   uint32_t note_count = (uint32_t)buffer.size();
   double max_clip_time = clip->max_time;
   double time_offset = clip->min_time - clip->start_offset;
+  double mult = 1.0 / (double)clip->midi.rate;
 
   while (midi_note_idx < note_count) {
     const MidiNote& note = buffer[midi_note_idx];
-    double min_time = time_offset + note.min_time;  // math::round((time_offset + note.min_time) * ppq) * inv_ppq;
+    double min_time = time_offset + note.min_time * mult;  // math::round((time_offset + note.min_time) * ppq) * inv_ppq;
     double max_time = math::min(
-        time_offset + note.max_time, max_clip_time);  // math::round((time_offset + note.max_time) * ppq) * inv_ppq;
+        time_offset + note.max_time * mult, max_clip_time);  // math::round((time_offset + note.max_time) * ppq) * inv_ppq;
 
     if (min_time > end_time || min_time >= clip->max_time)
       break;

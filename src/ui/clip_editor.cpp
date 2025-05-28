@@ -1118,7 +1118,8 @@ static void clip_editor_render_note_editor() {
   dl->AddImage(fb_tex_id, fb_image_pos, fb_image_pos + region_size);
 
   if (g_engine.is_playing()) {
-    const double playhead_offset = (timeline_base.playhead - current_clip->min_time) * inv_view_scale;
+    const double clip_rate = (double)current_clip->midi.rate;
+    const double playhead_offset = (timeline_base.playhead - current_clip->min_time) * clip_rate * inv_view_scale;
     const float playhead_pos = (float)math::round(view_min.x - scroll_pos_x + playhead_offset);
     if (math::in_range(playhead_pos, view_min.x, view_max.x)) {
       im_draw_vline(dl, playhead_pos, offset_y, offset_y + region_size.y, TimelineBase::playhead_color);
@@ -1170,10 +1171,11 @@ static void clip_editor_render_event_editor() {
 static void clip_editor_render_piano_roll() {
   ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
   timeline_base.render_horizontal_scrollbar();
-  double new_time_pos = timeline_base.playhead - current_clip->min_time;
-  double playhead_start = timeline_base.playhead - current_clip->min_time;
+  const double clip_rate = (double)current_clip->midi.rate;
+  const double playhead_start = (g_engine.playhead_start - current_clip->min_time) * clip_rate;
+  double new_time_pos = (timeline_base.playhead - current_clip->min_time) * clip_rate;
   if (timeline_base.render_time_ruler(&new_time_pos, playhead_start, selection_start_pos, selection_end_pos, false)) {
-    g_engine.set_playhead_position(new_time_pos + current_clip->min_time);
+    g_engine.set_playhead_position(new_time_pos / clip_rate + current_clip->min_time);
   }
   ImGui::PopStyleVar();
 
@@ -1346,7 +1348,7 @@ Track* clip_editor_get_track() {
 void render_clip_editor() {
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
   ImGui::SetNextWindowSize(ImVec2(640.0f, 480.0f), ImGuiCond_FirstUseEver);
-  if (!controls::begin_window("Clip Editor 2", &g_clip_editor_window_open)) {
+  if (!controls::begin_window("Clip Editor", &g_clip_editor_window_open)) {
     ImGui::PopStyleVar();
     controls::end_window();
     return;
