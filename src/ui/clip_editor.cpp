@@ -37,7 +37,7 @@ static constexpr float note_count = 132.0f;
 static constexpr float note_count_per_oct = 12.0f;
 static constexpr float max_oct_count = note_count / note_count_per_oct;
 
-static const char* note_scale[] = {
+static const char* note_str[] = {
   "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
 };
 
@@ -289,16 +289,51 @@ static void clip_editor_render_control_sidebar() {
   }
 
   controls::musical_unit_drags("Length", &current_clip->midi.length);
-  controls::generic_drag(
-      "Transpose",
+
+  controls::with_command(
       &current_clip->midi.transpose,
-      0.5f,
-      -48,
-      48,
-      math::in_range(current_clip->midi.transpose, (int16_t)-1, (int16_t)1) ? "%d semitone" : "%d semitones",
-      ImGuiSliderFlags_Vertical);
-  controls::generic_drag(
-      "Rate", &current_clip->midi.rate, 0.125f, 1, 4, "%dx", ImGuiSliderFlags_AlwaysClamp | ImGuiSliderFlags_Vertical);
+      [](int16_t* value) {
+        return controls::generic_drag(
+            "Transpose",
+            &current_clip->midi.transpose,
+            0.5f,
+            -48,
+            48,
+            math::in_range(current_clip->midi.transpose, (int16_t)-1, (int16_t)1) ? "%d semitone" : "%d semitones",
+            ImGuiSliderFlags_Vertical);
+      },
+      [](int16_t old_value, int16_t new_value) {
+        MidiClipParamChangeCmd* cmd = new MidiClipParamChangeCmd();
+        cmd->track_id = current_track_id.value();
+        cmd->clip_id = current_clip_id.value();
+        cmd->new_transpose = new_value;
+        cmd->new_rate = current_clip->midi.rate;
+        cmd->old_transpose = old_value;
+        cmd->old_rate = current_clip->midi.rate;
+        g_cmd_manager.execute("Clip editor: Clip parameter tweak (transpose)", cmd);
+      });
+
+  controls::with_command(
+      &current_clip->midi.rate,
+      [](int16_t* value) {
+        static constexpr uint32_t drag_slider_flags = ImGuiSliderFlags_AlwaysClamp | ImGuiSliderFlags_Vertical;
+        if (controls::generic_drag("Rate", value, 0.125f, 1, 4, "%dx", drag_slider_flags)) {
+          timeline_base.redraw = true;
+          g_timeline.redraw_screen();
+          return true;
+        }
+        return false;
+      },
+      [](int16_t old_value, int16_t new_value) {
+        MidiClipParamChangeCmd* cmd = new MidiClipParamChangeCmd();
+        cmd->track_id = current_track_id.value();
+        cmd->clip_id = current_clip_id.value();
+        cmd->new_transpose = current_clip->midi.transpose;
+        cmd->new_rate = new_value;
+        cmd->old_transpose = current_clip->midi.transpose;
+        cmd->old_rate = old_value;
+        g_cmd_manager.execute("Clip editor: Clip parameter tweak (rate)", cmd);
+      });
 }
 
 static void draw_piano_keys(ImDrawList* draw_list, ImVec2& pos, const ImVec2& size, uint32_t oct) {
@@ -333,7 +368,7 @@ static void draw_piano_keys(ImDrawList* draw_list, ImVec2& pos, const ImVec2& si
     if (size.y > 13.0f) {
       char note_name[5]{};
       float pos_y = size.y * 0.5f - half_font_size;
-      const char* scale = note_scale[note_id];
+      const char* scale = note_str[note_id];
       fmt::format_to_n(note_name, sizeof(note_name), "{}{}", scale, oct);
       draw_list->AddText(note_pos + ImVec2(4.0f, pos_y), text_col, note_name);
     }
@@ -511,7 +546,7 @@ static void clip_editor_render_note_editor() {
   double song_length = timeline_base.song_length;
   double scroll_pos_x = std::round((min_hscroll * song_length) / view_scale);
   double scroll_offset_x = (double)cursor_pos.x - scroll_pos_x;
-  double clip_scale = inv_view_scale;
+  double note_scale = inv_view_scale;
   double hovered_position = 0.0;
   double hovered_position_grid = 0.0;
 
@@ -799,7 +834,7 @@ static void clip_editor_render_note_editor() {
         // Draw note pitch
         ImVec4 label_rect(a.x, a.y, b.x - 4.0f, b.y);
         char note_name[5]{};
-        const char* scale = note_scale[key % 12];
+        const char* scale = note_str[key % 12];
         fmt::format_to_n(note_name, sizeof(note_name), "{}{}", scale, key / 12);
         layer1_dl->AddText(
             font,
@@ -874,8 +909,8 @@ static void clip_editor_render_note_editor() {
         continue;
       }
 
-      float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * clip_scale);
-      float max_pos_x = (float)math::round(scroll_offset_x + note.max_time * clip_scale);
+      const float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * note_scale);
+      const float max_pos_x = (float)math::round(scroll_offset_x + note.max_time * note_scale);
 
       if (max_pos_x < cursor_pos.x) {
         note_id++;
@@ -961,15 +996,15 @@ static void clip_editor_render_note_editor() {
     uint16_t key = math::clamp(hovered_key, 0, (int32_t)MidiData::max_keys);
     double min_time = math::max(hovered_position_grid, 0.0);
     double max_time = min_time + note_length;
-    float min_pos_x = (float)math::round(scroll_offset_x + min_time * clip_scale);
-    float max_pos_x = (float)math::round(scroll_offset_x + max_time * clip_scale);
+    float min_pos_x = (float)math::round(scroll_offset_x + min_time * note_scale);
+    float max_pos_x = (float)math::round(scroll_offset_x + max_time * note_scale);
     draw_note.operator()<false>(min_pos_x, max_pos_x, note_velocity / 127.0f, 0, key);
     ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
   } else if (edit_command == PianoRollCmd::Marker) {
     double min_time = math::max(initial_time_pos, 0.0);
     double max_time = math::max(hovered_position_grid, min_time);
-    float min_pos_x = (float)math::round(scroll_offset_x + min_time * clip_scale);
-    float max_pos_x = (float)math::round(scroll_offset_x + max_time * clip_scale);
+    float min_pos_x = (float)math::round(scroll_offset_x + min_time * note_scale);
+    float max_pos_x = (float)math::round(scroll_offset_x + max_time * note_scale);
     draw_note.operator()<false>(min_pos_x, max_pos_x, note_velocity / 127.0f, 0, initial_key);
   } else if (edit_command == PianoRollCmd::Paint) {
     uint16_t key = lock_pitch ? initial_key : math::clamp(hovered_key, 0, (int32_t)MidiData::max_keys);
@@ -1013,8 +1048,8 @@ static void clip_editor_render_note_editor() {
     // Draw painted notes
     if (timeline_base.redraw) {
       for (const auto& note : painted_notes) {
-        float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * clip_scale);
-        float max_pos_x = (float)math::round(scroll_offset_x + note.max_time * clip_scale);
+        float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * note_scale);
+        float max_pos_x = (float)math::round(scroll_offset_x + note.max_time * note_scale);
         if (max_pos_x < cursor_pos.x)
           continue;
         if (min_pos_x > end_x)
@@ -1029,8 +1064,8 @@ static void clip_editor_render_note_editor() {
       double min_time = note.min_time + min_relative_pos;
       double max_time = note.max_time + max_relative_pos;
       uint16_t key = (uint16_t)((int32_t)note.key + relative_key_pos);
-      float min_pos_x = (float)math::round(scroll_offset_x + min_time * clip_scale);
-      float max_pos_x = (float)math::round(scroll_offset_x + max_time * clip_scale);
+      float min_pos_x = (float)math::round(scroll_offset_x + min_time * note_scale);
+      float max_pos_x = (float)math::round(scroll_offset_x + max_time * note_scale);
       if (max_pos_x < cursor_pos.x)
         continue;
       if (min_pos_x > end_x)
@@ -1043,8 +1078,8 @@ static void clip_editor_render_note_editor() {
   if (selecting_notes) {
     static const ImU32 selection_range_fill = Color(28, 150, 237, 72).to_uint32();
     static const ImU32 selection_range_border = Color(28, 150, 237, 255).to_uint32();
-    float a_x = (float)math::round(scroll_offset_x + sel_start_pos * clip_scale);
-    float b_x = (float)math::round(scroll_offset_x + sel_end_pos * clip_scale);
+    float a_x = (float)math::round(scroll_offset_x + sel_start_pos * note_scale);
+    float b_x = (float)math::round(scroll_offset_x + sel_end_pos * note_scale);
     float a_y = (float)(131 - sel_first_key) * note_height_in_pixel;
     float b_y = (float)(131 - sel_last_key + 1) * note_height_in_pixel;
     im_draw_rect_filled(layer2_dl, a_x, a_y + cursor_pos.y, b_x, b_y + cursor_pos.y, selection_range_fill);

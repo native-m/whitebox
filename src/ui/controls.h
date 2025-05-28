@@ -12,8 +12,13 @@
 namespace wb::controls {
 
 template<typename T, typename Fn>
-concept ControlWrapper = requires(T val, Fn&& wrapper) {
+concept ControlFn = requires(T val, Fn&& wrapper) {
   { wrapper(&val) } -> std::convertible_to<bool>;
+};
+
+template<typename T, typename Fn>
+concept ControlActionFn = requires(T val, Fn&& wrapper) {
+  wrapper(val, val);
 };
 
 enum class SliderGrabShape { Circle, Rectangle };
@@ -50,11 +55,19 @@ static float get_item_height() {
   return GImGui->FontSize + GImGui->Style.FramePadding.y * 2.0f + GImGui->Style.ItemSpacing.y;
 }
 
-template<typename T, typename Fn>
-  requires ControlWrapper<T, Fn>
-static void parameter_control(T* value, const char* parameter_name, Fn&& wrapper) {
-  if (wrapper(value)) {
+template<typename T, typename Fn, typename ActionFn>
+  requires ControlFn<T, Fn> && ControlActionFn<T, ActionFn>
+static bool with_command(T* value, Fn&& control_fn, ActionFn&& action_fn) {
+  static T tmp_storage;
+  T old_value = *value;
+  bool ret = control_fn(value);
+  if (ImGui::IsItemActivated()) {
+    tmp_storage = old_value;
   }
+  if (ImGui::IsItemDeactivated() && old_value != tmp_storage) {
+    action_fn(tmp_storage, *value);
+  }
+  return ret;
 }
 
 template<NumericalType T, NumericalType MinT, NumericalType MaxT>

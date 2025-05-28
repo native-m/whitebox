@@ -208,6 +208,19 @@ struct ClipDeleteCmd2 : public ClipCmd {
   void undo() override;
 };
 
+struct MidiClipParamChangeCmd : public Command {
+  uint32_t track_id;
+  uint32_t clip_id;
+  uint16_t old_transpose;
+  uint16_t old_rate;
+  uint16_t new_transpose;
+  uint16_t new_rate;
+  bool undo_executed = false;
+
+  bool execute() override;
+  void undo() override;
+};
+
 struct MidiCmd : public Command {
   Vector<uint32_t> modified_notes;
   Vector<MidiNote> deleted_notes;

@@ -433,6 +433,20 @@ void ClipDeleteCmd2::undo() {
 
 //
 
+bool MidiClipParamChangeCmd::execute() {
+  return true;
+}
+void MidiClipParamChangeCmd::undo() {
+  Track* track = g_engine.tracks[track_id];
+  Clip* clip = track->clips[clip_id];
+  std::unique_lock lock(g_engine.editor_lock);
+  clip->midi.transpose = old_transpose;
+  clip->midi.rate = old_rate;
+  undo_executed = true;
+}
+
+//
+
 void MidiCmd::backup(MidiEditResult&& edit_result) {
   modified_notes = std::move(edit_result.modified_notes);
   deleted_notes = std::move(edit_result.deleted_notes);
