@@ -27,6 +27,7 @@ static HotkeyItem hotkey_table[(uint32_t)Hotkey::Count] = {
   { Hotkey::Delete, ImGuiMod_None, ImGuiKey_Delete },
   { Hotkey::Duplicate, ImGuiMod_Ctrl, ImGuiKey_D },
   { Hotkey::Mute, ImGuiMod_Ctrl, ImGuiKey_M },
+  { Hotkey::Unmute, ImGuiMod_Ctrl | ImGuiMod_Alt, ImGuiKey_M },
 
   { Hotkey::PianoRollSelectTool, ImGuiMod_None, ImGuiKey_Z },
   { Hotkey::PianoRollDrawTool, ImGuiMod_None, ImGuiKey_X },
@@ -43,7 +44,10 @@ void hkey_process() {
   if (!GImGui->IO.WantTextInput) {
     for (uint32_t i = 0; auto [_, mod, key] : hotkey_table) {
       bool key_pressed = ImGui::IsKeyPressed((ImGuiKey)key, 0);
-      hkey_map[i] = (mod == mod_mask) && key_pressed;
+      bool triggered = (mod == mod_mask) && key_pressed;
+      hkey_map[i] = triggered;
+      if (triggered)
+        return;
       i++;
     }
   }

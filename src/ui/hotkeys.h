@@ -16,6 +16,7 @@ enum class Hotkey : uint16_t {
   Delete,
   Duplicate,
   Mute,
+  Unmute,
 
   PianoRollSelectTool,
   PianoRollDrawTool,

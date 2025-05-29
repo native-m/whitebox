@@ -109,7 +109,7 @@ static PianoRollCmd edit_command{};
 static double initial_time_pos = 0.0;
 static double min_note_pos = 0.0;
 static double max_relative_pos = 0.0;
-static uint32_t edited_note_id = (uint32_t)-1;
+static uint32_t edited_note_id = (uint32_t)WB_INVALID_NOTE_ID;
 static int16_t min_note_key = 0;
 static int16_t max_note_key = 0;
 static int32_t initial_key = -1;
@@ -573,7 +573,7 @@ static void clip_editor_render_note_editor() {
   double hovered_position_grid = 0.0;
 
   hovered_key = MidiData::max_keys - (int32_t)((mouse_pos.y - cursor_pos.y) / note_height_in_pixel) - 1;
-  if (is_piano_roll_hovered || is_active) {
+  if (is_piano_roll_hovered || is_active || edit_command != PianoRollCmd::None) {
     double beat_division = timeline_base.beat_division;
     hovered_position = ((double)(mouse_pos.x - cursor_pos.x) * view_scale + min_hscroll * song_length);
     hovered_position_grid = std::round(hovered_position * (double)beat_division) / (double)beat_division;
