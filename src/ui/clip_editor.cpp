@@ -138,6 +138,28 @@ static void clip_editor_delete_notes(bool selected) {
   timeline_base.redraw = true;
 }
 
+static void clip_editor_prepare_move() {
+  MidiData* midi_data = current_clip->get_midi_data();
+  uint32_t num_selected = midi_data->num_selected;
+  bool first = true;
+  min_note_key = MidiData::max_keys;
+  max_note_key = 0;
+  for (const auto& note : midi_data->note_sequence) {
+    if (contain_bit(note.flags, MidiNoteFlags::Selected)) {
+      if (first) {
+        min_note_pos = note.min_time;
+        first = false;
+      }
+      min_note_key = math::min(min_note_key, note.key);
+      max_note_key = math::max(max_note_key, note.key);
+      num_selected--;
+    }
+    if (num_selected == 0) {
+      break;
+    }
+  }
+}
+
 static void clip_editor_prepare_resize() {
 }
 
@@ -603,17 +625,7 @@ static void clip_editor_render_note_editor() {
         cmd->clip_id = current_clip_id.value();
         cmd->select_or_deselect = true;
         cmd->selected_note_ids = std::move(note_ids);
-        if (g_cmd_manager.execute("Clip editor: Append note selection", cmd)) {
-          uint32_t num_selected = midi_asset->data.num_selected;
-          const MidiNoteBuffer& note_seq = midi_asset->data.note_sequence;
-          min_note_pos = note_seq[first_note].min_time;
-          min_note_key = INT16_MAX;
-          max_note_key = 0;
-          for (const auto& note : note_seq) {
-            min_note_key = math::min(min_note_key, note.key);
-            max_note_key = math::max(max_note_key, note.key);
-          }
-        }
+        g_cmd_manager.execute("Clip editor: Append note selection", cmd);
       }
     } else {
       MidiSelectNoteCmd* cmd = new MidiSelectNoteCmd();
@@ -623,15 +635,7 @@ static void clip_editor_render_note_editor() {
       cmd->max_pos = selection_end_pos;
       cmd->min_key = first_selected_key;
       cmd->max_key = last_selected_key;
-      if (g_cmd_manager.execute("Clip editor: Select/deselect note", cmd)) {
-        if (!cmd->result.selected.empty()) {
-          uint32_t first_note = cmd->result.selected[0];
-          MidiNote& note = midi_asset->data.note_sequence[first_note];
-          min_note_pos = note.min_time;
-          min_note_key = cmd->result.min_key;
-          max_note_key = cmd->result.max_key;
-        }
-      }
+      g_cmd_manager.execute("Clip editor: Select/deselect note", cmd);
     }
 
     selecting_notes = false;
@@ -948,9 +952,13 @@ static void clip_editor_render_note_editor() {
         initial_key = hovered_key;
         edited_note_id = note_id;
         if (!notes_selected) {
-          min_note_pos = note.min_time;
+          min_note_pos = cmd == PianoRollCmd::Move ? 0.0 : note.min_time;
           min_note_key = note.key;
           max_note_key = note.key;
+        } else {
+          if (cmd == PianoRollCmd::Move) {
+            clip_editor_prepare_move();
+          }
         }
         if (notes_selected && !selected) {
           clip_editor_select_or_deselect_all_notes(false);

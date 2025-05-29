@@ -316,6 +316,8 @@ ProjectFileResult write_project_file(
           case ClipType::Midi:
             w.write_kv_map("data", 1);
             w.write_kv_num("asset_id", midi_index_map[clip->midi.asset]);
+            w.write_kv_num("trans", clip->midi.transpose);
+            w.write_kv_num("rate", clip->midi.rate);
             break;
           default: WB_UNREACHABLE();
         }

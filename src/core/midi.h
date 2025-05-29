@@ -56,7 +56,7 @@ struct MidiEditResult {
 using NoteCallback = void (*)(void* userdata, uint32_t id, const MidiNote& note);
 
 struct MidiData {
-  static constexpr uint16_t max_keys = 132;
+  static constexpr int16_t max_keys = 132;
   static constexpr uint32_t max_channels = 16;
   double max_length = 0.0;
   MidiNoteMetadataPool note_metadata_pool;
