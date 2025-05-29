@@ -244,6 +244,7 @@ void pm_scan_plugins() {
 PluginInterface* pm_open_plugin(PluginUID uid) {
   ldb::DB* db = open_plugin_db();
   assert(db != nullptr);
+  defer(delete db);
 
   ldb::ReadOptions read_options;
   read_options.fill_cache = false;
@@ -263,7 +264,6 @@ PluginInterface* pm_open_plugin(PluginUID uid) {
     default: WB_UNREACHABLE();
   }
 
-  delete db;
   return nullptr;
 }
 
