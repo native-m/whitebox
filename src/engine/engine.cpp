@@ -1155,7 +1155,7 @@ std::optional<MidiEditResult> Engine::slice_note(
   return {};
 }
 
-Vector<uint32_t> Engine::mute_marked_note(uint32_t track_id, uint32_t clip_id, bool should_mute) {
+Vector<uint32_t> Engine::mute_selected_note(uint32_t track_id, uint32_t clip_id, bool should_mute) {
   Clip* clip = get_midi_clip_(track_id, clip_id);
   if (clip == nullptr)
     return {};

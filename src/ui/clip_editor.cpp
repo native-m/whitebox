@@ -138,6 +138,15 @@ static void clip_editor_delete_notes(bool selected) {
   timeline_base.redraw = true;
 }
 
+static void clip_editor_mute_notes(bool should_mute) {
+  MidiMuteNoteCmd* cmd = new MidiMuteNoteCmd();
+  cmd->track_id = current_track_id.value();
+  cmd->clip_id = current_clip_id.value();
+  cmd->should_mute = should_mute;
+  g_cmd_manager.execute(should_mute ? "Clip editor: Mute note" : "Clip editor: Unmute note", cmd);
+  force_redraw = true;
+}
+
 static void clip_editor_prepare_move() {
   MidiData* midi_data = current_clip->get_midi_data();
   uint32_t num_selected = midi_data->num_selected;
@@ -187,6 +196,12 @@ static void clip_editor_process_hotkey() {
   if (ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows)) {
     if (hkey_pressed(Hotkey::Delete)) {
       clip_editor_delete_notes(true);
+    }
+    if (hkey_pressed(Hotkey::Mute)) {
+      clip_editor_mute_notes(true);
+    }
+    if (hkey_pressed(Hotkey::Unmute)) {
+      clip_editor_mute_notes(false);
     }
   }
 }
@@ -1270,20 +1285,10 @@ static void clip_editor_render_context_menu() {
         clip_editor_delete_notes(true);
       }
       if (ImGui::MenuItem("Mute", "Ctrl+M")) {
-        MidiMuteNoteCmd* cmd = new MidiMuteNoteCmd();
-        cmd->track_id = current_track_id.value();
-        cmd->clip_id = current_clip_id.value();
-        cmd->should_mute = true;
-        g_cmd_manager.execute("Clip editor: Mute note", cmd);
-        force_redraw = true;
+        clip_editor_mute_notes(true);
       }
       if (ImGui::MenuItem("Unmute", "Ctrl+Alt+M")) {
-        MidiMuteNoteCmd* cmd = new MidiMuteNoteCmd();
-        cmd->track_id = current_track_id.value();
-        cmd->clip_id = current_clip_id.value();
-        cmd->should_mute = false;
-        g_cmd_manager.execute("Clip editor: Unmute note", cmd);
-        force_redraw = true;
+        clip_editor_mute_notes(false);
       }
     } else if (note_id_context_menu) {
       static float vel = 100.0f;

@@ -607,7 +607,7 @@ void MidiAppendNoteSelectionCmd::undo() {
 
 bool MidiMuteNoteCmd::execute() {
   if (note_ids.empty()) {
-    note_ids = g_engine.mute_marked_note(track_id, clip_id, should_mute);
+    note_ids = g_engine.mute_selected_note(track_id, clip_id, should_mute);
   } else {
     Track* track = g_engine.tracks[track_id];
     Clip* clip = track->clips[clip_id];
