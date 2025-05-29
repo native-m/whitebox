@@ -77,8 +77,8 @@ struct TrackEditResult {
 struct NoteSelectResult {
   Vector<uint32_t> selected;
   Vector<uint32_t> deselected;
-  uint16_t min_key;
-  uint16_t max_key;
+  int16_t min_key;
+  int16_t max_key;
 };
 
 struct MultiEditResult {

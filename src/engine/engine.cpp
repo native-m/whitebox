@@ -1022,7 +1022,7 @@ MidiEditResult Engine::add_note(
     double min_time,
     double max_time,
     float velocity,
-    uint16_t note_key,
+    int16_t note_key,
     uint16_t channel) {
   Clip* clip = get_midi_clip_(track_id, clip_id);
   if (clip == nullptr)
@@ -1115,7 +1115,7 @@ std::optional<MidiEditResult> Engine::slice_note(
     uint32_t clip_id,
     double slice_pos,
     float velocity,
-    uint16_t note_key,
+    int16_t note_key,
     uint16_t channel) {
   Clip* clip = get_midi_clip_(track_id, clip_id);
   if (clip == nullptr)
@@ -1234,8 +1234,8 @@ NoteSelectResult Engine::select_note(
     uint32_t clip_id,
     double min_pos,
     double max_pos,
-    uint16_t min_key,
-    uint16_t max_key) {
+    int16_t min_key,
+    int16_t max_key) {
   Clip* clip = get_midi_clip_(track_id, clip_id);
   if (clip == nullptr)
     return {};

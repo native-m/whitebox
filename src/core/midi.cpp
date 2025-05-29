@@ -120,8 +120,8 @@ Vector<uint32_t> MidiData::update_channel(uint16_t channel) {
   });
 
   Vector<uint32_t> modified_notes;
-  uint16_t new_min_note = max_keys;
-  uint16_t new_max_note = 0;
+  int16_t new_min_note = max_keys;
+  int16_t new_max_note = 0;
   double length = max_length;
   uint32_t selected_count = 0;
 
@@ -148,11 +148,11 @@ Vector<uint32_t> MidiData::update_channel(uint16_t channel) {
   return modified_notes;
 }
 
-const char* get_midi_note_scale(uint16_t note_number) {
+const char* get_midi_note_scale(int16_t note_number) {
   return note_scale[note_number % 12];
 }
 
-int get_midi_note_octave(uint16_t note_number) {
+int get_midi_note_octave(int16_t note_number) {
   return note_number / 12;
 }
 

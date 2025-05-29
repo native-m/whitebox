@@ -211,10 +211,10 @@ struct ClipDeleteCmd2 : public ClipCmd {
 struct MidiClipParamChangeCmd : public Command {
   uint32_t track_id;
   uint32_t clip_id;
-  uint16_t old_transpose;
-  uint16_t old_rate;
-  uint16_t new_transpose;
-  uint16_t new_rate;
+  int16_t old_transpose;
+  int16_t old_rate;
+  int16_t new_transpose;
+  int16_t new_rate;
   bool undo_executed = false;
 
   bool execute() override;
@@ -236,7 +236,7 @@ struct MidiAddNoteCmd : public MidiCmd {
   double min_time;
   double max_time;
   float velocity;
-  uint16_t note_key;
+  int16_t note_key;
   uint16_t channel;
 
   bool execute() override;
@@ -254,7 +254,7 @@ struct MidiPaintNotesCmd : public MidiCmd {
 struct MidiSliceNoteCmd : public MidiCmd {
   double pos;
   float velocity;
-  uint16_t note_key;
+  int16_t note_key;
   uint16_t channel;
 
   bool execute() override;
@@ -265,7 +265,7 @@ struct MidiMoveNoteCmd : public MidiCmd {
   uint32_t note_id;  // Valid only if move_selected is true
   bool move_selected;
   double relative_pos;
-  uint16_t relative_key_pos;
+  int16_t relative_key_pos;
 
   bool execute() override;
   void undo() override;
@@ -276,8 +276,8 @@ struct MidiSelectNoteCmd : public Command {
   uint32_t clip_id;
   double min_pos;
   double max_pos;
-  uint16_t min_key;
-  uint16_t max_key;
+  int16_t min_key;
+  int16_t max_key;
   NoteSelectResult result;
 
   bool execute() override;
@@ -307,7 +307,7 @@ struct MidiAppendNoteSelectionCmd : public Command {
 struct MidiMuteNoteCmd : public Command {
   uint32_t track_id;
   uint32_t clip_id;
-  Vector<uint32_t> muted_note_id;
+  Vector<uint32_t> note_ids;
   bool should_mute;
 
   bool execute() override;

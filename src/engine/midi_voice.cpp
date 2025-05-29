@@ -26,7 +26,6 @@ bool MidiVoiceState::add_voice(MidiVoice&& voice) {
     if (max_used_voices != max_voices)
       max_used_voices++;
   }
-  least_maximum_time = math::max(least_maximum_time, max_time);
   used_voices++;
 
   return true;

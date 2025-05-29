@@ -110,8 +110,8 @@ static double initial_time_pos = 0.0;
 static double min_note_pos = 0.0;
 static double max_relative_pos = 0.0;
 static uint32_t edited_note_id = (uint32_t)-1;
-static uint16_t min_note_key = 0;
-static uint16_t max_note_key = 0;
+static int16_t min_note_key = 0;
+static int16_t max_note_key = 0;
 static int32_t initial_key = -1;
 static int32_t hovered_key = -1;
 static int32_t min_paint = 1;
@@ -607,7 +607,7 @@ static void clip_editor_render_note_editor() {
           uint32_t num_selected = midi_asset->data.num_selected;
           const MidiNoteBuffer& note_seq = midi_asset->data.note_sequence;
           min_note_pos = note_seq[first_note].min_time;
-          min_note_key = UINT16_MAX;
+          min_note_key = INT16_MAX;
           max_note_key = 0;
           for (const auto& note : note_seq) {
             min_note_key = math::min(min_note_key, note.key);
@@ -781,7 +781,7 @@ static void clip_editor_render_note_editor() {
 
   auto draw_note =
       [&]<bool WithCommand>(
-          float min_pos_x, float max_pos_x, float vel, uint32_t note_id, uint16_t key, uint16_t flags = 0) -> PianoRollCmd {
+          float min_pos_x, float max_pos_x, float vel, uint32_t note_id, int16_t key, uint16_t flags = 0) -> PianoRollCmd {
     float pos_y = (float)(131 - key) * note_height_in_pixel;
     float min_pos_y = cursor_pos.y + pos_y;
     float max_pos_y = min_pos_y + note_height_in_pixel;
@@ -993,7 +993,7 @@ static void clip_editor_render_note_editor() {
 
   // Handle commands
   if (edit_command == PianoRollCmd::Draw) {
-    uint16_t key = math::clamp(hovered_key, 0, (int32_t)MidiData::max_keys);
+    int16_t key = math::clamp(hovered_key, 0, (int32_t)MidiData::max_keys);
     double min_time = math::max(hovered_position_grid, 0.0);
     double max_time = min_time + note_length;
     float min_pos_x = (float)math::round(scroll_offset_x + min_time * note_scale);
@@ -1007,7 +1007,7 @@ static void clip_editor_render_note_editor() {
     float max_pos_x = (float)math::round(scroll_offset_x + max_time * note_scale);
     draw_note.operator()<false>(min_pos_x, max_pos_x, note_velocity / 127.0f, 0, initial_key);
   } else if (edit_command == PianoRollCmd::Paint) {
-    uint16_t key = lock_pitch ? initial_key : math::clamp(hovered_key, 0, (int32_t)MidiData::max_keys);
+    int16_t key = lock_pitch ? initial_key : math::clamp(hovered_key, 0, (int32_t)MidiData::max_keys);
     double relative_pos = hovered_position_grid - initial_time_pos;
     int32_t paint_pos = (int32_t)std::floor(relative_pos / (double)note_length);
 
@@ -1063,7 +1063,7 @@ static void clip_editor_render_note_editor() {
       const MidiNote& note = seq[id];
       double min_time = note.min_time + min_relative_pos;
       double max_time = note.max_time + max_relative_pos;
-      uint16_t key = (uint16_t)((int32_t)note.key + relative_key_pos);
+      int16_t key = (int16_t)((int32_t)note.key + relative_key_pos);
       float min_pos_x = (float)math::round(scroll_offset_x + min_time * note_scale);
       float max_pos_x = (float)math::round(scroll_offset_x + max_time * note_scale);
       if (max_pos_x < cursor_pos.x)

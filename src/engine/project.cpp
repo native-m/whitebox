@@ -129,7 +129,7 @@ ProjectFileResult read_project_file(
             }
             note.min_time = note_data.array_get(0).as_number(0.0);
             note.max_time = note_data.array_get(1).as_number(0.0);
-            note.key = note_data.array_get(2).as_number<uint16_t>();
+            note.key = note_data.array_get(2).as_number<int16_t>();
             note.flags = note_data.array_get(3).as_number<uint16_t>();
             note.velocity = note_data.array_get(4).as_number(0.0f);
             actual_count++;

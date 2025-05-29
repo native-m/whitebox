@@ -29,7 +29,7 @@ struct alignas(8) MidiNote {
   double min_time;
   double max_time;
   uint32_t meta_id;
-  uint16_t key;
+  int16_t key;
   uint16_t flags;
   float velocity;
 };
@@ -87,7 +87,7 @@ struct MidiData {
   Vector<uint32_t> update_channel(uint16_t channel);
 };
 
-const char* get_midi_note_scale(uint16_t key);
-int get_midi_note_octave(uint16_t key);
+const char* get_midi_note_scale(int16_t key);
+int get_midi_note_octave(int16_t key);
 
 }  // namespace wb

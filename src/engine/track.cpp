@@ -450,6 +450,7 @@ void Track::process_midi_event(
   double max_clip_time = clip->max_time;
   double time_offset = clip->min_time - clip->start_offset;
   double mult = 1.0 / (double)clip->midi.rate;
+  int16_t semitone_offset = clip->midi.transpose;
 
   while (midi_note_idx < note_count) {
     const MidiNote& note = buffer[midi_note_idx];
@@ -485,12 +486,13 @@ void Track::process_midi_event(
     double offset_from_start = beat_to_samples(min_time - start_time, sample_rate, beat_duration);
     double sample_offset = sample_position + offset_from_start;
     uint32_t buffer_offset = (uint32_t)((uint64_t)sample_offset % (uint64_t)buffer_size);
+    int16_t key = note.key + semitone_offset;
 
     bool voice_added = midi_voice_state.add_voice({
       .max_time = max_time,
       .velocity = note.velocity,
       .channel = 0,
-      .key = note.key,
+      .key = key,
     });
 
     // Skip if we have reached maximum voices
@@ -505,14 +507,14 @@ void Track::process_midi_event(
       .time = min_time,
       .note_on = {
         .channel = 0,
-        .key = note.key,
+        .key = key,
         .velocity = note.velocity,
       },
     });
 
 #if WB_DBG_LOG_NOTE_EVENT
     char note_str[8]{};
-    fmt::format_to_n(note_str, std::size(note_str), "{}{}", get_midi_note_scale(note.key), get_midi_note_octave(note.key));
+    fmt::format_to_n(note_str, std::size(note_str), "{}{}", get_midi_note_scale(note.key), get_midi_note_octave(key));
     Log::debug("Note on: {} {} -> {} at {}", note_str, min_time, max_time, buffer_offset);
 #endif
 

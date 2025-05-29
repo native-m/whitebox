@@ -14,7 +14,7 @@ struct TestSynthVoice {
   float volume;
   float amp;
   float current_amp;
-  uint16_t note_number;
+  int16_t note_number;
 };
 
 struct TestSynth {

@@ -23,7 +23,7 @@ enum class MidiEventType {
 
 struct MidiNoteOnEvent {
   uint16_t channel;
-  uint16_t key;
+  int16_t key;
   float tuning;
   float velocity;
   int32_t length;
@@ -32,7 +32,7 @@ struct MidiNoteOnEvent {
 
 struct MidiNoteOffEvent {
   uint16_t channel;
-  uint16_t key;
+  int16_t key;
   float velocity;
   int32_t note_id;
   float tuning;
@@ -40,7 +40,7 @@ struct MidiNoteOffEvent {
 
 struct MidiPolyPressureEvent {
   uint16_t channel;
-  uint16_t key;
+  int16_t key;
   float pressure;
   int32_t note_id;
 };

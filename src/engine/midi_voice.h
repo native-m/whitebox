@@ -12,7 +12,7 @@ struct MidiVoice : public InplaceList<MidiVoice> {
   double max_time;
   float velocity;
   uint16_t channel;
-  uint16_t key;
+  int16_t key;
 };
 
 struct MidiVoiceState {
@@ -23,7 +23,6 @@ struct MidiVoiceState {
   uint64_t voice_mask{};
   uint32_t used_voices{};
   uint32_t max_used_voices{};
-  double least_maximum_time = std::numeric_limits<double>::max();
 
   MidiVoiceState();
   bool add_voice(MidiVoice&& voice);
