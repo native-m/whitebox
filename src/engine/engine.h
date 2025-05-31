@@ -186,6 +186,10 @@ struct Engine {
   move_note(uint32_t track_id, uint32_t clip_id, uint32_t note_id, int32_t relative_key_pos, double relative_pos);
 
   MidiEditResult move_selected_note(uint32_t track_id, uint32_t clip_id, int32_t relative_key_pos, double relative_pos);
+
+  MidiEditResult resize_note(uint32_t track_id, uint32_t clip_id, uint32_t note_id, double relative_pos, bool left_side);
+
+  MidiEditResult resize_selected_note(uint32_t track_id, uint32_t clip_id, double relative_pos, bool left_side);
   
   std::optional<MidiEditResult>
   slice_note(uint32_t track_id, uint32_t clip_id, double slice_pos, float velocity, int16_t note_key, uint16_t channel);

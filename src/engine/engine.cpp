@@ -1110,6 +1110,62 @@ Engine::move_selected_note(uint32_t track_id, uint32_t clip_id, int32_t relative
   };
 }
 
+MidiEditResult
+Engine::resize_note(uint32_t track_id, uint32_t clip_id, uint32_t note_id, double relative_pos, bool left_side) {
+  Clip* clip = get_midi_clip_(track_id, clip_id);
+  if (clip == nullptr)
+    return {};
+
+  MidiData* data = clip->get_midi_data();
+  MidiNoteBuffer& note_seq = data->note_sequence;
+  MidiNote& note = note_seq[note_id];
+  MidiEditResult result{};
+
+  result.deleted_notes.push_back(note);
+  if (left_side) {
+    note.min_time += relative_pos;
+  } else {
+    note.max_time += relative_pos;
+  }
+  note.flags |= MidiNoteFlags::Modified;
+  result.modified_notes = data->update_channel(0);
+
+  return result;
+}
+
+MidiEditResult Engine::resize_selected_note(uint32_t track_id, uint32_t clip_id, double relative_pos, bool left_side) {
+  Clip* clip = get_midi_clip_(track_id, clip_id);
+  if (clip == nullptr)
+    return {};
+
+  MidiData* data = clip->get_midi_data();
+  MidiNoteBuffer& note_seq = data->note_sequence;
+  Vector<MidiNote> backup;
+
+  if (left_side) {
+    for (auto& note : note_seq) {
+      if (contain_bit(note.flags, MidiNoteFlags::Selected)) {
+        backup.push_back(note);
+        note.min_time += relative_pos;
+        note.flags |= MidiNoteFlags::Modified;
+      }
+    }
+  } else {
+    for (auto& note : note_seq) {
+      if (contain_bit(note.flags, MidiNoteFlags::Selected)) {
+        backup.push_back(note);
+        note.max_time += relative_pos;
+        note.flags |= MidiNoteFlags::Modified;
+      }
+    }
+  }
+
+  return MidiEditResult{
+    .modified_notes = data->update_channel(0),
+    .deleted_notes = std::move(backup),
+  };
+}
+
 std::optional<MidiEditResult> Engine::slice_note(
     uint32_t track_id,
     uint32_t clip_id,
@@ -1229,13 +1285,8 @@ MidiEditResult Engine::delete_marked_notes(uint32_t track_id, uint32_t clip_id, 
   };
 }
 
-NoteSelectResult Engine::select_note(
-    uint32_t track_id,
-    uint32_t clip_id,
-    double min_pos,
-    double max_pos,
-    int16_t min_key,
-    int16_t max_key) {
+NoteSelectResult
+Engine::select_note(uint32_t track_id, uint32_t clip_id, double min_pos, double max_pos, int16_t min_key, int16_t max_key) {
   Clip* clip = get_midi_clip_(track_id, clip_id);
   if (clip == nullptr)
     return {};

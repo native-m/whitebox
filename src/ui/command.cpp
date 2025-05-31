@@ -527,6 +527,22 @@ void MidiMoveNoteCmd::undo() {
 
 //
 
+bool MidiResizeNoteCmd::execute() {
+  if (selection) {
+    backup(g_engine.resize_selected_note(track_id, clip_id, relative_pos, left_side));
+  } else {
+    backup(g_engine.resize_note(track_id, clip_id, note_id, relative_pos, left_side));
+  }
+  return true;
+}
+
+void MidiResizeNoteCmd::undo() {
+  std::unique_lock lock(g_engine.editor_lock);
+  MidiCmd::undo(0);
+}
+
+//
+
 bool MidiSliceNoteCmd::execute() {
   if (auto result = g_engine.slice_note(track_id, clip_id, pos, velocity, note_key, channel)) {
     backup(std::move(result.value()));

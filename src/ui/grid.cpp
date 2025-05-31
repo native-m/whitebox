@@ -61,9 +61,10 @@ GridProperties get_grid_properties(int32_t grid_mode) {
   return grid_div_table[grid_mode];
 }
 
-double calc_bar_division(double length_per_beat, double gap_scale, bool triplet) {
+double calc_bar_division(double length_per_beat, double max_division, double gap_scale, bool triplet) {
   const double division = std::exp2(std::round(std::log2(length_per_beat / gap_scale)));
-  const double div_scale = triplet && (division >= 1.0) ? 3.0 : 2.0;
+  max_division = math::min(division, max_division * 0.5);
+  const double div_scale = triplet && (max_division >= 1.0) ? 3.0 : 2.0;
   return division * div_scale;
 }
 

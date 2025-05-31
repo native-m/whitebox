@@ -108,7 +108,8 @@ static bool lock_pitch = true;
 static PianoRollCmd edit_command{};
 static double initial_time_pos = 0.0;
 static double min_note_pos = 0.0;
-static double max_relative_pos = 0.0;
+static double min_resize_pos = 0.0;
+static double max_resize_pos = 0.0;
 static uint32_t edited_note_id = (uint32_t)WB_INVALID_NOTE_ID;
 static int16_t min_note_key = 0;
 static int16_t max_note_key = 0;
@@ -169,7 +170,37 @@ static void clip_editor_prepare_move() {
   }
 }
 
-static void clip_editor_prepare_resize() {
+static void clip_editor_prepare_resize(double min_length, double resize_pos, PianoRollCmd cmd) {
+  MidiData* midi_data = current_clip->get_midi_data();
+  MidiNoteBuffer& note_seq = midi_data->note_sequence;
+  uint32_t num_selected = midi_data->num_selected;
+  uint32_t shortest_note = WB_INVALID_NOTE_ID;
+  double shortest_length = DBL_MAX;
+  bool first = true;
+
+  // Find shortest voice
+  for (uint32_t id = 0; const auto& note : midi_data->note_sequence) {
+    if (contain_bit(note.flags, MidiNoteFlags::Selected)) {
+      double length = note.max_time - note.min_time;
+      if (length < shortest_length) {
+        shortest_length = length;
+        shortest_note = id;
+      }
+      num_selected--;
+    }
+    if (num_selected == 0) {
+      break;
+    }
+    id++;
+  }
+
+  if (cmd == PianoRollCmd::ResizeLeft) {
+    min_resize_pos = 0.0;
+    max_resize_pos = shortest_length + resize_pos - min_length;
+  } else {
+    min_resize_pos = resize_pos - shortest_length + min_length;
+    max_resize_pos = DBL_MAX;
+  }
 }
 
 static void clip_editor_select_or_deselect_all_notes(bool should_select) {
@@ -483,9 +514,10 @@ static void clip_editor_render_note_editor() {
 
   const GridProperties grid_prop = get_grid_properties(grid_mode);
   double triplet_div = (grid_prop.max_division > 1.0 && triplet_grid) ? 1.5 : 1.0;
-  timeline_base.beat_division = grid_prop.max_division == DBL_MAX
-                                    ? calc_bar_division(inv_view_scale, grid_prop.gap_scale, triplet_grid) * 0.25
-                                    : grid_prop.max_division * triplet_div * 0.25;
+  timeline_base.beat_division =
+      grid_prop.max_division == DBL_MAX
+          ? calc_bar_division(inv_view_scale, grid_prop.max_division, grid_prop.gap_scale, triplet_grid) * 0.25
+          : grid_prop.max_division * triplet_div * 0.25;
 
   ImGui::InvisibleButton(
       "PianoRollContent",
@@ -677,9 +709,9 @@ static void clip_editor_render_note_editor() {
     min_relative_pos = relative_pos;
     max_relative_pos = relative_pos;
   } else if (edit_command == PianoRollCmd::ResizeLeft) {
-    min_relative_pos = math::max(hovered_position_grid, min_move_pos) - initial_time_pos;
+    min_relative_pos = math::clamp(hovered_position_grid, min_resize_pos, max_resize_pos) - initial_time_pos;
   } else if (edit_command == PianoRollCmd::ResizeRight) {
-    max_relative_pos = math::max(hovered_position_grid, min_move_pos) - initial_time_pos;
+    max_relative_pos = math::clamp(hovered_position_grid, min_resize_pos, max_resize_pos) - initial_time_pos;
   }
 
   // Release action
@@ -729,7 +761,33 @@ static void clip_editor_render_note_editor() {
           cmd->move_selected = notes_selected;
           cmd->relative_pos = relative_pos;
           cmd->relative_key_pos = relative_key_pos;
-          g_cmd_manager.execute("Clip editor: Move tool", cmd);
+          g_cmd_manager.execute("Clip editor: Move note", cmd);
+        }
+        break;
+      }
+      case PianoRollCmd::ResizeLeft: {
+        if (min_relative_pos != 0) {
+          MidiResizeNoteCmd* cmd = new MidiResizeNoteCmd();
+          cmd->track_id = current_track_id.value();
+          cmd->clip_id = current_clip_id.value();
+          cmd->note_id = edited_note_id;
+          cmd->relative_pos = min_relative_pos;
+          cmd->left_side = true;
+          cmd->selection = notes_selected;
+          g_cmd_manager.execute("Clip editor: Resize note", cmd);
+        }
+        break;
+      }
+      case PianoRollCmd::ResizeRight: {
+        if (max_relative_pos != 0) {
+          MidiResizeNoteCmd* cmd = new MidiResizeNoteCmd();
+          cmd->track_id = current_track_id.value();
+          cmd->clip_id = current_clip_id.value();
+          cmd->note_id = edited_note_id;
+          cmd->relative_pos = max_relative_pos;
+          cmd->left_side = false;
+          cmd->selection = notes_selected;
+          g_cmd_manager.execute("Clip editor: Resize note", cmd);
         }
         break;
       }
@@ -869,7 +927,7 @@ static void clip_editor_render_note_editor() {
 
     PianoRollCmd command{};
     if constexpr (WithCommand) {
-      if (holding_ctrl || selecting_notes) {
+      if (holding_ctrl || selecting_notes || edit_command != PianoRollCmd::None) {
         return PianoRollCmd::None;
       }
 
@@ -962,17 +1020,30 @@ static void clip_editor_render_note_editor() {
         note_delete.flags |= MidiNoteFlags::Deleted;  // Mark this note deleted
         force_redraw = true;
       } else if (start_command && cmd != PianoRollCmd::None) {
+        double min_length = 1.0 / timeline_base.beat_division;
         edit_command = cmd;
         initial_time_pos = hovered_position_grid;
         initial_key = hovered_key;
         edited_note_id = note_id;
         if (!notes_selected) {
-          min_note_pos = cmd == PianoRollCmd::Move ? 0.0 : note.min_time;
-          min_note_key = note.key;
-          max_note_key = note.key;
+          if (cmd == PianoRollCmd::Move) {
+            min_note_pos = note.min_time;
+            min_note_key = note.key;
+            max_note_key = note.key;
+          } else if (cmd == PianoRollCmd::ResizeLeft) {
+            min_resize_pos = 0.0;
+            max_resize_pos = note.max_time - min_length;
+          } else if (cmd == PianoRollCmd::ResizeRight) {
+            min_resize_pos = note.min_time + min_length;
+            max_resize_pos = DBL_MAX;
+          }
         } else {
           if (cmd == PianoRollCmd::Move) {
             clip_editor_prepare_move();
+          } else if (cmd == PianoRollCmd::ResizeLeft) {
+            clip_editor_prepare_resize(min_length, note.min_time, cmd);
+          } else if (cmd == PianoRollCmd::ResizeRight) {
+            clip_editor_prepare_resize(min_length, note.max_time, cmd);
           }
         }
         if (notes_selected && !selected) {
