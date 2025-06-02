@@ -111,13 +111,19 @@ uint32_t MidiAsset::find_first_note(double pos, uint32_t channel) {
 
 MidiAsset* MidiTable::load_from_file(const std::filesystem::path& path) {
   MidiAsset* asset = create_midi();
+  
   if (!asset) {
     return nullptr;
+  
   }
-  if (!load_notes_from_file(asset->data, path)) {
+  if (!load_notes_from_file(asset->data.note_sequence, path)) {
     destroy(asset);
     return nullptr;
   }
+
+  asset->data.create_metadata(asset->data.note_sequence.data(), asset->data.note_sequence.size());
+  asset->data.update_channel(0);
+
   return asset;
 }
 

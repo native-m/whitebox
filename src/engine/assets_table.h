@@ -8,9 +8,9 @@
 #include "core/common.h"
 #include "core/list.h"
 #include "core/memory.h"
-#include "core/midi.h"
 #include "core/vector.h"
 #include "dsp/sample.h"
+#include "engine/midi_data.h"
 #include "gfx/waveform_visual.h"
 
 namespace wb {
