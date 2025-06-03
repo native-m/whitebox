@@ -14,6 +14,8 @@
 #include "timeline.h"
 #include "timeline_base.h"
 
+#define WB_ENABLE_PIANO_ROLL_DEBUG_MENU 1
+
 namespace wb {
 
 enum class PianoRollCmd {
@@ -71,7 +73,7 @@ static ImVec2 main_cursor_pos;
 static float vscroll = 0.0f;
 static float last_vscroll = 0.0f;
 static float scroll_delta_y = 0.0f;
-static float space_divider = 0.25f;
+static float space_divider = 0.225f;
 static float zoom_pos_y = 0.0f;
 static float note_height = 18.0f;
 static float note_height_in_pixel = note_height;
@@ -120,6 +122,8 @@ static int32_t max_paint = INT32_MIN;
 static std::optional<uint32_t> note_id_context_menu;
 static Vector<MidiNote> painted_notes;
 static Vector<uint32_t> fg_notes;
+
+static bool show_debug_id = false;
 
 static void clip_editor_zoom_vertically(float mouse_pos_y, float height, float mouse_wheel) {
   float min_scroll_pos_normalized = vscroll / height;
@@ -402,6 +406,8 @@ static void clip_editor_render_control_sidebar() {
         cmd->old_rate = old_value;
         g_cmd_manager.execute("Clip editor: Clip parameter tweak (rate)", cmd);
       });
+
+  ImGui::Checkbox("Show debug ID", &show_debug_id);
 }
 
 static void draw_piano_keys(ImDrawList* draw_list, ImVec2& pos, const ImVec2& size, uint32_t oct) {
@@ -870,7 +876,7 @@ static void clip_editor_render_note_editor() {
 
     if (timeline_base.redraw) {
 #ifdef WB_ENABLE_PIANO_ROLL_DEBUG_MENU
-      if (display_note_id) {
+      if (show_debug_id) {
         char str_id[16]{};
         fmt::format_to_n(str_id, sizeof(str_id), "{}", note_id);
         layer1_dl->AddText(ImVec2(a.x, a.y - font_size), 0xFFFFFFFF, str_id);
@@ -1231,9 +1237,12 @@ static void clip_editor_render_note_editor() {
 }
 
 static void clip_editor_render_event_editor() {
+  ImDrawList* parent_dl = ImGui::GetWindowDrawList();
+  ImGui::SetCursorPosX(math::max(timeline_base.vsplitter_size, timeline_base.vsplitter_min_size) + 2.0f);
+
   if (ImGui::BeginChild("##piano_roll_event", ImVec2(), 0, ImGuiWindowFlags_NoBackground)) {
     auto draw_list = ImGui::GetWindowDrawList();
-    auto cursor_pos = ImGui::GetCursorScreenPos() + ImVec2(timeline_base.vsplitter_min_size, 0.0f);
+    auto cursor_pos = ImGui::GetCursorScreenPos();
     auto editor_event_region = ImGui::GetContentRegionAvail();
     double view_scale = timeline_base.calc_view_scale();
     double scroll_pos_x = std::round((timeline_base.min_hscroll * timeline_base.song_length) / view_scale);
@@ -1246,18 +1255,22 @@ static void clip_editor_render_event_editor() {
       auto note_data = current_clip->midi.asset;
       for (auto& note : note_data->data.note_sequence) {
         float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * pixel_scale);
-        if (min_pos_x < cursor_pos.x)
+        float max_pos_x = (float)math::round(scroll_offset_x + note.max_time * pixel_scale);
+        if (max_pos_x < cursor_pos.x)
           continue;
         if (min_pos_x > end_x)
           break;
         if (contain_bit(note.flags, MidiNoteFlags::Deleted))
           continue;
-        float min_pos_y = cursor_pos.y + (1.0f - note.velocity) * editor_event_region.y;
+        float min_pos_y = (float)math::round(cursor_pos.y + (1.0f - note.velocity) * editor_event_region.y);
         ImVec2 min_pos = ImVec2(min_pos_x, min_pos_y);
         draw_list->AddLine(min_pos, ImVec2(min_pos_x, end_y), note_color);
+        draw_list->AddLine(min_pos, ImVec2(max_pos_x, min_pos_y), note_color);
         draw_list->AddRectFilled(min_pos - ImVec2(2.0f, 2.0f), min_pos + ImVec2(3.0f, 3.0f), note_color);
       }
     }
+
+    im_draw_vline(parent_dl, cursor_pos.x -1.0f, cursor_pos.y, end_y, border_color);
   }
   ImGui::EndChild();
 }

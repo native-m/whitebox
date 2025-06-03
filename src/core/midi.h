@@ -44,12 +44,6 @@ struct MidiNoteMetadata {
 };
 using MidiNoteMetadataPool = Vector<MidiNoteMetadata>;
 
-struct MidiNoteState {
-  uint64_t last_tick;
-  float velocity;
-  bool on;
-};
-
 struct MidiEditResult {
   Vector<uint32_t> modified_notes;
   Vector<MidiNote> deleted_notes;

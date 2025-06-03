@@ -10,6 +10,12 @@
 
 namespace wb {
 
+struct MidiNoteState {
+  uint64_t last_tick;
+  float velocity;
+  bool on;
+};
+
 bool load_notes_from_file(MidiNoteBuffer& note_buffer, const std::filesystem::path& path) {
   std::ifstream file(path, std::ios::binary);
   if (!file.is_open()) {
