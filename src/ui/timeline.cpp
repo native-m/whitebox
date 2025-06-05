@@ -1030,6 +1030,7 @@ void TimelineWindow::render_track_lanes() {
   }
 
   if (edit_command != TimelineCommand::None) {
+    g_cmd_manager.lock();
     apply_edit(mouse_at_gridline);
   }
 
@@ -2262,6 +2263,7 @@ void TimelineWindow::finish_edit() {
   clip_resize.resize_fast(0);
   recalculate_song_length();
   selected_track_regions.clear();
+  g_cmd_manager.unlock();
   Log::debug("Finish edit");
 }
 

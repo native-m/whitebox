@@ -806,6 +806,7 @@ static void clip_editor_render_note_editor() {
     min_paint = 1;
     max_paint = INT32_MIN;
     edited_note_id = WB_INVALID_NOTE_ID;
+    g_cmd_manager.unlock();
     fg_notes.resize_fast(0);
     if (!painted_notes.empty()) {
       painted_notes.resize(0);
@@ -1172,6 +1173,10 @@ static void clip_editor_render_note_editor() {
         break;
       draw_note.operator()<false>(min_pos_x, max_pos_x, note.velocity, 0, key, note.flags);
     }
+  }
+
+  if (edit_command != PianoRollCmd::None) {
+    g_cmd_manager.lock();
   }
 
   // Display selection rectangle
