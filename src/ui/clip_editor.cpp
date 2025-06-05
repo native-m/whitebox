@@ -33,6 +33,12 @@ enum class PianoRollCmd {
   Delete,
 };
 
+enum class EventEditorCmd {
+  None,
+  ChangeVelocity,
+  // ..
+};
+
 bool g_clip_editor_window_open = true;
 
 static constexpr float note_count = 132.0f;
@@ -122,6 +128,11 @@ static int32_t max_paint = INT32_MIN;
 static std::optional<uint32_t> note_id_context_menu;
 static Vector<MidiNote> painted_notes;
 static Vector<uint32_t> fg_notes;
+
+static EventEditorCmd ev_editor_command{};
+static float initial_velocity = 0.0f;
+static float min_relative_vel = 0.0f;
+static float max_relative_vel = 0.0f;
 
 static bool show_debug_id = false;
 
@@ -525,10 +536,7 @@ static void clip_editor_render_note_editor() {
           ? calc_bar_division(inv_view_scale, grid_prop.max_division, grid_prop.gap_scale, triplet_grid) * 0.25
           : grid_prop.max_division * triplet_div * 0.25;
 
-  ImGui::InvisibleButton(
-      "PianoRollContent",
-      ImVec2(region_size.x, max_height),
-      ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonMiddle | ImGuiButtonFlags_MouseButtonRight);
+  ImGui::InvisibleButton("PianoRollContent", ImVec2(region_size.x, max_height), ImGuiButtonFlags_MouseButtonMask_);
 
   // Resize piano roll framebuffer
   if (old_piano_roll_size.x != region_size.x || old_piano_roll_size.y != region_size.y) {
@@ -886,13 +894,16 @@ static void clip_editor_render_note_editor() {
 
       bool selected = contain_bit(flags, MidiNoteFlags::Selected);
       bool muted = contain_bit(flags, MidiNoteFlags::Muted);
+      ColorU32 col = !muted ? note_color : muted_note_color;
+      // ColorU32 note_alpha = math::round(math::lerp(vel, 0.40f, 0.85f) * 255.0f);
 
       // Draw note rect
       layer1_dl->PathLineTo(a);
       layer1_dl->PathLineTo(ImVec2(b.x, a.y));
       layer1_dl->PathLineTo(b);
       layer1_dl->PathLineTo(ImVec2(a.x, b.y));
-      layer1_dl->PathFillConvex(!muted ? note_color : muted_note_color);
+      layer1_dl->PathFillConvex(col);
+      // layer1_dl->PathFillConvex(WB_IM_COLOR_U32_SET_ALPHA(col, note_alpha));
 
       // Draw note border
       layer1_dl->PathLineTo(a);
@@ -1246,36 +1257,104 @@ static void clip_editor_render_event_editor() {
   ImGui::SetCursorPosX(math::max(timeline_base.vsplitter_size, timeline_base.vsplitter_min_size) + 2.0f);
 
   if (ImGui::BeginChild("##piano_roll_event", ImVec2(), 0, ImGuiWindowFlags_NoBackground)) {
+    ImVec2 mouse_pos = ImGui::GetMousePos();
     auto draw_list = ImGui::GetWindowDrawList();
     auto cursor_pos = ImGui::GetCursorScreenPos();
-    auto editor_event_region = ImGui::GetContentRegionAvail();
+    auto event_editor_region = ImGui::GetContentRegionAvail();
+
+    ImGui::InvisibleButton("##ev_editor_btn", event_editor_region, ImGuiButtonFlags_MouseButtonMask_);
+    bool is_hovered = ImGui::IsItemHovered();
+    bool is_active = ImGui::IsItemActive();
+    bool is_activated = ImGui::IsItemActivated();
+    bool left_mouse_clicked = is_activated && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+    bool left_mouse_down = is_active && ImGui::IsMouseDown(ImGuiMouseButton_Left);
+    bool middle_mouse_clicked = is_activated && ImGui::IsMouseClicked(ImGuiMouseButton_Middle);
+    bool middle_mouse_down = is_active && ImGui::IsMouseDown(ImGuiMouseButton_Middle);
+    bool right_mouse_clicked = is_activated && ImGui::IsMouseClicked(ImGuiMouseButton_Right);
+    bool right_mouse_down = is_active && ImGui::IsMouseDown(ImGuiMouseButton_Right);
     double view_scale = timeline_base.calc_view_scale();
     double scroll_pos_x = std::round((timeline_base.min_hscroll * timeline_base.song_length) / view_scale);
     double scroll_offset_x = (double)cursor_pos.x - scroll_pos_x;
     double pixel_scale = 1.0 / view_scale;
     float end_x = cursor_pos.x + timeline_base.timeline_width;
-    float end_y = cursor_pos.y + editor_event_region.y;
+    float end_y = cursor_pos.y + event_editor_region.y;
+    ImU32 note_color_hovered = WB_IM_COLOR_U32_SET_ALPHA(note_color, 0x5F);
+    std::optional<uint32_t> hovered_note_id;
 
-    if (current_clip && current_clip->is_midi()) {
-      auto note_data = current_clip->midi.asset;
-      for (auto& note : note_data->data.note_sequence) {
-        float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * pixel_scale);
-        float max_pos_x = (float)math::round(scroll_offset_x + note.max_time * pixel_scale);
-        if (max_pos_x < cursor_pos.x)
-          continue;
-        if (min_pos_x > end_x)
+    float velocity_amount = 0.0f;
+    float relative_velocity = 0.0f;
+
+    if (is_active || is_hovered || ev_editor_command != EventEditorCmd::None) {
+      velocity_amount = (mouse_pos.y - cursor_pos.y) / event_editor_region.y;
+      relative_velocity = initial_velocity - math::clamp(velocity_amount, 0.0f, 1.0f);
+    }
+
+    if (!left_mouse_down && ev_editor_command != EventEditorCmd::None) {
+      switch (ev_editor_command) {
+        case EventEditorCmd::ChangeVelocity: {
+          MidiChangeNoteVelocityCmd* cmd = new MidiChangeNoteVelocityCmd();
+          cmd->track_id = current_track_id.value();
+          cmd->clip_id = current_clip_id.value();
+          cmd->note_id = edited_note_id;
+          cmd->relative_velocity = relative_velocity;
+          g_cmd_manager.execute("Clip editor: Change note velocity", cmd);
           break;
-        if (contain_bit(note.flags, MidiNoteFlags::Deleted))
-          continue;
-        float min_pos_y = (float)math::round(cursor_pos.y + (1.0f - note.velocity) * editor_event_region.y);
-        ImVec2 min_pos = ImVec2(min_pos_x, min_pos_y);
-        draw_list->AddLine(min_pos, ImVec2(min_pos_x, end_y), note_color);
-        draw_list->AddLine(min_pos, ImVec2(max_pos_x, min_pos_y), note_color);
-        draw_list->AddRectFilled(min_pos - ImVec2(2.0f, 2.0f), min_pos + ImVec2(3.0f, 3.0f), note_color);
+        }
+      }
+      ev_editor_command = EventEditorCmd::None;
+      edited_note_id = WB_INVALID_NOTE_ID;
+      initial_velocity = 0.0f;
+    }
+
+    MidiData* midi_data = current_clip->get_midi_data();
+    for (uint32_t id = 0; auto& note : midi_data->note_sequence) {
+      const float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * pixel_scale);
+      const float max_pos_x = (float)math::round(scroll_offset_x + note.max_time * pixel_scale);
+      if (max_pos_x < cursor_pos.x)
+        continue;
+      if (min_pos_x > end_x)
+        break;
+      if (contain_bit(note.flags, MidiNoteFlags::Deleted))
+        continue;
+      float velocity = (id == edited_note_id) ? note.velocity + relative_velocity : note.velocity;
+      float min_pos_y = (float)math::round(cursor_pos.y + (1.0f - velocity) * event_editor_region.y);
+      ImVec2 min_pos = ImVec2(min_pos_x, min_pos_y);
+      draw_list->AddLine(min_pos, ImVec2(min_pos_x, end_y), note_color);
+      draw_list->AddLine(min_pos, ImVec2(max_pos_x, min_pos_y), note_color);
+      draw_list->AddRectFilled(min_pos - ImVec2(2.0f, 2.0f), min_pos + ImVec2(3.0f, 3.0f), note_color);
+
+      ImRect handle_bb(min_pos - ImVec2(2.0f, 3.0f), ImVec2(max_pos_x, min_pos.y + 4.0f));
+      if (handle_bb.Contains(mouse_pos) || id == edited_note_id) {
+        hovered_note_id = id;
+      }
+
+      id++;
+    }
+
+    if (hovered_note_id && edit_command == PianoRollCmd::None) {
+      uint32_t id = hovered_note_id.value();
+      MidiNote& note = midi_data->note_sequence[id];
+      const float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * pixel_scale);
+      const float max_pos_x = (float)math::round(scroll_offset_x + note.max_time * pixel_scale);
+      float velocity = (id == edited_note_id) ? note.velocity + relative_velocity : note.velocity;
+      float min_pos_y = (float)math::round(cursor_pos.y + (1.0f - velocity) * event_editor_region.y);
+      ImVec2 min_pos = ImVec2(min_pos_x, min_pos_y);
+      ImRect handle_bb(min_pos - ImVec2(2.0f, 3.0f), ImVec2(max_pos_x, min_pos.y + 4.0f));
+      draw_list->AddRectFilled(handle_bb.Min, handle_bb.Max, note_color_hovered);
+      ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
+
+      if (left_mouse_clicked) {
+        if (ImGui::IsKeyPressed(ImGuiMod_Ctrl, false)) {
+
+        } else if (ev_editor_command == EventEditorCmd::None) {
+          ev_editor_command = EventEditorCmd::ChangeVelocity;
+          edited_note_id = hovered_note_id.value();
+          initial_velocity = 1.0f - note.velocity;
+        }
       }
     }
 
-    im_draw_vline(parent_dl, cursor_pos.x -1.0f, cursor_pos.y, end_y, border_color);
+    im_draw_vline(parent_dl, cursor_pos.x - 1.0f, cursor_pos.y, end_y, border_color);
   }
   ImGui::EndChild();
 }
@@ -1321,7 +1400,7 @@ static void clip_editor_render_piano_roll() {
     indicator_frame_color = base_color.change_alpha(0.5f).darken(0.6f).to_uint32();
     indicator_color = base_color.darken(0.6f).to_uint32();
     note_color = base_color.brighten(0.75f).change_alpha(0.85f).to_uint32();
-    muted_note_color = base_color.brighten(0.50f).desaturate(1.0f).to_uint32();
+    muted_note_color = base_color.brighten(0.50f).greyscale().to_uint32();
     text_color = base_color.darken(1.5f).to_uint32();
     piano_roll_dl = ImGui::GetWindowDrawList();
     vscroll = ImGui::GetScrollY();

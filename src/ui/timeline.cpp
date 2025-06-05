@@ -101,6 +101,16 @@ void TimelineWindow::render() {
   }
   ImGui::PopStyleVar();
 
+  ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
+  ImVec2 child_content_size = ImGui::GetContentRegionAvail();
+  ImDrawList* draw_list = ImGui::GetWindowDrawList();
+  im_draw_hline(
+      draw_list,
+      cursor_pos.y - 1.0f,
+      cursor_pos.x,
+      cursor_pos.x + child_content_size.x,
+      ImGui::GetColorU32(ImGuiCol_Separator));
+
   if (ImGui::BeginChild("timeline_content")) {
     main_draw_list = ImGui::GetWindowDrawList();
     content_min = ImGui::GetWindowContentRegionMin();

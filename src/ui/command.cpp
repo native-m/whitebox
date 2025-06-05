@@ -673,4 +673,26 @@ void MidiDeleteNoteCmd::undo() {
   MidiCmd::undo(0);
 }
 
+//
+
+bool MidiChangeNoteVelocityCmd::execute() {
+  Track* track = g_engine.tracks[track_id];
+  Clip* clip = track->clips[clip_id];
+  MidiData* data = clip->get_midi_data();
+  MidiNoteBuffer& note_seq = data->note_sequence;
+  std::unique_lock lock(g_engine.editor_lock);
+  old_velocity = note_seq[note_id].velocity;
+  note_seq[note_id].velocity += relative_velocity;
+  return true;
+}
+
+void MidiChangeNoteVelocityCmd::undo() {
+  Track* track = g_engine.tracks[track_id];
+  Clip* clip = track->clips[clip_id];
+  MidiData* data = clip->get_midi_data();
+  MidiNoteBuffer& note_seq = data->note_sequence;
+  std::unique_lock lock(g_engine.editor_lock);
+  note_seq[note_id].velocity = old_velocity;
+}
+
 }  // namespace wb

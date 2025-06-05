@@ -269,13 +269,6 @@ bool TimelineBase::render_time_ruler(
 
   dl->PopClipRect();
 
-  ImVec2 origin_cursor_pos = ImGui::GetCursorScreenPos();
-  ImVec2 content_size_from_origin = ImGui::GetContentRegionAvail();
-  dl->AddLine(
-      ImVec2(origin_cursor_pos.x, origin_cursor_pos.y - 1.0f),
-      ImVec2(origin_cursor_pos.x + content_size_from_origin.x, origin_cursor_pos.y - 1.0f),
-      col);
-
   return active;
 }
 

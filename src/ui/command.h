@@ -331,6 +331,17 @@ struct MidiDeleteNoteCmd : public MidiCmd {
   void undo() override;
 };
 
+struct MidiChangeNoteVelocityCmd : public Command {
+  uint32_t track_id;
+  uint32_t clip_id;
+  uint32_t note_id;
+  float relative_velocity;
+  float old_velocity;
+
+  bool execute() override;
+  void undo() override;
+};
+
 struct TrackParameterChangeCmd {
   uint32_t track_id;
   uint16_t param_id;

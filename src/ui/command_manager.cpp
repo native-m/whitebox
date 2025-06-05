@@ -45,7 +45,7 @@ bool CommandManager::execute(const std::string& name, Command* cmd) {
 }
 
 void CommandManager::undo() {
-  if (num_history == 0)
+  if (locked || num_history == 0)
     return;
   current_command->undo();
   current_command = current_command->prev();
@@ -55,7 +55,7 @@ void CommandManager::undo() {
 }
 
 void CommandManager::redo() {
-  if (num_history == max_history || current_command == last_command)
+  if (locked || num_history == max_history || current_command == last_command)
     return;
   current_command = current_command->next();
   current_command->execute();
