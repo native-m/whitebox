@@ -118,7 +118,7 @@ static double initial_time_pos = 0.0;
 static double min_note_pos = 0.0;
 static double min_resize_pos = 0.0;
 static double max_resize_pos = 0.0;
-static uint32_t edited_note_id = (uint32_t)WB_INVALID_NOTE_ID;
+static uint32_t edited_note_id = WB_INVALID_NOTE_ID;
 static int16_t min_note_key = 0;
 static int16_t max_note_key = 0;
 static int32_t initial_key = -1;
@@ -132,7 +132,8 @@ static Vector<uint32_t> fg_notes;
 static EventEditorCmd ev_editor_command{};
 static float initial_velocity = 0.0f;
 static float min_relative_vel = 0.0f;
-static float max_relative_vel = 0.0f;
+static float max_relative_vel = 1.0f;
+static uint32_t ev_edit_note_id = WB_INVALID_NOTE_ID;
 
 static bool show_debug_id = false;
 
@@ -215,6 +216,29 @@ static void clip_editor_prepare_resize(double min_length, double resize_pos, Pia
   } else {
     min_resize_pos = resize_pos - shortest_length + min_length;
     max_resize_pos = DBL_MAX;
+  }
+}
+
+static void clip_editor_pre_event_edit() {
+  MidiData* midi_data = current_clip->get_midi_data();
+  uint32_t num_selected = midi_data->num_selected;
+
+  if (num_selected > 0) {
+    min_relative_vel = FLT_MAX;
+    max_relative_vel = 0.0f;
+    for (const auto& note : midi_data->note_sequence) {
+      if (contain_bit(note.flags, MidiNoteFlags::Selected)) {
+        min_relative_vel = math::min(min_relative_vel, note.velocity);
+        max_relative_vel = math::max(max_relative_vel, note.velocity);
+        num_selected--;
+      }
+      if (num_selected == 0) {
+        break;
+      }
+    }
+  } else {
+    min_relative_vel = initial_velocity;
+    max_relative_vel = initial_velocity;
   }
 }
 
@@ -1279,53 +1303,99 @@ static void clip_editor_render_event_editor() {
     float end_x = cursor_pos.x + timeline_base.timeline_width;
     float end_y = cursor_pos.y + event_editor_region.y;
     ImU32 note_color_hovered = WB_IM_COLOR_U32_SET_ALPHA(note_color, 0x5F);
+    MidiData* midi_data = current_clip->get_midi_data();
+    bool notes_selected = midi_data->num_selected > 0;
     std::optional<uint32_t> hovered_note_id;
 
     float velocity_amount = 0.0f;
     float relative_velocity = 0.0f;
 
     if (is_active || is_hovered || ev_editor_command != EventEditorCmd::None) {
-      velocity_amount = (mouse_pos.y - cursor_pos.y) / event_editor_region.y;
-      relative_velocity = initial_velocity - math::clamp(velocity_amount, 0.0f, 1.0f);
+      float min_amount = initial_velocity - min_relative_vel;
+      float max_amount = 1.0 - max_relative_vel + initial_velocity;
+      velocity_amount = 1.0f - ((mouse_pos.y - cursor_pos.y) / event_editor_region.y);
+      relative_velocity = math::clamp(velocity_amount, min_amount, max_amount) - initial_velocity;
     }
 
     if (!left_mouse_down && ev_editor_command != EventEditorCmd::None) {
       switch (ev_editor_command) {
         case EventEditorCmd::ChangeVelocity: {
-          MidiChangeNoteVelocityCmd* cmd = new MidiChangeNoteVelocityCmd();
+          MidiChangeSelectedNoteVelocityCmd* cmd = new MidiChangeSelectedNoteVelocityCmd();
           cmd->track_id = current_track_id.value();
           cmd->clip_id = current_clip_id.value();
-          cmd->note_id = edited_note_id;
           cmd->relative_velocity = relative_velocity;
+
+          if (notes_selected) {
+            uint32_t num_selected = midi_data->num_selected;
+            cmd->old_velocity.reserve(num_selected);
+            for (uint32_t id = 0; const auto& note : midi_data->note_sequence) {
+              if (contain_bit(note.flags, MidiNoteFlags::Selected)) {
+                cmd->old_velocity.emplace_back(id, note.velocity);
+                num_selected--;
+              }
+              if (num_selected == 0) {
+                break;
+              }
+              id++;
+            }
+          } else {
+            float velocity = midi_data->note_sequence[ev_edit_note_id].velocity;
+            cmd->old_velocity.emplace_back(ev_edit_note_id, velocity);
+          }
+
           g_cmd_manager.execute("Clip editor: Change note velocity", cmd);
           break;
         }
       }
       ev_editor_command = EventEditorCmd::None;
-      edited_note_id = WB_INVALID_NOTE_ID;
+      ev_edit_note_id = WB_INVALID_NOTE_ID;
       initial_velocity = 0.0f;
     }
 
-    MidiData* midi_data = current_clip->get_midi_data();
+    bool change_velocity = ev_editor_command == EventEditorCmd::ChangeVelocity;
     for (uint32_t id = 0; auto& note : midi_data->note_sequence) {
       const float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * pixel_scale);
       const float max_pos_x = (float)math::round(scroll_offset_x + note.max_time * pixel_scale);
-      if (max_pos_x < cursor_pos.x)
+
+      if (max_pos_x < cursor_pos.x) {
+        id++;
         continue;
+      }
+
       if (min_pos_x > end_x)
         break;
-      if (contain_bit(note.flags, MidiNoteFlags::Deleted))
+
+      if (contain_bit(note.flags, MidiNoteFlags::Deleted)) {
+        id++;
         continue;
-      float velocity = (id == edited_note_id) ? note.velocity + relative_velocity : note.velocity;
+      }
+
+      bool selected = contain_bit(note.flags, MidiNoteFlags::Selected);
+      float velocity = note.velocity;
+      if (change_velocity) {
+        if (notes_selected) {
+          if (selected)
+            velocity += relative_velocity;
+        } else if (id == ev_edit_note_id) {
+          velocity += relative_velocity;
+        }
+      }
+
       float min_pos_y = (float)math::round(cursor_pos.y + (1.0f - velocity) * event_editor_region.y);
       ImVec2 min_pos = ImVec2(min_pos_x, min_pos_y);
-      draw_list->AddLine(min_pos, ImVec2(min_pos_x, end_y), note_color);
-      draw_list->AddLine(min_pos, ImVec2(max_pos_x, min_pos_y), note_color);
-      draw_list->AddRectFilled(min_pos - ImVec2(2.0f, 2.0f), min_pos + ImVec2(3.0f, 3.0f), note_color);
+      ImU32 color = !selected ? note_color : 0xFFFFFFFF;
+      draw_list->AddLine(min_pos, ImVec2(min_pos_x, end_y), color);
+      draw_list->AddLine(min_pos, ImVec2(max_pos_x, min_pos_y), color);
+      draw_list->AddRectFilled(min_pos - ImVec2(2.0f, 2.0f), min_pos + ImVec2(3.0f, 3.0f), color);
 
       ImRect handle_bb(min_pos - ImVec2(2.0f, 3.0f), ImVec2(max_pos_x, min_pos.y + 4.0f));
-      if (handle_bb.Contains(mouse_pos) || id == edited_note_id) {
-        hovered_note_id = id;
+      if (handle_bb.Contains(mouse_pos)) {
+        if (notes_selected) {
+          if (selected)
+            hovered_note_id = id;
+        } else if (id == ev_edit_note_id) {
+          hovered_note_id = id;
+        }
       }
 
       id++;
@@ -1336,7 +1406,7 @@ static void clip_editor_render_event_editor() {
       MidiNote& note = midi_data->note_sequence[id];
       const float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * pixel_scale);
       const float max_pos_x = (float)math::round(scroll_offset_x + note.max_time * pixel_scale);
-      float velocity = (id == edited_note_id) ? note.velocity + relative_velocity : note.velocity;
+      float velocity = (id == ev_edit_note_id) ? note.velocity + relative_velocity : note.velocity;
       float min_pos_y = (float)math::round(cursor_pos.y + (1.0f - velocity) * event_editor_region.y);
       ImVec2 min_pos = ImVec2(min_pos_x, min_pos_y);
       ImRect handle_bb(min_pos - ImVec2(2.0f, 3.0f), ImVec2(max_pos_x, min_pos.y + 4.0f));
@@ -1345,11 +1415,11 @@ static void clip_editor_render_event_editor() {
 
       if (left_mouse_clicked) {
         if (ImGui::IsKeyPressed(ImGuiMod_Ctrl, false)) {
-
         } else if (ev_editor_command == EventEditorCmd::None) {
           ev_editor_command = EventEditorCmd::ChangeVelocity;
-          edited_note_id = hovered_note_id.value();
-          initial_velocity = 1.0f - note.velocity;
+          ev_edit_note_id = hovered_note_id.value();
+          initial_velocity = math::round(note.velocity * event_editor_region.y) / event_editor_region.y;
+          clip_editor_pre_event_edit();
         }
       }
     }
@@ -1507,6 +1577,7 @@ void clip_editor_set_clip(uint32_t track_id, uint32_t clip_id) {
   current_clip = current_track->clips[clip_id];
   current_track_id = track_id;
   current_clip_id = clip_id;
+  timeline_base.song_length = math::max(current_clip->get_midi_data()->max_length, 16.0);
   force_redraw = true;
 }
 
