@@ -243,7 +243,11 @@ struct Vector {
   inline T& emplace_back(Args&&... args) {
     if (intern_.size == intern_.capacity) [[unlikely]]
       reserve_internal_(grow_capacity_());
-    T* new_item = new (intern_.data + intern_.size) T(std::forward<Args>(args)...);
+    T* new_item;
+    if constexpr (std::is_aggregate_v<T>)
+      new_item = new (intern_.data + intern_.size) T{ std::forward<Args>(args)... };
+    else
+      new_item = new (intern_.data + intern_.size) T(std::forward<Args>(args)...);
     intern_.size++;
     return *new_item;
   }

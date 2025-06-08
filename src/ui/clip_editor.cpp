@@ -69,12 +69,17 @@ static ImDrawList* layer2_dl{};
 static ImDrawData layer_draw_data;
 static GPUTexture* piano_roll_fb{};
 
+static ImDrawList* ev_layer1_dl{};
+static ImDrawList* ev_layer2_dl{};
+static GPUTexture* event_editor_fb{};
+
 static Track* current_track;
 static Clip* current_clip;
 static std::optional<uint32_t> current_track_id;
 static std::optional<uint32_t> current_clip_id;
 
 static ImVec2 old_piano_roll_size;
+static ImVec2 old_event_editor_size;
 static ImVec2 main_cursor_pos;
 static float vscroll = 0.0f;
 static float last_vscroll = 0.0f;
@@ -141,6 +146,7 @@ static void clip_editor_zoom_vertically(float mouse_pos_y, float height, float m
   float min_scroll_pos_normalized = vscroll / height;
   new_note_height = math::max(note_height + mouse_wheel, 5.0f);
   last_scroll_pos_y_normalized = min_scroll_pos_normalized;
+  timeline_base.redraw = true;
 }
 
 static void clip_editor_delete_notes(bool selected) {
@@ -1285,6 +1291,23 @@ static void clip_editor_render_event_editor() {
     auto draw_list = ImGui::GetWindowDrawList();
     auto cursor_pos = ImGui::GetCursorScreenPos();
     auto event_editor_region = ImGui::GetContentRegionAvail();
+    auto view_min = cursor_pos;
+    auto view_max = cursor_pos + event_editor_region;
+    bool redraw = timeline_base.redraw;
+
+    // Resize event editor framebuffer
+    if (old_event_editor_size.x != event_editor_region.x || old_event_editor_size.y != event_editor_region.y) {
+      static constexpr GPUTextureUsageFlags flags = GPUTextureUsage::Sampled | GPUTextureUsage::RenderTarget;
+      int width = (int)math::max(event_editor_region.x, 16.0f);
+      int height = (int)math::max(event_editor_region.y, 16.0f);
+      if (event_editor_fb)
+        g_renderer->destroy_texture(event_editor_fb);
+      event_editor_fb = g_renderer->create_texture(flags, GPUFormat::UnormB8G8R8A8, width, height, true, 0, 0, nullptr);
+      assert(event_editor_fb != nullptr);
+      Log::debug("Event editor framebuffer resized ({}x{})", (int)width, (int)height);
+      old_event_editor_size = event_editor_region;
+      redraw = true;
+    }
 
     ImGui::InvisibleButton("##ev_editor_btn", event_editor_region, ImGuiButtonFlags_MouseButtonMask_);
     bool is_hovered = ImGui::IsItemHovered();
@@ -1315,6 +1338,17 @@ static void clip_editor_render_event_editor() {
       float max_amount = 1.0 - max_relative_vel + initial_velocity;
       velocity_amount = 1.0f - ((mouse_pos.y - cursor_pos.y) / event_editor_region.y);
       relative_velocity = math::clamp(velocity_amount, min_amount, max_amount) - initial_velocity;
+      redraw = true;
+    }
+
+    if (redraw) {
+      ImTextureID font_tex_id = ImGui::GetIO().Fonts->TexID;
+      ev_layer1_dl->_ResetForNewFrame();
+      ev_layer2_dl->_ResetForNewFrame();
+      ev_layer1_dl->PushTextureID(font_tex_id);
+      ev_layer2_dl->PushTextureID(font_tex_id);
+      ev_layer1_dl->PushClipRect(view_min, view_max);
+      ev_layer2_dl->PushClipRect(view_min, view_max);
     }
 
     if (!left_mouse_down && ev_editor_command != EventEditorCmd::None) {
@@ -1371,7 +1405,9 @@ static void clip_editor_render_event_editor() {
       }
 
       bool selected = contain_bit(note.flags, MidiNoteFlags::Selected);
+      ImDrawList* dl = !selected ? ev_layer1_dl : ev_layer2_dl;
       float velocity = note.velocity;
+
       if (change_velocity) {
         if (notes_selected) {
           if (selected)
@@ -1383,35 +1419,43 @@ static void clip_editor_render_event_editor() {
 
       float min_pos_y = (float)math::round(cursor_pos.y + (1.0f - velocity) * event_editor_region.y);
       ImVec2 min_pos = ImVec2(min_pos_x, min_pos_y);
-      ImU32 color = !selected ? note_color : 0xFFFFFFFF;
-      draw_list->AddLine(min_pos, ImVec2(min_pos_x, end_y), color);
-      draw_list->AddLine(min_pos, ImVec2(max_pos_x, min_pos_y), color);
-      draw_list->AddRectFilled(min_pos - ImVec2(2.0f, 2.0f), min_pos + ImVec2(3.0f, 3.0f), color);
-
       ImRect handle_bb(min_pos - ImVec2(2.0f, 3.0f), ImVec2(max_pos_x, min_pos.y + 4.0f));
-      if (handle_bb.Contains(mouse_pos)) {
+
+      if (id == ev_edit_note_id) {
+        hovered_note_id = id;
+      } else if (handle_bb.Contains(mouse_pos)) {
         if (notes_selected) {
           if (selected)
             hovered_note_id = id;
-        } else if (id == ev_edit_note_id) {
+        } else {
           hovered_note_id = id;
         }
+      }
+
+      if (redraw) {
+        ImU32 color = !selected ? note_color : 0xFFFFFFFF;
+        dl->AddLine(min_pos, ImVec2(min_pos_x, end_y), color);
+        dl->AddLine(min_pos, ImVec2(max_pos_x, min_pos_y), color);
+        dl->AddRectFilled(min_pos - ImVec2(2.0f, 2.0f), min_pos + ImVec2(3.0f, 3.0f), color);
       }
 
       id++;
     }
 
-    if (hovered_note_id && edit_command == PianoRollCmd::None) {
+    if (hovered_note_id && ev_editor_command == EventEditorCmd::None) {
       uint32_t id = hovered_note_id.value();
       MidiNote& note = midi_data->note_sequence[id];
-      const float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * pixel_scale);
-      const float max_pos_x = (float)math::round(scroll_offset_x + note.max_time * pixel_scale);
-      float velocity = (id == ev_edit_note_id) ? note.velocity + relative_velocity : note.velocity;
-      float min_pos_y = (float)math::round(cursor_pos.y + (1.0f - velocity) * event_editor_region.y);
-      ImVec2 min_pos = ImVec2(min_pos_x, min_pos_y);
-      ImRect handle_bb(min_pos - ImVec2(2.0f, 3.0f), ImVec2(max_pos_x, min_pos.y + 4.0f));
-      draw_list->AddRectFilled(handle_bb.Min, handle_bb.Max, note_color_hovered);
-      ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
+
+      if (redraw) {
+        const float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * pixel_scale);
+        const float max_pos_x = (float)math::round(scroll_offset_x + note.max_time * pixel_scale);
+        float velocity = (id == ev_edit_note_id) ? note.velocity + relative_velocity : note.velocity;
+        float min_pos_y = (float)math::round(cursor_pos.y + (1.0f - velocity) * event_editor_region.y);
+        ImVec2 min_pos(min_pos_x, min_pos_y);
+        ImRect handle_bb(min_pos - ImVec2(2.0f, 3.0f), ImVec2(max_pos_x, min_pos.y + 4.0f));
+        ev_layer2_dl->AddRectFilled(handle_bb.Min, handle_bb.Max, note_color_hovered);
+        ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
+      }
 
       if (left_mouse_clicked) {
         if (ImGui::IsKeyPressed(ImGuiMod_Ctrl, false)) {
@@ -1423,6 +1467,32 @@ static void clip_editor_render_event_editor() {
         }
       }
     }
+
+    if (redraw) {
+      ev_layer2_dl->PopClipRect();
+      ev_layer2_dl->PopTextureID();
+      ev_layer1_dl->PopClipRect();
+      ev_layer1_dl->PopTextureID();
+
+      ImGuiViewport* owner_viewport = ImGui::GetWindowViewport();
+      g_renderer->begin_render(event_editor_fb, ImGui::GetStyleColorVec4(ImGuiCol_WindowBg));
+
+      layer_draw_data.Clear();
+      layer_draw_data.DisplayPos = view_min;
+      layer_draw_data.DisplaySize = event_editor_region;
+      layer_draw_data.FramebufferScale.x = 1.0f;
+      layer_draw_data.FramebufferScale.y = 1.0f;
+      layer_draw_data.OwnerViewport = owner_viewport;
+      layer_draw_data.AddDrawList(ev_layer1_dl);
+      layer_draw_data.AddDrawList(ev_layer2_dl);
+      g_renderer->render_imgui_draw_data(&layer_draw_data);
+
+      g_renderer->end_render();
+    }
+
+    ImTextureID fb_tex_id = (ImTextureID)event_editor_fb;
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    dl->AddImage(fb_tex_id, view_min, view_max);
 
     im_draw_vline(parent_dl, cursor_pos.x - 1.0f, cursor_pos.y, end_y, border_color);
   }
@@ -1563,13 +1633,19 @@ void clip_editor_init() {
   g_cmd_manager.add_on_history_update_listener([&] { force_redraw = true; });
   layer1_dl = new ImDrawList(ImGui::GetDrawListSharedData());
   layer2_dl = new ImDrawList(ImGui::GetDrawListSharedData());
+  ev_layer1_dl = new ImDrawList(ImGui::GetDrawListSharedData());
+  ev_layer2_dl = new ImDrawList(ImGui::GetDrawListSharedData());
 }
 
 void clip_editor_shutdown() {
   delete layer1_dl;
   delete layer2_dl;
+  delete ev_layer1_dl;
+  delete ev_layer2_dl;
   if (piano_roll_fb)
     g_renderer->destroy_texture(piano_roll_fb);
+  if (event_editor_fb)
+    g_renderer->destroy_texture(event_editor_fb);
 }
 
 void clip_editor_set_clip(uint32_t track_id, uint32_t clip_id) {
@@ -1616,6 +1692,10 @@ void render_clip_editor() {
     controls::end_window();
     return;
   }
+
+  timeline_base.redraw = force_redraw;
+  if (force_redraw)
+    force_redraw = false;
 
   clip_editor_process_hotkey();
 

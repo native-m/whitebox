@@ -1102,13 +1102,13 @@ void TimelineWindow::render_track(
     double mouse_at_gridline,
     bool track_hovered,
     bool is_mouse_in_selection_range) {
+  bool is_track_selected = math::in_range(id, first_selected_track, last_selected_track);
   const float height = track->get_height();
   const bool mini_clip = height > 30.0f;
   double relative_pos = 0.0;
   bool has_clip_selected = false;
   SelectedTrackRegion* selected_region = nullptr;
   TrackClipResizeInfo* clip_resize_info = nullptr;
-  bool is_track_selected = math::in_range(id, first_selected_track, last_selected_track);
   is_mouse_in_selection_range = is_mouse_in_selection_range && is_track_selected;
 
   if (!any_of(edit_command, TimelineCommand::None, TimelineCommand::ClipAdjustGain)) {
