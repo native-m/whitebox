@@ -164,6 +164,13 @@ struct Engine {
       bool left_side,
       bool shift);
 
+  MultiEditResult shift_clips(
+      const Vector<SelectedTrackRegion>& selected_track_regions,
+      uint32_t first_track_idx,
+      double relative_pos,
+      double min_pos,
+      double max_pos);
+
   MultiEditResult delete_region(
       const Vector<SelectedTrackRegion>& selected_track_regions,
       uint32_t first_track_idx,
@@ -181,7 +188,7 @@ struct Engine {
       uint16_t channel);
 
   MidiEditResult add_note(uint32_t track_id, uint32_t clip_id, uint32_t channel, const Vector<MidiNote>& midi_notes);
-  
+
   MidiEditResult
   move_note(uint32_t track_id, uint32_t clip_id, uint32_t note_id, int32_t relative_key_pos, double relative_pos);
 
@@ -190,7 +197,7 @@ struct Engine {
   MidiEditResult resize_note(uint32_t track_id, uint32_t clip_id, uint32_t note_id, double relative_pos, bool left_side);
 
   MidiEditResult resize_selected_note(uint32_t track_id, uint32_t clip_id, double relative_pos, bool left_side);
-  
+
   std::optional<MidiEditResult>
   slice_note(uint32_t track_id, uint32_t clip_id, double slice_pos, float velocity, int16_t note_key, uint16_t channel);
 

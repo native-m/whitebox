@@ -2084,6 +2084,20 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
         }
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
         break;
+      case TimelineCommand::ClipShift:
+        if (!left_mouse_down) {
+          if (relative_pos != 0.0) {
+            ClipShiftCmd2* cmd = new ClipShiftCmd2();
+            cmd->selected_track_regions = selected_track_regions;
+            cmd->first_track = first_selected_track;
+            cmd->relative_pos = relative_pos;
+            cmd->min_pos = selection_start_pos;
+            cmd->max_pos = selection_end_pos;
+            g_cmd_manager.execute("Shift clip", cmd);
+          }
+          finish_edit();
+        }
+        break;
       case TimelineCommand::ClipResizeLeft:
       case TimelineCommand::ClipResizeRight:
         if (!left_mouse_down) {

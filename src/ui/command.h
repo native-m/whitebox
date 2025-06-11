@@ -198,6 +198,17 @@ struct ClipResizeCmd2 : public ClipCmd {
   void undo() override;
 };
 
+struct ClipShiftCmd2 : public ClipCmd {
+  Vector<SelectedTrackRegion> selected_track_regions;
+  uint32_t first_track;
+  double relative_pos;
+  double min_pos;
+  double max_pos;
+
+  bool execute() override;
+  void undo() override;
+};
+
 struct ClipDeleteCmd2 : public ClipCmd {
   Vector<SelectedTrackRegion> selected_track_regions;
   uint32_t first_track;

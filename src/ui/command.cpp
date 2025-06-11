@@ -421,6 +421,18 @@ void ClipResizeCmd2::undo() {
 
 //
 
+bool ClipShiftCmd2::execute() {
+  backup(g_engine.shift_clips(selected_track_regions, first_track, relative_pos, min_pos, max_pos));
+  return true;
+}
+
+void ClipShiftCmd2::undo() {
+  std::unique_lock lock(g_engine.editor_lock);
+  ClipCmd::undo(first_track, first_track + selected_track_regions.size());
+}
+
+//
+
 bool ClipDeleteCmd2::execute() {
   backup(g_engine.delete_region(selected_track_regions, first_track, min_pos, max_pos));
   return true;
