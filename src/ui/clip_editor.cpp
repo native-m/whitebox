@@ -254,6 +254,7 @@ static void clip_editor_select_or_deselect_all_notes(bool should_select) {
   cmd->clip_id = current_clip_id.value();
   cmd->should_select = should_select;
   g_cmd_manager.execute("Clip editor: Select/deselect note", cmd);
+  force_redraw = true;
 }
 
 static void clip_editor_process_hotkey() {
@@ -1466,6 +1467,8 @@ static void clip_editor_render_event_editor() {
           clip_editor_pre_event_edit();
         }
       }
+    } else if (left_mouse_clicked && notes_selected) {
+      clip_editor_select_or_deselect_all_notes(false);
     }
 
     if (redraw) {
@@ -1653,8 +1656,10 @@ void clip_editor_set_clip(uint32_t track_id, uint32_t clip_id) {
   current_clip = current_track->clips[clip_id];
   current_track_id = track_id;
   current_clip_id = clip_id;
-  timeline_base.song_length = math::max(current_clip->get_midi_data()->max_length, 16.0);
   force_redraw = true;
+
+  if (current_clip->is_midi())
+    timeline_base.song_length = math::max(current_clip->get_midi_data()->max_length, 16.0);
 }
 
 void clip_editor_unset_clip() {
