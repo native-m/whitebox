@@ -1802,7 +1802,7 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
           const ColorU32 note_color = content_color.change_alpha(mini_clip ? 1.0f : 0.20f).to_uint32();
           const double note_scale = clip_scale / (double)clip->midi.rate;
 
-          double min_start_x = cmd.min_pos_x - start_offset;
+          double min_start_x = cmd.min_pos_x - start_offset * note_scale;
           for (uint32_t j = 0; const auto& note : asset->data.note_sequence) {
             float min_pos_x = (float)math::round(min_start_x + note.min_time * note_scale);
             float max_pos_x = (float)math::round(min_start_x + note.max_time * note_scale);
@@ -2121,7 +2121,7 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
         }
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
         break;
-      default: break;
+      default: finish_edit(); break;
     }
   }
 }
