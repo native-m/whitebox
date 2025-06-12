@@ -1626,7 +1626,7 @@ void Engine::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>&
   for (uint32_t i = 0; i < tracks.size(); i++) {
     auto track = tracks[i];
     mixing_buffer.clear();
-    track->process(
+    track->process_audio(
         input_buffer,
         mixing_buffer,
         sample_rate,

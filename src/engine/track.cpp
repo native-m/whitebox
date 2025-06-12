@@ -252,6 +252,7 @@ void Track::process_event(
     double ppq,
     double inv_ppq,
     uint32_t buffer_size) {
+
   if (clips.size() == 0) {
     if (event_state.refresh_voice) {
       audio_event_buffer.push_back({
@@ -561,7 +562,7 @@ void Track::kill_all_voices(uint32_t buffer_offset, double time_pos) {
   }
 }
 
-void Track::process(
+void Track::process_audio(
     const AudioBuffer<float>& input_buffer,
     AudioBuffer<float>& output_buffer,
     double sample_rate,
