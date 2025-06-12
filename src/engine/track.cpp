@@ -568,16 +568,34 @@ void Track::kill_all_voices(uint32_t buffer_offset, double time_pos) {
   }
 }
 
-void Track::process_audio(
+void Track::process(
     const AudioBuffer<float>& input_buffer,
     AudioBuffer<float>& output_buffer,
     double sample_rate,
     double beat_duration,
-    double playhead_pos,
+    double buffer_duration_in_beats,
+    double sample_position,
+    double start_time,
+    double end_time,
+    double ppq,
+    double inv_ppq,
     int64_t playhead_in_samples,
     bool playing) {
   AudioBuffer<float>& write_buffer = plugin_instance ? effect_buffer : output_buffer;
   transfer_param_changes();
+
+  if (playing) {
+    process_event(
+        start_time,
+        end_time,
+        sample_position,
+        beat_duration,
+        buffer_duration_in_beats,
+        sample_rate,
+        ppq,
+        inv_ppq,
+        output_buffer.n_samples);
+  }
 
   for (uint32_t i = 0; i < param_queue.values.size(); i++) {
     dsp::ParamValue& value = param_queue.values[i];

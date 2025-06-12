@@ -66,15 +66,24 @@ struct Engine {
   ~Engine();
 
   void set_bpm(double bpm);
+
   void set_playhead_position(double beat_position);
+  
   void
   set_audio_channel_config(uint32_t input_channels, uint32_t output_channels, uint32_t buffer_size, uint32_t sample_rate);
+
   void clear_all();
+
   void play();
+  
   void stop();
+  
   void record();
+  
   void stop_record();
+  
   void arm_track_recording(uint32_t slot, bool armed);
+  
   void set_track_input(uint32_t slot, TrackInputType mode, uint32_t index, bool armed);
 
   void edit_lock() {
@@ -215,6 +224,7 @@ struct Engine {
   void set_clip_gain(Track* track, uint32_t clip_id, float gain);
 
   PluginInterface* add_plugin_to_track(Track* track, PluginUID uid);
+
   void delete_plugin_from_track(Track* track);
 
   double get_song_length() const;

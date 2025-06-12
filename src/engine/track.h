@@ -223,12 +223,17 @@ struct Track {
    * @param sample_rate Sample rate.
    * @param playing Should play the track.
    */
-  void process_audio(
+  void process(
       const AudioBuffer<float>& input_buffer,
       AudioBuffer<float>& output_buffer,
       double sample_rate,
       double beat_duration,
-      double playhead_pos,
+      double buffer_duration_in_beats,
+      double sample_position,
+      double start_time,
+      double end_time,
+      double ppq,
+      double inv_ppq,
       int64_t playhead_in_samples,
       bool playing);
 

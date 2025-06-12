@@ -1585,7 +1585,10 @@ void Engine::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>&
   double buffer_duration = (double)output_buffer.n_samples / sample_rate;
   double current_beat_duration = beat_duration.load(std::memory_order_relaxed);
   double current_playhead_position = playhead;
+  double buffer_duration_in_beats = buffer_duration / current_beat_duration;
+  double next_playhead_pos = playhead + buffer_duration_in_beats;
   int64_t playhead_in_samples = beat_to_samples(playhead, sample_rate, current_beat_duration);
+  double inv_ppq = 1.0 / ppq;
   bool currently_playing = playing.load(std::memory_order_relaxed);
 
   editor_lock.lock();
@@ -1599,42 +1602,31 @@ void Engine::process(const AudioBuffer<float>& input_buffer, AudioBuffer<float>&
     }
   }
 
-  if (currently_playing) {
-    double inv_ppq = 1.0 / ppq;
-    double buffer_duration_in_beats = buffer_duration / current_beat_duration;
-    double next_playhead_pos = playhead + buffer_duration_in_beats;
-
-    for (auto track : tracks)
-      track->process_event(
-          playhead,
-          next_playhead_pos,
-          sample_position,
-          current_beat_duration,
-          buffer_duration_in_beats,
-          sample_rate,
-          ppq,
-          inv_ppq,
-          output_buffer.n_samples);
-
-    sample_position += beat_to_samples(buffer_duration_in_beats, sample_rate, current_beat_duration);
-    playhead = next_playhead_pos;
-    playhead_ui.store(playhead, std::memory_order_release);
-  }
-
   output_buffer.clear();
 
   for (uint32_t i = 0; i < tracks.size(); i++) {
     auto track = tracks[i];
     mixing_buffer.clear();
-    track->process_audio(
+    track->process(
         input_buffer,
         mixing_buffer,
         sample_rate,
         current_beat_duration,
+        buffer_duration_in_beats,
+        sample_position,
         current_playhead_position,
+        next_playhead_pos,
+        ppq,
+        inv_ppq,
         playhead_in_samples,
         currently_playing);
     output_buffer.mix(mixing_buffer);
+  }
+
+  if (currently_playing) {
+    sample_position += beat_to_samples(buffer_duration_in_beats, sample_rate, current_beat_duration);
+    playhead = next_playhead_pos;
+    playhead_ui.store(playhead, std::memory_order_release);
   }
 
   // output_buffer.mix(input_buffer);
