@@ -131,6 +131,8 @@ static int32_t hovered_key = -1;
 static int32_t min_paint = 1;
 static int32_t max_paint = INT32_MIN;
 static std::optional<uint32_t> note_id_context_menu;
+static std::optional<MidiNote> preview_note_data;
+static int32_t last_preview_note_key = -1;
 static Vector<MidiNote> painted_notes;
 static Vector<uint32_t> fg_notes;
 
@@ -837,6 +839,13 @@ static void clip_editor_render_note_editor() {
         break;
       }
     }
+    
+    if (preview_note_data) {
+      current_track->send_note_message(false, last_preview_note_key, preview_note_data->velocity);
+      preview_note_data.reset();
+      last_preview_note_key = -1;
+    }
+
     timeline_base.redraw = true;
     g_timeline.redraw_screen();
     edit_command = PianoRollCmd::None;
@@ -1079,6 +1088,8 @@ static void clip_editor_render_note_editor() {
             min_note_pos = note.min_time;
             min_note_key = note.key;
             max_note_key = note.key;
+            if (preview_note)
+              preview_note_data = note;
           } else if (cmd == PianoRollCmd::ResizeLeft) {
             min_resize_pos = 0.0;
             max_resize_pos = note.max_time - min_length;
@@ -1214,6 +1225,15 @@ static void clip_editor_render_note_editor() {
       if (min_pos_x > end_x)
         break;
       draw_note.operator()<false>(min_pos_x, max_pos_x, note.velocity, 0, key, note.flags);
+    }
+  }
+
+  if (preview_note && preview_note_data.has_value() && edit_command == PianoRollCmd::Move) {
+    int32_t key = preview_note_data->key + relative_key_pos;
+    if (last_preview_note_key != key) {
+      current_track->send_note_message(false, last_preview_note_key, preview_note_data->velocity);
+      current_track->send_note_message(true, key, preview_note_data->velocity);
+      last_preview_note_key = key;
     }
   }
 
