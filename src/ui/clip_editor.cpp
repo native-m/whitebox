@@ -839,7 +839,7 @@ static void clip_editor_render_note_editor() {
         break;
       }
     }
-    
+
     if (preview_note_data) {
       current_track->send_note_message(false, last_preview_note_key, preview_note_data->velocity);
       preview_note_data.reset();
@@ -1142,6 +1142,12 @@ static void clip_editor_render_note_editor() {
       edit_command = piano_roll_tool;
       initial_time_pos = hovered_position_grid;
       initial_key = hovered_key;
+      if (piano_roll_tool != PianoRollCmd::Paint) {
+        preview_note_data = {
+          .key = (int16_t)initial_key,
+          .velocity = note_velocity / 127.0f,
+        };
+      }
     }
   }
 
@@ -1228,7 +1234,8 @@ static void clip_editor_render_note_editor() {
     }
   }
 
-  if (preview_note && preview_note_data.has_value() && edit_command == PianoRollCmd::Move) {
+  if (preview_note && preview_note_data.has_value() &&
+      any_of(edit_command, PianoRollCmd::Move, PianoRollCmd::Draw, PianoRollCmd::Marker)) {
     int32_t key = preview_note_data->key + relative_key_pos;
     if (last_preview_note_key != key) {
       current_track->send_note_message(false, last_preview_note_key, preview_note_data->velocity);
