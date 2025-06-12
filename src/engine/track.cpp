@@ -489,6 +489,12 @@ void Track::process_midi_event(
     uint32_t buffer_offset = (uint32_t)((uint64_t)sample_offset % (uint64_t)buffer_size);
     int16_t key = note.key + semitone_offset;
 
+    // Skip muted notes
+    if (contain_bit(note.flags, MidiNoteFlags::Muted)) {
+      midi_note_idx++;
+      continue;
+    }
+
     bool voice_added = midi_voice_state.add_voice({
       .max_time = max_time,
       .velocity = note.velocity,
@@ -497,7 +503,7 @@ void Track::process_midi_event(
     });
 
     // Skip if we have reached maximum voices
-    if (!voice_added || contain_bit(note.flags, MidiNoteFlags::Muted)) {
+    if (!voice_added) {
       midi_note_idx++;
       continue;
     }
