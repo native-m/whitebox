@@ -20,43 +20,21 @@
 
 namespace wb {
 Track::Track() {
-  ui_parameter_state.volume = 1.0f;
-  ui_parameter_state.pan = 0.0f;
-  ui_parameter_state.mute = false;
-  ui_param_transfer.set_capacity(64);
-  ui_param_transfer.push({
-    .id = TrackParameter_Volume,
-    .value = 1.0,
-  });
-  ui_param_transfer.push({
-    .id = TrackParameter_Pan,
-    .value = 0.0,
-  });
-  ui_param_transfer.push({
-    .id = TrackParameter_Mute,
-    .value = 0.0,
-  });
+  track_msg_queue.set_capacity(64);
+  set_volume(0.0f);
+  set_pan(0.0f);
+  set_mute(false);
 }
 
 Track::Track(const std::string& name, const Color& color, float height, bool shown, const TrackParameterState& track_param)
     : name(name),
       color(color),
       height(height),
-      shown(shown),
-      ui_parameter_state(track_param) {
-  ui_param_transfer.set_capacity(64);
-  ui_param_transfer.push({
-    .id = TrackParameter_Volume,
-    .value = (double)math::db_to_linear(track_param.volume_db),
-  });
-  ui_param_transfer.push({
-    .id = TrackParameter_Pan,
-    .value = (double)ui_parameter_state.pan,
-  });
-  ui_param_transfer.push({
-    .id = TrackParameter_Mute,
-    .value = (double)ui_parameter_state.mute,
-  });
+      shown(shown) {
+  track_msg_queue.set_capacity(64);
+  set_volume(track_param.volume_db);
+  set_pan(track_param.pan);
+  set_mute(track_param.mute);
 }
 
 Track::~Track() {
@@ -69,26 +47,61 @@ Track::~Track() {
 void Track::set_volume(float db) {
   ui_parameter_state.volume_db = db;
   ui_parameter_state.volume = math::db_to_linear(db);
-  ui_param_transfer.push({
-    .id = TrackParameter_Volume,
-    .value = (double)ui_parameter_state.volume,
+  track_msg_queue.push({
+    .type = TrackMessage::ParamChange,
+    .param_change = {
+      .id = TrackParameter_Volume,
+      .value = (double)ui_parameter_state.volume,
+    },
   });
 }
 
 void Track::set_pan(float pan) {
   ui_parameter_state.pan = pan;
-  ui_param_transfer.push({
-    .id = TrackParameter_Pan,
-    .value = (double)ui_parameter_state.pan,
+  track_msg_queue.push({
+    .type = TrackMessage::ParamChange,
+    .param_change = {
+      .id = TrackParameter_Pan,
+      .value = (double)ui_parameter_state.pan,
+    },
   });
 }
 
 void Track::set_mute(bool mute) {
   ui_parameter_state.mute = mute;
-  ui_param_transfer.push({
-    .id = TrackParameter_Mute,
-    .value = (double)ui_parameter_state.mute,
+  track_msg_queue.push({
+    .type = TrackMessage::ParamChange,
+    .param_change = {
+      .id = TrackParameter_Mute,
+      .value = (double)ui_parameter_state.mute,
+    },
   });
+}
+
+void Track::send_note_message(bool on_off, int16_t key, float velocity) {
+  if (on_off) {
+    track_msg_queue.push({
+      .type = TrackMessage::MidiNoteOn,
+      .midi_note_on = {
+        .channel = 0,
+        .key = key,
+        .velocity = velocity,
+      },
+    });
+  } else {
+    track_msg_queue.push({
+      .type = TrackMessage::MidiNoteOff,
+      .midi_note_off = {
+        .channel = 0,
+        .key = key,
+        .velocity = velocity,
+      },
+    });
+  }
+}
+
+void Track::send_message(const TrackMessage& msg) {
+  track_msg_queue.push(msg);
 }
 
 void Track::mark_clip_deleted(Clip* clip) {
@@ -252,7 +265,6 @@ void Track::process_event(
     double ppq,
     double inv_ppq,
     uint32_t buffer_size) {
-
   if (clips.size() == 0) {
     if (event_state.refresh_voice) {
       audio_event_buffer.push_back({
@@ -466,7 +478,7 @@ void Track::process_midi_event(
       double offset_from_start = beat_to_samples(voice->max_time - start_time, sample_rate, beat_duration);
       double sample_offset = sample_position + offset_from_start;
       uint32_t buffer_offset = (uint32_t)((uint64_t)sample_offset % (uint64_t)buffer_size);
-      midi_event_list.add_event({
+      midi_event_list.push_event({
         .type = MidiEventType::NoteOff,
         .buffer_offset = buffer_offset,
         .time = voice->max_time,
@@ -508,7 +520,7 @@ void Track::process_midi_event(
       continue;
     }
 
-    midi_event_list.add_event({
+    midi_event_list.push_event({
       .type = MidiEventType::NoteOn,
       .buffer_offset = buffer_offset,
       .time = min_time,
@@ -532,7 +544,7 @@ void Track::process_midi_event(
     double offset_from_start = beat_to_samples(voice->max_time - start_time, sample_rate, beat_duration);
     double sample_offset = sample_position + offset_from_start;
     uint32_t buffer_offset = (uint32_t)((uint64_t)sample_offset % (uint64_t)buffer_size);
-    midi_event_list.add_event({
+    midi_event_list.push_event({
       .type = MidiEventType::NoteOff,
       .buffer_offset = buffer_offset,
       .time = voice->max_time,
@@ -555,7 +567,7 @@ void Track::process_midi_event(
 
 void Track::kill_all_voices(uint32_t buffer_offset, double time_pos) {
   while (auto voice = midi_voice_state.release_voice(std::numeric_limits<double>::max())) {
-    midi_event_list.add_event({
+    midi_event_list.push_event({
       .type = MidiEventType::NoteOff,
       .buffer_offset = buffer_offset,
       .time = time_pos,
@@ -582,7 +594,8 @@ void Track::process(
     int64_t playhead_in_samples,
     bool playing) {
   AudioBuffer<float>& write_buffer = plugin_instance ? effect_buffer : output_buffer;
-  transfer_param_changes();
+
+  process_track_messages(start_time);
 
   if (playing) {
     process_event(
@@ -627,6 +640,22 @@ void Track::process(
   if (plugin_instance)
     write_buffer.clear();
 
+  if (plugin_instance) {
+    PluginProcessInfo process_info;
+    process_info.sample_count = output_buffer.n_samples;
+    process_info.input_buffer_count = 1;
+    process_info.output_buffer_count = 1;
+    process_info.input_buffer = &write_buffer;
+    process_info.output_buffer = &output_buffer;
+    process_info.input_event_list = &midi_event_list;
+    process_info.sample_rate = sample_rate;
+    process_info.tempo = 60.0 / beat_duration;
+    process_info.project_time_in_ppq = start_time;
+    process_info.project_time_in_samples = playhead_in_samples;
+    process_info.playing = playing;
+    plugin_instance->process(process_info);
+  }
+
   if (playing) {
     AudioEvent* event = audio_event_buffer.begin();
     AudioEvent* end = audio_event_buffer.end();
@@ -656,22 +685,6 @@ void Track::process(
   }
 
   // process_test_synth(write_buffer, sample_rate, playing);
-
-  if (plugin_instance) {
-    PluginProcessInfo process_info;
-    process_info.sample_count = output_buffer.n_samples;
-    process_info.input_buffer_count = 1;
-    process_info.output_buffer_count = 1;
-    process_info.input_buffer = &write_buffer;
-    process_info.output_buffer = &output_buffer;
-    process_info.input_event_list = &midi_event_list;
-    process_info.sample_rate = sample_rate;
-    process_info.tempo = 60.0 / beat_duration;
-    process_info.project_time_in_ppq = playhead_pos;
-    process_info.project_time_in_samples = playhead_in_samples;
-    process_info.playing = playing;
-    plugin_instance->process(process_info);
-  }
 
   float volume = parameter_state.mute ? 0.0f : parameter_state.volume;
   for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
@@ -805,13 +818,43 @@ void Track::process_test_synth(AudioBuffer<float>& output_buffer, double sample_
   }
 }
 
-void Track::transfer_param_changes() {
-  TrackParamTransfer tf;
-  while (ui_param_transfer.pop(tf)) {
-    if (tf.plugin) {
-      tf.plugin->transfer_param(tf.id, tf.value);
-    } else {
-      param_queue.push_back_value(0, tf.id, tf.value);
+void Track::process_track_messages(double time) {
+  TrackMessage msg;
+  while (track_msg_queue.pop(msg)) {
+    switch (msg.type) {
+      case TrackMessage::ParamChange:
+        param_queue.push_back_value(0, msg.plugin_param_change.id, msg.plugin_param_change.value);
+        break;
+      case TrackMessage::PluginParamChange:
+        msg.plugin_param_change.plugin->transfer_param(msg.plugin_param_change.id, msg.plugin_param_change.value);
+        break;
+      case TrackMessage::MidiNoteOn:
+        midi_event_list.push_event({
+          .type = MidiEventType::NoteOn,
+          .buffer_offset = 0,
+          .time = time,
+          .note_on = {
+            .channel = 0,
+            .key = msg.midi_note_on.key,
+            .velocity = msg.midi_note_on.velocity,
+          },
+        });
+        Log::debug("MidiNoteOn: {} {}", msg.midi_note_on.key, time);
+        break;
+      case TrackMessage::MidiNoteOff:
+        midi_event_list.push_event({
+          .type = MidiEventType::NoteOff,
+          .buffer_offset = 0,
+          .time = time,
+          .note_on = {
+            .channel = 0,
+            .key = msg.midi_note_on.key,
+            .velocity = msg.midi_note_on.velocity,
+          },
+        });
+        Log::debug("MidiNoteOff: {} {}", msg.midi_note_off.key, time);
+        break;
+      default: break;
     }
   }
 }
@@ -825,10 +868,13 @@ PluginResult Track::plugin_begin_edit(void* userdata, PluginInterface* plugin, u
 PluginResult
 Track::plugin_perform_edit(void* userdata, PluginInterface* plugin, uint32_t param_id, double normalized_value) {
   Track* track = (Track*)userdata;
-  track->ui_param_transfer.push({
-    .id = param_id,
-    .plugin = plugin,
-    .value = normalized_value,
+  track->track_msg_queue.push({
+    .type = TrackMessage::PluginParamChange,
+    .plugin_param_change = {
+      .id = param_id,
+      .value = normalized_value,
+      .plugin = plugin,
+    },
   });
   return PluginResult::Ok;
 }

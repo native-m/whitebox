@@ -57,10 +57,33 @@ struct TrackAutomation {
   double value;
 };
 
-struct TrackParamTransfer {
+struct TrackParamChange {
   uint32_t id;
-  PluginInterface* plugin;
   double value;
+};
+
+struct TrackPluginParamChange {
+  uint32_t id;
+  double value;
+  PluginInterface* plugin;
+};
+
+struct TrackMessage {
+  enum {
+    ParamChange,
+    PluginParamChange,
+    MidiNoteOn,
+    MidiNoteOff,
+  };
+
+  uint32_t type;
+
+  union {
+    TrackPluginParamChange plugin_param_change;
+    TrackParamChange param_change;
+    MidiNoteOnEvent midi_note_on;
+    MidiNoteOffEvent midi_note_off;
+  };
 };
 
 struct Track {
@@ -104,8 +127,7 @@ struct Track {
   TrackParameterState ui_parameter_state{};  // UI-side state
   TrackParameterState parameter_state{};     // Audio-side state
   dsp::ParamQueue param_queue;
-  // This handles parameter state transfer from UI to audio thread
-  ConcurrentRingBuffer<TrackParamTransfer> ui_param_transfer;
+  ConcurrentRingBuffer<TrackMessage> track_msg_queue;
 
   Track();
   Track(const std::string& name, const Color& color, float height, bool shown, const TrackParameterState& track_param);
@@ -114,6 +136,8 @@ struct Track {
   void set_volume(float db);
   void set_pan(float pan);
   void set_mute(bool mute);
+  void send_note_message(bool on_off, int16_t key, float velocity);
+  void send_message(const TrackMessage& msg);
 
   inline float get_height() const {
     return shown ? height : 20.0f;
@@ -243,7 +267,7 @@ struct Track {
       uint32_t buffer_offset,
       uint32_t num_samples,
       double sample_rate);
-  
+
   void stream_sample(
       AudioBuffer<float>& output_buffer,
       Sample* sample,
@@ -254,7 +278,7 @@ struct Track {
 
   void process_test_synth(AudioBuffer<float>& output_buffer, double sample_rate, bool playing);
 
-  void transfer_param_changes();
+  void process_track_messages(double time);
 
   static PluginResult plugin_begin_edit(void* userdata, PluginInterface* plugin, uint32_t param_id);
   static PluginResult
