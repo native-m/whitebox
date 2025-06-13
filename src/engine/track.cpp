@@ -847,7 +847,7 @@ void Track::process_track_messages(double time) {
           .buffer_offset = 0,
           .time = time,
           .note_on = {
-            .channel = 0,
+            .channel = msg.midi_note_on.channel,
             .key = msg.midi_note_on.key,
             .velocity = msg.midi_note_on.velocity,
           },

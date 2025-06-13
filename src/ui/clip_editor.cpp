@@ -112,7 +112,7 @@ static bool preview_note = true;
 static int32_t grid_mode = 4;
 
 static PianoRollCmd piano_roll_tool = PianoRollCmd::Draw;
-static bool use_last_note = true;
+static bool use_last_edited_note = true;
 static int note_channel = 1u;
 static float note_velocity = 100.0f;
 static float note_length = 1.0f;
@@ -342,8 +342,8 @@ static void clip_editor_render_toolbar() {
   controls::item_tooltip("Preview note when editing");
   ImGui::SameLine(0.0f, 0.0f);
 
-  controls::icon_toggle_button("\xef\x8b\x81##pr_last_note", &use_last_note, ImColor(0, 162, 232));
-  controls::item_tooltip("Use last note properties");
+  controls::icon_toggle_button("\xef\x8b\x81##pr_last_note", &use_last_edited_note, ImColor(0, 162, 232));
+  controls::item_tooltip("Use last edited note properties");
 
   ImGui::PopStyleVar(2);
   set_current_font(FontType::Normal);
@@ -846,6 +846,12 @@ static void clip_editor_render_note_editor() {
       last_preview_note_key = -1;
     }
 
+    if (use_last_edited_note && edited_note_id != WB_INVALID_NOTE_ID) {
+      MidiNote& note = midi_asset->data.note_sequence[edited_note_id];
+      note_velocity = note.velocity * 127.0f;
+      note_length = note.max_time - note.min_time;
+    }
+
     timeline_base.redraw = true;
     g_timeline.redraw_screen();
     edit_command = PianoRollCmd::None;
@@ -856,6 +862,7 @@ static void clip_editor_render_note_editor() {
     edited_note_id = WB_INVALID_NOTE_ID;
     g_cmd_manager.unlock();
     fg_notes.resize_fast(0);
+
     if (!painted_notes.empty()) {
       painted_notes.resize(0);
     }
@@ -1236,11 +1243,12 @@ static void clip_editor_render_note_editor() {
 
   if (preview_note && preview_note_data.has_value() &&
       any_of(edit_command, PianoRollCmd::Move, PianoRollCmd::Draw, PianoRollCmd::Marker)) {
-    int32_t key = preview_note_data->key + relative_key_pos;
-    if (last_preview_note_key != key) {
-      current_track->send_note_message(false, last_preview_note_key, preview_note_data->velocity);
-      current_track->send_note_message(true, key, preview_note_data->velocity);
-      last_preview_note_key = key;
+    if (last_preview_note_key != hovered_key) {
+      if (last_preview_note_key != -1) {
+        current_track->send_note_message(false, last_preview_note_key, preview_note_data->velocity);
+      }
+      current_track->send_note_message(true, hovered_key, preview_note_data->velocity);
+      last_preview_note_key = hovered_key;
     }
   }
 
