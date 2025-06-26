@@ -40,6 +40,7 @@ struct AudioClip {
   SampleAsset* asset;
   double fade_start;
   double fade_end;
+  double speed;
   float gain;
 };
 

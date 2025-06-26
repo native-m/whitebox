@@ -14,7 +14,13 @@
 #include "timeline.h"
 #include "timeline_base.h"
 
-#define WB_ENABLE_PIANO_ROLL_DEBUG_MENU 1
+#define WB_ENABLE_PIANO_ROLL_DEBUG_MENU    1
+#define WB_SHOW_PIANO_ROLL_HIDDEN_CONTROLS 1
+
+#ifdef NDEBUG
+#undef WB_ENABLE_PIANO_ROLL_DEBUG_MENU
+#undef WB_SHOW_PIANO_ROLL_HIDDEN_CONTROLS
+#endif
 
 namespace wb {
 
@@ -352,15 +358,19 @@ static void clip_editor_render_toolbar() {
     ImGui::PushStyleVarY(ImGuiStyleVar_FramePadding, 6.5f);
     ImGui::SameLine(0.0f);
     ImGui::PushItemWidth(80.0f);
+
+#ifdef WB_SHOW_PIANO_ROLL_HIDDEN_CONTROLS
     ImGui::DragInt("##note_ch", &note_channel, 0.25f, 1, 16, "Channel: %d", ImGuiSliderFlags_Vertical);
     ImGui::SameLine(0.0f, 4.0f);
+#endif
+
     ImGui::DragFloat("##note_vel", &note_velocity, 1.0f, 0.0f, 127.0f, "Vel: %.1f", ImGuiSliderFlags_Vertical);
     ImGui::PopItemWidth();
 
     if (piano_roll_tool != PianoRollCmd::Marker) {
       ImGui::PushItemWidth(100.0f);
       ImGui::SameLine(0.0f, 4.0f);
-      ImGui::DragFloat("##note_len", &note_length, 0.1f, 0.0000f, 32.0f, "Length: %.4f", ImGuiSliderFlags_Vertical);
+      ImGui::DragFloat("##note_len", &note_length, 0.1f, 0.0f, 32.0f, "Length: %.4f", ImGuiSliderFlags_Vertical);
       ImGui::PopItemWidth();
     }
 
@@ -398,11 +408,13 @@ static void clip_editor_render_control_sidebar() {
   ImGui::Separator();
 
   // ImGui::Checkbox("Looping", &current_clip->midi.loop);
+#ifdef WB_SHOW_PIANO_ROLL_HIDDEN_CONTROLS
   const char* items[] = { "One shot", "Reverse one shot", "Loop", "Reverse loop", "Bidirectional loop" };
   int mode = (int)current_clip->midi.mode;
   if (ImGui::Combo("Mode", &mode, items, IM_ARRAYSIZE(items))) {
     current_clip->midi.mode = (ClipMode)mode;
   }
+#endif
 
   controls::musical_unit_drags("Length", &current_clip->midi.length);
 

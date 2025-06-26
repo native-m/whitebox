@@ -133,7 +133,7 @@ void Engine::stop_record() {
           track->record_min_time,
           track->record_max_time,
           0.0,
-          AudioClip{ .asset = asset, .gain = 1.0f });
+          AudioClip{ .asset = asset, .speed = 1.0, .gain = 1.0f });
       track->recorded_samples.reset();
     }
     track->stop_record();
@@ -278,22 +278,14 @@ TrackEditResult Engine::add_clip_from_file(Track* track, const std::filesystem::
     double sample_rate = (double)sample_asset->sample_instance.sample_rate;
     double clip_length = samples_to_beat(sample_asset->sample_instance.count, sample_rate, beat_duration);
     double max_time = time_pos + math::uround(clip_length * ppq) / ppq;
-    return add_audio_clip(track, path.filename().string(), time_pos, max_time, 0.0, { .asset = sample_asset, .gain = 1.0f });
+    return add_audio_clip(
+        track, path.filename().string(), time_pos, max_time, 0.0, { .asset = sample_asset, .speed = 1.0, .gain = 1.0f });
   }
 
   if (MidiAsset* midi_asset = g_midi_table.load_from_file(path)) {
     double end_time = time_pos + midi_asset->data.max_length;
     return add_midi_clip(
-        track,
-        "",
-        time_pos,
-        end_time,
-        0.0,
-        {
-          .asset = midi_asset,
-          .length = midi_asset->data.max_length,
-          .rate = 1,
-        });
+        track, "", time_pos, end_time, 0.0, { .asset = midi_asset, .length = midi_asset->data.max_length, .rate = 1 });
   }
 
   return {};
@@ -382,7 +374,7 @@ TrackEditResult Engine::resize_clip(
   if (relative_pos == 0.0)
     return {};
   std::unique_lock lock(editor_lock);
-  auto [min_time, max_time, start_offset] =
+  auto [min_time, max_time, start_offset, speed] =
       calc_resize_clip(clip, relative_pos, resize_limit, min_length, clip->min_time, beat_duration, left_side, shift);
   auto query_result = track->query_clip_by_range(min_time, max_time);
   TrackEditResult trim_result =
@@ -905,7 +897,7 @@ MultiEditResult Engine::resize_clips(
     double clear_start_pos = 0.0;
     double clear_end_pos = 0.0;
     double actual_min_length = 0.0;
-    const auto [new_min_time, new_max_time, new_start_ofs] = calc_resize_clip(
+    const auto [new_min_time, new_max_time, new_start_ofs, new_speed] = calc_resize_clip(
         resized_clip, relative_pos, resize_limit, min_length, min_resize_pos, current_beat_duration, left_side, shift, true);
 
     if (left_side) {

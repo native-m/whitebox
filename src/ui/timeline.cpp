@@ -92,6 +92,7 @@ void TimelineWindow::render() {
   holding_shift = ImGui::IsKeyDown(ImGuiKey_ModShift);
   holding_ctrl = ImGui::IsKeyDown(ImGuiKey_ModCtrl);
   holding_alt = ImGui::IsKeyDown(ImGuiKey_ModAlt);
+  can_select = holding_ctrl && !holding_shift;
 
   ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
   render_horizontal_scrollbar();
@@ -762,7 +763,7 @@ void TimelineWindow::render_track_lanes() {
     query_selected_range();
   }
 
-  if (holding_ctrl && timeline_hovered) {
+  if (can_select && timeline_hovered) {
     ImGui::SetMouseCursor(ImGuiMouseCursor_TextInput);
   }
 
@@ -854,7 +855,7 @@ void TimelineWindow::render_track_lanes() {
     bool track_hovered = timeline_hovered && hovering_track_rect;
 
     // Acquire selection
-    if (track_hovered && holding_ctrl && left_mouse_clicked) {
+    if (track_hovered && can_select && left_mouse_clicked) {
       first_selected_track = i;
       first_selected_track_pos_y = track_pos_y;
       selection_start_pos = mouse_at_gridline;
@@ -1171,7 +1172,7 @@ void TimelineWindow::render_track(
                     calc_clip_shift(is_audio, start_offset, lhs_min_time - rhs_min_time, beat_duration, sample_rate);
 
                 // Draw lhs clip
-                render_clip(clip, lhs_min_time, lhs_max_time, lhs_start_ofs, track_pos_y, height);
+                render_clip(clip, lhs_min_time, lhs_max_time, lhs_start_ofs, 1.0, track_pos_y, height);
 
                 // If the current command is ClipShift, draw the shifted portion
                 if (edit_command == TimelineCommand::ClipShift) {
@@ -1180,22 +1181,22 @@ void TimelineWindow::render_track(
                   const double shift_offset = lhs_min_time - lhs_max_time + relative_pos;
                   double clip_start_offset = calc_clip_shift(
                       clip->is_audio(), start_offset, shift_offset, beat_duration, clip->get_asset_sample_rate());
-                  render_clip(clip, clip_min_time, clip_max_time, clip_start_offset, track_pos_y, height);
+                  render_clip(clip, clip_min_time, clip_max_time, clip_start_offset, 1.0, track_pos_y, height);
                 }
 
                 // Draw rhs clip
-                render_clip(clip, rhs_min_time, rhs_max_time, rhs_start_ofs, track_pos_y, height);
+                render_clip(clip, rhs_min_time, rhs_max_time, rhs_start_ofs, 1.0, track_pos_y, height);
                 continue;
               } else if (right_side_partially_selected) {
                 // Carve the right side of the clip
                 max_time = clip->min_time + selected_region->range.first_offset;
-                render_clip(clip, min_time, max_time, start_offset, track_pos_y, height);
+                render_clip(clip, min_time, max_time, start_offset, 1.0, track_pos_y, height);
                 if (edit_command == TimelineCommand::ClipShift) {
                   const double max_time2 = clip->max_time;
                   const double shift_offset = min_time - max_time + relative_pos;
                   const double rhs_start_ofs = calc_clip_shift(
                       clip->is_audio(), start_offset, shift_offset, beat_duration, clip->get_asset_sample_rate());
-                  render_clip(clip, max_time, max_time2, rhs_start_ofs, track_pos_y, height);
+                  render_clip(clip, max_time, max_time2, rhs_start_ofs, 1.0, track_pos_y, height);
                 }
                 continue;
               } else if (left_side_partially_selected) {
@@ -1203,14 +1204,20 @@ void TimelineWindow::render_track(
                   const double new_start_offset = calc_clip_shift(
                       clip->is_audio(), start_offset, relative_pos, beat_duration, clip->get_asset_sample_rate());
                   render_clip(
-                      clip, min_time, max_time + selected_region->range.last_offset, new_start_offset, track_pos_y, height);
+                      clip,
+                      min_time,
+                      max_time + selected_region->range.last_offset,
+                      new_start_offset,
+                      1.0,
+                      track_pos_y,
+                      height);
                 }
                 // Carve the left side of the clip
                 const double rhs_min_time = max_time + selected_region->range.last_offset;
                 const double rhs_max_time = max_time;
                 const double rhs_start_ofs =
                     calc_clip_shift(is_audio, start_offset, min_time - rhs_min_time, beat_duration, sample_rate);
-                render_clip(clip, rhs_min_time, rhs_max_time, rhs_start_ofs, track_pos_y, height);
+                render_clip(clip, rhs_min_time, rhs_max_time, rhs_start_ofs, 1.0, track_pos_y, height);
                 continue;
               }
             } else if (select_status == ClipSelectStatus::Selected) {
@@ -1248,7 +1255,7 @@ void TimelineWindow::render_track(
     bool should_edit_selected = false;
     ClipHover current_hover_state{};
 
-    if (track_hovered && edit_command == TimelineCommand::None && !holding_ctrl) [[unlikely]] {
+    if (track_hovered && edit_command == TimelineCommand::None && !can_select) [[unlikely]] {
       static constexpr float handle_size = 4.0f;
       ImRect clip_rect(min_bb, max_bb);
       // Hitboxes for sizing handle
@@ -1261,10 +1268,12 @@ void TimelineWindow::render_track(
 
         if (left_handle.Contains(mouse_pos)) {
           if (left_mouse_clicked) {
-            if (!holding_alt) {
-              edit_command = TimelineCommand::ClipResizeLeft;
-            } else {
+            if (holding_ctrl && holding_shift) {
+              edit_command = TimelineCommand::ClipStretchLeft;
+            } else if (holding_alt) {
               edit_command = TimelineCommand::ClipShiftLeft;
+            } else {
+              edit_command = TimelineCommand::ClipResizeLeft;
             }
             should_edit_selected = prepare_resize_for_selected_range(clip, false);
           }
@@ -1272,10 +1281,12 @@ void TimelineWindow::render_track(
           current_hover_state = ClipHover::LeftHandle;
         } else if (right_handle.Contains(mouse_pos)) {
           if (left_mouse_clicked) {
-            if (!holding_alt) {
-              edit_command = TimelineCommand::ClipResizeRight;
-            } else {
+            if (holding_ctrl && holding_shift) {
+              edit_command = TimelineCommand::ClipStretchRight;
+            } else if (holding_alt) {
               edit_command = TimelineCommand::ClipShiftRight;
+            } else {
+              edit_command = TimelineCommand::ClipResizeRight;
             }
             should_edit_selected = prepare_resize_for_selected_range(clip, true);
           }
@@ -1357,6 +1368,7 @@ void TimelineWindow::render_track(
       cmd->draw_flags = shown_in_clip_editor ? ClipDrawCmd::Highlighted : 0;
 
       if (clip->is_audio()) {
+        cmd->speed = clip->audio.speed;
         cmd->gain = clip->audio.gain;
         cmd->audio = clip->audio.asset->peaks;
       } else {
@@ -1395,6 +1407,7 @@ void TimelineWindow::render_edited_clips(double mouse_at_gridline) {
     double min_time = edited_clip->min_time;
     double max_time = edited_clip->max_time;
     double start_offset = edited_clip->start_offset;
+    double speed = edited_clip->is_audio() ? edited_clip->audio.speed : 1.0;
 
     switch (edit_command) {
       case TimelineCommand::ClipDuplicate:
@@ -1409,7 +1422,7 @@ void TimelineWindow::render_edited_clips(double mouse_at_gridline) {
       }
       case TimelineCommand::ClipResizeLeft: {
         const double min_length = 1.0 / beat_division;
-        auto [new_min_time, new_max_time, new_start_offset] =
+        auto [new_min_time, new_max_time, new_start_offset, _] =
             calc_resize_clip(edited_clip, relative_pos, edited_clip->max_time, min_length, 0.0, beat_duration, true);
         start_offset = new_start_offset;
         min_time = new_min_time;
@@ -1417,14 +1430,30 @@ void TimelineWindow::render_edited_clips(double mouse_at_gridline) {
       }
       case TimelineCommand::ClipResizeRight: {
         const double min_length = 1.0 / beat_division;
-        auto [new_min_time, new_max_time, new_start_offset] =
+        auto [new_min_time, new_max_time, new_start_offset, _] =
             calc_resize_clip(edited_clip, relative_pos, edited_clip->min_time, min_length, 0.0, beat_duration, false);
         max_time = new_max_time;
         break;
       }
+      case TimelineCommand::ClipStretchLeft: {
+        const double min_length = 1.0 / beat_division;
+        auto [new_min_time, new_max_time, new_start_offset, new_speed] = calc_resize_clip(
+            edited_clip, relative_pos, edited_clip->max_time, min_length, 0.0, beat_duration, true, true, true);
+        min_time = new_min_time;
+        speed = new_speed;
+        break;
+      }
+      case TimelineCommand::ClipStretchRight: {
+        const double min_length = 1.0 / beat_division;
+        auto [new_min_time, new_max_time, new_start_offset, new_speed] = calc_resize_clip(
+            edited_clip, relative_pos, edited_clip->min_time, min_length, 0.0, beat_duration, false, false, true);
+        max_time = new_max_time;
+        speed = new_speed;
+        break;
+      }
       case TimelineCommand::ClipShiftLeft: {
         const double min_length = 1.0 / beat_division;
-        auto [new_min_time, new_max_time, rel_offset] =
+        auto [new_min_time, new_max_time, rel_offset, _] =
             calc_resize_clip(edited_clip, relative_pos, edited_clip->max_time, min_length, 0.0, beat_duration, true, true);
         start_offset = rel_offset;
         min_time = new_min_time;
@@ -1432,7 +1461,7 @@ void TimelineWindow::render_edited_clips(double mouse_at_gridline) {
       }
       case TimelineCommand::ClipShiftRight: {
         const double min_length = 1.0 / beat_division;
-        auto [new_min_time, new_max_time, rel_offset] =
+        auto [new_min_time, new_max_time, rel_offset, _] =
             calc_resize_clip(edited_clip, relative_pos, edited_clip->min_time, min_length, 0.0, beat_duration, false, true);
         start_offset = rel_offset;
         max_time = new_max_time;
@@ -1453,7 +1482,7 @@ void TimelineWindow::render_edited_clips(double mouse_at_gridline) {
       default: break;
     }
 
-    render_clip(edited_clip, min_time, max_time, start_offset, track_pos_y, track_height, true);
+    render_clip(edited_clip, min_time, max_time, start_offset, speed, track_pos_y, track_height, true);
   } else if (edit_selected) {
     if (edit_command == TimelineCommand::ClipShift) {
       return;
@@ -1556,6 +1585,7 @@ void TimelineWindow::render_edited_clips(double mouse_at_gridline) {
           cmd->draw_flags = ClipDrawCmd::Layer2;
 
           if (clip->is_audio()) {
+            cmd->speed = 1.0;
             cmd->gain = clip->audio.gain;
             cmd->audio = clip->audio.asset->peaks;
           } else {
@@ -1569,7 +1599,7 @@ void TimelineWindow::render_edited_clips(double mouse_at_gridline) {
         const TrackClipResizeInfo& clip_resize_info = clip_resize[i - first_selected_track];
         if (clip_resize_info.should_resize) {
           Clip* clip = src_track->clips[clip_resize_info.clip_id];
-          auto [new_min_time, new_max_time, new_start_offset] = calc_resize_clip(
+          auto [new_min_time, new_max_time, new_start_offset, new_speed] = calc_resize_clip(
               clip,
               relative_pos,
               clip_resize_limit,
@@ -1579,7 +1609,7 @@ void TimelineWindow::render_edited_clips(double mouse_at_gridline) {
               left_side,
               shift_mode,
               true);
-          render_clip(clip, new_min_time, new_max_time, new_start_offset, track_pos_y, height, true);
+          render_clip(clip, new_min_time, new_max_time, new_start_offset, 1.0, track_pos_y, height, true);
         }
       }
 
@@ -1593,6 +1623,7 @@ void TimelineWindow::render_clip(
     double min_time,
     double max_time,
     double start_offset,
+    double speed,
     float track_pos_y,
     float height,
     uint32_t draw_flags) {
@@ -1608,6 +1639,7 @@ void TimelineWindow::render_clip(
     cmd->start_offset = start_offset;
     cmd->min_pos_x = min_pos_x;
     cmd->max_pos_x = max_pos_x;
+    cmd->speed = speed;
     cmd->min_pos_y = track_pos_y;
     cmd->height = height;
     cmd->draw_flags = draw_flags;
@@ -1689,7 +1721,7 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
           WaveformVisual* waveform = cmd.audio;
           if (!waveform)
             break;
-          const double scale_x = sample_scale * (double)waveform->sample_rate;
+          const double scale_x = sample_scale * (double)waveform->sample_rate / cmd.speed;
           const double inv_scale_x = 1.0 / scale_x;
           double mip_index = std::log(scale_x * 0.5) * log_base4;  // Scale -> Index
           const int32_t index = math::clamp((int32_t)mip_index, 0, waveform->mipmap_count - 1);
@@ -1971,6 +2003,17 @@ void TimelineWindow::apply_edit(double mouse_at_gridline) {
             cmd->last_beat_duration = beat_duration;
             g_cmd_manager.execute("Resize clip", cmd);
           }
+          finish_edit();
+        }
+        ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+        break;
+      case TimelineCommand::ClipStretchLeft:
+        if (!left_mouse_down) {
+          finish_edit();
+        }
+        ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+      case TimelineCommand::ClipStretchRight:
+        if (!left_mouse_down) {
           finish_edit();
         }
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);

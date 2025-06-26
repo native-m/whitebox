@@ -24,6 +24,7 @@ static inline ClipResizeResult calc_resize_clip(
     double beat_duration,
     bool is_min,
     bool shift = false,
+    bool stretch = false,
     bool clamp_at_resize_pos = false) {
   if (!is_min) {
     const double old_max = clip->max_time;
@@ -34,6 +35,8 @@ static inline ClipResizeResult calc_resize_clip(
       new_max = clip->min_time + actual_min_length;
 
     double start_offset = clip->start_offset;
+    double new_speed = 1.0;
+
     if (shift) {
       SampleAsset* asset = nullptr;
       if (clip->is_audio()) {
@@ -49,10 +52,22 @@ static inline ClipResizeResult calc_resize_clip(
         start_offset = beat_to_samples(start_offset, (double)asset->sample_instance.sample_rate, beat_duration);
     }
 
+    if (stretch) {
+      if (clip->is_audio()) {
+        SampleAsset* asset = clip->audio.asset;
+        if (asset) {
+          double sample_count = (double)asset->sample_instance.count;
+          double num_samples = beat_to_samples(relative_pos, clip->get_asset_sample_rate(), beat_duration);
+          new_speed = (sample_count + num_samples) / sample_count;
+        }
+      }
+    }
+
     return {
       .min = clip->min_time,
       .max = new_max,
       .start_offset = start_offset,
+      .speed = new_speed,
     };
   }
 
@@ -66,6 +81,8 @@ static inline ClipResizeResult calc_resize_clip(
     new_min = min_resize_pos;
 
   double start_offset = clip->start_offset;
+  double new_speed = 1.0;
+
   if (!shift) {
     double old_start_offset = start_offset;
     SampleAsset* asset = nullptr;
@@ -87,10 +104,22 @@ static inline ClipResizeResult calc_resize_clip(
       start_offset = beat_to_samples(start_offset, (double)asset->sample_instance.sample_rate, beat_duration);
   }
 
+  if (stretch) {
+    if (clip->is_audio()) {
+      SampleAsset* asset = clip->audio.asset;
+      if (asset) {
+        double sample_count = (double)asset->sample_instance.count;
+        double num_samples = beat_to_samples(old_min - new_min, clip->get_asset_sample_rate(), beat_duration);
+        new_speed = (sample_count + num_samples) / sample_count;
+      }
+    }
+  }
+
   return {
     .min = new_min,
     .max = clip->max_time,
     .start_offset = start_offset,
+    .speed = new_speed,
   };
 }
 

@@ -14,6 +14,8 @@ enum class TimelineCommand {
   ClipMove,
   ClipResizeLeft,
   ClipResizeRight,
+  ClipStretchLeft,
+  ClipStretchRight,
   ClipShiftLeft,
   ClipShiftRight,
   ClipShift,
@@ -34,6 +36,7 @@ struct ClipDrawCmd {
   double start_offset;
   double min_pos_x;
   double max_pos_x;
+  double speed;
   float min_pos_y;
   float height;
   float gain;
@@ -117,6 +120,7 @@ struct TimelineWindow : public TimelineBase {
   bool holding_shift = false;
   bool holding_ctrl = false;
   bool holding_alt = false;
+  bool can_select = false;
 
   TimelineCommand edit_command{};
   Track* edited_track{};
@@ -160,6 +164,7 @@ struct TimelineWindow : public TimelineBase {
       double min_time,
       double max_time,
       double start_offset,
+      double speed,
       float track_pos_y,
       float height,
       uint32_t draw_flags = 0);

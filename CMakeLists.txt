@@ -227,7 +227,6 @@ set(WB_LINK_LIBRARIES
     imgui-cpp
     imgui-freetype
     imgui-vulkan
-    reflectcpp
     msgpack-c
     leveldb
     sndfile

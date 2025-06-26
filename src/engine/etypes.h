@@ -23,6 +23,7 @@ struct ClipResizeResult {
   double min;
   double max;
   double start_offset;
+  double speed = 1.0;
 };
 
 struct TrackClipResizeInfo {
