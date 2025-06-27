@@ -132,7 +132,8 @@ struct Engine {
       double min_resize_pos,
       double min_length,
       bool left_side,
-      bool shift);
+      bool shift,
+      bool stretch);
 
   TrackEditResult delete_clip(Track* track, Clip* clip);
   TrackEditResult add_to_cliplist(Track* track, Clip* clip);

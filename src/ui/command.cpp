@@ -189,7 +189,7 @@ bool ClipResizeCmd::execute() {
   Track* track = g_engine.tracks[track_id];
   Clip* clip = track->clips[clip_id];
   double resize_limit = left_side ? clip->max_time : clip->min_time;
-  auto result = g_engine.resize_clip(track, clip, relative_pos, resize_limit, min_length, left_side, shift);
+  auto result = g_engine.resize_clip(track, clip, relative_pos, resize_limit, min_length, left_side, shift, stretch);
   history.backup(std::move(result));
   return true;
 }

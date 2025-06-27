@@ -57,8 +57,9 @@ static inline ClipResizeResult calc_resize_clip(
         SampleAsset* asset = clip->audio.asset;
         if (asset) {
           double sample_count = (double)asset->sample_instance.count;
+          double old_length = sample_count * clip->audio.speed;
           double num_samples = beat_to_samples(relative_pos, clip->get_asset_sample_rate(), beat_duration);
-          new_speed = (sample_count + num_samples) / sample_count;
+          new_speed = (old_length + num_samples) / sample_count;
         }
       }
     }
@@ -109,8 +110,9 @@ static inline ClipResizeResult calc_resize_clip(
       SampleAsset* asset = clip->audio.asset;
       if (asset) {
         double sample_count = (double)asset->sample_instance.count;
+        double old_length = sample_count * clip->audio.speed;
         double num_samples = beat_to_samples(old_min - new_min, clip->get_asset_sample_rate(), beat_duration);
-        new_speed = (sample_count + num_samples) / sample_count;
+        new_speed = (old_length + num_samples) / sample_count;
       }
     }
   }

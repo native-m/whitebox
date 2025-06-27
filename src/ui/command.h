@@ -101,6 +101,7 @@ struct ClipResizeCmd : public Command {
   uint32_t clip_id;
   bool left_side;
   bool shift;
+  bool stretch;
   double relative_pos;
   double min_length;
   double last_beat_duration;

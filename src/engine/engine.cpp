@@ -370,12 +370,13 @@ TrackEditResult Engine::resize_clip(
     double resize_limit,
     double min_length,
     bool left_side,
-    bool shift) {
+    bool shift,
+    bool stretch) {
   if (relative_pos == 0.0)
     return {};
   std::unique_lock lock(editor_lock);
-  auto [min_time, max_time, start_offset, speed] =
-      calc_resize_clip(clip, relative_pos, resize_limit, min_length, clip->min_time, beat_duration, left_side, shift);
+  auto [min_time, max_time, start_offset, speed] = calc_resize_clip(
+      clip, relative_pos, resize_limit, min_length, clip->min_time, beat_duration, left_side, shift, stretch);
   auto query_result = track->query_clip_by_range(min_time, max_time);
   TrackEditResult trim_result =
       query_result ? reserve_track_region(track, query_result->first, query_result->last, min_time, max_time, true, clip)
@@ -383,10 +384,12 @@ TrackEditResult Engine::resize_clip(
   trim_result.deleted_clips.push_back(*clip);
   if (left_side) {
     clip->min_time = min_time;
-    clip->start_offset = start_offset;
   } else {
     clip->max_time = max_time;
-    clip->start_offset = start_offset;
+  }
+  clip->start_offset = start_offset;
+  if (clip->is_audio() && stretch) {
+    clip->audio.speed = speed;
   }
   track->update_clip_ordering();
   track->reset_playback_state(playhead, true);
