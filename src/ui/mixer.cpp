@@ -87,7 +87,7 @@ void MixerWindow::render() {
     const float ms_btn_width = width * 0.5f - 1.0f;
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2.0f, 0.0f));
     if (controls::toggle_button("M", &mute, muted_color, ImVec2(ms_btn_width, 0.0f)))
-      track->set_mute(!mute);
+      track->set_mute(mute);
 
     ImGui::SameLine(0.0f, 2.0f);
     if (ImGui::Button("S", ImVec2(ms_btn_width, 0.0f)))

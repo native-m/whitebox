@@ -227,8 +227,8 @@ set(WB_LINK_LIBRARIES
     imgui-cpp
     imgui-freetype
     imgui-vulkan
-    msgpack-c
     leveldb
+    msgpack-cxx
     sndfile
     vorbisfile
     midi-parser

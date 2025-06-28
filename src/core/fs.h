@@ -23,7 +23,7 @@ struct File {
   uint32_t read(void* dest, size_t size);
   uint32_t write(const void* src, size_t size);
   void close();
-
+  
   inline uint32_t read_i32(int32_t* value) {
     return read(value, sizeof(int32_t));
   }
@@ -44,6 +44,10 @@ struct File {
   }
   inline uint32_t read_string(char* str, size_t size) {
     return read(str, size);
+  }
+
+  inline uint32_t write(const char* src, size_t size) {
+    return write((const void*)src, size);
   }
 
   inline uint32_t write_i32(int32_t value) {

@@ -79,18 +79,23 @@ CPMAddPackage(
 
 CPMAddPackage(
     NAME                msgpack-c
-    GIT_TAG             c-6.1.0
+    VERSION             7.0.0
+    GIT_TAG             cpp-7.0.0
     GITHUB_REPOSITORY   msgpack/msgpack-c
-    EXCLUDE_FROM_ALL
+    OPTIONS             "MSGPACK_BUILD_EXAMPLES OFF"
+                        "MSGPACK_BUILD_DOCS OFF"
+                        "MSGPACK_USE_BOOST OFF"
+                        "MSGPACK_CXX11 OFF"
+                        "MSGPACK_CXX20 ON"
 )
 
-CPMAddPackage(
-    NAME                reflect-cpp
-    VERSION             0.19.0
-    GITHUB_REPOSITORY   getml/reflect-cpp
-    OPTIONS             "REFLECTCPP_MSGPACK ON"
-    EXCLUDE_FROM_ALL
-)
+#CPMAddPackage(
+#    NAME                reflect-cpp
+#    VERSION             0.19.0
+#    GITHUB_REPOSITORY   getml/reflect-cpp
+#    OPTIONS             "REFLECTCPP_MSGPACK ON"
+#    EXCLUDE_FROM_ALL
+#)
 
 CPMAddPackage(
     NAME                spdlog
@@ -136,7 +141,7 @@ CPMAddPackage(
 CPMAddPackage(
     NAME                ogg
     GITHUB_REPOSITORY   xiph/ogg
-    VERSION             1.3.5
+    VERSION             1.3.6
     OPTIONS             "BUILD_TESTING OFF"
                         "INSTALL_DOCS OFF"
                         "INSTALL_PKG_CONFIG_MODULE OFF"

@@ -189,6 +189,7 @@ ProjectFileResult read_project_file(
                           .asset = sample_assets[asset_id],
                           .fade_start = data.map_find("fstart").as_number(0.0),
                           .fade_end = data.map_find("fend").as_number(0.0),
+                          .speed = data.map_find("speed").as_number(1.0),
                           .gain = data.map_find("gain").as_number(0.0f),
                         });
                       }
@@ -197,6 +198,8 @@ ProjectFileResult read_project_file(
                       if (asset_id != WB_INVALID_ASSET_ID) {
                         clip->init_as_midi_clip({
                           .asset = midi_assets[asset_id],
+                          .transpose = data.map_find("trans").as_number<int16_t>(),
+                          .rate = data.map_find("rate").as_number<int16_t>(),
                         });
                       }
                       break;

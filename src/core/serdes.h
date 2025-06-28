@@ -1,6 +1,6 @@
 #pragma once
 
-#include <msgpack.h>
+#include <msgpack.hpp>
 
 #include "fs.h"
 #include "stream.h"
@@ -8,114 +8,111 @@
 namespace wb {
 
 struct MsgpackWriter {
-  msgpack_packer pk_{};
+  msgpack::packer<File> pk_;
 
   template<IOWriter Writer>
-  MsgpackWriter(Writer& writer) {
-    msgpack_packer_init(&pk_, &writer, [](void* data, const char* buf, size_t len) {
-      Writer* io = (Writer*)data;
-      return io->write(buf, len) < len ? -1 : 0;
-    });
+  MsgpackWriter(Writer& writer) : pk_(writer) {
   }
 
   template<typename T>
-  void write_num(T value) {
+  inline void write_num(T value) {
     if constexpr (std::same_as<T, int8_t> || std::same_as<T, uint8_t>) {
-      msgpack_pack_int8(&pk_, static_cast<int8_t>(value));
+      pk_.pack_int8(static_cast<int8_t>(value));
     } else if constexpr (std::same_as<T, int16_t> || std::same_as<T, uint16_t>) {
-      msgpack_pack_int16(&pk_, static_cast<int16_t>(value));
+      pk_.pack_int16(static_cast<int16_t>(value));
     } else if constexpr (std::same_as<T, int32_t> || std::same_as<T, uint32_t>) {
-      msgpack_pack_int32(&pk_, static_cast<int32_t>(value));
+      pk_.pack_int32(static_cast<int32_t>(value));
     } else if constexpr (std::same_as<T, int64_t> || std::same_as<T, uint64_t>) {
-      msgpack_pack_int64(&pk_, static_cast<int64_t>(value));
+      pk_.pack_int64(static_cast<int64_t>(value));
     } else if constexpr (std::same_as<T, float>) {
-      msgpack_pack_float(&pk_, value);
+      pk_.pack_float(static_cast<float>(value));
     } else if constexpr (std::same_as<T, double>) {
-      msgpack_pack_double(&pk_, value);
+      pk_.pack_double(static_cast<double>(value));
     }
   }
 
-  void write_str(std::string_view str) {
-    msgpack_pack_str_with_body(&pk_, str.data(), str.size());
+  inline void write_str(std::string_view str) {
+    pk_.pack_str(str.size());
+    pk_.pack_str_body(str.data(), str.size());
   }
 
-  void write_bool(bool b) {
+  inline void write_bool(bool b) {
     if (b) {
-      msgpack_pack_true(&pk_);
+      pk_.pack_true();
     } else {
-      msgpack_pack_false(&pk_);
+      pk_.pack_false();
     }
   }
 
-  void write_map(uint32_t n) {
-    msgpack_pack_map(&pk_, n);
+  inline void write_map(uint32_t n) {
+    pk_.pack_map(n);
   }
 
-  void write_array(uint32_t n) {
-    msgpack_pack_array(&pk_, n);
+  inline void write_array(uint32_t n) {
+    pk_.pack_array(n);
   }
 
-  void write_kv_num(std::string_view key, auto value) {
-    msgpack_pack_str_with_body(&pk_, key.data(), key.size());
+  inline void write_kv_num(std::string_view key, auto value) {
+    write_str(key);
     write_num(value);
   }
 
-  void write_kv_str(std::string_view key, std::string_view value) {
-    msgpack_pack_str_with_body(&pk_, key.data(), key.size());
-    msgpack_pack_str_with_body(&pk_, value.data(), value.size());
+  inline void write_kv_str(std::string_view key, std::string_view value) {
+    write_str(key);
+    write_str(value);
   }
 
-  void write_kv_bool(std::string_view key, bool b) {
-    msgpack_pack_str_with_body(&pk_, key.data(), key.size());
+  inline void write_kv_bool(std::string_view key, bool b) {
+    write_str(key);
     write_bool(b);
   }
 
-  void write_kv_map(std::string_view key, uint32_t n) {
-    msgpack_pack_str_with_body(&pk_, key.data(), key.size());
+  inline void write_kv_map(std::string_view key, uint32_t n) {
+    write_str(key);
     write_map(n);
   }
 
-  void write_kv_array(std::string_view key, uint32_t n) {
-    msgpack_pack_str_with_body(&pk_, key.data(), key.size());
+  inline void write_kv_array(std::string_view key, uint32_t n) {
+    write_str(key);
     write_array(n);
   }
 };
 
 struct MsgpackView {
-  msgpack_object obj{};
+  msgpack::object obj{};
 
   bool is_nil() const {
-    return obj.type == MSGPACK_OBJECT_NIL;
+    return obj.type == msgpack::type::NIL;
   }
 
   bool is_num() const {
-    return (obj.type >= MSGPACK_OBJECT_POSITIVE_INTEGER) && (obj.type <= MSGPACK_OBJECT_FLOAT);
+    return (obj.type >= msgpack::type::POSITIVE_INTEGER) && (obj.type <= msgpack::type::FLOAT);
   }
 
   bool is_str() const {
-    return obj.type == MSGPACK_OBJECT_STR;
+    return obj.type == msgpack::type::STR;
   }
 
   bool is_bool() const {
-    return obj.type == MSGPACK_OBJECT_BOOLEAN;
+    return obj.type == msgpack::type::BOOLEAN;
   }
 
   bool is_map() const {
-    return obj.type == MSGPACK_OBJECT_MAP;
+    return obj.type == msgpack::type::MAP;
   }
 
   bool is_array() const {
-    return obj.type == MSGPACK_OBJECT_ARRAY;
+    return obj.type == msgpack::type::ARRAY;
   }
 
   template<NumericalType T>
   T as_number(T default_value = T(0)) const {
     switch (obj.type) {
-      case MSGPACK_OBJECT_BOOLEAN: return T(obj.via.boolean);
-      case MSGPACK_OBJECT_POSITIVE_INTEGER: return T(obj.via.i64);
-      case MSGPACK_OBJECT_NEGATIVE_INTEGER: return T(obj.via.u64);
-      case MSGPACK_OBJECT_FLOAT64: return T(obj.via.f64);
-      case MSGPACK_OBJECT_FLOAT32: return T(obj.via.f64);
+      case msgpack::type::BOOLEAN: return T(obj.via.boolean);
+      case msgpack::type::POSITIVE_INTEGER: return T(obj.via.i64);
+      case msgpack::type::NEGATIVE_INTEGER: return T(obj.via.u64);
+      case msgpack::type::FLOAT64: return T(obj.via.f64);
+      case msgpack::type::FLOAT32: return T(obj.via.f64);
       default: break;
     }
     return default_value;
@@ -151,10 +148,10 @@ struct MsgpackView {
   MsgpackView map_find(std::string_view view) {
     assert(is_map() && "The object is not a map");
     uint32_t count = obj.via.map.size;
-    const msgpack_object_map& map = obj.via.map;
+    const msgpack::object_map& map = obj.via.map;
     for (uint32_t i = 0; i < count; i++) {
       const auto& key = map.ptr[i].key;
-      if (key.type == MSGPACK_OBJECT_STR) {
+      if (key.type == msgpack::type::STR) {
         std::string_view key_str(key.via.str.ptr, key.via.str.size);
         if (key_str == view) {
           return { map.ptr[i].val };
@@ -171,21 +168,19 @@ struct MsgpackView {
 
 struct MsgpackReader {
   Vector<std::byte> bytes_;
-  msgpack_unpacked msg_{};
+  msgpack::object_handle result_{};
 
   template<IOReader Reader>
   MsgpackReader(Reader& reader) {
     bytes_ = read_file_content(reader);
-    msgpack_unpacked_init(&msg_);
-    msgpack_unpack_next(&msg_, (const char*)bytes_.data(), bytes_.size(), nullptr);
+    result_ = msgpack::unpack((const char*)bytes_.data(), bytes_.size());
   }
 
   ~MsgpackReader() {
-    msgpack_unpacked_destroy(&msg_);
   }
 
   MsgpackView get_view() {
-    return MsgpackView{ msg_.data };
+    return MsgpackView{ result_.get() };
   }
 };
 
