@@ -16,6 +16,8 @@ struct SampleInfo {
 };
 
 struct Sample {
+  static constexpr size_t sample_padding = 16;
+
   std::string name;
   std::filesystem::path path;
   AudioFormat format{};
@@ -41,6 +43,11 @@ struct Sample {
     if (channel > channels)
       return nullptr;
     return (T*)sample_data[channel];
+  }
+
+  template<typename T>
+  inline const T* const* get_sample_data() const noexcept {
+    return (const T* const*)sample_data.data();
   }
 
   template<typename T>

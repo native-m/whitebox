@@ -12,6 +12,7 @@
 #include "core/memory.h"
 #include "core/vector.h"
 #include "dsp/param_queue.h"
+#include "dsp/sampler.h"
 #include "etypes.h"
 #include "event.h"
 #include "event_list.h"
@@ -109,12 +110,12 @@ struct Track {
   TrackEventState event_state{};
   Vector<AudioEvent> audio_event_buffer;
   AudioEvent current_audio_event{};
-  size_t samples_processed{};
   AudioBuffer<float> effect_buffer{};
 
   MidiVoiceState midi_voice_state{};
   MidiEventList midi_event_list;
   TestSynth test_synth{};
+  dsp::Sampler sampler{};
 
   LevelMeterColorMode level_meter_color{};
   VUMeter level_meter[2]{};
@@ -260,21 +261,6 @@ struct Track {
       double inv_ppq,
       int64_t playhead_in_samples,
       bool playing);
-
-  void render_sample(
-      AudioBuffer<float>& output_buffer,
-      float gain,
-      uint32_t buffer_offset,
-      uint32_t num_samples,
-      double sample_rate);
-
-  void stream_sample(
-      AudioBuffer<float>& output_buffer,
-      Sample* sample,
-      float gain,
-      uint32_t buffer_offset,
-      uint32_t num_samples,
-      size_t sample_offset);
 
   void process_test_synth(AudioBuffer<float>& output_buffer, double sample_rate, bool playing);
 

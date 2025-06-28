@@ -357,12 +357,13 @@ void Track::process_event(
     if (min_time >= start_time) {  // Started from beginning
       if (is_audio) {
         double offset_from_start = beat_to_samples(min_time - start_time, sample_rate, beat_duration);
-        double sample_offset = sample_position + offset_from_start;
+        double sample_offset = (sample_position + offset_from_start) * clip->audio.speed;
         uint32_t buffer_offset = (uint32_t)((uint64_t)sample_offset % (uint64_t)buffer_size);
         audio_event_buffer.push_back({
           .type = EventType::PlaySample,
           .buffer_offset = buffer_offset,
           .time = min_time,
+          .speed = clip->audio.speed,
           .sample_offset = (size_t)clip->start_offset,
           .clip = clip,
           .sample = &clip->audio.asset->sample_instance,
@@ -375,12 +376,14 @@ void Track::process_event(
       double relative_start_time = start_time - min_time;
       if (is_audio) {
         double sample_pos = beat_to_samples(relative_start_time, sample_rate, beat_duration);
-        size_t sample_offset = (size_t)(sample_pos + clip->start_offset);
+        size_t sample_offset = (size_t)((sample_pos + clip->start_offset) * clip->audio.speed);
         audio_event_buffer.push_back({
           .type = EventType::PlaySample,
           .buffer_offset = 0,
           .time = start_time,
+          .speed = clip->audio.speed,
           .sample_offset = sample_offset,
+          .clip = clip,
           .sample = &clip->audio.asset->sample_instance,
         });
       } else {
@@ -392,7 +395,7 @@ void Track::process_event(
       double relative_start_time = start_time - min_time;
       if (is_audio) {
         double sample_pos = beat_to_samples(relative_start_time, sample_rate, beat_duration);
-        size_t sample_offset = (size_t)(sample_pos + clip->start_offset);
+        size_t sample_offset = (size_t)((sample_pos + clip->start_offset) * clip->audio.speed);
         audio_event_buffer.push_back({
           .type = EventType::StopSample,
           .buffer_offset = 0,
@@ -402,6 +405,7 @@ void Track::process_event(
           .type = EventType::PlaySample,
           .buffer_offset = 0,
           .time = start_time,
+          .speed = clip->audio.speed,
           .sample_offset = sample_offset,
           .clip = clip,
           .sample = &clip->audio.asset->sample_instance,
@@ -657,14 +661,43 @@ void Track::process(
   }
 
   if (playing) {
-    AudioEvent* event = audio_event_buffer.begin();
+    AudioEvent* next_event = audio_event_buffer.begin();
     AudioEvent* end = audio_event_buffer.end();
     uint32_t start_sample = 0;
     while (start_sample < write_buffer.n_samples) {
-      if (event != end) {
-        uint32_t event_length = event->buffer_offset - start_sample;
-        float gain = event->clip ? event->clip->audio.gain : 1.0f;
-        render_sample(write_buffer, gain, start_sample, event_length, sample_rate);
+      if (next_event != end) {
+        uint32_t event_length = next_event->buffer_offset - start_sample;
+
+        switch (current_audio_event.type) {
+          case EventType::None: break;
+          case EventType::StopSample: break;
+          case EventType::PlaySample: {
+            float gain = current_audio_event.clip->audio.gain;
+            Sample* sample = current_audio_event.sample;
+            sampler.stream(sample, output_buffer.n_channels, event_length, start_sample, gain, write_buffer.channel_buffers);
+            break;
+          }
+        }
+
+        switch (next_event->type) {
+          case EventType::None: break;
+          case EventType::StopSample: break;
+          case EventType::PlaySample: {
+            assert(next_event->clip && "Clip is nullptr");
+            assert(next_event->sample && "Sample is nullptr");
+            // prepare sampler state
+            float gain = next_event->clip->audio.gain;
+            Sample* sample = next_event->sample;
+            sampler.reset_state(
+                dsp::ResamplerType::Linear,
+                (double)next_event->sample_offset,
+                next_event->speed,
+                sample->sample_rate,
+                sample_rate);
+            break;
+          }
+        }
+
 #if WB_DBG_LOG_AUDIO_EVENT
         switch (event->type) {
           case EventType::StopSample: Log::debug("{}: Stop {} {}", name, event->time, event->buffer_offset); break;
@@ -672,13 +705,18 @@ void Track::process(
           default: break;
         }
 #endif
-        current_audio_event = *event;
+        current_audio_event = *next_event;
         start_sample += event_length;
-        event++;
+        next_event++;
       } else {
         uint32_t event_length = write_buffer.n_samples - start_sample;
-        float gain = current_audio_event.clip ? current_audio_event.clip->audio.gain : 1.0f;
-        render_sample(write_buffer, gain, start_sample, event_length, sample_rate);
+
+        if (current_audio_event.type == EventType::PlaySample) {
+          float gain = current_audio_event.clip->audio.gain;
+          Sample* sample = current_audio_event.sample;
+          sampler.stream(sample, output_buffer.n_channels, event_length, start_sample, gain, write_buffer.channel_buffers);
+        }
+
         start_sample = write_buffer.n_samples;
       }
     }
@@ -694,93 +732,6 @@ void Track::process(
   }
 
   param_queue.clear();
-}
-
-void Track::render_sample(
-    AudioBuffer<float>& output_buffer,
-    float gain,
-    uint32_t buffer_offset,
-    uint32_t num_samples,
-    double sample_rate) {
-  switch (current_audio_event.type) {
-    case EventType::None:
-    case EventType::StopSample: samples_processed = 0; break;
-    case EventType::PlaySample: {
-      Sample* sample = current_audio_event.sample;
-      size_t sample_offset = samples_processed + current_audio_event.sample_offset;
-      if (sample_offset >= sample->count)
-        break;
-      uint32_t min_num_samples = std::min(num_samples, (uint32_t)(sample->count - sample_offset));
-      stream_sample(output_buffer, current_audio_event.sample, gain, buffer_offset, min_num_samples, sample_offset);
-      samples_processed += min_num_samples;
-      break;
-    }
-    default: break;
-  }
-}
-
-void Track::stream_sample(
-    AudioBuffer<float>& output_buffer,
-    Sample* sample,
-    float gain,
-    uint32_t buffer_offset,
-    uint32_t num_samples,
-    size_t sample_offset) {
-  static constexpr float i16_pcm_normalizer = 1.0f / static_cast<float>(std::numeric_limits<int16_t>::max());
-  static constexpr double i24_pcm_normalizer = 1.0 / static_cast<double>((1 << 23) - 1);
-  static constexpr double i32_pcm_normalizer = 1.0 / static_cast<double>(std::numeric_limits<int32_t>::max());
-
-  switch (sample->format) {
-    case AudioFormat::I16:
-      for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
-        float* output = output_buffer.get_write_pointer(i);
-        auto sample_data = sample->get_read_pointer<int16_t>(i % sample->channels);
-        for (uint32_t j = 0; j < num_samples; j++) {
-          float sample = (float)sample_data[sample_offset + j] * i16_pcm_normalizer;
-          output[j + buffer_offset] += math::clamp(sample * gain, -1.0f, 1.0f);
-        }
-      }
-      break;
-    case AudioFormat::I24:
-      for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
-        float* output = output_buffer.get_write_pointer(i);
-        auto sample_data = sample->get_read_pointer<int32_t>(i % sample->channels);
-        for (uint32_t j = 0; j < num_samples; j++) {
-          double sample = (double)sample_data[sample_offset + j] * i24_pcm_normalizer;
-          output[j + buffer_offset] += math::clamp((float)sample * gain, -1.0f, 1.0f);
-        }
-      }
-      break;
-    case AudioFormat::I32:
-      for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
-        float* output = output_buffer.get_write_pointer(i);
-        auto sample_data = sample->get_read_pointer<int32_t>(i % sample->channels);
-        for (uint32_t j = 0; j < num_samples; j++) {
-          double sample = (double)sample_data[sample_offset + j] * i32_pcm_normalizer;
-          output[j + buffer_offset] += math::clamp((float)sample * gain, -1.0f, 1.0f);
-        }
-      }
-      break;
-    case AudioFormat::F32:
-      for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
-        float* output = output_buffer.get_write_pointer(i);
-        auto sample_data = sample->get_read_pointer<float>(i % sample->channels);
-        for (uint32_t j = 0; j < num_samples; j++) {
-          output[j + buffer_offset] += sample_data[sample_offset + j] * gain;
-        }
-      }
-      break;
-    case AudioFormat::F64:
-      for (uint32_t i = 0; i < output_buffer.n_channels; i++) {
-        float* output = output_buffer.get_write_pointer(i);
-        auto sample_data = sample->get_read_pointer<double>(i % sample->channels);
-        for (uint32_t j = 0; j < num_samples; j++) {
-          output[j + buffer_offset] += (float)sample_data[sample_offset + j] * gain;
-        }
-      }
-      break;
-    default: assert(false && "Unsupported format"); break;
-  }
 }
 
 // This code is only made for testing purposes, the code will be removed later

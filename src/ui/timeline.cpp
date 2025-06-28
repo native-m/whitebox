@@ -1721,7 +1721,7 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
           WaveformVisual* waveform = cmd.audio;
           if (!waveform)
             break;
-          const double scale_x = sample_scale * (double)waveform->sample_rate / cmd.speed;
+          const double scale_x = sample_scale * (double)waveform->sample_rate * cmd.speed;
           const double inv_scale_x = 1.0 / scale_x;
           double mip_index = std::log(scale_x * 0.5) * log_base4;  // Scale -> Index
           const int32_t index = math::clamp((int32_t)mip_index, 0, waveform->mipmap_count - 1);

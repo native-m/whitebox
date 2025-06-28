@@ -67,6 +67,7 @@ struct AudioEvent {
   EventType type;
   uint32_t buffer_offset;
   double time;
+  double speed;
   size_t sample_offset;
   Clip* clip;
   Sample* sample;

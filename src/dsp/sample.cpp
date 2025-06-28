@@ -124,7 +124,7 @@ std::optional<Sample> Sample::load_file(const std::filesystem::path& path) noexc
     return {};
 
   uint32_t sample_size = get_audio_format_size(format);
-  size_t data_size = info.frames * sample_size;
+  size_t data_size = (info.frames + sample_padding) * sample_size;
   Vector<std::byte*> data;
   data.reserve(info.channels);
 
@@ -137,6 +137,7 @@ std::optional<Sample> Sample::load_file(const std::filesystem::path& path) noexc
       sf_close(file);
       return {};
     }
+    std::memset(channel_data, 0, data_size);
     data.push_back(channel_data);
   }
 
