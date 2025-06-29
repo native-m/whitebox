@@ -357,7 +357,7 @@ void Track::process_event(
     if (min_time >= start_time) {  // Started from beginning
       if (is_audio) {
         double offset_from_start = beat_to_samples(min_time - start_time, sample_rate, beat_duration);
-        double sample_offset = (sample_position + offset_from_start) * clip->audio.speed;
+        double sample_offset = sample_position + offset_from_start;
         uint32_t buffer_offset = (uint32_t)((uint64_t)sample_offset % (uint64_t)buffer_size);
         audio_event_buffer.push_back({
           .type = EventType::PlaySample,
@@ -376,7 +376,7 @@ void Track::process_event(
       double relative_start_time = start_time - min_time;
       if (is_audio) {
         double sample_pos = beat_to_samples(relative_start_time, sample_rate, beat_duration);
-        size_t sample_offset = (size_t)((sample_pos + clip->start_offset) * clip->audio.speed);
+        size_t sample_offset = (size_t)(clip->start_offset + (sample_pos * clip->audio.speed));
         audio_event_buffer.push_back({
           .type = EventType::PlaySample,
           .buffer_offset = 0,
@@ -395,7 +395,7 @@ void Track::process_event(
       double relative_start_time = start_time - min_time;
       if (is_audio) {
         double sample_pos = beat_to_samples(relative_start_time, sample_rate, beat_duration);
-        size_t sample_offset = (size_t)((sample_pos + clip->start_offset) * clip->audio.speed);
+        size_t sample_offset = (size_t)(clip->start_offset + (sample_pos * clip->audio.speed));
         audio_event_buffer.push_back({
           .type = EventType::StopSample,
           .buffer_offset = 0,
