@@ -45,13 +45,15 @@ static inline ClipResizeResult calc_resize_clip(
         mult = clip->audio.speed;
         start_offset = samples_to_beat(start_offset, (double)asset->sample_instance.sample_rate, beat_duration);
       }
-      double new_max_clamped = math::min(new_max, clip->max_time);
       if (old_max < new_max)
-        start_offset -= (new_max_clamped - old_max) * mult;
+        start_offset -= (new_max - old_max) * mult;
       else
-        start_offset += (old_max - new_max_clamped) * mult;
-      if (clip->is_audio() && asset)
+        start_offset += (old_max - new_max) * mult;
+      start_offset = math::max(start_offset, 0.0);
+      if (clip->is_audio() && asset) {
+        start_offset = math::min(start_offset, (double)asset->sample_instance.count);
         start_offset = beat_to_samples(start_offset, (double)asset->sample_instance.sample_rate, beat_duration);
+      }
     }
 
     if (stretch && clip->is_audio()) {
