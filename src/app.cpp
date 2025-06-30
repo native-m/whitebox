@@ -7,6 +7,7 @@
 
 #include "config.h"
 #include "core/debug.h"
+#include "core/deferred_job.h"
 #include "engine/audio_io.h"
 #include "engine/engine.h"
 #include "engine/project.h"
@@ -144,6 +145,7 @@ static void register_events() {
 
 void app_init() {
   init_platform();
+  init_deferred_job();
 
   // Init SDL & create main window
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) < 0) {
@@ -190,7 +192,7 @@ void app_render() {
   g_renderer->begin_frame();
   ImGui_ImplSDL2_NewFrame();
   ImGui::NewFrame();
-  
+
   static auto first_time = true;
   ImGuiViewport* main_viewport = ImGui::GetMainViewport();
   ImGuiID main_dockspace_id = ImGui::DockSpaceOverViewport(0, main_viewport, ImGuiDockNodeFlags_PassthruCentralNode);
@@ -237,7 +239,7 @@ void app_render() {
       g_engine.play();
     }
   }
-  
+
   if (hkey_pressed(Hotkey::Undo)) {
     g_cmd_manager.undo();
   }
@@ -331,6 +333,7 @@ void app_shutdown() {
   ImGui_ImplSDL2_Shutdown();
   ImGui::DestroyContext();
   wm_destroy_main_window();
+  shutdown_deferred_job();
   SDL_Quit();
 }
 

@@ -46,4 +46,6 @@ inline void accurate_sleep(const std::chrono::duration<T, Period>& duration) {
   }
 }
 
+void set_current_thread_name(const char* name);
+
 }  // namespace wb

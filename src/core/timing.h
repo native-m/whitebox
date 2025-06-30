@@ -30,8 +30,16 @@ inline static constexpr double tm_ms_to_sec(double ms) {
   return ms / 1000.0;
 }
 
-inline static constexpr double tm_sec_to_ms(double ms) {
-  return ms * 1000.0;
+inline static constexpr double tm_ns_to_sec(double ns) {
+  return ns / 1000000000.0;
+}
+
+inline static constexpr double tm_sec_to_ms(double sec) {
+  return sec * 1000.0;
+}
+
+inline static constexpr double tm_sec_to_ns(double sec) {
+  return sec * 1000000000.0;
 }
 
 struct ScopedPerformanceCounter {

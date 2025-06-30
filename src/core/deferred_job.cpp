@@ -1,0 +1,133 @@
+#include "deferred_job.h"
+
+#include <condition_variable>
+#include <mutex>
+
+#include "queue.h"
+#include "thread.h"
+
+#define WB_MAX_DEFERRED_JOB 256
+
+namespace wb {
+
+struct alignas(64) DeferredJobSharedData {
+  std::atomic_uint32_t pos;
+  std::atomic_uint32_t should_signal;
+};
+
+struct DeferredJobItem {
+  DeferredJobFn fn;
+  DeferredJobContext context;
+  uint32_t id;
+};
+
+static std::atomic_bool running = true;
+static DeferredJobItem* job_items;
+static DeferredJobSharedData writer_data;
+static DeferredJobSharedData reader_data;
+static std::mutex writer_mtx;
+static std::mutex reader_mtx;
+static std::condition_variable writer_cv;
+static std::condition_variable reader_cv;
+static std::condition_variable waiter_cv;
+static std::thread deferred_job_thread;
+static std::atomic_uint32_t current_job_id;
+static uint32_t job_generation;
+
+static void job_runner() {
+#ifndef NDEBUG
+  set_current_thread_name("Whitebox Deferred Job Runner");
+#endif
+
+  while (running.load(std::memory_order_relaxed)) {
+    uint32_t wpos = writer_data.pos.load(std::memory_order_relaxed);
+    uint32_t rpos = reader_data.pos.load(std::memory_order_acquire);
+
+    // Wait for write position to move
+    if (wpos == rpos) {
+      writer_data.should_signal.store(1, std::memory_order_release);
+      std::unique_lock<std::mutex> lock(reader_mtx);
+      reader_cv.wait(lock, [&] {
+        return rpos != writer_data.pos.load(std::memory_order_relaxed) || !running.load(std::memory_order_relaxed);
+      });
+      continue;
+    }
+
+    DeferredJobItem job_item = job_items[rpos];
+    rpos = (rpos + 1) % WB_MAX_DEFERRED_JOB;
+    reader_data.pos.store(rpos, std::memory_order_release);
+    if (reader_data.should_signal.exchange(0, std::memory_order_release))
+      writer_cv.notify_all();  // Notify writer thread
+
+    job_item.fn(&job_item.context);
+    current_job_id.fetch_add(1, std::memory_order_acq_rel);
+    waiter_cv.notify_all();
+  }
+}
+
+void init_deferred_job() {
+  job_items = new DeferredJobItem[WB_MAX_DEFERRED_JOB];
+  deferred_job_thread = std::thread(job_runner);
+}
+
+void shutdown_deferred_job() {
+  running = false;
+  reader_cv.notify_one();
+  deferred_job_thread.join();
+  delete[] job_items;
+}
+
+uint32_t enqueue_deferred_job(DeferredJobFn fn, void* userdata0, void* userdata1) {
+  uint32_t id = 0;
+
+  for (;;) {
+    uint32_t wpos = writer_data.pos.load(std::memory_order_acquire);
+    uint32_t rpos = reader_data.pos.load(std::memory_order_relaxed);
+    uint32_t next_write_pos = (wpos + 1) % WB_MAX_DEFERRED_JOB;
+
+    // Wait for read position to move
+    if (next_write_pos == rpos) {
+      reader_data.should_signal.store(1, std::memory_order_release);
+      std::unique_lock<std::mutex> lock(writer_mtx);
+      writer_cv.wait(lock, [&] { return next_write_pos != reader_data.pos.load(std::memory_order_relaxed); });
+      continue;
+    }
+
+    job_items[wpos] = {
+      .fn = fn,
+      .context = { userdata0, userdata1 },
+      .id = job_generation,
+    };
+
+    writer_data.pos.store(next_write_pos, std::memory_order_release);
+    if (writer_data.should_signal.exchange(0, std::memory_order_release))
+      reader_cv.notify_all();  // Notify reader thread
+    id = job_generation++;
+    break;
+  }
+
+  return id;
+}
+
+void stop_deferred_job(uint32_t job_id) {
+  uint32_t i = job_id % WB_MAX_DEFERRED_JOB;
+  if (job_items[i].id == job_id) {
+    job_items[i].context.request_stop = true;
+  }
+}
+
+void wait_for_deferred_job(uint32_t job_id, uint64_t timeout) {
+  std::unique_lock lock(writer_mtx);
+  if (timeout == UINT64_MAX) {
+    waiter_cv.wait(lock, [job_id] { return job_id < current_job_id.load(std::memory_order_relaxed); });
+  } else {
+    waiter_cv.wait_for(lock, std::chrono::nanoseconds(timeout), [job_id] {
+      return job_id < current_job_id.load(std::memory_order_relaxed);
+    });
+  }
+}
+
+void wait_for_all_deferred_job() {
+}
+
+}  // namespace wb
