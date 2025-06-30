@@ -371,7 +371,7 @@ void Track::process_event(
       } else {
         event_state.midi_note_idx = clip->midi.asset->find_first_note(clip->start_offset, 0);
       }
-      clip->start_offset_changed = false;
+      clip->internal_state_changed = false;
     } else if (start_time > min_time && !event_state.partially_ended) {  // Partially started (started in the middle)
       double relative_start_time = start_time - min_time;
       if (is_audio) {
@@ -390,8 +390,8 @@ void Track::process_event(
         double actual_start_offset = relative_start_time + clip->start_offset;
         event_state.midi_note_idx = clip->midi.asset->find_first_note(actual_start_offset, 0);
       }
-      clip->start_offset_changed = false;
-    } else if (clip->start_offset_changed && event_state.partially_ended) {
+      clip->internal_state_changed = false;
+    } else if (clip->internal_state_changed && event_state.partially_ended) {
       double relative_start_time = start_time - min_time;
       if (is_audio) {
         double sample_pos = beat_to_samples(relative_start_time, sample_rate, beat_duration);
@@ -415,7 +415,7 @@ void Track::process_event(
         double actual_start_offset = relative_start_time + clip->start_offset;
         event_state.midi_note_idx = clip->midi.asset->find_first_note(actual_start_offset, 0);
       }
-      clip->start_offset_changed = false;
+      clip->internal_state_changed = false;
     }
 
     if (max_time <= end_time) {  // Reaching the end of the clip

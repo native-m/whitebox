@@ -62,7 +62,7 @@ struct Clip {
   ClipHover hover_state{};
   std::atomic_bool active{ true };
   bool deleted{};
-  volatile bool start_offset_changed{};
+  volatile bool internal_state_changed{};
 
   // Time placement in beat units
   double min_time{};

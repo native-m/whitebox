@@ -356,7 +356,7 @@ TrackEditResult Engine::move_clip(Track* track, Clip* clip, double relative_pos)
   trim_result.deleted_clips.push_back(*clip);  // Save previous state as deleted
   clip->min_time = min_time;
   clip->max_time = max_time;
-  clip->start_offset_changed = true;
+  clip->internal_state_changed = true;
   track->update_clip_ordering();
   track->reset_playback_state(playhead, true);
   trim_result.added_clips.push_back(clip);
@@ -391,6 +391,7 @@ TrackEditResult Engine::resize_clip(
   if (clip->is_audio() && stretch) {
     clip->audio.speed = speed;
   }
+  clip->internal_state_changed = shift || stretch;
   track->update_clip_ordering();
   track->reset_playback_state(playhead, true);
   trim_result.added_clips.push_back(clip);
