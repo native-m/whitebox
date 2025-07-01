@@ -199,6 +199,7 @@ void ClipResizeCmd::undo() {
   Clip* clip = track->clips[clip_id];
   std::unique_lock editor_lock(g_engine.editor_lock);
   history.undo(track);
+  clip->internal_state_changed = shift || stretch;
   track->update_clip_ordering();
   track->reset_playback_state(g_engine.playhead, true);
 }
