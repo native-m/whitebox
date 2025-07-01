@@ -31,32 +31,33 @@ static std::thread deferred_job_thread;
 static alignas(64) std::atomic_uint32_t current_job_id;
 static uint32_t job_generation;
 
-static void job_runner() {
+static void deferred_worker_thread() {
 #ifndef NDEBUG
   set_current_thread_name("Whitebox Deferred Job Runner");
 #endif
 
   while (true) {
-    uint32_t wpos = writer_data.pos.load(std::memory_order_relaxed);
-    uint32_t rpos = reader_data.pos.load(std::memory_order_acquire);
+    uint32_t wpos = writer_data.pos.load(std::memory_order_acquire);
+    uint32_t rpos = reader_data.pos.load(std::memory_order_relaxed);
 
     // Wait for write position to move
     if (wpos == rpos) {
       writer_data.should_signal.store(1, std::memory_order_release);
       writer_data.pos.wait(wpos, std::memory_order_relaxed);
       if (!running.load(std::memory_order_relaxed)) {
-        break;
+        return;
       }
       continue;
     }
 
     DeferredJobItem job_item = job_items[rpos];
+    DeferredJobContext* ctx = &job_items[rpos].context;
     rpos = (rpos + 1) % WB_MAX_DEFERRED_JOB;
     reader_data.pos.store(rpos, std::memory_order_release);
     if (reader_data.should_signal.exchange(0, std::memory_order_release))
       reader_data.pos.notify_all();  // Notify writer thread
 
-    job_item.fn(&job_item.context);
+    job_item.fn(ctx);
     current_job_id.fetch_add(1, std::memory_order_acq_rel);
     waiter_cv.notify_all();
   }
@@ -64,10 +65,11 @@ static void job_runner() {
 
 void init_deferred_job() {
   job_items = new DeferredJobItem[WB_MAX_DEFERRED_JOB];
-  deferred_job_thread = std::thread(job_runner);
+  deferred_job_thread = std::thread(deferred_worker_thread);
 }
 
 void shutdown_deferred_job() {
+  wait_for_all_deferred_job();
   running = false;
   writer_data.pos.fetch_add(1, std::memory_order_acq_rel);
   writer_data.pos.notify_one();
@@ -75,10 +77,10 @@ void shutdown_deferred_job() {
   delete[] job_items;
 }
 
-uint32_t enqueue_deferred_job(DeferredJobFn fn, void* userdata0, void* userdata1) {
+DeferredJobHandle enqueue_deferred_job(DeferredJobFn fn, void* userdata0, void* userdata1) {
   for (;;) {
-    uint32_t wpos = writer_data.pos.load(std::memory_order_acquire);
-    uint32_t rpos = reader_data.pos.load(std::memory_order_relaxed);
+    uint32_t wpos = writer_data.pos.load(std::memory_order_relaxed);
+    uint32_t rpos = reader_data.pos.load(std::memory_order_acquire);
     uint32_t next_write_pos = (wpos + 1) % WB_MAX_DEFERRED_JOB;
 
     if (next_write_pos == rpos) {
@@ -103,14 +105,14 @@ uint32_t enqueue_deferred_job(DeferredJobFn fn, void* userdata0, void* userdata1
   return 0;
 }
 
-void stop_deferred_job(uint32_t job_id) {
+void stop_deferred_job(DeferredJobHandle job_id) {
   uint32_t i = job_id % WB_MAX_DEFERRED_JOB;
   if (job_items[i].id == job_id) {
     job_items[i].context.request_stop = true;
   }
 }
 
-bool wait_for_deferred_job(uint32_t job_id, uint64_t timeout) {
+bool wait_for_deferred_job(DeferredJobHandle job_id, uint64_t timeout) {
   uint32_t i = job_id % WB_MAX_DEFERRED_JOB;
 
   // Check if this is a valid job
