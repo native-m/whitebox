@@ -12,7 +12,7 @@
 #include "engine/engine.h"
 #include "engine/project.h"
 #include "gfx/renderer.h"
-#include "platform/platform.h"
+#include "system/platform.h"
 #include "plughost/plugin_manager.h"
 #include "ui/command_manager.h"
 #include "ui/control_bar.h"

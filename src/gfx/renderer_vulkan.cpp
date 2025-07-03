@@ -6,7 +6,7 @@
 #include "core/bit_manipulation.h"
 #include "core/debug.h"
 #include "core/defer.h"
-#include "platform/platform.h"
+#include "system/platform.h"
 
 #ifdef VK_USE_PLATFORM_XCB_KHR
 #include <X11/Xlib-xcb.h>

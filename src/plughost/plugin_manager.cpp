@@ -13,7 +13,7 @@
 #include "core/defer.h"
 #include "core/stream.h"
 #include "extern/xxhash.h"
-#include "platform/path_def.h"
+#include "system/path_def.h"
 #include "vst3host.h"
 
 namespace ldb = leveldb;

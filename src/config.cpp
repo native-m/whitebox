@@ -9,7 +9,7 @@
 
 #include "engine/audio_io.h"
 #include "engine/engine.h"
-#include "platform/path_def.h"
+#include "system/path_def.h"
 #include "ui/browser.h"
 
 namespace wb {
@@ -209,7 +209,10 @@ void start_audio_engine() {
     g_output_device_properties = g_audio_io->default_output_device;
     g_audio_io->open_device(g_output_device_properties.id, g_input_device_properties.id);
   }
-  g_audio_io->set_on_device_removed_cb(on_device_removed_callback);
+  
+  g_audio_io->set_on_device_removed_cb([](void* userdata) {
+    app_push_event(AppEvent::audio_device_removed_event, nullptr, 0);
+  });
 
   if (!g_audio_exclusive_mode) {
     g_audio_output_format = g_audio_io->shared_mode_output_format;

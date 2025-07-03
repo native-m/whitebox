@@ -3,7 +3,7 @@
 #include "core/bit_manipulation.h"
 #include "core/debug.h"
 #include "core/fs.h"
-#include "platform/platform.h"
+#include "system/platform.h"
 #include "renderer_vulkan.h"
 #include "waveform_visual.h"
 

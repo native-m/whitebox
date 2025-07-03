@@ -5,7 +5,7 @@
 #include "core/algorithm.h"
 #include "core/core_math.h"
 #include "core/debug.h"
-#include "platform/platform.h"
+#include "system/platform.h"
 
 namespace wb {
 

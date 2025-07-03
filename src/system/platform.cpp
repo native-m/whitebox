@@ -1,8 +1,10 @@
 #include "platform.h"
 
 #include <SDL_mouse.h>
+
 #include <unordered_map>
 
+#include "core/bit_manipulation.h"
 #include "core/debug.h"
 #include "extern/sdl_wm.h"
 #include "plughost/plugin_interface.h"
@@ -102,18 +104,18 @@ void wm_setup_dark_mode(SDL_Window* window) {
 }
 
 // TODO(native-m): Replace with SDL function in SDL 3.0
-void wm_make_child_window(SDL_Window* window, SDL_Window* parent_window, bool imgui_window) {
+void wm_set_parent_window(SDL_Window* window, SDL_Window* parent_window, ImGuiViewport* imgui_viewport) {
   SDL_SysWMinfo wm_info = wm_get_window_wm_info(window);
   SDL_SysWMinfo parent_wm_info = wm_get_window_wm_info(parent_window);
 #ifdef WB_PLATFORM_WINDOWS
   HWND handle = wm_info.info.win.window;
-  if (imgui_window) {
+  /*if (imgui_viewport != nullptr) {
     BOOL disable_transition = TRUE;
     DWORD style = ::GetWindowLongPtr(handle, GWL_STYLE);
-    style = WS_POPUP | WS_THICKFRAME | WS_CAPTION | WS_SYSMENU | WS_MAXIMIZEBOX | WS_MINIMIZEBOX;
+    style = WS_POPUPWINDOW;
     ::SetWindowLongPtr(handle, GWL_STYLE, (LONG)style);
     ::SetWindowPos(handle, nullptr, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
-  }
+  }*/
   ::SetWindowLongPtr(handle, GWLP_HWNDPARENT, (LONG_PTR)parent_wm_info.info.win.window);
 #endif
 }
@@ -132,7 +134,7 @@ void wm_add_foreign_plugin_window(PluginInterface* plugin) {
 
   setup_plugin_window(window);
   wm_setup_dark_mode(window);
-  wm_make_child_window(window, main_window, false);
+  wm_set_parent_window(window, main_window, nullptr);
 
   if (plugin->attach_window(window) != PluginResult::Ok) {
     Log::debug("Failed to create plugin window");
@@ -198,6 +200,10 @@ void wm_get_relative_mouse_state(int* x, int* y) {
 void wm_reset_relative_mouse_state() {
   int x, y;
   SDL_GetRelativeMouseState(&x, &y);
+}
+
+void mouse_set_cursor(uint32_t cursor_type) {
+    
 }
 
 }  // namespace wb

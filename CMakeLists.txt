@@ -155,10 +155,10 @@ set(WB_SOURCES
     "src/gfx/waveform_visual.cpp"
     "src/gfx/waveform_visual.h"
 
-    "src/platform/path_def.cpp"
-    "src/platform/path_def.h"
-    "src/platform/platform.cpp"
-    "src/platform/platform.h"
+    "src/system/path_def.cpp"
+    "src/system/path_def.h"
+    "src/system/platform.cpp"
+    "src/system/platform.h"
 
     "src/plughost/plugin_interface.cpp"
     "src/plughost/plugin_interface.h"

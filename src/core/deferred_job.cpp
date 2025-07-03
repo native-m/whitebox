@@ -58,7 +58,7 @@ static void deferred_worker_thread() {
       reader_data.pos.notify_all();  // Notify writer thread
 
     job_item.fn(ctx);
-    current_job_id.fetch_add(1, std::memory_order_acq_rel);
+    current_job_id.fetch_add(1, std::memory_order_release);
     waiter_cv.notify_all();
   }
 }
