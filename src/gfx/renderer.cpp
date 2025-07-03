@@ -11,7 +11,7 @@ namespace wb {
 
 static void imgui_renderer_create_window(ImGuiViewport* viewport) {
   SDL_Window* window = SDL_GetWindowFromID((uint32_t)(uint64_t)viewport->PlatformHandle);
-  wm_make_child_window(window, wm_get_main_window(), true);
+  wm_set_parent_window(window, wm_get_main_window(), viewport);
   g_renderer->add_viewport(viewport);
 }
 
@@ -133,7 +133,8 @@ void GPURenderer::begin_frame() {
 }
 
 void GPURenderer::render_imgui_draw_data(ImDrawData* draw_data) {
-  static constexpr GPUBufferUsageFlags usage = GPUBufferUsage::Writeable | GPUBufferUsage::CPUAccessible;
+  static constexpr GPUBufferUsageFlags usage =
+      GPUBufferUsage::Writeable | GPUBufferUsage::CPUAccessible | GPUBufferUsage::SharedGPUHeap;
   uint32_t new_total_vtx_count = immediate_vtx_offset + draw_data->TotalVtxCount;
   uint32_t new_total_idx_count = immediate_idx_offset + draw_data->TotalIdxCount;
 

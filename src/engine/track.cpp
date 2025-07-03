@@ -614,6 +614,7 @@ void Track::process(
         output_buffer.n_samples);
   }
 
+  // Process received parameter value
   for (uint32_t i = 0; i < param_queue.values.size(); i++) {
     dsp::ParamValue& value = param_queue.values[i];
     switch (value.id) {

@@ -37,6 +37,7 @@ struct GPUBufferUsage {
     Storage = 1 << 2,        // The buffer will be used as storage buffer
     Writeable = 1 << 3,      // The buffer will be written across frames
     CPUAccessible = 1 << 4,  // The buffer is accessible by CPU
+    SharedGPUHeap = 1 << 5,  // The buffer can be placed on the GPU heap which can be shared with the CPU
   };
 };
 using GPUBufferUsageFlags = uint32_t;
