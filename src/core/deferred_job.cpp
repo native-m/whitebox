@@ -28,7 +28,7 @@ static DeferredJobSharedData reader_data;
 static std::mutex waiter_mtx;
 static std::condition_variable waiter_cv;
 static std::thread deferred_job_thread;
-static alignas(64) std::atomic_uint32_t current_job_id;
+alignas(64) static std::atomic_uint32_t current_job_id;
 static uint32_t job_generation;
 
 static void deferred_worker_thread() {

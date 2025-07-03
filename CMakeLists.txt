@@ -154,7 +154,9 @@ set(WB_SOURCES
     "src/gfx/vsync_provider.h"
     "src/gfx/waveform_visual.cpp"
     "src/gfx/waveform_visual.h"
-
+    
+    "src/system/config.cpp"
+    "src/system/config.h"
     "src/system/path_def.cpp"
     "src/system/path_def.h"
     "src/system/platform.cpp"
@@ -217,8 +219,6 @@ set(WB_SOURCES
 
     "src/app.cpp"
     "src/app.h"
-    "src/config.cpp"
-    "src/config.h"
 )
 
 set(WB_LINK_LIBRARIES

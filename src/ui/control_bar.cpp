@@ -4,7 +4,6 @@
 
 #include "IconsMaterialSymbols.h"
 #include "command_manager.h"
-#include "config.h"
 #include "controls.h"
 #include "core/color.h"
 #include "core/mem_info.h"
@@ -13,6 +12,7 @@
 #include "engine/project.h"
 #include "file_dialog.h"
 #include "font.h"
+#include "system/config.h"
 #include "timeline.h"
 #include "window.h"
 
@@ -123,7 +123,7 @@ void main_control_bar() {
   }
   controls::item_tooltip("Undo");
   ImGui::SameLine(0.0f, 4.0f);
-  
+
   if (ImGui::Button(ICON_MS_REDO "##wb_redo")) {
     g_cmd_manager.redo();
   }
@@ -142,7 +142,7 @@ void main_control_bar() {
   }
   controls::item_tooltip("Play or pause");
   ImGui::SameLine(0.0f, 4.0f);
-  
+
   if (ImGui::Button(ICON_MS_STOP "##wb_stop")) {
     if (g_engine.recording)
       g_timeline.redraw_screen();

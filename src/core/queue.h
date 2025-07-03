@@ -4,6 +4,8 @@
 #include "thread.h"
 #include "types.h"
 
+#include <cstring>
+
 namespace wb {
 
 template<typename T, size_t LocalBufferSize>

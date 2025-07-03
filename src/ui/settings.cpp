@@ -3,8 +3,8 @@
 #include <fmt/format.h>
 #include <imgui.h>
 
-#include "config.h"
 #include "engine/audio_io.h"
+#include "system/config.h"
 #include "window.h"
 
 static const char* io_types[] = {

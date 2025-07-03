@@ -5,15 +5,15 @@
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
 
-#include "config.h"
 #include "core/debug.h"
 #include "core/deferred_job.h"
 #include "engine/audio_io.h"
 #include "engine/engine.h"
 #include "engine/project.h"
 #include "gfx/renderer.h"
-#include "system/platform.h"
 #include "plughost/plugin_manager.h"
+#include "system/config.h"
+#include "system/platform.h"
 #include "ui/command_manager.h"
 #include "ui/control_bar.h"
 #include "ui/dialogs.h"

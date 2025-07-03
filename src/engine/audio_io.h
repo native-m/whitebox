@@ -123,6 +123,7 @@ struct AudioIO {
     return max_output_channel_count;
   }
 
+
   void set_on_device_removed_cb(AudioDeviceRemovedCb cb) {
     device_removed_cb = cb;
   }
@@ -130,9 +131,16 @@ struct AudioIO {
   virtual ~AudioIO() {
   }
 
+  /*
+    Check for exclusive mode support
+  */
   virtual bool exclusive_mode_support() {
     return false;
   }
+
+  /*
+    Check if the audio device can be shared
+  */
   virtual bool shared_mode_support() {
     return false;
   }
@@ -216,8 +224,6 @@ static const uint16_t compatible_channel_count[] = {
 
 void init_audio_io(AudioIOType type);
 void shutdown_audio_io();
-
-AudioIO* create_audio_io_pulseaudio();
 
 extern AudioIO* g_audio_io;
 
