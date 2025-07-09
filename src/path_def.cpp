@@ -17,6 +17,8 @@ const std::filesystem::path userpath{ std::filesystem::current_path() };
 #endif
 const std::filesystem::path devpath{ std::filesystem::current_path() };
 const std::filesystem::path wbpath{ devpath / ".whitebox" };
+const std::filesystem::path imgui_ini_path{ wbpath / "ui.ini" };
+const std::filesystem::path settings_json_path{ wbpath / "settings.json" };
 
 const std::array<std::filesystem::path, 2> vst3_search_path{
 #if defined(WB_PLATFORM_WINDOWS)

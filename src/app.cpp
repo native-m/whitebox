@@ -13,6 +13,7 @@
 #include "engine/engine.h"
 #include "engine/project.h"
 #include "gfx/renderer.h"
+#include "path_def.h"
 #include "plughost/plugin_manager.h"
 #include "ui/command_manager.h"
 #include "ui/control_bar.h"
@@ -32,6 +33,7 @@ namespace wb {
 
 static bool is_running = true;
 static bool request_quit = false;
+static std::string imgui_ini_filepath;
 
 static void handle_events(SDL_Event& event);
 static void wait_until_restored();
@@ -55,12 +57,13 @@ void app_init() {
   ImGui::CreateContext();
   load_settings_data();
 
+  imgui_ini_filepath = path_def::imgui_ini_path.string();
   ImGuiIO& io = ImGui::GetIO();
   // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
   io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
   io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
   io.ConfigViewportsNoTaskBarIcon = false;
-  io.IniFilename = ".whitebox/ui.ini";
+  io.IniFilename = imgui_ini_filepath.c_str();
   apply_theme(ImGui::GetStyle());
 
   SDL_Window* main_window = wm_get_main_window();
@@ -103,7 +106,7 @@ void app_render() {
       g_engine.play();
     }
   }
-  
+
   if (hkey_pressed(Hotkey::Undo)) {
     g_cmd_manager.undo();
   }
@@ -151,26 +154,28 @@ void app_render() {
 
   static auto setup_docking = true;
   if (setup_docking) {
-    ImGuiID dock_right{};
-    auto dock_left = ImGui::DockBuilderSplitNode(main_dockspace_id, ImGuiDir_Left, 0.22f, nullptr, &dock_right);
-    auto dock_bottom_right = ImGui::DockBuilderSplitNode(dock_right, ImGuiDir_Down, 0.35f, nullptr, nullptr);
+    if (!std::filesystem::exists(path_def::imgui_ini_path)) {
+      ImGuiID dock_right{};
+      auto dock_left = ImGui::DockBuilderSplitNode(main_dockspace_id, ImGuiDir_Left, 0.22f, nullptr, &dock_right);
+      auto dock_bottom_right = ImGui::DockBuilderSplitNode(dock_right, ImGuiDir_Down, 0.35f, nullptr, nullptr);
 
-    // Left dock
-    ImGui::DockBuilderDockWindow("Browser", dock_left);
-    ImGui::DockBuilderDockWindow("Plugins", dock_left);
-    ImGui::DockBuilderDockWindow("History", dock_left);
-    ImGui::DockBuilderDockWindow("Assets", dock_left);
+      // Left dock
+      ImGui::DockBuilderDockWindow("Browser", dock_left);
+      ImGui::DockBuilderDockWindow("Plugins", dock_left);
+      ImGui::DockBuilderDockWindow("History", dock_left);
+      ImGui::DockBuilderDockWindow("Assets", dock_left);
 
-    // Right dock (central node)
-    ImGui::DockBuilderDockWindow("Timeline", dock_right);
+      // Right dock (central node)
+      ImGui::DockBuilderDockWindow("Timeline", dock_right);
 
-    // Bottom-right dock
-    ImGui::DockBuilderDockWindow("Mixer", dock_bottom_right);
-    ImGui::DockBuilderDockWindow("Clip Editor", dock_bottom_right);
-    ImGui::DockBuilderDockWindow("Env Editor", dock_bottom_right);
-    ImGui::DockBuilderDockWindow("Test Controls", dock_bottom_right);
+      // Bottom-right dock
+      ImGui::DockBuilderDockWindow("Mixer", dock_bottom_right);
+      ImGui::DockBuilderDockWindow("Clip Editor", dock_bottom_right);
+      ImGui::DockBuilderDockWindow("Env Editor", dock_bottom_right);
+      ImGui::DockBuilderDockWindow("Test Controls", dock_bottom_right);
 
-    ImGui::DockBuilderFinish(main_dockspace_id);
+      ImGui::DockBuilderFinish(main_dockspace_id);
+    }
     setup_docking = false;
   }
 
@@ -203,7 +208,6 @@ void app_shutdown() {
   g_sample_table.shutdown();
   g_midi_table.shutdown();
   g_cmd_manager.reset();
-  wm_close_all_plugin_window();
   shutdown_renderer();
   ImGui_ImplSDL3_Shutdown();
   ImGui::DestroyContext();
@@ -362,7 +366,6 @@ void apply_theme(ImGuiStyle& style) {
   colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.80f, 0.80f, 0.80f, 0.20f);
   colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.149f, 0.149f, 0.149f, 0.455f);
 }
-
 
 #if 0
 static int32_t main_window_x;
