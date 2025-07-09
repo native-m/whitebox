@@ -58,7 +58,7 @@ void app_init() {
   ImGuiIO& io = ImGui::GetIO();
   // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
   io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
-  // io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+  io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
   io.ConfigViewportsNoTaskBarIcon = false;
   io.IniFilename = ".whitebox/ui.ini";
   apply_theme(ImGui::GetStyle());
@@ -82,13 +82,97 @@ void app_render() {
   ImGui_ImplSDL3_NewFrame();
   ImGui::NewFrame();
 
-  ImGui::ShowDemoWindow();
+  ImGuiViewport* main_viewport = ImGui::GetMainViewport();
+  ImGuiID main_dockspace_id = ImGui::DockSpaceOverViewport(0, main_viewport, ImGuiDockNodeFlags_PassthruCentralNode);
 
-  ImGui::Begin("test3");
-  ImGui::Text("Hello SDL3");
-  ImGui::End();
+  if (!g_file_drop.empty()) {
+    if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceExtern)) {
+      ImGui::SetDragDropPayload("ExternalFileDrop", nullptr, 0, ImGuiCond_Once);
+      ImGui::EndDragDropSource();
+    }
+  }
 
-  controls::render_test_controls();
+  hkey_process();
+
+  bool is_playing = g_engine.is_playing();
+  if (hkey_pressed(Hotkey::Play)) {
+    if (is_playing) {
+      g_engine.stop();
+      g_timeline.redraw_screen();
+    } else {
+      g_engine.play();
+    }
+  }
+  
+  if (hkey_pressed(Hotkey::Undo)) {
+    g_cmd_manager.undo();
+  }
+
+  if (hkey_pressed(Hotkey::Redo)) {
+    g_cmd_manager.redo();
+  }
+
+  g_engine.update_audio_visualization(GImGui->IO.Framerate);
+  render_control_bar();
+  render_windows();
+
+  if (request_quit) {
+    if (g_cmd_manager.is_modified) {
+      ImGui::OpenPopup("Exit whitebox##confirm_exit");
+      request_quit = false;
+    } else {
+      is_running = false;
+    }
+  }
+
+  if (auto ret = confirm_dialog(
+          "Exit whitebox##confirm_exit",
+          "You have unsaved changes in your file.\n"
+          "If you close the application now, any unsaved work will be lost.\n\n"
+          "Save changes to untitled.wb?",
+          ConfirmDialog::YesNoCancel)) {
+    switch (ret) {
+      case ConfirmDialog::Yes:
+        if (auto file = save_file_dialog({ { "Whitebox Project File", "wb" } })) {
+          shutdown_audio_io();
+          auto result = write_project_file(file.value(), g_engine, g_sample_table, g_midi_table, g_timeline);
+          if (result != ProjectFileResult::Ok) {
+            Log::error("Failed to open project {}", (uint32_t)result);
+            assert(false);
+          }
+        }
+        is_running = false;
+        break;
+      case ConfirmDialog::No: is_running = false; break;
+      case ConfirmDialog::Cancel: request_quit = false; break;
+      default: break;
+    }
+  }
+
+  static auto setup_docking = true;
+  if (setup_docking) {
+    ImGuiID dock_right{};
+    auto dock_left = ImGui::DockBuilderSplitNode(main_dockspace_id, ImGuiDir_Left, 0.22f, nullptr, &dock_right);
+    auto dock_bottom_right = ImGui::DockBuilderSplitNode(dock_right, ImGuiDir_Down, 0.35f, nullptr, nullptr);
+
+    // Left dock
+    ImGui::DockBuilderDockWindow("Browser", dock_left);
+    ImGui::DockBuilderDockWindow("Plugins", dock_left);
+    ImGui::DockBuilderDockWindow("History", dock_left);
+    ImGui::DockBuilderDockWindow("Assets", dock_left);
+
+    // Right dock (central node)
+    ImGui::DockBuilderDockWindow("Timeline", dock_right);
+
+    // Bottom-right dock
+    ImGui::DockBuilderDockWindow("Mixer", dock_bottom_right);
+    ImGui::DockBuilderDockWindow("Clip Editor", dock_bottom_right);
+    ImGui::DockBuilderDockWindow("Env Editor", dock_bottom_right);
+    ImGui::DockBuilderDockWindow("Test Controls", dock_bottom_right);
+
+    ImGui::DockBuilderFinish(main_dockspace_id);
+    setup_docking = false;
+  }
 
   ImGui::Render();
   g_renderer->begin_render(g_renderer->main_vp->render_target, { 0.0f, 0.0f, 0.0f, 1.0f });
