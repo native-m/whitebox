@@ -16,6 +16,7 @@
 #include "plughost/plugin_manager.h"
 #include "ui/command_manager.h"
 #include "ui/control_bar.h"
+#include "ui/controls.h"
 #include "ui/dialogs.h"
 #include "ui/file_dialog.h"
 #include "ui/file_dropper.h"
@@ -86,6 +87,8 @@ void app_render() {
   ImGui::Begin("test3");
   ImGui::Text("Hello SDL3");
   ImGui::End();
+
+  controls::render_test_controls();
 
   ImGui::Render();
   g_renderer->begin_render(g_renderer->main_vp->render_target, { 0.0f, 0.0f, 0.0f, 1.0f });

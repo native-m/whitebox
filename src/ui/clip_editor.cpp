@@ -528,7 +528,7 @@ static void clip_editor_render_note_keys() {
     GImGui->ColorPickerRef.y = pos.y;
     wm_set_mouse_pos((int)pos.x, (int)pos.y);
     wm_reset_relative_mouse_state();
-    wm_enable_relative_mouse_mode(true);
+    wm_enable_relative_mouse_mode(ImGui::GetWindowViewport(), true);
     zoom_pos_y = pos.y - cursor_pos.y;
     zooming_vertically = true;
   }
@@ -543,7 +543,7 @@ static void clip_editor_render_note_keys() {
 
   if (zooming_vertically && !ImGui::IsMouseDown(ImGuiMouseButton_Middle)) {
     zooming_vertically = false;
-    wm_enable_relative_mouse_mode(false);
+    wm_enable_relative_mouse_mode(ImGui::GetWindowViewport(), false);
     wm_set_mouse_pos((int)GImGui->ColorPickerRef.x, (int)GImGui->ColorPickerRef.y);
   }
 

@@ -316,14 +316,14 @@ static bool knob(
     GImGui->ColorPickerRef.x = pos.x;
     GImGui->ColorPickerRef.y = pos.y;
     // Reset relative mouse state to prevent jumping
-    wm_set_mouse_pos((int)pos.x, (int)pos.y);
     wm_reset_relative_mouse_state();
-    wm_enable_relative_mouse_mode(true);
+    wm_set_mouse_pos((int)pos.x, (int)pos.y);
+    wm_enable_relative_mouse_mode(ImGui::GetWindowViewport(), true);
   }
 
   if (ImGui::IsItemDeactivated()) {
     // Reset mouse position back to its original click position
-    wm_enable_relative_mouse_mode(false);
+    wm_enable_relative_mouse_mode(ImGui::GetWindowViewport(), false);
     wm_set_mouse_pos((int)GImGui->ColorPickerRef.x, (int)GImGui->ColorPickerRef.y);
   }
 

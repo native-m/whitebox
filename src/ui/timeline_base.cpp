@@ -193,7 +193,7 @@ bool TimelineBase::render_time_ruler(
     // Reset relative mouse state to prevent jumping
     wm_set_mouse_pos((int)pos.x, (int)pos.y);
     wm_reset_relative_mouse_state();
-    wm_enable_relative_mouse_mode(true);
+    wm_enable_relative_mouse_mode(ImGui::GetWindowViewport(), true);
     zoom_position = mouse_pos.x;
   }
 
@@ -210,7 +210,7 @@ bool TimelineBase::render_time_ruler(
   if (zooming_on_ruler && !ImGui::IsMouseDown(ImGuiMouseButton_Middle)) {
     view_scale = calc_view_scale();
     zooming_on_ruler = false;
-    wm_enable_relative_mouse_mode(false);
+    wm_enable_relative_mouse_mode(ImGui::GetWindowViewport(), false);
     wm_set_mouse_pos((int)GImGui->ColorPickerRef.x, (int)GImGui->ColorPickerRef.y);
   }
 

@@ -210,7 +210,7 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
     const float slope = float(point.y - next_point.y) * view_height;
     const float mouse_x = (x0 + x1) * 0.5f;
     const float mouse_y = cursor_pos.y + (1.0f - float(next_point.y)) * view_height - mid_y * slope;
-    wm_enable_relative_mouse_mode(false);
+    wm_enable_relative_mouse_mode(ImGui::GetWindowViewport(), false);
     wm_set_mouse_pos((int)mouse_x, (int)mouse_y);
   }
 
@@ -368,7 +368,7 @@ void env_editor(EnvelopeState& state, const char* str_id, const ImVec2& size, do
           state.last_click_pos = mouse_pos;
           wm_set_mouse_pos((int)global_mouse_pos.x, (int)global_mouse_pos.y);
           wm_reset_relative_mouse_state();
-          wm_enable_relative_mouse_mode(true);
+          wm_enable_relative_mouse_mode(ImGui::GetWindowViewport(), true);
         } else if (right_click) {
           last_point.tension = 0.0f;
           state.last_tension_value = 0.0f;

@@ -10,8 +10,6 @@
 namespace wb {
 
 static void imgui_renderer_create_window(ImGuiViewport* viewport) {
-  SDL_Window* window = SDL_GetWindowFromID((uint32_t)(uint64_t)viewport->PlatformHandle);
-  wm_set_parent_window(window, wm_get_main_window(), viewport);
   g_renderer->add_viewport(viewport);
 }
 
