@@ -85,6 +85,8 @@ static void scan_vst3_plugins() {
   ldb::DB* db = open_plugin_db();
   assert(db != nullptr);
 
+  Log::debug("Begin scanning VST3 plugins");
+
   VST3::Hosting::Module::PathList path_list = VST3::Hosting::Module::getModulePaths();
   ldb::WriteBatch batch;
   std::string error;
@@ -93,6 +95,7 @@ static void scan_vst3_plugins() {
 
   for (auto& path : path_list) {
     Log::info("Testing VST3 module: {}", path);
+
     VST3::Hosting::Module::Ptr module = VST3::Hosting::Module::create(path, error);
     if (!module) {
       Log::error("Cannot load VST3 module: {}", path);
@@ -146,6 +149,8 @@ static void scan_vst3_plugins() {
 
       component->terminate();
     }
+
+    Log::info("-------------------------------");
   }
 
   Log::info("Write plugin data into database");
@@ -153,6 +158,8 @@ static void scan_vst3_plugins() {
   ldb::Status status = db->Write({}, &batch);
   if (!status.ok())
     Log::error("Cannot write plugin data into the database: {}", status.ToString());
+
+  Log::debug("Completed scanning of VST3 plugin");
 
   delete db;
 }
@@ -236,8 +243,7 @@ void pm_delete_plugin(uint8_t plugin_uid[16]) {
 void pm_scan_plugins() {
   scan_vst3_plugins();
   // scan_XX_plugins...
-  for (auto& listener : plugin_db_update_listeners)
-    listener.fn(listener.userdata);
+  notify_update_listeners();
   Log::info("Plugin scan complete!");
 }
 

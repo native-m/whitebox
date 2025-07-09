@@ -16,7 +16,7 @@ const std::filesystem::path userpath{ std::getenv("HOME") };
 const std::filesystem::path userpath{ std::filesystem::current_path() };
 #endif
 const std::filesystem::path devpath{ std::filesystem::current_path() };
-const std::filesystem::path wbpath{ path_def::devpath / ".whitebox" };
+const std::filesystem::path wbpath{ devpath / ".whitebox" };
 
 const std::array<std::filesystem::path, 2> vst3_search_path{
 #if defined(WB_PLATFORM_WINDOWS)

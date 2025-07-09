@@ -14,7 +14,6 @@
 
 namespace wb {
 
-static const std::filesystem::path settings_file_path{ path_def::wbpath / "settings.json" };
 static nlohmann::ordered_json settings;
 
 AudioIOType g_audio_io_type{};
@@ -33,6 +32,7 @@ void load_settings_data() {
     std::filesystem::create_directory(path_def::wbpath);
   }
 
+  const std::filesystem::path settings_file_path{ path_def::wbpath / "settings.json" };
   if (!std::filesystem::exists(settings_file_path)) {
     Log::info("Creating default settings...");
     load_default_settings();
@@ -188,6 +188,7 @@ void save_settings_data() {
   }
   settings["user_dirs"] = user_dirs;
 
+  const std::filesystem::path settings_file_path{ path_def::wbpath / "settings.json" };
   std::ofstream settings_file(settings_file_path);
   if (settings_file.is_open()) {
     settings_file << settings.dump(2) << std::endl;
