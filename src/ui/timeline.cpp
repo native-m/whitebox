@@ -14,6 +14,7 @@
 #include "grid.h"
 #include "plugins.h"
 #include "window.h"
+#include "window_manager.h"
 
 #define DEBUG_MIDI_CLIPS 0
 

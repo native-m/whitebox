@@ -3,7 +3,7 @@
 #include "core/bit_manipulation.h"
 #include "core/debug.h"
 #include "core/fs.h"
-#include "system/platform.h"
+#include "window_manager.h"
 #include "renderer_vulkan.h"
 #include "waveform_visual.h"
 
@@ -65,7 +65,7 @@ bool GPURenderer::init(SDL_Window* window) {
   });
   assert(waveform_aa && waveform_fill);
 
-  GPUVertexAttribute imgui_pipeline_attributes[3]{
+  GPUVertexAttribute imgui_vertex_attributes[3]{
     {
       .semantic_name = "POSITION",
       .slot = 0,
@@ -94,7 +94,7 @@ bool GPURenderer::init(SDL_Window* window) {
     .shader_parameter_size = sizeof(float) * 4,
     .vertex_stride = sizeof(ImDrawVert),
     .num_vertex_attributes = 3,
-    .vertex_attributes = imgui_pipeline_attributes,
+    .vertex_attributes = imgui_vertex_attributes,
     .primitive_topology = GPUPrimitiveTopology::TriangleList,
     .enable_blending = true,
     .enable_color_write = true,

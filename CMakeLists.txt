@@ -154,13 +154,6 @@ set(WB_SOURCES
     "src/gfx/vsync_provider.h"
     "src/gfx/waveform_visual.cpp"
     "src/gfx/waveform_visual.h"
-    
-    "src/system/config.cpp"
-    "src/system/config.h"
-    "src/system/path_def.cpp"
-    "src/system/path_def.h"
-    "src/system/platform.cpp"
-    "src/system/platform.h"
 
     "src/plughost/plugin_interface.cpp"
     "src/plughost/plugin_interface.h"
@@ -219,15 +212,23 @@ set(WB_SOURCES
 
     "src/app.cpp"
     "src/app.h"
+    "src/app_event.cpp"
+    "src/app_event.h"
+    "src/config.cpp"
+    "src/config.h"
+    "src/path_def.cpp"
+    "src/path_def.h"
+    "src/window_manager.cpp"
+    "src/window_manager.h"
 )
 
 set(WB_LINK_LIBRARIES
-    SDL2-static
+    SDL3::SDL3-static
     spdlog::spdlog
     Vulkan::Headers
     VulkanMemoryAllocator
     volk_headers
-    imgui-sdl2
+    imgui-sdl3
     imgui-cpp
     imgui-freetype
     imgui-vulkan

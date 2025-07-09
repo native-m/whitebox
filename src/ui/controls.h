@@ -7,7 +7,7 @@
 #include "core/debug.h"
 #include "engine/vu_meter.h"
 #include "gfx/draw.h"
-#include "system/platform.h"
+#include "window_manager.h"
 
 namespace wb::controls {
 

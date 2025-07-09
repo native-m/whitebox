@@ -6,7 +6,7 @@
 #include "core/core_math.h"
 #include "core/debug.h"
 #include "engine/engine.h"
-#include "system/platform.h"
+#include "window_manager.h"
 
 namespace wb {
 void TimelineBase::render_horizontal_scrollbar() {

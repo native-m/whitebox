@@ -17,6 +17,9 @@ extern bool g_audio_exclusive_mode;
 void load_settings_data();
 void load_default_settings();
 void save_settings_data();
+
 void start_audio_engine();
+void pause_audio_engine();
+void stop_audio_engine();
 
 }  // namespace wb

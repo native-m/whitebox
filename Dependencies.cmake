@@ -3,16 +3,19 @@ include(cmake/CPM.cmake)
 CPMAddPackage(
     NAME                SDL
     GITHUB_REPOSITORY   libsdl-org/SDL
-    VERSION             2.30.10
-    GIT_TAG             release-2.30.10
+    VERSION             3.2.16
+    GIT_TAG             release-3.2.16
     OPTIONS             "SDL_SHARED OFF"
                         "SDL_TESTS OFF"
                         "SDL_TEST_LIBRARY OFF"
-                        "SDL2_DISABLE_INSTALL ON"
+                        "SDL_DISABLE_INSTALL ON"
+                        "SDL_DISABLE_INSTALL_DOCS ON"
+                        "SDL_INSTALL_TESTS ON"
                         # Disable unused subsystems
                         "SDL_ATOMIC OFF"
-                        "SDL_AUDIO OFF" # We have our own audio I/O abstraction
+                        "SDL_AUDIO OFF"
                         "SDL_RENDER OFF"
+                        "SDL_RENDER_GPU OFF"
                         "SDL_JOYSTICK OFF"
                         "SDL_HAPTIC OFF"
     EXCLUDE_FROM_ALL
@@ -236,12 +239,12 @@ if (imgui_ADDED)
     target_include_directories(imgui-cpp PUBLIC $<BUILD_INTERFACE:${imgui_SOURCE_DIR}/misc/cpp>)
     target_link_libraries(imgui-cpp PUBLIC imgui)
 
-    set(IMGUI_SDL2_SRC_FILES
-        "${imgui_SOURCE_DIR}/backends/imgui_impl_sdl2.cpp"
-        "${imgui_SOURCE_DIR}/backends/imgui_impl_sdl2.h")
-    add_library(imgui-sdl2 STATIC ${IMGUI_SDL2_SRC_FILES})
-    target_link_libraries(imgui-sdl2
-        PUBLIC SDL2::SDL2-static imgui imgui-backends)
+    set(IMGUI_SDL3_SRC_FILES
+        "${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp"
+        "${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.h")
+    add_library(imgui-sdl3 STATIC ${IMGUI_SDL3_SRC_FILES})
+    target_link_libraries(imgui-sdl3
+        PUBLIC SDL3::SDL3-static imgui imgui-backends)
 
     if(WB_PLATFORM_WINDOWS)
         set(IMGUI_BACKEND_D3D11_SOURCES

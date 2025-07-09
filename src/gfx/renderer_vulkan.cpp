@@ -1,12 +1,11 @@
 #include "renderer_vulkan.h"
 
-#include <SDL_syswm.h>
-#include <imgui_impl_sdl2.h>
+#include <imgui_impl_sdl3.h>
 
 #include "core/bit_manipulation.h"
 #include "core/debug.h"
 #include "core/defer.h"
-#include "system/platform.h"
+#include "window_manager.h"
 
 #ifdef VK_USE_PLATFORM_XCB_KHR
 #include <X11/Xlib-xcb.h>
@@ -132,16 +131,14 @@ static VkRenderPass create_render_pass_for_format(VkDevice device, GPUFormat for
 }
 
 static VkSurfaceKHR create_surface(VkInstance instance, SDL_Window* window) {
-  VkSurfaceKHR surface;
-  SDL_SysWMinfo wm_info{};
-  SDL_VERSION(&wm_info.version);
-  SDL_GetWindowWMInfo(window, &wm_info);
+  WindowNativeHandle handle = wm_get_native_window_handle(window);
+  VkSurfaceKHR surface{};
 
 #if defined(WB_PLATFORM_WINDOWS)
   VkWin32SurfaceCreateInfoKHR surface_info{
     .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
     .hinstance = GetModuleHandle(nullptr),
-    .hwnd = (HWND)wm_info.info.win.window,
+    .hwnd = (HWND)handle.window,
   };
 
   if (VK_FAILED(vkCreateWin32SurfaceKHR(instance, &surface_info, nullptr, &surface))) {
@@ -150,12 +147,12 @@ static VkSurfaceKHR create_surface(VkInstance instance, SDL_Window* window) {
   }
 #elif defined(WB_PLATFORM_LINUX)
 #ifdef VK_USE_PLATFORM_XLIB_KHR
-  Display* display = wm_info.info.x11.display;
+  Display* display = handle.display;
 
   VkXlibSurfaceCreateInfoKHR surface_info{
     .sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
     .dpy = display,
-    .window = wm_info.info.x11.window,
+    .window = handle.window,
   };
 
   if (VK_FAILED(vkCreateXlibSurfaceKHR(instance, &surface_info, nullptr, &surface))) {
@@ -165,8 +162,8 @@ static VkSurfaceKHR create_surface(VkInstance instance, SDL_Window* window) {
 #else
   VkXcbSurfaceCreateInfoKHR surface_info{
     .sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
-    .connection = XGetXCBConnection(wm_info.info.x11.display),
-    .window = static_cast<xcb_window_t>(wm_info.info.x11.window),
+    .connection = XGetXCBConnection(handle.display),
+    .window = static_cast<xcb_window_t>(handle.window),
   };
 
   if (VK_FAILED(vkCreateXcbSurfaceKHR(instance, &surface_info, nullptr, &surface))) {
@@ -1917,9 +1914,6 @@ void GPURendererVK::dispose_resources_(uint64_t frame_count) {
 
 GPURenderer* GPURendererVK::create(SDL_Window* window) {
   if (!window)
-    return nullptr;
-
-  if (!ImGui_ImplSDL2_InitForOther(window))
     return nullptr;
 
   if (VK_FAILED(volkInitialize()))

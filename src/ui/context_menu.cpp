@@ -6,7 +6,7 @@
 #include "engine/engine.h"
 #include "engine/track.h"
 #include "forms.h"
-#include "system/platform.h"
+#include "window_manager.h"
 
 namespace wb {
 

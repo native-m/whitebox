@@ -3,8 +3,9 @@
 #include <fmt/format.h>
 #include <imgui.h>
 
+#include "app_event.h"
+#include "config.h"
 #include "engine/audio_io.h"
-#include "system/config.h"
 #include "window.h"
 
 static const char* io_types[] = {
@@ -203,8 +204,9 @@ void SettingsWindow::render() {
         }
       }
 
-      if (audio_settings_changed)
-        start_audio_engine();
+      if (audio_settings_changed) {
+        app_event_push(AppEvent::audio_settings_changed);
+      }
 
       ImGui::EndTabItem();
     }

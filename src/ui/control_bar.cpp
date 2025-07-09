@@ -4,6 +4,7 @@
 
 #include "IconsMaterialSymbols.h"
 #include "command_manager.h"
+#include "config.h"
 #include "controls.h"
 #include "core/color.h"
 #include "core/mem_info.h"
@@ -12,11 +13,11 @@
 #include "engine/project.h"
 #include "file_dialog.h"
 #include "font.h"
-#include "system/config.h"
 #include "timeline.h"
 #include "window.h"
 
 namespace wb {
+
 void render_control_bar() {
   ImVec2 frame_padding = GImGui->Style.FramePadding;
   ImVec2 window_padding = GImGui->Style.WindowPadding;

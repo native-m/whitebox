@@ -11,6 +11,7 @@
 #include "core/memory.h"
 #include "extern/sdl_wm.h"
 #include "extern/xxhash.h"
+#include "window_manager.h"
 
 #define VST3_WARN(x)                                 \
   if (auto ret = (x); ret != Steinberg::kResultOk) { \
@@ -447,22 +448,20 @@ PluginResult VST3PluginWrapper::get_view_size(uint32_t* width, uint32_t* height)
   return PluginResult::Ok;
 }
 
-PluginResult VST3PluginWrapper::attach_window(SDL_Window* handle) {
+PluginResult VST3PluginWrapper::attach_window(SDL_Window* window) {
   if (!has_view())
     return PluginResult::Unsupported;
   if (has_window_attached())
     return PluginResult::Failed;
-  SDL_SysWMinfo wm_info{};
-  SDL_VERSION(&wm_info.version);
-  SDL_GetWindowWMInfo(handle, &wm_info);
+  WindowNativeHandle handle = wm_get_native_window_handle(window);
 #ifdef WB_PLATFORM_WINDOWS
   if (editor_view_->isPlatformTypeSupported(Steinberg::kPlatformTypeHWND) != Steinberg::kResultOk)
     return PluginResult::Unsupported;
-  window_handle = handle;
+  window_handle = window;
   /*if (editor_view_->setFrame(&plug_frame_) != Steinberg::kResultOk)
       return PluginResult::Failed;*/
   VST3_WARN(editor_view_->setFrame(this));
-  if (editor_view_->attached(wm_info.info.win.window, Steinberg::kPlatformTypeHWND) != Steinberg::kResultOk) {
+  if (editor_view_->attached(handle.window, Steinberg::kPlatformTypeHWND) != Steinberg::kResultOk) {
     VST3_WARN(editor_view_->setFrame(nullptr));
     window_handle = nullptr;
     return PluginResult::Failed;
@@ -471,6 +470,7 @@ PluginResult VST3PluginWrapper::attach_window(SDL_Window* handle) {
 #else
   return PluginResult::Unsupported;
 #endif
+  return PluginResult::Unsupported;
 }
 
 PluginResult VST3PluginWrapper::detach_window() {

@@ -1,15 +1,15 @@
 #include "config.h"
 
-#include "app.h"
-#include "core/debug.h"
-#include "extern/json.hpp"
 // #include "core/math.h"
 #include <filesystem>
 #include <fstream>
 
+#include "app_event.h"
+#include "core/debug.h"
 #include "engine/audio_io.h"
 #include "engine/engine.h"
-#include "system/path_def.h"
+#include "extern/json.hpp"
+#include "path_def.h"
 #include "ui/browser.h"
 
 namespace wb {
@@ -196,10 +196,6 @@ void save_settings_data() {
   }
 }
 
-void on_device_removed_callback(void* userdata) {
-  app_push_event(AppEvent::audio_device_removed_event, nullptr, 0);
-}
-
 void start_audio_engine() {
   shutdown_audio_io();
   init_audio_io(g_audio_io_type);
@@ -209,10 +205,9 @@ void start_audio_engine() {
     g_output_device_properties = g_audio_io->default_output_device;
     g_audio_io->open_device(g_output_device_properties.id, g_input_device_properties.id);
   }
-  
-  g_audio_io->set_on_device_removed_cb([](void* userdata) {
-    app_push_event(AppEvent::audio_device_removed_event, nullptr, 0);
-  });
+
+  g_audio_io->set_on_device_removed_cb(
+      [](void* userdata) { app_event_push(AppEvent::audio_device_removed_event, nullptr, 0); });
 
   if (!g_audio_exclusive_mode) {
     g_audio_output_format = g_audio_io->shared_mode_output_format;
@@ -237,4 +232,11 @@ void start_audio_engine() {
       g_audio_sample_rate,
       AudioThreadPriority::Highest);
 }
+
+void pause_audio_engine() {
+}
+
+void stop_audio_engine() {
+}
+
 }  // namespace wb

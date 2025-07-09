@@ -1,6 +1,5 @@
 #include "engine.h"
 
-#include <SDL_timer.h>
 #include <fmt/chrono.h>
 
 #include <numbers>
