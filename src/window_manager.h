@@ -21,6 +21,8 @@ SDL_Window* wm_get_main_window();
 SDL_Window* wm_get_window_from_viewport(ImGuiViewport* vp);
 uint32_t wm_get_main_window_id();
 WindowNativeHandle wm_get_native_window_handle(SDL_Window* window);
+void wm_enable_taskbar_progress_indicator(bool enable);
+void wm_set_taskbar_progress_value(float progress);
 void wm_setup_dark_mode(SDL_Window* window);
 void wm_add_foreign_plugin_window(PluginInterface* plugin);
 void wm_close_plugin_window(PluginInterface* plugin);

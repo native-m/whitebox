@@ -10,6 +10,8 @@
 #ifdef WB_PLATFORM_WINDOWS
 #define WIN32_LEAN_AND_MEAN
 #include <dwmapi.h>
+#include <shobjidl_core.h>
+
 #define DWM_ATTRIBUTE_USE_IMMERSIVE_DARK_MODE 20
 #define DWM_ATTRIBUTE_CAPTION_COLOR           35
 #endif
@@ -24,6 +26,10 @@ static int32_t main_window_height;
 static bool last_refreshed = false;
 static uint32_t last_event = 0;
 static std::unordered_map<uint32_t, SDL_Window*> plugin_windows;
+
+#ifdef WB_PLATFORM_WINDOWS
+static ITaskbarList4* taskbar_list;
+#endif
 
 static std::optional<SDL_Window*> get_plugin_window_from_id(uint32_t window_id) {
   if (plugin_windows.empty())
@@ -41,21 +47,21 @@ static bool SDLCALL event_watcher(void* userdata, SDL_Event* event) {
   if (!GImGui)
     return false;
 
+  // Keep re-render our window when blocked
   if (event->type == SDL_EVENT_WINDOW_EXPOSED) {
     if (event->window.windowID == main_window_id) {
-      int x, y, w, h;
+      int w, h;
       SDL_GetWindowSize(main_window, &w, &h);
-      SDL_GetWindowPosition(main_window, &x, &y);
       if (main_window_width != w || main_window_height != h) {
         g_renderer->resize_viewport(ImGui::GetMainViewport(), ImVec2((float)w, (float)h));
         main_window_width = w;
         main_window_height = h;
       }
-      if (main_window_x != x || main_window_y != y) {
-        main_window_x = x;
-        main_window_y = y;
-      }
       app_render();
+    } else if (!plugin_windows.empty()) {
+      if (auto window = plugin_windows.find(event->window.windowID); window != plugin_windows.end()) {
+        app_render();
+      }
     }
   }
 
@@ -72,6 +78,12 @@ void init_window_manager() {
     if (set_preferred_app_mode_fn)
       set_preferred_app_mode_fn(PreferredAppMode::ForceDark);
   }
+
+  HRESULT hr = ::CoCreateInstance(CLSID_TaskbarList, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&taskbar_list));
+  if (FAILED(hr)) {
+    Log::warn("Cannot create ITaskbarList4 instance");
+    taskbar_list = nullptr;
+  }
 #endif
 
   SDL_AddEventWatch(event_watcher, nullptr);
@@ -83,6 +95,7 @@ void init_window_manager() {
 
 void shutdown_window_manager() {
   SDL_DestroyWindow(main_window);
+  taskbar_list->Release();
 }
 
 SDL_Window* wm_get_main_window() {
@@ -133,6 +146,32 @@ WindowNativeHandle wm_get_native_window_handle(SDL_Window* window) {
   }
 #endif
   return {};
+}
+
+void wm_enable_taskbar_progress_indicator(bool enable) {
+#ifdef WB_PLATFORM_WINDOWS
+  if (taskbar_list) {
+    HWND hwnd =
+        (HWND)SDL_GetPointerProperty(SDL_GetWindowProperties(main_window), SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
+    if (!enable)
+      taskbar_list->SetProgressValue(hwnd, 0, 100);
+    taskbar_list->SetProgressState(hwnd, enable ? TBPF_NORMAL : TBPF_NOPROGRESS);
+  }
+#endif
+  // TODO(native-m): Replace this with SDL_SetWindowProgressState function
+  // SDL_SetWindowProgressState(main_window, enable ? SDL_PROGRESS_STATE_NORMAL : SDL_PROGRESS_STATE_NONE);
+}
+
+void wm_set_taskbar_progress_value(float progress) {
+#ifdef WB_PLATFORM_WINDOWS
+  if (taskbar_list) {
+    HWND hwnd =
+        (HWND)SDL_GetPointerProperty(SDL_GetWindowProperties(main_window), SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
+    taskbar_list->SetProgressValue(hwnd, (uint32_t)(progress * 100.0f), 100);
+  }
+#endif
+  // TODO(native-m): Replace this with SDL function
+  // SDL_SetWindowProgressValue(main_window, progress);
 }
 
 void wm_setup_dark_mode(SDL_Window* window) {
