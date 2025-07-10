@@ -253,33 +253,39 @@ void main_control_bar() {
     g_timeline.redraw_screen();
     start_audio_engine();
   } else if (open_project) {
-    if (auto file = open_file_dialog({ { "Whitebox Project File", "wb" } })) {
-      shutdown_audio_io();
-      g_engine.clear_all();
-      g_cmd_manager.reset(true);
-      auto result = read_project_file(file.value(), g_engine, g_sample_table, g_midi_table, g_timeline);
-      if (result != ProjectFileResult::Ok) {
-        Log::error("Failed to open project {}", (uint32_t)result);
-        assert(false);
-      }
-      g_timeline.recalculate_song_length();
-      g_timeline.redraw_screen();
-      start_audio_engine();
-    }
+    open_file_dialog_async("open_project", { { "Whitebox Project File (*.wb)", "wb" } }, nullptr);
   } else if (save_project) {
-    if (auto file = save_file_dialog({ { "Whitebox Project File", "wb" } })) {
-      shutdown_audio_io();
-      auto result = write_project_file(file.value(), g_engine, g_sample_table, g_midi_table, g_timeline);
-      if (result != ProjectFileResult::Ok) {
-        Log::error("Failed to open project {}", (uint32_t)result);
-        assert(false);
-      }
-      start_audio_engine();
-    }
+    save_file_dialog_async("save_project", { { "Whitebox Project File (*.wb)", "wb" } }, nullptr);
   } else if (export_audio) {
     ImGui::OpenPopup("Export audio", ImGuiPopupFlags_AnyPopup);
   }
 
   export_audio_dialog();
+
+  if (auto file = accept_file_dialog_payload("open_project", FileDialogType::OpenFile)) {
+    Log::debug("Open file: {}", file.value().string());
+    shutdown_audio_io();
+    g_engine.clear_all();
+    g_cmd_manager.reset(true);
+    auto result = read_project_file(file.value(), g_engine, g_sample_table, g_midi_table, g_timeline);
+    if (result != ProjectFileResult::Ok) {
+      Log::error("Failed to open project {}", (uint32_t)result);
+      assert(false);
+    }
+    g_timeline.recalculate_song_length();
+    g_timeline.redraw_screen();
+    start_audio_engine();
+  }
+
+  if (auto file = accept_file_dialog_payload("save_project", FileDialogType::SaveFile)) {
+    Log::debug("Save file: {}", file.value().string());
+    shutdown_audio_io();
+    auto result = write_project_file(file.value(), g_engine, g_sample_table, g_midi_table, g_timeline);
+    if (result != ProjectFileResult::Ok) {
+      Log::error("Failed to open project {}", (uint32_t)result);
+      assert(false);
+    }
+    start_audio_engine();
+  }
 }
 }  // namespace wb

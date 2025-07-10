@@ -37,7 +37,6 @@ static std::string imgui_ini_filepath;
 
 static void handle_events(SDL_Event& event);
 static void wait_until_restored();
-static bool SDLCALL event_watcher(void* userdata, SDL_Event* event);
 static void apply_theme(ImGuiStyle& style);
 
 void app_init() {
@@ -187,6 +186,8 @@ void app_render() {
   ImGui::RenderPlatformWindowsDefault();
   g_renderer->end_frame();
   g_renderer->present();
+
+  file_dialog_cleanup();
 }
 
 void app_run_loop() {
@@ -252,7 +253,9 @@ void handle_events(SDL_Event& event) {
     case SDL_EVENT_QUIT: request_quit = true; break;
     default: {
       if (event.type >= SDL_EVENT_USER) {
-        if (event.type == AppEvent::audio_device_removed_event || event.type == AppEvent::audio_settings_changed) {
+        if (event.type == AppEvent::file_dialog) {
+          file_dialog_handle_event(event.user.data1);
+        } else if (event.type == AppEvent::audio_device_removed_event || event.type == AppEvent::audio_settings_changed) {
           start_audio_engine();
         }
       }

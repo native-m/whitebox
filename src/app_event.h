@@ -5,6 +5,7 @@
 namespace wb {
 
 struct AppEvent {
+  static uint32_t file_dialog;
   static uint32_t audio_settings_changed;
   static uint32_t audio_device_removed_event;
 };
