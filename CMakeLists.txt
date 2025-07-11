@@ -97,12 +97,15 @@ set(WB_SOURCES
     "src/core/types.h"
     "src/core/vector.h"
 
+    "src/dsp/codec.cpp"
+    "src/dsp/codec.h"
     "src/dsp/dsp_ops.h"
     "src/dsp/param_queue.h"
     "src/dsp/sample.cpp"
     "src/dsp/sample.h"
     "src/dsp/sampler.cpp"
     "src/dsp/sampler.h"
+
     "src/engine/assets_table.cpp"
     "src/engine/assets_table.h"
     "src/engine/audio_io.cpp"

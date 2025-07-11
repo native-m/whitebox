@@ -1,7 +1,5 @@
 #include "project.h"
 
-#include <algorithm>
-
 #include "core/byte_buffer.h"
 #include "core/fs.h"
 #include "core/serdes.h"
