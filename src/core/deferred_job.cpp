@@ -4,7 +4,6 @@
 #include <mutex>
 
 #include "queue.h"
-#include "thread.h"
 
 #define WB_MAX_DEFERRED_JOB 256
 

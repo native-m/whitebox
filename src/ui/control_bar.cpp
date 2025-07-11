@@ -263,7 +263,6 @@ void main_control_bar() {
   export_audio_dialog();
 
   if (auto file = accept_file_dialog_payload("open_project", FileDialogType::OpenFile)) {
-    Log::debug("Open file: {}", file.value().string());
     shutdown_audio_io();
     g_engine.clear_all();
     g_cmd_manager.reset(true);
@@ -278,7 +277,6 @@ void main_control_bar() {
   }
 
   if (auto file = accept_file_dialog_payload("save_project", FileDialogType::SaveFile)) {
-    Log::debug("Save file: {}", file.value().string());
     shutdown_audio_io();
     auto result = write_project_file(file.value(), g_engine, g_sample_table, g_midi_table, g_timeline);
     if (result != ProjectFileResult::Ok) {

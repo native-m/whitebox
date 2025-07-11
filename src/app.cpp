@@ -49,7 +49,6 @@ void app_init() {
   init_app_event();
   init_deferred_job();
   init_window_manager();
-  init_file_dialog();
 
   // Initialize imgui
   IMGUI_CHECKVERSION();
@@ -77,9 +76,6 @@ void app_init() {
 }
 
 void app_render() {
-  if (request_quit)
-    is_running = false;
-
   g_renderer->begin_frame();
   ImGui_ImplSDL3_NewFrame();
   ImGui::NewFrame();
@@ -135,20 +131,23 @@ void app_render() {
           ConfirmDialog::YesNoCancel)) {
     switch (ret) {
       case ConfirmDialog::Yes:
-        if (auto file = save_file_dialog({ { "Whitebox Project File", "wb" } })) {
-          shutdown_audio_io();
-          auto result = write_project_file(file.value(), g_engine, g_sample_table, g_midi_table, g_timeline);
-          if (result != ProjectFileResult::Ok) {
-            Log::error("Failed to open project {}", (uint32_t)result);
-            assert(false);
-          }
-        }
-        is_running = false;
+        save_file_dialog_async("save_project_exit", { { "Whitebox Project File (*.wb)", "wb" } });
+        request_quit = false;
         break;
       case ConfirmDialog::No: is_running = false; break;
       case ConfirmDialog::Cancel: request_quit = false; break;
       default: break;
     }
+  }
+
+  if (auto file = accept_file_dialog_payload("save_project_exit", FileDialogType::SaveFile)) {
+    shutdown_audio_io();
+    auto result = write_project_file(file.value(), g_engine, g_sample_table, g_midi_table, g_timeline);
+    if (result != ProjectFileResult::Ok) {
+      Log::error("Failed to open project {}", (uint32_t)result);
+      assert(false);
+    }
+    is_running = false;
   }
 
   static auto setup_docking = true;

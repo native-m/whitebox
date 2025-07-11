@@ -1,13 +1,13 @@
 #include "file_dialog.h"
 
+#include "app_event.h"
 #include "core/vector.h"
 #include "window_manager.h"
-#include "app_event.h"
 
 namespace wb {
 
 struct FileDialogEventData {
-  const char* id;
+  std::string_view id;
   FileDialogType type;
   std::filesystem::path file;
 };
@@ -18,28 +18,25 @@ static bool block_next_dialog = false;
 template<FileDialogType Type>
 static void file_dialog_callback(void* userdata, const char* const* filelist, int filter) {
   if (!filelist) {
+    app_event_push(AppEvent::file_dialog, nullptr);
     return;
   } else if (!*filelist) {
+    app_event_push(AppEvent::file_dialog, nullptr);
     return;
   }
-  FileDialogEventData* fd = new FileDialogEventData();
-  fd->id = (const char*)userdata;
-  fd->type = Type;
-  fd->file = *filelist;
-  block_next_dialog = false;
+  FileDialogEventData* fd = new FileDialogEventData{
+    .id = (const char*)userdata,
+    .type = Type,
+    .file = *filelist,
+  };
   app_event_push(AppEvent::file_dialog, fd);
 }
 
-void init_file_dialog() {
-  NFD::Init();
-}
-
-void shutdown_file_dialog() {
-  NFD::Quit();
-}
-
 void file_dialog_handle_event(void* event_data) {
-  file_dialog_data = (FileDialogEventData*)event_data;
+  if (event_data) {
+    file_dialog_data = (FileDialogEventData*)event_data;
+  }
+  block_next_dialog = false;
 }
 
 void file_dialog_cleanup() {
@@ -47,36 +44,6 @@ void file_dialog_cleanup() {
     delete file_dialog_data;
     file_dialog_data = nullptr;
   }
-}
-
-std::optional<std::filesystem::path> pick_folder_dialog() {
-  NFD::UniquePathU8 path;
-  nfdresult_t result = NFD::PickFolder(path);
-  switch (result) {
-    case NFD_OKAY: return std::filesystem::path(path.get());
-    default: break;
-  }
-  return {};
-}
-
-std::optional<std::filesystem::path> open_file_dialog(std::initializer_list<nfdu8filteritem_t> filter) {
-  NFD::UniquePathU8 path;
-  nfdresult_t result = NFD::OpenDialog(path, filter.begin(), (nfdfiltersize_t)filter.size());
-  switch (result) {
-    case NFD_OKAY: return std::filesystem::path(path.get());
-    default: break;
-  }
-  return {};
-}
-
-std::optional<std::filesystem::path> save_file_dialog(std::initializer_list<nfdu8filteritem_t> filter) {
-  NFD::UniquePathU8 path;
-  nfdresult_t result = NFD::SaveDialog(path, filter.begin(), (nfdfiltersize_t)filter.size());
-  switch (result) {
-    case NFD_OKAY: return std::filesystem::path(path.get());
-    default: break;
-  }
-  return {};
 }
 
 void pick_folder_dialog_async(const char* id, const char* default_location) {
@@ -123,7 +90,7 @@ void save_file_dialog_async(
 std::optional<std::filesystem::path> accept_file_dialog_payload(const char* id, FileDialogType type) {
   if (file_dialog_data == nullptr)
     return {};
-  if (file_dialog_data->id != id && file_dialog_data->type != type)
+  if (file_dialog_data->id != id || file_dialog_data->type != type)
     return {};
   return file_dialog_data->file;
 }
