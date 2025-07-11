@@ -1259,6 +1259,9 @@ void GPURendererVK::begin_render(GPUTexture* render_target, const ImVec4& clear_
 }
 
 void GPURendererVK::end_render() {
+  assert(inside_render_pass);
+  if (!render_pass_started_ && inside_render_pass)
+    begin_render_pass_();
   if (render_pass_started_)
     end_render_pass_();
   if (!current_rt_->is_connected_to_list()) {
