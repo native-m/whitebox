@@ -3,77 +3,139 @@
 #include <initializer_list>
 #include <iterator>
 #include <memory>
-#include <utility>
 
 #include "algorithm.h"
 #include "common.h"
 #include "types.h"
 
 namespace wb {
-namespace detail {
-template<typename T>
-struct VectorInternal {
-  T* data;
-  size_t size;
-  size_t capacity;
-};
-}  // namespace detail
 
 template<typename T>
 struct Vector {
-  using value_type = T;
-  using reference_type = T&;
-  using pointer_type = T*;
-  using size_type = size_t;
-  static constexpr uint32_t min_capacity = 8;
+  T* data_{};
+  uint32_t size_{};
+  uint32_t capacity_{};
 
-  detail::VectorInternal<T> intern_{};
-
-  Vector() noexcept {
+  Vector() {
   }
 
-  Vector(size_t size) {
+  Vector(uint32_t size)
+    requires std::is_default_constructible_v<T>
+  {
     resize(size);
   }
 
   Vector(std::initializer_list<T> init_list) {
+    reserve(init_list.size());
     for (auto& item : init_list) {
       push_back(item);
     }
   }
 
-  Vector(Vector<T>&& other) noexcept : intern_(std::exchange(other.intern_, {})) {
+  Vector(Vector&& other) : data_(other.data_), size_(other.size_), capacity_(other.capacity_) {
+    other.data_ = nullptr;
+    other.size_ = 0;
+    other.capacity_ = 0;
   }
-
-  Vector(const Vector<T>&) = delete;
 
   ~Vector() {
     destroy_();
   }
 
+  inline T& front() {
+    assert(size_ != 0);
+    return data_[0];
+  }
+
+  inline T& back() {
+    assert(size_ != 0);
+    return data_[size_ - 1];
+  }
+
+  inline const T& front() const {
+    assert(size_ != 0);
+    return data_[0];
+  }
+
+  inline const T& back() const {
+    assert(size_ != 0);
+    return data_[size_ - 1];
+  }
+
+  inline T& operator[](uint32_t i) {
+    assert(i < size_);
+    return data_[i];
+  }
+
+  inline const T& operator[](uint32_t i) const {
+    assert(i < size_);
+    return data_[i];
+  }
+
+  inline T& at(uint32_t i) {
+    assert(i < size_);
+    return data_[i];
+  }
+
+  inline const T& at(uint32_t i) const {
+    assert(i < size_);
+    return data_[i];
+  }
+
+  inline T* begin() noexcept {
+    return data_;
+  }
+
+  inline T* end() noexcept {
+    return data_ + size_;
+  }
+
+  inline const T* begin() const noexcept {
+    return data_;
+  }
+
+  inline const T* end() const noexcept {
+    return data_ + size_;
+  }
+
+  inline T* data() noexcept {
+    return data_;
+  }
+
+  inline const T* data() const noexcept {
+    return data_;
+  }
+
+  inline uint32_t size() const noexcept {
+    return size_;
+  }
+
+  inline uint32_t capacity() const noexcept {
+    return capacity_;
+  }
+
+  inline bool empty() const noexcept {
+    return size_ == 0;
+  }
+
   inline Vector<T>& operator=(const Vector<T>& other)
     requires std::copyable<T>
   {
-    if (other.intern_.size == 0 || other.intern_.data == nullptr)
+    if (other.size_ == 0 || other.data_ == nullptr)
       return *this;
+    uint32_t other_size = other.size();
     if constexpr (std::is_trivially_copyable_v<T>) {
-      size_t other_size = other.size();
-      if (other_size != size()) {
+      if (other_size != size_) {
         destroy_();
-        intern_.data = (T*)std::malloc(other_size * sizeof(T));
-        intern_.size = other_size;
-        intern_.capacity = other_size;
+        data_ = (T*)std::malloc(other_size * sizeof(T));
+        size_ = other_size;
+        capacity_ = other_size;
       }
-      std::memcpy(intern_.data, other.intern_.data, other_size * sizeof(T));
+      std::memcpy(data_, other.data_, other_size * sizeof(T));
     } else {
-      size_t other_size = other.size();
-      if (other_size != size())
+      if (other_size != size_)
         resize(other_size);
-      T* data_ptr = intern_.data;
-      T* end_ptr = intern_.data + other_size;
-      T* other_ptr = other.intern_.data;
-      for (; data_ptr != end_ptr; (void)++data_ptr, (void)++other_ptr)
-        *data_ptr = *other_ptr;
+      copy_n(data_, other.data_, other_size);
     }
     return *this;
   }
@@ -82,202 +144,113 @@ struct Vector {
     requires std::movable<T>
   {
     destroy_();
-    intern_ = std::exchange(other.intern_, {});
+    data_ = other.data_;
+    size_ = other.size_;
+    capacity_ = other.capacity_;
+    other.data_ = nullptr;
+    other.size_ = 0;
+    other.capacity_ = 0;
     return *this;
   }
 
-  /*template <std::input_iterator Iterator>
-  inline void assign(Iterator first, Iterator last) {
-      if constexpr (std::random_access_iterator<Iterator> && std::contiguous_iterator<Iterator>) {
-          auto length = last - first;
-          resize(0);
-          reserve(length);
-          T* data_ptr = intern_.data;
-
+  template<typename It>
+  inline T* append(It first, It last) {
+    uint32_t old_size = size_;
+    if constexpr (std::random_access_iterator<It>) {
+      auto dist = std::distance(first, last);
+      uint32_t new_size = size_ + dist;
+      reserve_internal_(new_size);
+      for (T* dst = data_ + size_; first != last; dst++, first++) {
+        new (dst) T(*first);
       }
-  }*/
-
-  inline bool empty() const {
-    return intern_.size == 0;
-  }
-
-  inline size_t size() const {
-    return intern_.size;
-  }
-
-  inline size_t max_size() const {
-    return SIZE_MAX / sizeof(T);
-  }
-
-  inline size_t capacity() const {
-    return intern_.capacity;
-  }
-
-  inline T* data() {
-    return intern_.data;
-  }
-
-  inline const T* data() const {
-    return intern_.data;
-  }
-
-  inline T& front() noexcept {
-    assert(intern_.size > 0);
-    return intern_.data[0];
-  }
-
-  inline const T& front() const noexcept {
-    assert(intern_.size > 0);
-    return intern_.data[0];
-  }
-
-  inline T& back() noexcept {
-    assert(intern_.size > 0);
-    return intern_.data[intern_.size - 1];
-  }
-
-  inline const T& back() const noexcept {
-    assert(intern_.size > 0);
-    return intern_.data[intern_.size - 1];
-  }
-
-  inline T& at(size_t idx) noexcept {
-    assert(idx >= 0 && idx < intern_.size);
-    return intern_.data[idx];
-  }
-
-  inline const T& at(size_t idx) const noexcept {
-    assert(idx >= 0 && idx < intern_.size);
-    return intern_.data[idx];
-  }
-
-  inline T& operator[](size_t idx) noexcept {
-    assert(idx >= 0 && idx < intern_.size);
-    return intern_.data[idx];
-  }
-
-  inline const T& operator[](size_t idx) const noexcept {
-    assert(idx >= 0 && idx < intern_.size);
-    return intern_.data[idx];
-  }
-
-  inline T* begin() noexcept {
-    return intern_.data;
-  }
-  inline const T* begin() const noexcept {
-    return intern_.data;
-  }
-  inline T* end() noexcept {
-    return intern_.data + intern_.size;
-  }
-  inline const T* end() const noexcept {
-    return intern_.data + intern_.size;
+      size_ = new_size;
+    } else {
+      for (; first != last; first++) {
+        push_back(*first);
+      }
+    }
+    return data_ + old_size;
   }
 
   template<typename... Args>
-  inline T& emplace_at(size_t idx, Args&&... args) {
-    assert(idx <= intern_.size);
+  inline void emplace(T* it, Args&&... args) {
+    assert(it >= data_);
+    T* new_item = emplace_at_raw(it - data_);
+    new (new_item) T(std::forward<Args>(args)...);
+  }
 
-    if (idx == intern_.size) {
-      return emplace_back(std::forward<Args>(args)...);
-    }
-
-    if (intern_.size == intern_.capacity) [[unlikely]] {
-      size_t new_capacity = grow_capacity_();
-      T* new_data = (T*)std::malloc(new_capacity * sizeof(T));
-      assert(new_data && "Failed to allocate new storage");
-      if (intern_.data) {
-        if constexpr (std::is_trivially_copy_constructible_v<T>) {
-          std::memcpy(new_data, intern_.data, idx * sizeof(T));
-          std::memcpy(new_data + idx + 1, intern_.data + idx, (intern_.size - idx) * sizeof(T));
-        } else {
-          if constexpr (std::move_constructible<T>) {
-            relocate_by_move(intern_.data, intern_.data + idx, new_data);
-            relocate_by_move(intern_.data + idx, intern_.data + intern_.size, new_data + idx + 1);
-          } else if constexpr (std::copy_constructible<T>) {
-            relocate_by_copy(intern_.data, intern_.data + idx, new_data);
-            relocate_by_copy(intern_.data + idx, intern_.data + intern_.size, new_data + idx + 1);
-          }
-        }
-        std::free(intern_.data);
-      }
-
-      T* item = nullptr;
-      if constexpr (std::is_aggregate_v<T>)
-        item = new (new_data + idx) T{ std::forward<Args>(args)... };
-      else
-        item = new (new_data + idx) T(std::forward<Args>(args)...);
-
-      intern_.data = new_data;
-      intern_.capacity = new_capacity;
-      intern_.size++;
-      return *item;
-    }
-
-    // Shift element by 1
-    T* begin_ptr = intern_.data + intern_.size - 1;
-    T* dst_ptr = begin_ptr + 1;
-    T* end_ptr = intern_.data + idx;
-    while (begin_ptr >= end_ptr) {
-      if constexpr (std::move_constructible<T>) {
-        new (dst_ptr) T(std::move(*begin_ptr));
-      } else if constexpr (std::copy_constructible<T>) {
-        new (dst_ptr) T(*begin_ptr);
-        begin_ptr->~T();
-      }
-      dst_ptr--;
-      begin_ptr--;
-    }
-
-    T* item;
-    if constexpr (std::is_aggregate_v<T>)
-      item = new (intern_.data + idx) T{ std::forward<Args>(args)... };
-    else
-      item = new (intern_.data + idx) T(std::forward<Args>(args)...);
-
-    intern_.size++;
-    return *item;
+  template<typename... Args>
+  inline void emplace_at(uint32_t at, Args&&... args) {
+    assert(at <= size_);
+    T* new_item = emplace_at_raw(at);
+    new (new_item) T(std::forward<Args>(args)...);
   }
 
   template<typename... Args>
   inline T& emplace_back(Args&&... args) {
-    if (intern_.size == intern_.capacity) [[unlikely]]
-      reserve_internal_(grow_capacity_());
-    T* new_item;
-    if constexpr (std::is_aggregate_v<T>)
-      new_item = new (intern_.data + intern_.size) T{ std::forward<Args>(args)... };
-    else
-      new_item = new (intern_.data + intern_.size) T(std::forward<Args>(args)...);
-    intern_.size++;
+    T* new_item = emplace_back_raw();
+    new (new_item) T(std::forward<Args>(args)...);
     return *new_item;
   }
 
-  inline T* emplace_back_raw() {
-    [[unlikely]] if (intern_.size == intern_.capacity)
-      reserve_internal_(grow_capacity_());
-    T* new_item = intern_.data + intern_.size;
-    intern_.size++;
-    return new_item;
+  inline T* emplace_at_raw(uint32_t at) {
+    if (size_ == capacity_) {
+      uint32_t new_capacity = grow_capacity_(capacity_);
+      T* new_data = (T*)std::malloc(new_capacity * sizeof(T));
+      assert(new_data != nullptr);
+
+      if (data_) {
+        if constexpr (std::is_move_constructible_v<T>) {
+          move_initialize_n(new_data, data_, at);
+          move_initialize_n(new_data + at + 1, data_ + at, at);
+        } else if constexpr (std::is_copy_constructible_v<T>) {
+          copy_initialize_n(new_data, data_, size_);
+          copy_initialize_n(new_data + at + 1, data_ + at, at);
+          destroy_n(data_, size_);
+        }
+        std::free(data_);
+      }
+
+      data_ = new_data;
+      capacity_ = new_capacity;
+      size_++;
+      return data_ + at;
+    }
+
+    if constexpr (std::is_trivially_move_constructible_v<T> || std::is_trivially_copy_constructible_v<T>) {
+      WB_BUILTIN_MEMMOVE(data_ + at + 1, data_ + at, (size_ - at) * sizeof(T));
+    } else if constexpr (std::is_move_constructible_v<T>) {
+      T* src = data_ + size_ - 1;
+      T* dst = data_ + size_;
+      uint32_t move_count = size_;
+      while (move_count-- > at) {
+        new (dst) T(std::move(*src));
+        dst--;
+        src--;
+      }
+    } else if constexpr (std::is_copy_constructible_v<T>) {
+      T* src = data_ + size_ - 1;
+      T* dst = data_ + size_;
+      uint32_t move_count = size_;
+      while (move_count-- > at) {
+        new (dst) T(*src);
+        src->~T();
+        dst--;
+        src--;
+      }
+    }
+
+    size_++;
+    return data_ + at;
   }
 
-  inline void erase(size_t idx) {
-    if (idx < intern_.size) {
-      T* end_ptr = intern_.data + intern_.size;
-      T* dst_ptr = intern_.data + idx;
-      T* src_ptr = dst_ptr + 1;
-      while (src_ptr < end_ptr) {
-        if constexpr (std::is_move_assignable_v<T>)
-          *dst_ptr++ = std::move(*src_ptr);
-        else if constexpr (std::is_copy_assignable_v<T>)
-          *dst_ptr++ = *src_ptr;
-        src_ptr++;
-      }
-      if constexpr (!std::is_trivially_destructible_v<T>) {
-        T* last_item = end_ptr - 1;
-        last_item->~T();
-      }
-      intern_.size--;
+  inline T* emplace_back_raw() {
+    if (size_ == capacity_) {
+      reserve_internal_(grow_capacity_(capacity_));
     }
+    T* ret = &data_[size_];
+    size_++;
+    return ret;
   }
 
   inline void push_front(const T& item)
@@ -292,159 +265,147 @@ struct Vector {
     emplace_at(0, std::forward<T>(item));
   }
 
-  inline void push_back(const T& item)
-    requires std::copy_constructible<T>
-  {
-    if (intern_.size == intern_.capacity) [[unlikely]]
-      reserve_internal_(grow_capacity_());
-    new (intern_.data + intern_.size) T(item);
-    intern_.size++;
+  inline void push_back(const T& item) {
+    T* new_item = emplace_back_raw();
+    new (new_item) T(item);
   }
 
-  inline void push_back(T&& item)
-    requires std::move_constructible<T>
-  {
-    if (intern_.size == intern_.capacity) [[unlikely]]
-      reserve_internal_(grow_capacity_());
-    new (intern_.data + intern_.size) T(std::move(item));
-    intern_.size++;
+  inline void push_back(T&& item) {
+    T* new_item = emplace_back_raw();
+    new (new_item) T(std::move(item));
   }
 
-  inline void pop_back() noexcept {
-    assert(intern_.size > 0);
-    intern_.size--;
-    if constexpr (!std::is_trivially_destructible_v<T>)
-      intern_.data[intern_.size].~T();
+  inline void pop_back() {
+    assert(size_ != 0);
+    size_--;
+    data_[size_].~T();
   }
 
-  template<typename It>
-  inline T* append(It first, It last) {
-    size_t old_size = intern_.size;
-    if constexpr (std::random_access_iterator<It>) {
-      auto dist = std::distance(first, last);
-      reserve_internal_(intern_.size + dist);
-      for (T* dst = intern_.data + intern_.size; first != last; dst++, first++) {
-        new (dst) T(*first);
+  inline void erase_at(uint32_t at, uint32_t count = 1) {
+    assert(at < size_);
+    if (count != 0) {
+      uint32_t src_offset = at + count;
+      uint32_t move_count = size_ - src_offset;
+      T* dst = data_ + at;
+      T* src = data_ + src_offset;
+      if constexpr (std::is_trivially_move_constructible_v<T> || std::is_trivially_copy_constructible_v<T>) {
+        WB_BUILTIN_MEMMOVE(dst, src, move_count * sizeof(T));
+      } else if constexpr (std::is_move_constructible_v<T>) {
+        destroy_n(dst, count);
+        for (uint32_t i = 0; i < move_count; i++) {
+          new (&dst[i]) T(std::move(src[i]));
+        }
+      } else if constexpr (std::is_copy_constructible_v<T>) {
+        destroy_n(dst, count);
+        for (uint32_t i = 0; i < move_count; i++) {
+          new (&dst[i]) T(src[i]);
+          src[i].~T();
+        }
       }
-      intern_.size += dist;
-    } else {
-      for (; first != last; first++) {
-        push_back(*first);
-      }
+      size_ -= count;
     }
-    return intern_.data + old_size;
   }
 
-  inline void clear() noexcept {
-    if (intern_.size == 0)
-      return;
+  inline void erase(T* it) {
+    assert(it >= data_);
+    erase_at(it - data_);
+  }
+
+  inline void erase(T* begin, T* end) {
+    assert(begin >= data_ && end < (data_ + size_));
+    erase_at(begin - data_, end - begin);
+  }
+
+  inline void reserve(uint32_t n) {
+    if (n > capacity_) {
+      reserve_internal_(n);
+    }
+  }
+
+  inline void resize(uint32_t size) {
+    if (size > size_) {
+      reserve(size);
+      default_initialize_n(data_ + size_, size - size_);
+    }
     if constexpr (!std::is_trivially_destructible_v<T>) {
-      T* begin_ptr = intern_.data;
-      for (size_t i = 0; i < intern_.size; i++) {
-        T* item = begin_ptr + i;
-        item->~T();
+      if (size < size_) {
+        uint32_t num_destroy = size_ - size;
+        destroy_n(data_ + size, num_destroy);
       }
-    } else {
-      std::memset(intern_.data, 0, intern_.size * sizeof(T));
     }
-    intern_.size = 0;
+    size_ = size;
   }
 
-  inline void resize(size_t new_size)
-    requires std::default_initializable<T>
-  {
-    if (new_size > intern_.capacity) {
-      reserve_internal_(new_size);
-      uninitialized_default_construct(intern_.data + intern_.size, intern_.data + new_size);
-    } else if (new_size < intern_.size) {
-      destroy_range(intern_.data + new_size, intern_.data + intern_.size);
+  inline void resize(uint32_t size, const T& default_value) {
+    if (size > size_) {
+      reserve(size);
+      fill_n(data_ + size_, default_value, size - size_);
+      return;
     }
-    intern_.size = new_size;
+    if constexpr (!std::is_trivially_destructible_v<T>) {
+      if (size < size_) {
+        uint32_t num_destroy = size_ - size;
+        destroy_n(data_ + size, num_destroy);
+      }
+    }
+    size_ = size;
   }
 
-  inline void resize_fast(size_t new_size)
+  inline void resize_fast(uint32_t new_size)
     requires std::is_trivial_v<T>
   {
-    if (new_size > intern_.capacity)
+    if (new_size > capacity_)
       reserve_internal_(new_size);
-    intern_.size = new_size;
+    size_ = new_size;
   }
 
-  inline void resize(size_t new_size, const T& default_value)
-    requires std::move_constructible<T>
-  {
-    if (new_size > intern_.capacity) {
-      reserve_internal_(new_size);
-      T* data_ptr = intern_.data + intern_.size;
-      T* end_ptr = intern_.data + new_size;
-      while (data_ptr != end_ptr)
-        new (data_ptr++) T(default_value);
-    } else if (new_size < intern_.size) {
-      destroy_range(intern_.data + new_size, intern_.data + intern_.size);
-    }
-    intern_.size = new_size;
+  inline void expand_size(uint32_t added_size) {
+    resize(size_ + added_size);
   }
 
-  inline void reserve(size_t new_capacity) {
-    reserve_internal_(new_capacity);
+  inline void expand_capacity(uint32_t added_capacity) {
+    reserve_internal_(size_ + added_capacity);
   }
 
-  inline void expand_size(size_t added_size) {
-    resize(intern_.size + added_size);
-  }
-
-  inline void expand_capacity(size_t added_capacity) {
-    reserve_internal_(intern_.size + added_capacity);
-  }
-
-  inline size_t grow_capacity_() {
-    size_t new_capacity = intern_.capacity ? (intern_.capacity + intern_.capacity / size_t(2)) : min_capacity;
-    return new_capacity;
-  }
-
-  inline void reserve_internal_(size_t new_capacity, size_t relocate_offset = 0) {
-    if (new_capacity <= intern_.capacity)
-      return;
-    if (new_capacity < 8)
-      new_capacity = min_capacity;
-    T* new_data = (T*)std::malloc(new_capacity * sizeof(T));
-    assert(new_data && "Failed to allocate new storage");
-    if (intern_.data) {
-      if constexpr (std::is_trivially_copy_constructible_v<T>) {
-        if (intern_.size != 0) {
-          std::memcpy(new_data + relocate_offset, intern_.data, intern_.size * sizeof(T));
-        }
-      } else {
-        T* new_data_ptr = new_data + relocate_offset;
-        T* old_data_ptr = intern_.data;
-        T* end_ptr = old_data_ptr + intern_.size;
-        if constexpr (std::move_constructible<T>) {
-          relocate_by_move(old_data_ptr, end_ptr, new_data_ptr);
-        } else if constexpr (std::copy_constructible<T>) {
-          relocate_by_copy(old_data_ptr, end_ptr, new_data_ptr);
-        }
-      }
-      std::free(intern_.data);
-    }
-    intern_.data = new_data;
-    intern_.capacity = new_capacity;
-  }
-
-  inline void destroy_(bool without_free = false) {
-    if (!intern_.data)
-      return;
+  inline void clear() {
     if constexpr (!std::is_trivially_destructible_v<T>) {
-      T* data_ptr = intern_.data;
-      T* end_ptr = data_ptr + intern_.size;
-      while (data_ptr != end_ptr) {
-        data_ptr->~T();
-        data_ptr++;
+      for (uint32_t i = 0; i < size_; i++) {
+        data_[i].~T();
       }
     }
-    if (!without_free) {
-      std::free(intern_.data);
-      intern_.data = nullptr;
+    size_ = 0;
+  }
+
+  inline void reserve_internal_(uint32_t n) {
+    T* new_data = (T*)std::malloc(n * sizeof(T));
+    assert(new_data != nullptr);
+
+    if (data_) {
+      if constexpr (std::is_move_constructible_v<T>) {
+        move_initialize_n(new_data, data_, size_);
+      } else if constexpr (std::is_copy_constructible_v<T>) {
+        copy_initialize_n(new_data, data_, size_);
+        destroy_n(data_, size_);
+      }
+      std::free(data_);
+    }
+
+    data_ = new_data;
+    capacity_ = n;
+  }
+
+  inline uint32_t grow_capacity_(uint32_t old_capacity) const {
+    return old_capacity ? (old_capacity + old_capacity / 2) : 8;
+  }
+
+  inline void destroy_() {
+    if (data_) {
+      clear();
+      std::free(data_);
+      data_ = nullptr;
+      capacity_ = 0;
     }
   }
 };
+
 }  // namespace wb

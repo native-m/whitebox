@@ -25,8 +25,6 @@ struct MidiNoteFlags {
   };
 };
 
-// WARNING!!
-// If this structure has been changed, the project writer needs to be changed too!
 struct alignas(8) MidiNote {
   double min_time;
   double max_time;

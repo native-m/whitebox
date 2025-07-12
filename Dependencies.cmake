@@ -19,7 +19,6 @@ CPMAddPackage(
                         "SDL_RENDER_GPU OFF"
                         "SDL_JOYSTICK OFF"
                         "SDL_HAPTIC OFF"
-                        "SDL_HIDAPI OFF"
                         "SDL_OPENGLES OFF"
                         "SDL_GPU OFF"
                         "SDL_CAMERA OFF"

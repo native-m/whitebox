@@ -4,6 +4,16 @@
 #include <iterator>
 #include <type_traits>
 
+#ifdef _MSC_VER
+#define WB_BUILTIN_MEMCPY(dst, src, size)  memcpy((dst), (src), (size))
+#define WB_BUILTIN_MEMMOVE(dst, src, size) memmove((dst), (src), (size))
+#define WB_BUILTIN_MEMSET(dst, val, size)  memset((dst), (val), (size))
+#else
+#define WB_BUILTIN_MEMCPY(dst, src, size)  __builtin_memcpy((dst), (src), (size))
+#define WB_BUIlTIN_MEMMOVE(dst, src, size) __builtin_memmove((dst), (src), (size))
+#define WB_BUILTIN_MEMSET(dst, val, size)  __builtin_memset((dst), (val), (size))
+#endif
+
 namespace wb {
 
 template<typename T, typename Tcmp, typename... Args>
@@ -66,6 +76,83 @@ inline void destroy_range(T* begin_ptr, T* end_ptr) {
       begin_ptr->~T();
       begin_ptr++;
     }
+  }
+}
+
+template<typename T>
+inline void default_initialize_n(T* data, size_t count) {
+  if constexpr (std::is_trivially_default_constructible_v<T>) {
+    WB_BUILTIN_MEMSET(data, 0, count * sizeof(T));
+  } else {
+    for (size_t i = 0; i < count; i++) {
+      new (&data[i]) T();
+    }
+  }
+}
+
+template<typename T>
+inline void copy_n(T* dst, T* src, size_t count) {
+  if constexpr (std::is_trivially_copy_assignable_v<T>) {
+    WB_BUILTIN_MEMCPY(dst, src, count * sizeof(T));
+  } else {
+    for (size_t i = 0; i < count; i++) {
+      dst[i] = src[i];
+    }
+  }
+}
+
+template<typename T>
+inline void move_n(T* dst, T* src, size_t count) {
+  if constexpr (std::is_trivially_copy_assignable_v<T>) {
+    WB_BUILTIN_MEMCPY(dst, src, count * sizeof(T));
+  } else {
+    for (size_t i = 0; i < count; i++) {
+      dst[i] = std::move(src[i]);
+    }
+  }
+}
+
+template<typename T>
+inline void fill_n(T* dst, const T& value, size_t count) {
+  for (size_t i = 0; i < count; i++) {
+    new (&dst[i]) T(value);
+  }
+}
+
+template<typename T>
+inline void fill_n(T* dst, T&& value, size_t count) {
+  for (size_t i = 0; i < count; i++) {
+    new (&dst[i]) T(std::move(value));
+  }
+}
+
+template<typename T>
+inline void copy_initialize_n(T* dst, const T* src, size_t count) {
+  if constexpr (std::is_trivially_copy_constructible_v<T>) {
+    WB_BUILTIN_MEMCPY(dst, src, count * sizeof(T));
+  } else {
+    for (size_t i = 0; i < count; i++) {
+      new (&dst[i]) T(src[i]);
+    }
+  }
+}
+
+template<typename T>
+inline void move_initialize_n(T* dst, T* src, size_t count) {
+  if constexpr (std::is_trivially_move_constructible_v<T>) {
+    WB_BUILTIN_MEMCPY(dst, src, count * sizeof(T));
+  } else {
+    for (size_t i = 0; i < count; i++) {
+      new (&dst[i]) T(std::move(src[i]));
+    }
+  }
+}
+
+template<typename T>
+inline void destroy_n(T* data, size_t count) {
+  if constexpr (!std::is_trivially_destructible_v<T>) {
+    for (size_t i = 0; i < count; i++)
+      data[i].~T();
   }
 }
 
