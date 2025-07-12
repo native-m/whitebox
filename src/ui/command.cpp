@@ -471,7 +471,7 @@ void MidiCmd::undo(uint32_t channel) {
   Clip* clip = track->clips[clip_id];
   MidiData* midi_data = clip->get_midi_data();
   MidiNoteBuffer& note_sequence = midi_data->note_sequence;
-  MidiNoteMetadataPool& metadata_pool = midi_data->note_metadata_pool;
+  //MidiNoteMetadataPool& metadata_pool = midi_data->note_metadata_pool;
 
   // Delete modified notes
   MidiNoteBuffer new_sequence;

@@ -175,6 +175,7 @@ ProjectFileResult read_project_file(
 
                 Clip* clip = track->allocate_clip();
                 new (clip) Clip("", color, start, end, offset);
+                clip->id = j;
                 clip->name = std::move(name);
                 track->clips[j] = clip;
 
@@ -315,7 +316,7 @@ ProjectFileResult write_project_file(
             w.write_kv_num("gain", clip->audio.gain);
             break;
           case ClipType::Midi:
-            w.write_kv_map("data", 1);
+            w.write_kv_map("data", 3);
             w.write_kv_num("asset_id", midi_index_map[clip->midi.asset]);
             w.write_kv_num("trans", clip->midi.transpose);
             w.write_kv_num("rate", clip->midi.rate);
