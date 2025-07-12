@@ -262,11 +262,13 @@ void main_control_bar() {
 
   export_audio_dialog();
 
-  if (auto file = accept_file_dialog_payload("open_project", FileDialogType::OpenFile)) {
+  const std::filesystem::path* open_file_path;
+  if (auto ret = get_file_dialog_payload("open_project", FileDialogType::OpenFile, &open_file_path);
+      ret == FileDialogStatus::Accepted) {
     shutdown_audio_io();
     g_engine.clear_all();
     g_cmd_manager.reset(true);
-    auto result = read_project_file(file.value(), g_engine, g_sample_table, g_midi_table, g_timeline);
+    auto result = read_project_file(*open_file_path, g_engine, g_sample_table, g_midi_table, g_timeline);
     if (result != ProjectFileResult::Ok) {
       Log::error("Failed to open project {}", (uint32_t)result);
       assert(false);
@@ -276,13 +278,16 @@ void main_control_bar() {
     start_audio_engine();
   }
 
-  if (auto file = accept_file_dialog_payload("save_project", FileDialogType::SaveFile)) {
+  const std::filesystem::path* save_file_path;
+  if (auto ret = get_file_dialog_payload("save_project", FileDialogType::SaveFile, &save_file_path);
+      ret == FileDialogStatus::Accepted) {
     shutdown_audio_io();
-    auto result = write_project_file(file.value(), g_engine, g_sample_table, g_midi_table, g_timeline);
+    auto result = write_project_file(*save_file_path, g_engine, g_sample_table, g_midi_table, g_timeline);
     if (result != ProjectFileResult::Ok) {
       Log::error("Failed to open project {}", (uint32_t)result);
       assert(false);
     }
+    g_cmd_manager.is_modified = false;
     start_audio_engine();
   }
 }

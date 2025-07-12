@@ -4,8 +4,8 @@
 #include "core/algorithm.h"
 #include "core/fs.h"
 #include "dialogs.h"
-#include "file_dialog.h"
 #include "dsp/sample.h"
+#include "file_dialog.h"
 #include "file_dropper.h"
 #include "window.h"
 
@@ -176,8 +176,10 @@ void BrowserWindow::render() {
     pick_folder_dialog_async("add_br_folder");
   }
 
-  if (auto folder = accept_file_dialog_payload("add_br_folder", FileDialogType::PickFolder)) {
-    add_directory(folder.value());
+  const std::filesystem::path* folder_path;
+  if (auto ret = get_file_dialog_payload("add_br_folder", FileDialogType::PickFolder, &folder_path);
+      ret == FileDialogStatus::Accepted) {
+    add_directory(*folder_path);
     sort_directory();
   }
 

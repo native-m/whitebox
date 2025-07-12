@@ -140,14 +140,20 @@ void app_render() {
     }
   }
 
-  if (auto file = accept_file_dialog_payload("save_project_exit", FileDialogType::SaveFile)) {
-    shutdown_audio_io();
-    auto result = write_project_file(file.value(), g_engine, g_sample_table, g_midi_table, g_timeline);
-    if (result != ProjectFileResult::Ok) {
-      Log::error("Failed to open project {}", (uint32_t)result);
-      assert(false);
+  const std::filesystem::path* save_file_path;
+  switch (get_file_dialog_payload("save_project_exit", FileDialogType::SaveFile, &save_file_path)) {
+    case FileDialogStatus::Accepted: {
+      shutdown_audio_io();
+      auto result = write_project_file(*save_file_path, g_engine, g_sample_table, g_midi_table, g_timeline);
+      if (result != ProjectFileResult::Ok) {
+        Log::error("Failed to open project {}", (uint32_t)result);
+        assert(false);
+      }
+      is_running = false;
+      break;
     }
-    is_running = false;
+    case FileDialogStatus::Cancelled: is_running = false; break;
+    default: break;
   }
 
   static auto setup_docking = true;
@@ -205,9 +211,9 @@ void app_shutdown() {
   shutdown_windows();
   shutdown_audio_io();
   g_engine.clear_all();
+  g_cmd_manager.reset();
   g_sample_table.shutdown();
   g_midi_table.shutdown();
-  g_cmd_manager.reset();
   shutdown_renderer();
   ImGui_ImplSDL3_Shutdown();
   ImGui::DestroyContext();
@@ -246,14 +252,14 @@ void handle_events(SDL_Event& event) {
       if (is_main_window)
         wait_until_restored();
       break;
-    case SDL_EVENT_DROP_FILE: g_file_drop.push_back(event.drop.data); break;
+    case SDL_EVENT_DROP_FILE: Log::debug("Drop file"); break;
     case SDL_EVENT_DROP_BEGIN: Log::debug("Drop begin"); break;
     case SDL_EVENT_DROP_COMPLETE: Log::debug("Drop complete"); break;
     case SDL_EVENT_QUIT: request_quit = true; break;
     default: {
       if (event.type >= SDL_EVENT_USER) {
         if (event.type == AppEvent::file_dialog) {
-          file_dialog_handle_event(event.user.data1);
+          file_dialog_handle_event(event.user.data1, event.user.data2);
         } else if (event.type == AppEvent::audio_device_removed_event || event.type == AppEvent::audio_settings_changed) {
           start_audio_engine();
         }

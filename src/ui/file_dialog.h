@@ -17,7 +17,14 @@ enum class FileDialogType {
   PickFolder,
 };
 
-void file_dialog_handle_event(void* event_data);
+enum class FileDialogStatus {
+  None,
+  Accepted,
+  Cancelled,
+  Failed,
+};
+
+void file_dialog_handle_event(void* event_data1, void* event_data2);
 void file_dialog_cleanup();
 
 void pick_folder_dialog_async(const char* id, const char* default_location = nullptr);
@@ -32,6 +39,6 @@ void save_file_dialog_async(
     std::initializer_list<SDL_DialogFileFilter> filter,
     const char* default_location = nullptr);
 
-std::optional<std::filesystem::path> accept_file_dialog_payload(const char* id, FileDialogType type);
+FileDialogStatus get_file_dialog_payload(const char* id, FileDialogType type, const std::filesystem::path** file);
 
 }  // namespace wb

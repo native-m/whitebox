@@ -13,29 +13,34 @@ struct FileDialogEventData {
 };
 
 static FileDialogEventData* file_dialog_data;
+static FileDialogStatus file_dialog_status;
 static bool block_next_dialog = false;
 
 template<FileDialogType Type>
 static void file_dialog_callback(void* userdata, const char* const* filelist, int filter) {
+  FileDialogStatus status{};
+  std::filesystem::path file;
   if (!filelist) {
-    app_event_push(AppEvent::file_dialog, nullptr);
-    return;
+    status = FileDialogStatus::Failed;
   } else if (!*filelist) {
-    app_event_push(AppEvent::file_dialog, nullptr);
-    return;
+    status = FileDialogStatus::Cancelled;
+  } else {
+    status = FileDialogStatus::Accepted;
+    file = *filelist;
   }
   FileDialogEventData* fd = new FileDialogEventData{
     .id = (const char*)userdata,
     .type = Type,
-    .file = *filelist,
+    .file = std::move(file),
   };
-  app_event_push(AppEvent::file_dialog, fd);
+  app_event_push(AppEvent::file_dialog, fd, (void*)status);
 }
 
-void file_dialog_handle_event(void* event_data) {
-  if (event_data) {
-    file_dialog_data = (FileDialogEventData*)event_data;
+void file_dialog_handle_event(void* event_data1, void* event_data2) {
+  if (event_data1) {
+    file_dialog_data = (FileDialogEventData*)event_data1;
   }
+  file_dialog_status = (FileDialogStatus)(intptr_t)(event_data2);
   block_next_dialog = false;
 }
 
@@ -87,12 +92,16 @@ void save_file_dialog_async(
       default_location);
 }
 
-std::optional<std::filesystem::path> accept_file_dialog_payload(const char* id, FileDialogType type) {
+FileDialogStatus get_file_dialog_payload(const char* id, FileDialogType type, const std::filesystem::path** file) {
   if (file_dialog_data == nullptr)
-    return {};
+    return FileDialogStatus::None;
   if (file_dialog_data->id != id || file_dialog_data->type != type)
-    return {};
-  return file_dialog_data->file;
+    return FileDialogStatus::None;
+  FileDialogStatus ret = file_dialog_status;
+  if (ret == FileDialogStatus::Accepted)
+    *file = &file_dialog_data->file;
+  file_dialog_status = FileDialogStatus::None;
+  return ret;
 }
 
 }  // namespace wb
