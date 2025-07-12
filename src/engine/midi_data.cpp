@@ -5,9 +5,12 @@
 #include "core/bit_manipulation.h"
 #include "core/core_math.h"
 
+#define WB_ENABLE_NOTE_METADATA 0
+
 namespace wb {
 
 void MidiData::create_metadata(MidiNote* notes, uint32_t count) {
+#if WB_ENABLE_NOTE_METADATA
   if (first_free_id != WB_INVALID_NOTE_METADATA_ID) {
     // Reuse metadata instances
     uint32_t num_reuse = math::min(count, num_free_metadata);
@@ -27,11 +30,6 @@ void MidiData::create_metadata(MidiNote* notes, uint32_t count) {
   if (count > num_free_metadata) {
     // Create new metadata instances
     uint32_t first_id = id_counter;
-    if (count == 1) {
-      if (note_metadata_pool.size() == note_metadata_pool.capacity()) {
-        note_metadata_pool.reserve(note_metadata_pool.grow_capacity_());
-      }
-    }
     note_metadata_pool.expand_size(count);
     for (uint32_t i = 0; i < count; i++) {
       uint32_t meta_id = first_id + i;
@@ -40,12 +38,15 @@ void MidiData::create_metadata(MidiNote* notes, uint32_t count) {
     }
     id_counter += count;
   }
+#endif
 }
 
 void MidiData::free_metadata(uint32_t id) {
+#if WB_ENABLE_NOTE_METADATA
   note_metadata_pool[id].next_free_id = first_free_id;
   first_free_id = id;
   num_free_metadata++;
+#endif
 }
 
 NoteSequenceID MidiData::find_note(double pos, uint16_t key, uint16_t channel) {
@@ -123,7 +124,9 @@ Vector<uint32_t> MidiData::update_channel(uint16_t channel) {
     length = math::max(length, note.max_time);
     new_min_note = math::min(new_min_note, note.key);
     new_max_note = math::max(new_max_note, note.key);
+#if WB_ENABLE_NOTE_METADATA
     note_metadata_pool[note.meta_id].note_id = i;
+#endif
     if (has_bit(note.flags, MidiNoteFlags::Modified)) {
       note.flags &= ~MidiNoteFlags::Modified;
       modified_notes.push_back(i);

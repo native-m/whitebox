@@ -1302,7 +1302,7 @@ Vector<uint32_t> Engine::mute_selected_note(uint32_t track_id, uint32_t clip_id,
 
   MidiAsset* asset = clip->midi.asset;
   MidiNoteBuffer& note_seq = asset->data.note_sequence;
-  MidiNoteMetadataPool& metadata_pool = asset->data.note_metadata_pool;
+  // MidiNoteMetadataPool& metadata_pool = asset->data.note_metadata_pool;
   uint32_t num_erased = 0;
   Vector<uint32_t> note_ids;
   std::unique_lock lock(editor_lock);
@@ -1319,11 +1319,9 @@ Vector<uint32_t> Engine::mute_selected_note(uint32_t track_id, uint32_t clip_id,
     }
   } else {
     for (uint32_t note_id = 0; auto& note : note_seq) {
-      if (contain_bit(note.flags, MidiNoteFlags::Muted)) {
-        if (contain_bit(note.flags, MidiNoteFlags::Selected)) {
-          note.flags &= ~MidiNoteFlags::Muted;
-          note_ids.push_back(note_id);
-        }
+      if (contain_bit(note.flags, MidiNoteFlags::Muted, MidiNoteFlags::Selected)) {
+        note.flags &= ~MidiNoteFlags::Muted;
+        note_ids.push_back(note_id);
       }
       note_id++;
     }
@@ -1339,7 +1337,7 @@ MidiEditResult Engine::delete_marked_notes(uint32_t track_id, uint32_t clip_id, 
 
   MidiAsset* asset = clip->midi.asset;
   MidiNoteBuffer& note_seq = asset->data.note_sequence;
-  MidiNoteMetadataPool& metadata_pool = asset->data.note_metadata_pool;
+  // MidiNoteMetadataPool& metadata_pool = asset->data.note_metadata_pool;
   MidiNoteBuffer backup;
   MidiNoteBuffer new_sequence;
   uint32_t flag = delete_selected ? MidiNoteFlags::Selected : MidiNoteFlags::Deleted;
@@ -1349,7 +1347,7 @@ MidiEditResult Engine::delete_marked_notes(uint32_t track_id, uint32_t clip_id, 
   for (uint32_t note_id = 0; auto& note : note_seq) {
     bool skip = false;
     if (!contain_bit(note.flags, flag)) {
-      metadata_pool[note.meta_id].note_id = note_id;
+      // metadata_pool[note.meta_id].note_id = note_id;
       new_sequence.push_back(note);
     } else {
       if (!delete_selected) {

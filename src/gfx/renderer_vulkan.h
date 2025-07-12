@@ -222,6 +222,7 @@ struct GPURendererVK : public GPURenderer {
   bool init(SDL_Window* window) override;
   void shutdown() override;
 
+  // Resources
   GPUBuffer* create_buffer(
       GPUBufferUsageFlags usage,
       size_t buffer_size,
@@ -241,6 +242,8 @@ struct GPURendererVK : public GPURenderer {
   void destroy_buffer(GPUBuffer* buffer) override;
   void destroy_texture(GPUTexture* buffer) override;
   void destroy_pipeline(GPUPipeline* buffer) override;
+
+  // Viewports
   void add_viewport(ImGuiViewport* viewport) override;
   void remove_viewport(ImGuiViewport* viewport) override;
   void resize_viewport(ImGuiViewport* viewport, ImVec2 vec) override;

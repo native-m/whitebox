@@ -10,8 +10,8 @@ struct MidiData {
   static constexpr int16_t max_keys = 132;
   static constexpr uint32_t max_channels = 16;
   double max_length = 0.0;
-  MidiNoteMetadataPool note_metadata_pool;
   MidiNoteBuffer note_sequence;
+  MidiNoteMetadataPool note_metadata_pool;
   // std::array<MidiNoteBuffer, max_channels> channels;
   uint32_t first_free_id = WB_INVALID_NOTE_METADATA_ID;
   uint32_t num_free_metadata = 0;

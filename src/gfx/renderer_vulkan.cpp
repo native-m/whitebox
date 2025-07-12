@@ -1290,7 +1290,7 @@ void GPURendererVK::flush_state() {
     bind_resources_(cb);
   } else if (auto pipeline = static_cast<GPUPipelineVK*>(current_pipeline); pipeline->layout != current_pipeline_layout_) {
     if (current_pipeline_layout_ != VK_NULL_HANDLE) {
-      // Re-establish descriptor sets when pipeline layout is changed
+      // Re-bind descriptor sets when pipeline layout is changed
       if (current_descriptor_sets_[0]) {
         vkCmdBindDescriptorSets(
             cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->layout, 0, 1, &current_descriptor_sets_[0], 0, nullptr);
