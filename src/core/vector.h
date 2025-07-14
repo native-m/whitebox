@@ -202,10 +202,10 @@ struct Vector {
       if (data_) {
         if constexpr (std::is_move_constructible_v<T>) {
           move_initialize_n(new_data, data_, at);
-          move_initialize_n(new_data + at + 1, data_ + at, at);
+          move_initialize_n(new_data + at + 1, data_ + at, size_ - at);
         } else if constexpr (std::is_copy_constructible_v<T>) {
           copy_initialize_n(new_data, data_, size_);
-          copy_initialize_n(new_data + at + 1, data_ + at, at);
+          copy_initialize_n(new_data + at + 1, data_ + at, size_ - at);
           destroy_n(data_, size_);
         }
         std::free(data_);
