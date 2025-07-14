@@ -106,6 +106,8 @@ struct Color {
     return Color(r, g, b, 1.0f);
   }
 
+  ImVec4 to_vec4() const;
+
   inline constexpr ColorU32 to_uint32() const {
     return WB_COLOR_U32(
         (uint32_t)(math::saturate(r) * 255.0f + 0.5f),

@@ -581,7 +581,8 @@ void TimelineWindow::render_track_lanes() {
 
   static constexpr uint32_t timeline_mouse_btn_flags =
       ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_MouseButtonMiddle;
-  ImGui::InvisibleButton("##timeline", ImVec2(timeline_area.x, math::max(timeline_area.y, content_size.y + vscroll)));
+  ImGui::InvisibleButton(
+      "##timeline", ImVec2(timeline_area.x, math::max(timeline_area.y, content_size.y + vscroll)), timeline_mouse_btn_flags);
   const bool timeline_clicked = ImGui::IsItemClicked();
   const bool timeline_hovered = ImGui::IsItemHovered();
   const bool mouse_move = false;
