@@ -14,11 +14,11 @@
 #include "timeline.h"
 #include "timeline_base.h"
 
-#define WB_ENABLE_PIANO_ROLL_DEBUG_MENU    1
-#define WB_SHOW_PIANO_ROLL_HIDDEN_CONTROLS 1
+#define WB_ENABLE_CLIP_EDITOR_DEBUG_MENU    1
+#define WB_SHOW_CLIP_EDITOR_HIDDEN_CONTROLS 1
 
 #ifdef NDEBUG
-#undef WB_ENABLE_PIANO_ROLL_DEBUG_MENU
+#undef WB_ENABLE_CLIP_EDITOR_DEBUG_MENU
 #undef WB_SHOW_PIANO_ROLL_HIDDEN_CONTROLS
 #endif
 
@@ -176,7 +176,7 @@ static void clip_editor_delete_notes(bool selected) {
   deleting_notes = false;
 }
 
-static void clip_editor_mute_notes(bool should_mute) {
+static void clip_editor_mute_selected_notes(bool should_mute) {
   MidiMuteNoteCmd* cmd = new MidiMuteNoteCmd();
   cmd->track_id = current_track_id.value();
   cmd->clip_id = current_clip_id.value();
@@ -286,14 +286,17 @@ static void clip_editor_process_hotkey() {
   }
 
   if (ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows)) {
+    if (hkey_pressed(Hotkey::SelectAll)) {
+      clip_editor_select_or_deselect_all_notes(true);
+    }
     if (hkey_pressed(Hotkey::Delete)) {
       clip_editor_delete_notes(true);
     }
     if (hkey_pressed(Hotkey::Mute)) {
-      clip_editor_mute_notes(true);
+      clip_editor_mute_selected_notes(true);
     }
     if (hkey_pressed(Hotkey::Unmute)) {
-      clip_editor_mute_notes(false);
+      clip_editor_mute_selected_notes(false);
     }
   }
 }
@@ -366,7 +369,7 @@ static void clip_editor_render_toolbar() {
     ImGui::SameLine(0.0f);
     ImGui::PushItemWidth(80.0f);
 
-#ifdef WB_SHOW_PIANO_ROLL_HIDDEN_CONTROLS
+#ifdef WB_SHOW_CLIP_EDITOR_HIDDEN_CONTROLS
     ImGui::DragInt("##note_ch", &note_channel, 0.25f, 1, 16, "Channel: %d", ImGuiSliderFlags_Vertical);
     ImGui::SameLine(0.0f, 4.0f);
 #endif
@@ -415,7 +418,7 @@ static void clip_editor_render_control_sidebar() {
   ImGui::Separator();
 
   // ImGui::Checkbox("Looping", &current_clip->midi.loop);
-#ifdef WB_SHOW_PIANO_ROLL_HIDDEN_CONTROLS
+#ifdef WB_SHOW_CLIP_EDITOR_HIDDEN_CONTROLS
   const char* items[] = { "One shot", "Reverse one shot", "Loop", "Reverse loop", "Bidirectional loop" };
   int mode = (int)current_clip->midi.mode;
   if (ImGui::Combo("Mode", &mode, items, IM_ARRAYSIZE(items))) {
@@ -470,7 +473,11 @@ static void clip_editor_render_control_sidebar() {
         g_cmd_manager.execute("Clip editor: Clip parameter tweak (rate)", cmd);
       });
 
+#if WB_ENABLE_CLIP_EDITOR_DEBUG_MENU
   ImGui::Checkbox("Show debug ID", &show_debug_id);
+  ImGui::Text("Note sequence size: %d", current_clip->get_midi_data()->note_sequence.size());
+  ImGui::Text("Note sequence capacity: %d", current_clip->get_midi_data()->note_sequence.capacity());
+#endif
 }
 
 static void draw_piano_keys(ImDrawList* draw_list, ImVec2& pos, const ImVec2& size, uint32_t oct) {
@@ -798,15 +805,19 @@ static void clip_editor_render_note_editor() {
         break;
       }
       case PianoRollCmd::Marker: {
-        MidiAddNoteCmd* cmd = new MidiAddNoteCmd();
-        cmd->track_id = current_track_id.value();
-        cmd->clip_id = current_clip_id.value();
-        cmd->min_time = initial_time_pos;
-        cmd->max_time = math::max(hovered_position_grid, initial_time_pos);
-        cmd->velocity = note_velocity / 127.0f;
-        cmd->note_key = initial_key;
-        cmd->channel = 0;
-        g_cmd_manager.execute("Clip editor: Marker tool", cmd);
+        double min_time = initial_time_pos;
+        double max_time = math::max(hovered_position_grid, initial_time_pos);
+        if (min_time != max_time) {
+          MidiAddNoteCmd* cmd = new MidiAddNoteCmd();
+          cmd->track_id = current_track_id.value();
+          cmd->clip_id = current_clip_id.value();
+          cmd->min_time = min_time;
+          cmd->max_time = max_time;
+          cmd->velocity = note_velocity / 127.0f;
+          cmd->note_key = initial_key;
+          cmd->channel = 0;
+          g_cmd_manager.execute("Clip editor: Marker tool", cmd);
+        }
         break;
       }
       case PianoRollCmd::Paint: {
@@ -951,7 +962,7 @@ static void clip_editor_render_note_editor() {
       return PianoRollCmd::None;
 
     if (clip_editor_base.redraw) {
-#ifdef WB_ENABLE_PIANO_ROLL_DEBUG_MENU
+#ifdef WB_ENABLE_CLIP_EDITOR_DEBUG_MENU
       if (show_debug_id) {
         char str_id[16]{};
         fmt::format_to_n(str_id, sizeof(str_id), "{}", note_id);
@@ -1204,14 +1215,13 @@ static void clip_editor_render_note_editor() {
       for (int32_t i = 0; i < count; i++) {
         double time_pos = initial_time_pos + (double)note_length * (double)(min_paint - i - 1);
         if (time_pos >= 0.0) {
-          painted_notes.push_front(
-              MidiNote{
-                .min_time = time_pos,
-                .max_time = time_pos + (double)note_length,
-                .key = key,
-                .flags = MidiNoteFlags::Modified | MidiNoteFlags::Selected,
-                .velocity = note_velocity / 127.0f,
-              });
+          painted_notes.push_front(MidiNote{
+            .min_time = time_pos,
+            .max_time = time_pos + (double)note_length,
+            .key = key,
+            .flags = MidiNoteFlags::Modified | MidiNoteFlags::Selected,
+            .velocity = note_velocity / 127.0f,
+          });
         }
       }
       min_paint = paint_pos;
@@ -1650,24 +1660,25 @@ static void clip_editor_render_context_menu() {
         clip_editor_delete_notes(true);
       }
       if (ImGui::MenuItem("Mute", "Ctrl+M")) {
-        clip_editor_mute_notes(true);
+        clip_editor_mute_selected_notes(true);
       }
       if (ImGui::MenuItem("Unmute", "Ctrl+Alt+M")) {
-        clip_editor_mute_notes(false);
+        clip_editor_mute_selected_notes(false);
       }
     } else if (note_id_context_menu) {
-      static float vel = 100.0f;
+      MidiNote& note = midi_data->note_sequence[note_id_context_menu.value()];
+      float velocity = note.velocity * 127.0f;
 
       ImGui::PushItemWidth(150.0f);
-      if (ImGui::SliderFloat("Velocity", &vel, 0.0f, 127.0f, "%.1f")) {
+      if (ImGui::SliderFloat("Velocity", &velocity, 0.0f, 127.0f, "%.1f")) {
+        note.velocity = velocity / 127.0f;
+        force_redraw = true;
       }
       ImGui::PopItemWidth();
 
-      if (ImGui::IsItemDeactivated()) {
-        Log::debug("Deactivated");
+      if (ImGui::MenuItem("Select All", "Ctrl+A")) {
+        clip_editor_select_or_deselect_all_notes(true);
       }
-
-      ImGui::MenuItem("Select All", "Ctrl+A");
 
       if (ImGui::MenuItem("Delete", "Del")) {
         uint32_t note_id = note_id_context_menu.value();
@@ -1676,9 +1687,14 @@ static void clip_editor_render_context_menu() {
       }
 
       if (ImGui::MenuItem("Mute", "Ctrl+M")) {
+        uint32_t note_id = note_id_context_menu.value();
+        midi_data->note_sequence[note_id].flags |= MidiNoteFlags::Selected;
+        clip_editor_mute_selected_notes(true);
       }
     } else {
-      ImGui::MenuItem("Select All", "Ctrl+A");
+      if (ImGui::MenuItem("Select All", "Ctrl+A")) {
+        clip_editor_select_or_deselect_all_notes(true);
+      }
     }
     ImGui::Separator();
     ImGui::MenuItem("Quantize");
@@ -1743,6 +1759,10 @@ void render_clip_editor() {
   ImGui::PopStyleVar();
 
   if (current_track == nullptr && current_clip == nullptr) {
+    auto size = ImGui::GetWindowSize();
+    auto text_size = ImGui::CalcTextSize("No clip selected");
+    ImGui::SetCursorPos((size - text_size) * 0.5f);
+    ImGui::TextUnformatted("No clip selected");
     controls::end_window();
     return;
   }
@@ -1763,7 +1783,7 @@ void render_clip_editor() {
   clip_editor_base.playhead = g_engine.playhead;
 
   if (ImGui::BeginChild(
-          "##piano_roll_control", ImVec2(200.0f, 0.0f), ImGuiChildFlags_AlwaysUseWindowPadding, ImGuiWindowFlags_MenuBar)) {
+          +"##piano_roll_control", ImVec2(200.0f, 0.0f), ImGuiChildFlags_AlwaysUseWindowPadding, ImGuiWindowFlags_MenuBar)) {
     clip_editor_render_control_sidebar();
   }
   ImGui::EndChild();
