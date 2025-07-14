@@ -55,7 +55,7 @@ static const char* note_str[] = {
   "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
 };
 
-static TimelineBase timeline_base{
+static TimelineBase clip_editor_base{
   .vsplitter_size = 70.0f,
   .vsplitter_min_size = 70.0f,
 };
@@ -154,7 +154,14 @@ static void clip_editor_zoom_vertically(float mouse_pos_y, float height, float m
   float min_scroll_pos_normalized = vscroll / height;
   new_note_height = math::max(note_height + mouse_wheel, 5.0f);
   last_scroll_pos_y_normalized = min_scroll_pos_normalized;
-  timeline_base.redraw = true;
+  clip_editor_base.redraw = true;
+}
+
+static void clip_editor_recalculate_length() {
+  double max_clip_length = math::max(current_clip->get_midi_data()->max_length, current_clip->midi.length);
+  clip_editor_base.min_hscroll = clip_editor_base.min_hscroll * clip_editor_base.song_length / max_clip_length;
+  clip_editor_base.max_hscroll = clip_editor_base.max_hscroll * clip_editor_base.song_length / max_clip_length;
+  clip_editor_base.song_length = max_clip_length;
 }
 
 static void clip_editor_delete_notes(bool selected) {
@@ -164,9 +171,9 @@ static void clip_editor_delete_notes(bool selected) {
   cmd->selected = selected;
   g_cmd_manager.execute("Clip editor: Delete notes", cmd);
   g_timeline.redraw_screen();
-  deleting_notes = false;
+  clip_editor_recalculate_length();
   force_redraw = true;
-  timeline_base.redraw = true;
+  deleting_notes = false;
 }
 
 static void clip_editor_mute_notes(bool should_mute) {
@@ -401,7 +408,7 @@ static void clip_editor_render_control_sidebar() {
 
   ImGui::PushItemWidth(-FLT_MIN);
   if (grid_combo_box("##grid_mode", &grid_mode, &triplet_grid)) {
-    timeline_base.redraw = true;
+    clip_editor_base.redraw = true;
   }
   ImGui::PopItemWidth();
 
@@ -446,7 +453,7 @@ static void clip_editor_render_control_sidebar() {
       [](int16_t* value) {
         static constexpr uint32_t drag_slider_flags = ImGuiSliderFlags_AlwaysClamp | ImGuiSliderFlags_Vertical;
         if (controls::generic_drag("Rate", value, 0.125f, 1, 4, "%dx", drag_slider_flags)) {
-          timeline_base.redraw = true;
+          clip_editor_base.redraw = true;
           g_timeline.redraw_screen();
           return true;
         }
@@ -518,7 +525,7 @@ static void clip_editor_render_note_keys() {
   ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
   ImGui::InvisibleButton(
       "PianoRollKeys",
-      ImVec2(timeline_base.vsplitter_min_size, note_count * note_height_in_pixel),
+      ImVec2(clip_editor_base.vsplitter_min_size, note_count * note_height_in_pixel),
       ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonMiddle);
   ImGui::SameLine(0.0f, 2.0f);
 
@@ -557,26 +564,26 @@ static void clip_editor_render_note_keys() {
     int oct_offset = i + oct_scroll_offset;
     if (oct_offset < 0)
       break;
-    draw_piano_keys(piano_roll_dl, oct_pos, ImVec2(timeline_base.vsplitter_min_size, note_height_in_pixel), oct_offset);
+    draw_piano_keys(piano_roll_dl, oct_pos, ImVec2(clip_editor_base.vsplitter_min_size, note_height_in_pixel), oct_offset);
   }
 }
 
 static void clip_editor_render_note_editor() {
   ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
   ImVec2 region_size = ImGui::GetContentRegionAvail();
-  timeline_base.timeline_width = region_size.x;
+  clip_editor_base.timeline_width = region_size.x;
 
-  double view_scale = timeline_base.calc_view_scale();
+  double view_scale = clip_editor_base.calc_view_scale();
   double inv_view_scale = 1.0 / view_scale;
   float max_height = note_count * note_height_in_pixel;
   float offset_y = vscroll + cursor_pos.y;
   ImVec2 view_min(cursor_pos.x, offset_y);
-  ImVec2 view_max(cursor_pos.x + timeline_base.timeline_width, offset_y + region_size.y);
+  ImVec2 view_max(cursor_pos.x + clip_editor_base.timeline_width, offset_y + region_size.y);
   ImGui::PushClipRect(view_min, view_max, true);
 
   const GridProperties grid_prop = get_grid_properties(grid_mode);
   double triplet_div = (grid_prop.max_division > 1.0 && triplet_grid) ? 1.5 : 1.0;
-  timeline_base.beat_division =
+  clip_editor_base.beat_division =
       grid_prop.max_division == DBL_MAX
           ? calc_bar_division(inv_view_scale, grid_prop.max_division, grid_prop.gap_scale, triplet_grid) * 0.25
           : grid_prop.max_division * triplet_div * 0.25;
@@ -594,7 +601,7 @@ static void clip_editor_render_note_editor() {
     assert(piano_roll_fb != nullptr);
     Log::debug("Piano roll framebuffer resized ({}x{})", (int)width, (int)height);
     old_piano_roll_size = region_size;
-    timeline_base.redraw = timeline_base.redraw || true;
+    clip_editor_base.redraw = clip_editor_base.redraw || true;
   }
 
   ImVec2 mouse_pos = ImGui::GetMousePos();
@@ -615,7 +622,7 @@ static void clip_editor_render_note_editor() {
   holding_alt = ImGui::IsKeyDown(ImGuiKey_ModAlt);
 
   if (is_piano_roll_hovered && mouse_wheel_h != 0.0f) {
-    timeline_base.scroll_horizontal(mouse_wheel_h, timeline_base.song_length, -view_scale * 64.0);
+    clip_editor_base.scroll_horizontal(mouse_wheel_h, clip_editor_base.song_length, -view_scale * 64.0);
   }
 
   // Assign scroll
@@ -625,10 +632,10 @@ static void clip_editor_render_note_editor() {
   // Do scroll
   if (scrolling) {
     ImVec2 drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Middle, 1.0f);
-    timeline_base.scroll_horizontal(drag_delta.x, timeline_base.song_length, -view_scale);
+    clip_editor_base.scroll_horizontal(drag_delta.x, clip_editor_base.song_length, -view_scale);
     scroll_delta_y = drag_delta.y;
     if (scroll_delta_y != 0.0f)
-      timeline_base.redraw = true;
+      clip_editor_base.redraw = true;
     ImGui::ResetMouseDragDelta(ImGuiMouseButton_Middle);
   }
 
@@ -650,11 +657,11 @@ static void clip_editor_render_note_editor() {
     // Scroll automatically when dragging stuff
     if (mouse_pos.x < min_offset_x) {
       float distance = min_offset_x - mouse_pos.x;
-      timeline_base.scroll_horizontal(distance * speed, timeline_base.song_length, -view_scale);
+      clip_editor_base.scroll_horizontal(distance * speed, clip_editor_base.song_length, -view_scale);
     }
     if (mouse_pos.x > max_offset_x) {
       float distance = max_offset_x - mouse_pos.x;
-      timeline_base.scroll_horizontal(distance * speed, timeline_base.song_length, -view_scale);
+      clip_editor_base.scroll_horizontal(distance * speed, clip_editor_base.song_length, -view_scale);
     }
     if (mouse_pos.y < min_offset_y) {
       float distance = min_offset_y - mouse_pos.y;
@@ -664,14 +671,14 @@ static void clip_editor_render_note_editor() {
       float distance = max_offset_y - mouse_pos.y;
       scroll_delta_y = distance * speed;
     }
-    timeline_base.redraw = true;
+    clip_editor_base.redraw = true;
   }
 
-  ImVec2 area_size = ImVec2(timeline_base.timeline_width, region_size.y);
+  ImVec2 area_size = ImVec2(clip_editor_base.timeline_width, region_size.y);
   ImU32 guidestrip_color = Color(ImGui::GetColorU32(ImGuiCol_Separator)).change_alpha(0.13f).to_uint32();
   ImU32 grid_color = Color(ImGui::GetColorU32(ImGuiCol_Separator)).change_alpha(0.55f).to_uint32();
-  double min_hscroll = timeline_base.min_hscroll;
-  double song_length = timeline_base.song_length;
+  double min_hscroll = clip_editor_base.min_hscroll;
+  double song_length = clip_editor_base.song_length;
   double scroll_pos_x = std::round((min_hscroll * song_length) / view_scale);
   double scroll_offset_x = (double)cursor_pos.x - scroll_pos_x;
   double note_scale = inv_view_scale;
@@ -680,7 +687,7 @@ static void clip_editor_render_note_editor() {
 
   hovered_key = MidiData::max_keys - (int32_t)((mouse_pos.y - cursor_pos.y) / note_height_in_pixel) - 1;
   if (is_piano_roll_hovered || is_active || edit_command != PianoRollCmd::None) {
-    double beat_division = timeline_base.beat_division;
+    double beat_division = clip_editor_base.beat_division;
     hovered_position = ((double)(mouse_pos.x - cursor_pos.x) * view_scale + min_hscroll * song_length);
     hovered_position_grid = std::round(hovered_position * (double)beat_division) / (double)beat_division;
   }
@@ -693,7 +700,7 @@ static void clip_editor_render_note_editor() {
       clip_editor_select_or_deselect_all_notes(false);
     }
     deleting_notes = true;
-    timeline_base.redraw = true;
+    clip_editor_base.redraw = true;
   } else if (right_mouse_clicked) {
     open_context_menu = true;
   }
@@ -864,7 +871,7 @@ static void clip_editor_render_note_editor() {
       note_length = note.max_time - note.min_time;
     }
 
-    timeline_base.redraw = true;
+    clip_editor_base.redraw = true;
     g_timeline.redraw_screen();
     edit_command = PianoRollCmd::None;
     initial_time_pos = 0.0;
@@ -874,13 +881,14 @@ static void clip_editor_render_note_editor() {
     edited_note_id = WB_INVALID_NOTE_ID;
     g_cmd_manager.unlock();
     fg_notes.resize_fast(0);
+    clip_editor_recalculate_length();
 
     if (!painted_notes.empty()) {
       painted_notes.resize(0);
     }
   }
 
-  if (timeline_base.redraw) {
+  if (clip_editor_base.redraw) {
     ImTextureID font_tex_id = ImGui::GetIO().Fonts->TexID;
     layer1_dl->_ResetForNewFrame();
     layer2_dl->_ResetForNewFrame();
@@ -902,7 +910,7 @@ static void clip_editor_render_note_editor() {
     for (int i = 0; i <= num_keys; i++) {
       uint32_t index = i + key_index_offset;
       uint32_t note_semitone = index % 12;
-      layer1_dl->AddLine(key_pos, key_pos + ImVec2(timeline_base.timeline_width, 0.0f), grid_color);
+      layer1_dl->AddLine(key_pos, key_pos + ImVec2(clip_editor_base.timeline_width, 0.0f), grid_color);
 
       if (note_semitone / 7) {
         note_semitone++;
@@ -911,7 +919,7 @@ static void clip_editor_render_note_editor() {
       if (note_semitone % 2 == 0) {
         layer1_dl->AddRectFilled(
             key_pos + ImVec2(0.0f, 1.0f),
-            key_pos + ImVec2(timeline_base.timeline_width, note_height_in_pixel),
+            key_pos + ImVec2(clip_editor_base.timeline_width, note_height_in_pixel),
             guidestrip_color);
       }
 
@@ -923,7 +931,7 @@ static void clip_editor_render_note_editor() {
   float font_size = font->FontSize;
   float half_font_size = font_size * 0.5f;
   float half_note_size = note_height_in_pixel * 0.5f;
-  float end_x = cursor_pos.x + timeline_base.timeline_width;
+  float end_x = cursor_pos.x + clip_editor_base.timeline_width;
   float end_y = main_cursor_pos.y + note_editor_height;
   ImU32 handle_color = ImGui::GetColorU32(ImGuiCol_ButtonActive);
   bool start_command = !holding_ctrl && left_mouse_clicked && edit_command == PianoRollCmd::None;
@@ -942,7 +950,7 @@ static void clip_editor_render_note_editor() {
     if (a.y > end_y || b.y < main_cursor_pos.y)
       return PianoRollCmd::None;
 
-    if (timeline_base.redraw) {
+    if (clip_editor_base.redraw) {
 #ifdef WB_ENABLE_PIANO_ROLL_DEBUG_MENU
       if (show_debug_id) {
         char str_id[16]{};
@@ -1047,7 +1055,7 @@ static void clip_editor_render_note_editor() {
   uint32_t note_id = 0;
   bool is_edit_command = any_of(edit_command, PianoRollCmd::Move, PianoRollCmd::ResizeLeft, PianoRollCmd::ResizeRight);
 
-  if (is_piano_roll_hovered || is_active || timeline_base.redraw) {
+  if (is_piano_roll_hovered || is_active || clip_editor_base.redraw) {
     for (const auto& note : midi_asset->data.note_sequence) {
       uint16_t flags = note.flags;
       bool selected = contain_bit(flags, MidiNoteFlags::Selected);
@@ -1097,7 +1105,7 @@ static void clip_editor_render_note_editor() {
         note_delete.flags |= MidiNoteFlags::Deleted;  // Mark this note deleted
         force_redraw = true;
       } else if (start_command && cmd != PianoRollCmd::None) {
-        double min_length = 1.0 / timeline_base.beat_division;
+        double min_length = 1.0 / clip_editor_base.beat_division;
         edit_command = cmd;
         initial_time_pos = hovered_position_grid;
         initial_key = hovered_key;
@@ -1196,8 +1204,7 @@ static void clip_editor_render_note_editor() {
       for (int32_t i = 0; i < count; i++) {
         double time_pos = initial_time_pos + (double)note_length * (double)(min_paint - i - 1);
         if (time_pos >= 0.0) {
-          painted_notes.emplace_at(
-              0,
+          painted_notes.push_front(
               MidiNote{
                 .min_time = time_pos,
                 .max_time = time_pos + (double)note_length,
@@ -1225,7 +1232,7 @@ static void clip_editor_render_note_editor() {
     }
 
     // Draw painted notes
-    if (timeline_base.redraw) {
+    if (clip_editor_base.redraw) {
       for (const auto& note : painted_notes) {
         float min_pos_x = (float)math::round(scroll_offset_x + note.min_time * note_scale);
         float max_pos_x = (float)math::round(scroll_offset_x + note.max_time * note_scale);
@@ -1236,7 +1243,7 @@ static void clip_editor_render_note_editor() {
         draw_note.operator()<false>(min_pos_x, max_pos_x, note.velocity, 0, note.key, note.flags);
       }
     }
-  } else if (is_edit_command && timeline_base.redraw) {
+  } else if (is_edit_command && clip_editor_base.redraw) {
     const MidiNoteBuffer& seq = midi_asset->data.note_sequence;
     for (uint32_t id : fg_notes) {
       const MidiNote& note = seq[id];
@@ -1280,7 +1287,7 @@ static void clip_editor_render_note_editor() {
     im_draw_rect(layer2_dl, a_x, a_y + cursor_pos.y, b_x, b_y + cursor_pos.y, selection_range_border);
   }
 
-  if (timeline_base.redraw) {
+  if (clip_editor_base.redraw) {
     layer2_dl->PopClipRect();
     layer2_dl->PopTextureID();
     layer1_dl->PopClipRect();
@@ -1313,7 +1320,7 @@ static void clip_editor_render_note_editor() {
 
   if (g_engine.is_playing()) {
     const double clip_rate = (double)current_clip->midi.rate;
-    const double playhead_offset = (timeline_base.playhead - current_clip->min_time) * clip_rate * inv_view_scale;
+    const double playhead_offset = (clip_editor_base.playhead - current_clip->min_time) * clip_rate * inv_view_scale;
     const float playhead_pos = (float)math::round(view_min.x - scroll_pos_x + playhead_offset);
     if (math::in_range(playhead_pos, view_min.x, view_max.x)) {
       im_draw_vline(dl, playhead_pos, offset_y, offset_y + region_size.y, TimelineBase::playhead_color);
@@ -1321,7 +1328,7 @@ static void clip_editor_render_note_editor() {
   }
 
   if (is_piano_roll_hovered && holding_ctrl && mouse_wheel != 0.0f) {
-    timeline_base.zoom(mouse_pos.x, cursor_pos.x, view_scale, mouse_wheel * timeline_base.zoom_rate);
+    clip_editor_base.zoom(mouse_pos.x, cursor_pos.x, view_scale, mouse_wheel * clip_editor_base.zoom_rate);
     force_redraw = true;
   }
 
@@ -1332,7 +1339,7 @@ static void clip_editor_render_note_editor() {
 
 static void clip_editor_render_event_editor() {
   ImDrawList* parent_dl = ImGui::GetWindowDrawList();
-  ImGui::SetCursorPosX(math::max(timeline_base.vsplitter_size, timeline_base.vsplitter_min_size) + 2.0f);
+  ImGui::SetCursorPosX(math::max(clip_editor_base.vsplitter_size, clip_editor_base.vsplitter_min_size) + 2.0f);
 
   if (ImGui::BeginChild("##piano_roll_event", ImVec2(), 0, ImGuiWindowFlags_NoBackground)) {
     ImVec2 mouse_pos = ImGui::GetMousePos();
@@ -1341,7 +1348,7 @@ static void clip_editor_render_event_editor() {
     auto event_editor_region = ImGui::GetContentRegionAvail();
     auto view_min = cursor_pos;
     auto view_max = cursor_pos + event_editor_region;
-    bool redraw = timeline_base.redraw;
+    bool redraw = clip_editor_base.redraw;
 
     // Resize event editor framebuffer
     if (old_event_editor_size.x != event_editor_region.x || old_event_editor_size.y != event_editor_region.y) {
@@ -1367,11 +1374,11 @@ static void clip_editor_render_event_editor() {
     bool middle_mouse_down = is_active && ImGui::IsMouseDown(ImGuiMouseButton_Middle);
     bool right_mouse_clicked = is_activated && ImGui::IsMouseClicked(ImGuiMouseButton_Right);
     bool right_mouse_down = is_active && ImGui::IsMouseDown(ImGuiMouseButton_Right);
-    double view_scale = timeline_base.calc_view_scale();
-    double scroll_pos_x = std::round((timeline_base.min_hscroll * timeline_base.song_length) / view_scale);
+    double view_scale = clip_editor_base.calc_view_scale();
+    double scroll_pos_x = std::round((clip_editor_base.min_hscroll * clip_editor_base.song_length) / view_scale);
     double scroll_offset_x = (double)cursor_pos.x - scroll_pos_x;
     double pixel_scale = 1.0 / view_scale;
-    float end_x = cursor_pos.x + timeline_base.timeline_width;
+    float end_x = cursor_pos.x + clip_editor_base.timeline_width;
     float end_y = cursor_pos.y + event_editor_region.y;
     ImU32 note_color_hovered = WB_IM_COLOR_U32_SET_ALPHA(note_color, 0x5F);
     MidiData* midi_data = current_clip->get_midi_data();
@@ -1551,11 +1558,11 @@ static void clip_editor_render_event_editor() {
 
 static void clip_editor_render_piano_roll() {
   ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
-  timeline_base.render_horizontal_scrollbar();
+  clip_editor_base.render_horizontal_scrollbar();
   const double clip_rate = (double)current_clip->midi.rate;
   const double playhead_start = (g_engine.playhead_start - current_clip->min_time) * clip_rate;
-  double new_time_pos = (timeline_base.playhead - current_clip->min_time) * clip_rate;
-  if (timeline_base.render_time_ruler(&new_time_pos, playhead_start, selection_start_pos, selection_end_pos, false)) {
+  double new_time_pos = (clip_editor_base.playhead - current_clip->min_time) * clip_rate;
+  if (clip_editor_base.render_time_ruler(&new_time_pos, playhead_start, selection_start_pos, selection_end_pos, false)) {
     g_engine.set_playhead_position(new_time_pos / clip_rate + current_clip->min_time);
   }
   ImGui::PopStyleVar();
@@ -1599,13 +1606,13 @@ static void clip_editor_render_piano_roll() {
     if (scroll_delta_y != 0.0f || ImGui::GetActiveID() == scrollbar_id) {
       ImGui::SetScrollY(vscroll - scroll_delta_y);
       scroll_delta_y = 0.0f;
-      timeline_base.redraw = true;
+      clip_editor_base.redraw = true;
     }
 
     if ((last_vscroll - vscroll) != 0.0f)
-      timeline_base.redraw = true;
+      clip_editor_base.redraw = true;
 
-    float separator_x = cursor_pos.x + timeline_base.vsplitter_min_size + 0.5f;
+    float separator_x = cursor_pos.x + clip_editor_base.vsplitter_min_size + 0.5f;
     im_draw_vline(piano_roll_dl, separator_x, cursor_pos.y, cursor_pos.y + note_editor_height, border_color, 2.0f);
 
     clip_editor_render_note_keys();
@@ -1706,7 +1713,7 @@ void clip_editor_set_clip(uint32_t track_id, uint32_t clip_id) {
   force_redraw = true;
 
   if (current_clip->is_midi())
-    timeline_base.song_length = math::max(current_clip->get_midi_data()->max_length, 16.0);
+    clip_editor_base.song_length = math::max(current_clip->get_midi_data()->max_length, current_clip->midi.length);
 }
 
 void clip_editor_unset_clip() {
@@ -1745,7 +1752,7 @@ void render_clip_editor() {
     return;
   }
 
-  timeline_base.redraw = force_redraw;
+  clip_editor_base.redraw = force_redraw;
   if (force_redraw)
     force_redraw = false;
 
@@ -1753,7 +1760,7 @@ void render_clip_editor() {
 
   border_color = ImGui::GetColorU32(ImGuiCol_Border);
   font = ImGui::GetFont();
-  timeline_base.playhead = g_engine.playhead;
+  clip_editor_base.playhead = g_engine.playhead;
 
   if (ImGui::BeginChild(
           "##piano_roll_control", ImVec2(200.0f, 0.0f), ImGuiChildFlags_AlwaysUseWindowPadding, ImGuiWindowFlags_MenuBar)) {

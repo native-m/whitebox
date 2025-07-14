@@ -222,8 +222,8 @@ struct Vector {
     } else if constexpr (std::is_move_constructible_v<T>) {
       T* src = data_ + size_ - 1;
       T* dst = data_ + size_;
-      uint32_t move_count = size_;
-      while (move_count-- > at) {
+      uint32_t count = size_;
+      while (count-- > at) {
         new (dst) T(std::move(*src));
         dst--;
         src--;
@@ -231,8 +231,8 @@ struct Vector {
     } else if constexpr (std::is_copy_constructible_v<T>) {
       T* src = data_ + size_ - 1;
       T* dst = data_ + size_;
-      uint32_t move_count = size_;
-      while (move_count-- > at) {
+      uint32_t count = size_;
+      while (count-- > at) {
         new (dst) T(*src);
         src->~T();
         dst--;
