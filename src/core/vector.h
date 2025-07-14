@@ -395,7 +395,7 @@ struct Vector {
   }
 
   inline uint32_t grow_capacity_(uint32_t old_capacity) const {
-    return old_capacity ? (old_capacity + old_capacity / 2) : 8;
+    return old_capacity > 1 ? (old_capacity + old_capacity / 2) : 8;
   }
 
   inline void destroy_() {
