@@ -1610,6 +1610,7 @@ void TimelineWindow::render_edited_clips(double mouse_at_gridline) {
               beat_duration,
               left_side,
               shift_mode,
+              false,
               true);
           render_clip(clip, new_min_time, new_max_time, new_start_offset, new_speed, track_pos_y, height, true);
         }

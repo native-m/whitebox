@@ -40,34 +40,6 @@ static std::optional<SDL_Window*> get_plugin_window_from_id(uint32_t window_id) 
   return plugin_window->second;
 }
 
-static bool SDLCALL event_watcher(void* userdata, SDL_Event* event) {
-  bool refresh = false;
-  uint32_t main_window_id = wm_get_main_window_id();
-
-  if (!GImGui)
-    return false;
-
-  // Keep re-render our window when blocked
-  if (event->type == SDL_EVENT_WINDOW_EXPOSED) {
-    if (event->window.windowID == main_window_id) {
-      int w, h;
-      SDL_GetWindowSize(main_window, &w, &h);
-      if (main_window_width != w || main_window_height != h) {
-        g_renderer->resize_viewport(ImGui::GetMainViewport(), ImVec2((float)w, (float)h));
-        main_window_width = w;
-        main_window_height = h;
-      }
-      app_render();
-    } else if (!plugin_windows.empty()) {
-      if (auto window = plugin_windows.find(event->window.windowID); window != plugin_windows.end()) {
-        app_render();
-      }
-    }
-  }
-
-  return false;
-}
-
 void init_window_manager() {
 #ifdef WB_PLATFORM_WINDOWS
   enum class PreferredAppMode { Default, AllowDark, ForceDark, ForceLight, Max };
@@ -85,8 +57,6 @@ void init_window_manager() {
     taskbar_list = nullptr;
   }
 #endif
-
-  SDL_AddEventWatch(event_watcher, nullptr);
 
   main_window = SDL_CreateWindow("whitebox", 1280, 720, SDL_WINDOW_RESIZABLE);
   SDL_SetWindowMinimumSize(main_window, 640, 480);

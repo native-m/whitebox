@@ -1,11 +1,11 @@
 #pragma once
 
 #include "core/common.h"
+#include <SDL3/SDL_init.h>
 
 namespace wb {
-extern void app_init();
-extern void app_render();
-extern void app_run_loop();
-extern void app_push_event(uint32_t event_type, void* data, size_t size);
-extern void app_shutdown();
+extern SDL_AppResult app_init(void** appstate, int argc, char** argv);
+extern SDL_AppResult app_iterate(void* appstate);
+extern SDL_AppResult app_handle_event(void* appstate, SDL_Event* event);
+extern void app_quit(void* appstate, SDL_AppResult result);
 }  // namespace wb

@@ -1,5 +1,7 @@
 #include "app.h"
 
+#include <SDL3/SDL_main.h>
+
 #ifdef WB_PLATFORM_WINDOWS
 struct MemoryLeakDetection {
   MemoryLeakDetection() {
@@ -15,9 +17,6 @@ struct MemoryLeakDetection {
 static MemoryLeakDetection g_memleak_detection;
 #endif
 
-int main() {
-  wb::app_init();
-  wb::app_run_loop();
-  wb::app_shutdown();
-  return 0;
+int main(int argc, char* argv[]) {
+  return SDL_EnterAppMainCallbacks(argc, argv, wb::app_init, wb::app_iterate, wb::app_handle_event, wb::app_quit);
 }

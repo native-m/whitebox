@@ -130,6 +130,7 @@ struct Vector {
         data_ = (T*)std::malloc(other_size * sizeof(T));
         size_ = other_size;
         capacity_ = other_size;
+        assert(data_ != nullptr);
       }
       std::memcpy(data_, other.data_, other_size * sizeof(T));
     } else {

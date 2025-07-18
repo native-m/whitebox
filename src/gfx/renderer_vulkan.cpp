@@ -1044,7 +1044,7 @@ void GPURendererVK::begin_frame() {
   }
 
   vkQueueWaitIdle(graphics_queue_);
-
+  
   dispose_resources_(frame_count_);
   descriptor_stream_.reset(device_, frame_id);
   vkResetCommandPool(device_, cmd_pool_[frame_id], 0);

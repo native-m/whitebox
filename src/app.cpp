@@ -1,6 +1,6 @@
 #include "app.h"
 
-#include <SDL3/SDL.h>
+#include <SDL3/SDL_events.h>
 // #include <SDL_mouse.h>
 #include <imgui.h>
 #include <imgui_impl_sdl3.h>
@@ -35,11 +35,11 @@ static bool is_running = true;
 static bool request_quit = false;
 static std::string imgui_ini_filepath;
 
-static void handle_events(SDL_Event& event);
+// static void handle_events(SDL_Event& event);
 static void wait_until_restored();
 static void apply_theme(ImGuiStyle& style);
 
-void app_init() {
+SDL_AppResult app_init(void** appstate, int argc, char** argv) {
   // Init SDL & create main window
   if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
     Log::error("{}", SDL_GetError());
@@ -73,9 +73,11 @@ void app_init() {
 
   g_cmd_manager.init(10);
   g_engine.set_bpm(150.0f);
+
+  return SDL_APP_CONTINUE;
 }
 
-void app_render() {
+SDL_AppResult app_iterate(void* appstate) {
   g_renderer->begin_frame();
   ImGui_ImplSDL3_NewFrame();
   ImGui::NewFrame();
@@ -193,19 +195,71 @@ void app_render() {
   g_renderer->present();
 
   file_dialog_cleanup();
+
+  if (!is_running)
+    return SDL_APP_SUCCESS;
+
+  return SDL_APP_CONTINUE;
 }
 
-void app_run_loop() {
-  SDL_Event event{};
-  while (is_running) {
-    while (SDL_PollEvent(&event)) {
-      handle_events(event);
+SDL_AppResult app_handle_event(void* appstate, SDL_Event* event) {
+  if (wm_process_plugin_window_event(event))
+    return SDL_APP_CONTINUE;
+
+  ImGuiIO& io = GImGui->IO;
+  bool is_main_window = math::in_range((SDL_EventType)event->type, SDL_EVENT_WINDOW_FIRST, SDL_EVENT_WINDOW_LAST)
+                            ? event->window.windowID == wm_get_main_window_id()
+                            : false;
+
+  switch (event->type) {
+    case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+    case SDL_EVENT_WINDOW_MOVED:
+    case SDL_EVENT_WINDOW_RESIZED:
+    case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED: {
+      ImGuiViewport* viewport = ImGui::FindViewportByPlatformHandle((void*)(intptr_t)event->window.windowID);
+      if (viewport == NULL)
+        return SDL_APP_CONTINUE;
+      if (event->type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) {
+        request_quit = is_main_window;
+        viewport->PlatformRequestClose = true;
+      } else if (event->type == SDL_EVENT_WINDOW_MOVED) {
+        viewport->PlatformRequestMove = false;
+      } else if (event->type == SDL_EVENT_WINDOW_RESIZED) {
+        viewport->PlatformRequestResize = false;
+      } else if (event->type = SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED) {
+        if (is_main_window) {
+          float w = (float)event->window.data1;
+          float h = (float)event->window.data2;
+          g_renderer->resize_viewport(ImGui::GetMainViewport(), ImVec2((float)w, (float)h));
+        }
+      }
+      return SDL_APP_CONTINUE;
     }
-    app_render();
+    case SDL_EVENT_WINDOW_MINIMIZED:
+      if (is_main_window)
+        wait_until_restored();
+      break;
+    case SDL_EVENT_DROP_FILE: Log::debug("Drop file"); break;
+    case SDL_EVENT_DROP_BEGIN: Log::debug("Drop begin"); break;
+    case SDL_EVENT_DROP_COMPLETE: Log::debug("Drop complete"); break;
+    case SDL_EVENT_QUIT: request_quit = true; break;
+    default: {
+      if (event->type >= SDL_EVENT_USER) {
+        if (event->type == AppEvent::file_dialog) {
+          file_dialog_handle_event(event->user.data1, event->user.data2);
+        } else if (event->type == AppEvent::audio_device_removed_event || event->type == AppEvent::audio_settings_changed) {
+          start_audio_engine();
+        }
+      }
+      break;
+    }
   }
+
+  ImGui_ImplSDL3_ProcessEvent(event);
+  return SDL_APP_CONTINUE;
 }
 
-void app_shutdown() {
+void app_quit(void* appstate, SDL_AppResult result) {
   wm_close_all_plugin_window();
   save_settings_data();
   shutdown_windows();
@@ -220,55 +274,6 @@ void app_shutdown() {
   shutdown_window_manager();
   shutdown_deferred_job();
   SDL_Quit();
-}
-
-void handle_events(SDL_Event& event) {
-  if (wm_process_plugin_window_event(&event))
-    return;
-
-  ImGuiIO& io = GImGui->IO;
-  bool is_main_window = math::in_range((SDL_EventType)event.type, SDL_EVENT_WINDOW_FIRST, SDL_EVENT_WINDOW_LAST)
-                            ? event.window.windowID == wm_get_main_window_id()
-                            : false;
-
-  switch (event.type) {
-    case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
-    case SDL_EVENT_WINDOW_MOVED:
-    case SDL_EVENT_WINDOW_RESIZED: {
-      ImGuiViewport* viewport = ImGui::FindViewportByPlatformHandle((void*)(intptr_t)event.window.windowID);
-      if (viewport == NULL)
-        return;
-      if (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) {
-        request_quit = is_main_window;
-        viewport->PlatformRequestClose = true;
-      }
-      if (event.type == SDL_EVENT_WINDOW_MOVED)
-        viewport->PlatformRequestMove = false;
-      if (event.type == SDL_EVENT_WINDOW_RESIZED)
-        viewport->PlatformRequestResize = false;
-      return;
-    }
-    case SDL_EVENT_WINDOW_MINIMIZED:
-      if (is_main_window)
-        wait_until_restored();
-      break;
-    case SDL_EVENT_DROP_FILE: Log::debug("Drop file"); break;
-    case SDL_EVENT_DROP_BEGIN: Log::debug("Drop begin"); break;
-    case SDL_EVENT_DROP_COMPLETE: Log::debug("Drop complete"); break;
-    case SDL_EVENT_QUIT: request_quit = true; break;
-    default: {
-      if (event.type >= SDL_EVENT_USER) {
-        if (event.type == AppEvent::file_dialog) {
-          file_dialog_handle_event(event.user.data1, event.user.data2);
-        } else if (event.type == AppEvent::audio_device_removed_event || event.type == AppEvent::audio_settings_changed) {
-          start_audio_engine();
-        }
-      }
-      break;
-    }
-  }
-
-  ImGui_ImplSDL3_ProcessEvent(&event);
 }
 
 void wait_until_restored() {
