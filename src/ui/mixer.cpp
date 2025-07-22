@@ -43,8 +43,8 @@ void MixerWindow::render() {
   const NonLinearRange db_range(-72.0f, 6.0f, -2.4f);
   const LinearRange pan_range{ -1.0f, 1.0f };
   const ImVec4 muted_color(0.951f, 0.322f, 0.322f, 1.000f);
-  const controls::KnobProperties pan_knob = {
-    .body_color = 0xFF505050,
+  controls::KnobProperties pan_knob = {
+    .body_color = 0xFF555555,
     .arc_color = 0xFFED961C,
     .arc_bg_color = 0xFF353535,
     .pointer_color = 0xFFAAAAAA,
@@ -58,9 +58,10 @@ void MixerWindow::render() {
   };
 
   controls::SliderProperties mixer_slider = {
+    .grab_color = 0xFF444444,
     .grab_shape = controls::SliderGrabShape::Rectangle,
     .grab_size = { 16.0f, 28.0f },
-    .grab_roundness = 2.0f,
+    .grab_roundness = 3.0f,
     .extra_padding = { 0.0f, 4.0f },
     .frame_width = 4.0f,
     .with_default_value_tick = true,
@@ -72,6 +73,7 @@ void MixerWindow::render() {
     float volume = track->ui_parameter_state.volume_db;
     float pan = track->ui_parameter_state.pan;
     bool mute = track->ui_parameter_state.mute;
+    ImU32 color = track->color.to_uint32();
 
     ImGui::PushID(id);
     controls::mixer_label(track->name.c_str(), size.y, track->color);
@@ -81,6 +83,7 @@ void MixerWindow::render() {
     ImGui::SetCursorPos(ImGui::GetCursorPos() + ImVec2(0.0f, 6.0f));
 
     const float width = 48.0f;
+    pan_knob.arc_color = color;
     if (controls::knob(pan_knob, "##pan_knob", ImVec2(width, 35.0f), &pan, pan_range))
       track->set_pan(pan);
 
@@ -98,8 +101,10 @@ void MixerWindow::render() {
 
     const ImVec2 region_avail = ImGui::GetContentRegionAvail();
     mixer_slider.grab_size.y = (region_avail.y < 200.0f) ? 22.0f : 28.0f;
+    mixer_slider.pointer_color = color;
+    //mixer_slider.grab_shade_color = track->color.brighten(0.25f).change_alpha(0.7f).premult_alpha().to_uint32();
     if (controls::param_slider_db(
-            mixer_slider, "##mixer_vol", ImVec2(22.0f, region_avail.y - 6.0f), track->color, &volume, db_range)) {
+            mixer_slider, "##mixer_vol", ImVec2(22.0f, region_avail.y - 6.0f), &volume, db_range)) {
       track->set_volume(volume);
     }
 

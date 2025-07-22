@@ -14,7 +14,7 @@
 #include "timeline.h"
 #include "timeline_base.h"
 
-#define WB_ENABLE_CLIP_EDITOR_DEBUG_MENU    1
+#define WB_ENABLE_CLIP_EDITOR_DEBUG_CONTROLS    1
 #define WB_SHOW_CLIP_EDITOR_HIDDEN_CONTROLS 1
 
 #ifdef NDEBUG
@@ -473,7 +473,7 @@ static void clip_editor_render_control_sidebar() {
         g_cmd_manager.execute("Clip editor: Clip parameter tweak (rate)", cmd);
       });
 
-#if WB_ENABLE_CLIP_EDITOR_DEBUG_MENU
+#if WB_ENABLE_CLIP_EDITOR_DEBUG_CONTROLS
   ImGui::Checkbox("Show debug ID", &show_debug_id);
   ImGui::Text("Note sequence size: %d", current_clip->get_midi_data()->note_sequence.size());
   ImGui::Text("Note sequence capacity: %d", current_clip->get_midi_data()->note_sequence.capacity());
@@ -962,7 +962,7 @@ static void clip_editor_render_note_editor() {
       return PianoRollCmd::None;
 
     if (clip_editor_base.redraw) {
-#ifdef WB_ENABLE_CLIP_EDITOR_DEBUG_MENU
+#ifdef WB_ENABLE_CLIP_EDITOR_DEBUG_CONTROLS
       if (show_debug_id) {
         char str_id[16]{};
         fmt::format_to_n(str_id, sizeof(str_id), "{}", note_id);

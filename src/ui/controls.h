@@ -24,6 +24,9 @@ enum class SliderGrabShape { Circle, Rectangle };
 enum class SliderScale { Linear, Logarithm };
 
 struct SliderProperties {
+  ImU32 grab_color;
+  ImU32 pointer_color;
+  ImU32 tick_color = 0xFF626262;
   SliderScale scale = SliderScale::Linear;
   SliderGrabShape grab_shape = SliderGrabShape::Circle;
   ImVec2 grab_size = {};
@@ -180,7 +183,6 @@ static bool slider2(
     const SliderProperties& props,
     const char* str_id,
     const ImVec2& size,
-    const Color& color,
     T* value,
     const Range& range,
     T default_value = 0.0f,
@@ -236,38 +238,46 @@ static bool slider2(
   const float half_grab_size_y = grab_size.y * 0.5f;
   const float grab_pos = (1.0f - (float)normalized_value) * scroll_height;
   const float center_x = cursor_pos.x + size.x * 0.5f;
-  const ImU32 grab_col = color.to_uint32();
-  const ImU32 frame_col = ImGui::GetColorU32(ImGui::GetStyleColorVec4(ImGuiCol_Border));
+  // const ImU32 grab_col = color.to_uint32();
+  // const ImU32 frame_col = ImGui::GetColorU32(ImGui::GetStyleColorVec4(ImGuiCol_Border));
   const ImVec2 frame_rect_min(center_x - frame_width * 0.5f, cursor_pos.y + grab_size.y * 0.5f);
   const ImVec2 frame_rect_max(frame_rect_min.x + frame_width, frame_rect_min.y + scroll_height);
   ImDrawList* dl = ImGui::GetWindowDrawList();
 
   // Draw frame
-  dl->AddRectFilled(frame_rect_min, frame_rect_max, frame_col);
+  dl->AddRectFilled(frame_rect_min, frame_rect_max, props.tick_color);
 
   // Draw default value tick line
   if (props.with_default_value_tick) {
     float default_grab_pos = inv_normalized_default_value * scroll_height + half_grab_size_y;
     default_grab_pos = math::round(default_grab_pos + cursor_pos.y);
-    dl->AddLine(ImVec2(cursor_pos.x, default_grab_pos), ImVec2(center_x - frame_width, default_grab_pos), frame_col);
-    dl->AddLine(ImVec2(center_x + frame_width, default_grab_pos), ImVec2(bb.Max.x, default_grab_pos), frame_col);
+    dl->AddLine(ImVec2(cursor_pos.x, default_grab_pos), ImVec2(center_x - frame_width, default_grab_pos), props.tick_color);
+    dl->AddLine(ImVec2(center_x + frame_width, default_grab_pos), ImVec2(bb.Max.x, default_grab_pos), props.tick_color);
   }
 
   // Draw grab
   if (props.grab_shape == SliderGrabShape::Rectangle) {
-    constexpr float grab_tick_padding_x = 2.0f;
+    constexpr float grab_tick_padding_x = 2.5f;
+    constexpr uint32_t top_round_corners = ImDrawFlags_RoundCornersTopLeft | ImDrawFlags_RoundCornersTopRight;
+    constexpr uint32_t bottom_round_corners = ImDrawFlags_RoundCornersBottomLeft | ImDrawFlags_RoundCornersBottomRight;
     const ImVec2 grab_rect_min(center_x - grab_size.x * 0.5f, cursor_pos.y + math::round(grab_pos));
     const ImVec2 grab_rect_max(grab_rect_min.x + grab_size.x, grab_rect_min.y + grab_size.y);
     const ImVec2 grab_tick_min(grab_rect_min.x + grab_tick_padding_x, grab_rect_min.y + grab_size.y * 0.5f);
     const ImVec2 grab_tick_max(grab_rect_min.x + grab_size.x - grab_tick_padding_x, grab_tick_min.y);
-    dl->AddRectFilled(grab_rect_min, grab_rect_max, grab_col, props.grab_roundness);
-    dl->AddLine(grab_tick_min, grab_tick_max, 0xFFFFFFFF, 1.0f);
+    dl->AddRectFilled(
+        grab_rect_min + ImVec2(0.0f, 2.5f),
+        grab_rect_max + ImVec2(0.0f, 2.5f),
+        0x54000000,
+        props.grab_roundness,
+        bottom_round_corners);
+    dl->AddRectFilled(grab_rect_min, grab_rect_max, props.grab_color, props.grab_roundness);
+    dl->AddLine(grab_tick_min, grab_tick_max, props.pointer_color, 1.5f);
   } else {
     const float radius1 = grab_size.x * 0.5f;
     const float radius2 = grab_size.x * 0.25f;
     const float pos_y = math::round(grab_pos) + radius1;
-    dl->AddCircleFilled(ImVec2(center_x, cursor_pos.y + pos_y), radius1, grab_col);
-    dl->AddCircleFilled(ImVec2(center_x, cursor_pos.y + pos_y), radius2, 0xFFFFFFFF);
+    dl->AddCircleFilled(ImVec2(center_x, cursor_pos.y + pos_y), radius1, props.grab_color);
+    dl->AddCircleFilled(ImVec2(center_x, cursor_pos.y + pos_y), radius2, props.pointer_color);
   }
 
   if (held) {
@@ -434,13 +444,20 @@ static bool knob(
 
 void push_style_compact();
 void pop_style_compact();
+
 bool begin_window(const char* title, bool* p_open = nullptr, ImGuiWindowFlags flags = 0);
 void end_window();
+
 bool begin_floating_window(const char* str_id, const ImVec2& pos);
 void end_floating_window();
+
+void begin_columns(const char* str_id, uint32_t num_columns, const ImVec2& size = ImVec2());
+bool next_column(float default_width);
+void end_columns();
+
 void song_position();
 void item_tooltip(const char* str);
-
+bool timeline_scrollbar(double* start_time, double* end_time);
 bool toggle_button(const char* str, bool value, const ImVec4& toggled_color, const ImVec2& size = ImVec2());
 bool toggle_button(const char* str, bool* value, const ImVec4& toggled_color, const ImVec2& size = ImVec2());
 bool small_toggle_button(const char* str, bool value, const ImVec4& toggled_color);
@@ -477,7 +494,6 @@ bool param_slider_db(
     const SliderProperties& properties,
     const char* str_id,
     const ImVec2& size,
-    const Color& color,
     float* value,
     const NonLinearRange& db_range,
     float default_value = 0.0f);

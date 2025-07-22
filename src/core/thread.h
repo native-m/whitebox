@@ -18,7 +18,7 @@ struct Spinlock {
   inline void lock() noexcept {
     for (;;) {
       if (!lock_.exchange(true, std::memory_order_acquire))
-        return;
+        break;
       while (lock_.load(std::memory_order_relaxed))
         std::this_thread::yield();
     }
