@@ -451,10 +451,6 @@ void end_window();
 bool begin_floating_window(const char* str_id, const ImVec2& pos);
 void end_floating_window();
 
-void begin_columns(const char* str_id, uint32_t num_columns, const ImVec2& size = ImVec2());
-bool next_column(float default_width);
-void end_columns();
-
 void song_position();
 void item_tooltip(const char* str);
 bool timeline_scrollbar(double* start_time, double* end_time);
