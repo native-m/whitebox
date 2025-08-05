@@ -12,6 +12,11 @@ namespace wb {
 
 template<typename T>
 struct Vector {
+  using value_type = T;
+  using reference_type = T&;
+  using pointer_type = T*;
+  using size_type = size_t;
+
   T* data_{};
   uint32_t size_{};
   uint32_t capacity_{};
