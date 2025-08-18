@@ -244,14 +244,14 @@ void main_control_bar() {
   }
 
   if (new_project) {
-    shutdown_audio_io();
+    //shutdown_audio_io();
     g_engine.clear_all();
     g_cmd_manager.reset(true);
     g_timeline.reset();
     g_timeline.add_track();
     g_timeline.recalculate_song_length();
     g_timeline.redraw_screen();
-    start_audio_engine();
+    //start_audio_engine();
   } else if (open_project) {
     open_file_dialog_async("open_project", { { "Whitebox Project File (*.wb)", "wb" } }, nullptr);
   } else if (save_project) {
@@ -265,7 +265,7 @@ void main_control_bar() {
   const std::filesystem::path* open_file_path;
   if (auto ret = get_file_dialog_payload("open_project", FileDialogType::OpenFile, &open_file_path);
       ret == FileDialogStatus::Accepted) {
-    shutdown_audio_io();
+    //shutdown_audio_io();
     g_engine.clear_all();
     g_cmd_manager.reset(true);
     auto result = read_project_file(*open_file_path, g_engine, g_sample_table, g_midi_table, g_timeline);
@@ -275,20 +275,20 @@ void main_control_bar() {
     }
     g_timeline.recalculate_song_length();
     g_timeline.redraw_screen();
-    start_audio_engine();
+    //start_audio_engine();
   }
 
   const std::filesystem::path* save_file_path;
   if (auto ret = get_file_dialog_payload("save_project", FileDialogType::SaveFile, &save_file_path);
       ret == FileDialogStatus::Accepted) {
-    shutdown_audio_io();
+    //shutdown_audio_io();
     auto result = write_project_file(*save_file_path, g_engine, g_sample_table, g_midi_table, g_timeline);
     if (result != ProjectFileResult::Ok) {
       Log::error("Failed to open project {}", (uint32_t)result);
       assert(false);
     }
     g_cmd_manager.is_modified = false;
-    start_audio_engine();
+    //start_audio_engine();
   }
 }
 }  // namespace wb

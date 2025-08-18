@@ -2,16 +2,30 @@
 
 #include "core/common.h"
 #include "core/midi.h"
+#include "audio_io_types.h"
+#include "clip.h"
 
 namespace wb {
 
-struct Clip;
 struct Track;
 
 enum class ClipSelectStatus {
   NotSelected,
   Selected,
   PartiallySelected,
+};
+
+struct AudioEngineConfig {
+  AudioDeviceID input_device_id;
+  AudioDeviceID output_device_id;
+  uint32_t buffer_size;
+  uint32_t num_input_channels;
+  uint32_t num_output_channels;
+  AudioDeviceSampleRate sample_rate;
+  AudioFormat input_format;
+  AudioFormat output_format;
+  AudioThreadPriority priority;
+  bool exclusive_mode;
 };
 
 struct ClipMoveResult {

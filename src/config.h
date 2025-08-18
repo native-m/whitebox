@@ -1,10 +1,11 @@
 #pragma once
 
 #include "core/common.h"
-#include "engine/audio_io.h"
+#include "engine/etypes.h"
 
 namespace wb {
 
+extern AudioEngineConfig g_audio_engine_config;
 extern AudioIOType g_audio_io_type;
 extern AudioDeviceProperties g_output_device_properties;
 extern AudioDeviceProperties g_input_device_properties;

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 #include "core/audio_format.h"
 #include "core/common.h"
 
@@ -12,12 +14,19 @@ enum class ExportBitrateMode {
 };
 
 struct ExportAudioProperties {
-  bool enable_wav = true;
-  bool enable_aiff = false;
-  bool enable_mp3 = false;
-  bool enable_vorbis = false;
-  bool enable_flac = false;
+  enum {
+    WAV = 1 << 0,
+    AIFF = 1 << 1,
+    MP3 = 1 << 2,
+    Vorbis = 1 << 3,
+    FLAC = 1 << 4,
+  };
+
+  uint32_t format_flags = WAV;
   bool export_metadata = true;
+  bool override_filename = false;
+  std::string filename;
+  std::string location;
 
   // Uncompressed WAV properties
   AudioFormat wav_bit_depth = AudioFormat::I24;
@@ -43,4 +52,5 @@ struct ExportAudioProperties {
   AudioFormat flac_bit_depth = AudioFormat::I16;
   int32_t flac_compression_level = 5;
 };
+
 }  // namespace wb

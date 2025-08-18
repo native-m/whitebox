@@ -295,7 +295,7 @@ void TimelineWindow::render_track_controls() {
           ImGui::SameLine(0.0f, 2.0f);
           ImVec2 pos = ImGui::GetCursorPos();
           ImGui::SetNextItemWidth(-FLT_MIN);
-          if (controls::param_drag_db("##Vol.", &volume))
+          if (controls::param_drag_db("##track_vol", &volume))
             track->set_volume(volume);
         }
       } else {

@@ -3,6 +3,7 @@
 #include <bit>
 
 namespace wb {
+
 template<typename T, typename... Args>
 inline constexpr bool has_bit_enum(T op, Args... bits) {
   T mask = ((1 << (T)bits) | ...);
@@ -28,4 +29,5 @@ inline constexpr int next_set_bits(T& x) {
   x ^= t;
   return r;
 }
+
 }  // namespace wb

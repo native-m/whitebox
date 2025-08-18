@@ -63,17 +63,22 @@ void render_test_controls() {
       &slider_value,
       range);
 
+  static float drag_value = 0.0f;
+  ImGui::BeginGroup();
+  ImGui::DragFloat("Drag Outside", &drag_value);
+  ImGui::EndGroup();
   ImGui::SeparatorText("Columns");
   layout::begin_columns("my_columns", 3, ImVec2(300, 200));
   layout::next_column(100.0f);
-  Log::debug("{}", layout::get_current_column_width());
   ImGui::Button("Btn 1");
   ImGui::Button("Btn 2");
   ImGui::Button("Btn 3");
+  ImGui::DragFloat("Drag", &drag_value);
   layout::next_column(100.0f);
   ImGui::Button("Btn 1");
   ImGui::Button("Btn 2");
   ImGui::Button("Btn 3");
+  ImGui::Button("Btn 4");
   layout::next_column(100.0f);
   ImGui::Button("Btn 1");
   ImGui::Button("Btn 2");

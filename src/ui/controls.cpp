@@ -124,10 +124,6 @@ void item_tooltip(const char* str) {
   }
 }
 
-bool timeline_scrollbar(double* start_time, double* end_time) {
-  return true;
-}
-
 bool toggle_button(const char* str, bool value, const ImVec4& toggled_color, const ImVec2& size) {
   return toggle_button(str, &value, toggled_color, size);
 }

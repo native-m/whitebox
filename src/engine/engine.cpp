@@ -1549,14 +1549,14 @@ void Engine::delete_plugin_from_track(Track* track) {
   }
 }
 
-double Engine::get_song_length() const {
-  double max_length = std::numeric_limits<double>::min();
+double Engine::get_song_length(double min_length) const {
+  double max_length = 0.0;
   for (auto track : tracks) {
     if (!track->clips.empty()) {
       Clip* clip = track->clips.back();
       max_length = math::max(max_length, clip->max_time);
     } else {
-      max_length = math::max(max_length, 80.0);
+      max_length = math::max(max_length, min_length);
     }
   }
   return max_length;

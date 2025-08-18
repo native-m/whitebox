@@ -248,7 +248,7 @@ HRESULT STDMETHODCALLTYPE EndpointNotificationWASAPI::OnDeviceStateChanged(LPCWS
   if (id == io->current_output_device_id || id == io->current_input_device_id) {
     if (has_bit(dwNewState, DEVICE_STATE_DISABLED, DEVICE_STATE_NOTPRESENT, DEVICE_STATE_UNPLUGGED)) {
       if (io->device_removed_cb) {
-        io->device_removed_cb(nullptr);
+        io->device_removed_cb(nullptr, true);
       }
     }
   } else {
@@ -578,6 +578,10 @@ bool AudioIOWASAPI::scan_audio_endpoints(EDataFlow type, std::vector<AudioDevice
     WAVEFORMATEXTENSIBLE* waveformatex = (WAVEFORMATEXTENSIBLE*)var_format.blob.pBlobData;
     PropVariantClear(&var_format);
 
+    PROPVARIANT var_driver;
+    PropVariantInit(&var_driver);
+    HRESULT hr = property_store->GetValue(PKEY_Device_ContainerId, &var_driver);
+
     wchar_t* device_id;
     device->GetId(&device_id);
 
@@ -599,6 +603,7 @@ bool AudioIOWASAPI::scan_audio_endpoints(EDataFlow type, std::vector<AudioDevice
       }
     }
 
+    PropVariantClear(&var_driver);
     PropVariantClear(&var_name);
     CoTaskMemFree(device_id);
   }
@@ -739,7 +744,7 @@ void AudioIOWASAPI::audio_thread_runner(AudioIOWASAPI* instance, AudioThreadPrio
         // Enqueue captured samples
         if (begin_write <= end_write) {
           void* dst = input_queue_buffer + (input_buffer_write_pos * frame_size);
-          if (has_bit(flags, AUDCLNT_BUFFERFLAGS_SILENT)) [[unlikely]] 
+          if (has_bit(flags, AUDCLNT_BUFFERFLAGS_SILENT)) [[unlikely]]
             std::memset(dst, 0, frames_available * frame_size);
           else
             std::memcpy(dst, buffer, frames_available * frame_size);
@@ -786,6 +791,7 @@ void AudioIOWASAPI::audio_thread_runner(AudioIOWASAPI* instance, AudioThreadPrio
         break;
       }
 
+      // Write interleaved sample to output buffer
       output_buffer.interleave_samples_to(buffer, output_offset, frames_available, instance->output_stream_format);
 
       hr = render->ReleaseBuffer(frames_available, 0);
@@ -810,8 +816,10 @@ AudioIO* create_audio_io_wasapi() {
   AudioIOWASAPI* audio_io = new (std::nothrow) AudioIOWASAPI();
   if (!audio_io)
     return nullptr;
-  if (!audio_io->init())
+  if (!audio_io->init()) {
+    delete audio_io;
     return nullptr;
+  }
   return audio_io;
 }
 

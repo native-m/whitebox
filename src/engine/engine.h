@@ -228,7 +228,7 @@ struct Engine {
 
   void delete_plugin_from_track(Track* track);
 
-  double get_song_length() const;
+  double get_song_length(double min_length = 80.0) const;
 
   void update_audio_visualization(float frame_rate);
 

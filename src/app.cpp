@@ -11,6 +11,7 @@
 #include "core/deferred_job.h"
 #include "engine/audio_io.h"
 #include "engine/engine.h"
+#include "engine/engine2.h"
 #include "engine/project.h"
 #include "gfx/renderer.h"
 #include "path_def.h"
@@ -35,7 +36,8 @@ static bool is_running = true;
 static bool request_quit = false;
 static std::string imgui_ini_filepath;
 
-// static void handle_events(SDL_Event& event);
+static void audio_device_format_changed_listener(void* userdata);
+static void audio_device_removed_listener(void* userdata, bool restart_audio_device);
 static void wait_until_restored();
 static void apply_theme(ImGuiStyle& style);
 
@@ -49,6 +51,7 @@ SDL_AppResult app_init(void** appstate, int argc, char** argv) {
   init_app_event();
   init_deferred_job();
   init_window_manager();
+  Engine2::initialize();
 
   // Initialize imgui
   IMGUI_CHECKVERSION();
@@ -69,7 +72,12 @@ SDL_AppResult app_init(void** appstate, int argc, char** argv) {
   init_font_assets();
   init_renderer(main_window);
   init_windows();
-  start_audio_engine();
+  Engine2::set_bpm(150.0f);
+  Engine2::add_audio_device_format_changed_listener(nullptr, audio_device_format_changed_listener);
+  Engine2::add_audio_device_removed_listener(nullptr, audio_device_removed_listener);
+  if (Engine2::init_audio_io())
+    Engine2::start_audio_engine();
+  // start_audio_engine();
 
   g_cmd_manager.init(10);
   g_engine.set_bpm(150.0f);
@@ -247,8 +255,27 @@ SDL_AppResult app_handle_event(void* appstate, SDL_Event* event) {
       if (event->type >= SDL_EVENT_USER) {
         if (event->type == AppEvent::file_dialog) {
           file_dialog_handle_event(event->user.data1, event->user.data2);
-        } else if (event->type == AppEvent::audio_device_removed_event || event->type == AppEvent::audio_settings_changed) {
-          start_audio_engine();
+        } else if (event->type == AppEvent::audio_io_type_changed) {
+          if (Engine2::audio_io) {
+            Engine2::shutdown_audio_io();
+          }
+          if (Engine2::init_audio_io()) {
+            Engine2::reset_audio_engine_config(false);
+            Engine2::start_audio_engine();
+          }
+        } else if (event->type == AppEvent::audio_settings_changed) {
+          if (Engine2::is_audio_engine_running()) {
+            Engine2::stop_audio_engine();
+            Engine2::start_audio_engine();
+          }
+        } else if (event->type == AppEvent::audio_device_removed_event) {
+          bool reset_audio_device = (bool)event->user.data1;
+          Engine2::rescan_audio_device();
+          if (reset_audio_device) {
+            Engine2::stop_audio_engine();
+            Engine2::reset_audio_engine_config(false);
+            Engine2::start_audio_engine();
+          }
         }
       }
       break;
@@ -268,12 +295,20 @@ void app_quit(void* appstate, SDL_AppResult result) {
   g_cmd_manager.reset();
   g_sample_table.shutdown();
   g_midi_table.shutdown();
+  Engine2::shutdown();
   shutdown_renderer();
   ImGui_ImplSDL3_Shutdown();
   ImGui::DestroyContext();
   shutdown_window_manager();
   shutdown_deferred_job();
   SDL_Quit();
+}
+
+void audio_device_format_changed_listener(void* userdata) {
+}
+
+void audio_device_removed_listener(void* userdata, bool restart_audio_device) {
+  app_event_push(AppEvent::audio_device_removed_event, (void*)restart_audio_device);
 }
 
 void wait_until_restored() {

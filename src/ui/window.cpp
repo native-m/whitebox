@@ -11,6 +11,7 @@
 #include "plugins.h"
 #include "settings.h"
 #include "timeline.h"
+#include "timeline2.h"
 #include "window.h"
 
 namespace wb {
@@ -29,11 +30,13 @@ bool g_performance_counter_window_open = true;
 
 void init_windows() {
   g_timeline.init();
+  timeline_init();
   clip_editor_init();
 }
 
 void shutdown_windows() {
   g_timeline.shutdown();
+  timeline_shutdown();
   clip_editor_shutdown();
 }
 
@@ -41,7 +44,7 @@ void render_windows() {
   ImGui::ShowDemoWindow();
   controls::render_test_controls();
   if (g_settings_window_open)
-    g_settings.render();
+    render_settings();
   if (g_plugin_mgr_window_open)
     g_plugin_manager.render();
   if (g_browser_window_open)
@@ -56,6 +59,8 @@ void render_windows() {
     g_mixer.render();
   if (g_timeline_window_open)
     g_timeline.render();
+  if (g_timeline2_window_open)
+    render_timeline();
   if (g_clip_editor_window_open)
     render_clip_editor();
   /*if (g_env_editor_window_open)

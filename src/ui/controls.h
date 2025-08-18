@@ -141,6 +141,34 @@ generic_slider(const char* label, T* value, MinT min_val, MaxT max_val, const ch
   return ImGui::SliderScalar(label, type, value, &cast_min_val, &cast_max_val, format, flags);
 }
 
+static bool collapse_button2(const char* str_id, bool* shown, float scale = 1.0f) {
+  float font_size = ImGui::GetFontSize();
+  ImGuiID id = ImGui::GetID(str_id);
+  ImVec2 cur_pos = ImGui::GetCursorScreenPos();
+  ImVec2 size(font_size + 3.0f, font_size + 3.0f);
+  ImRect bb(cur_pos, cur_pos + size);
+
+  ImGui::ItemSize(bb);
+  if (!ImGui::ItemAdd(bb, id))
+    return false;
+
+  bool hovered, held;
+  bool pressed = ImGui::ButtonBehavior(bb, id, &hovered, &held, ImGuiButtonFlags_None);
+  if (pressed)
+    *shown = !*shown;
+
+  auto dl = ImGui::GetWindowDrawList();
+  if (hovered || held) {
+    ImU32 bg_col = ImGui::GetColorU32(!held ? ImGuiCol_ButtonHovered : ImGuiCol_ButtonActive);
+    dl->AddCircleFilled(cur_pos + size * 0.5f, size.x * 0.5f - 1.0f, bg_col);
+  }
+
+  ImVec2 arrow_pos = cur_pos + ImVec2(1.5f, 1.5f);
+  ImGui::RenderArrow(dl, arrow_pos, ImGui::GetColorU32(ImGuiCol_Text), *shown ? ImGuiDir_Down : ImGuiDir_Right);
+
+  return pressed;
+}
+
 static bool collapse_button(const char* str_id, bool* shown) {
   ImGuiID id = ImGui::GetID(str_id);
   ImGuiStyle& style = GImGui->Style;
@@ -163,7 +191,7 @@ static bool collapse_button(const char* str_id, bool* shown) {
   if (hovered || held) {
     ImU32 bg_col = ImGui::GetColorU32(!held ? ImGuiCol_ButtonHovered : ImGuiCol_ButtonActive);
     float offset = (font_size + padding) * 0.5f;
-    draw_list->AddCircleFilled(ImVec2(cur_pos.x + offset, cur_pos.y + offset), font_size * 0.5f + 1.0f, bg_col);
+    draw_list->AddCircleFilled(ImVec2(cur_pos.x + offset, cur_pos.y + offset), font_size * 0.5f, bg_col);
   }
 
   ImGui::RenderArrow(
@@ -453,7 +481,6 @@ void end_floating_window();
 
 void song_position();
 void item_tooltip(const char* str);
-bool timeline_scrollbar(double* start_time, double* end_time);
 bool toggle_button(const char* str, bool value, const ImVec4& toggled_color, const ImVec2& size = ImVec2());
 bool toggle_button(const char* str, bool* value, const ImVec4& toggled_color, const ImVec2& size = ImVec2());
 bool small_toggle_button(const char* str, bool value, const ImVec4& toggled_color);

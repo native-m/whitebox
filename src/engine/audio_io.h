@@ -1,12 +1,14 @@
 #pragma once
 
 #include <functional>
-#include <string>
+// #include <string>
 
-#include "core/audio_format.h"
+#include "audio_io_types.h"
+#include "core/audio_buffer.h"
 #include "core/bit_manipulation.h"
 #include "core/common.h"
 #include "core/core_math.h"
+#include "core/vector.h"
 
 #define WB_INVALID_AUDIO_DEVICE_INDEX (~0U)
 
@@ -14,58 +16,15 @@ namespace wb {
 
 struct Engine;
 
-using AudioDeviceID = uint64_t;
-using AudioDevicePeriod = int64_t;
-using AudioDeviceRemovedCb = void (*)(void* userdata);
-
-enum class AudioIOType {
-  WASAPI,
-  ASIO,       // Unimplemented
-  CoreAudio,  // Unimplemented
-  PulseAudio,
-};
-
-enum class AudioDeviceType {
-  Input,
-  Output,
-};
-
-enum class AudioDeviceSampleRate {
-  Hz44100,
-  Hz48000,
-  Hz88200,
-  Hz96000,
-  Hz176400,
-  Hz192000,
-  Max,
-};
-
-enum class AudioThreadPriority {
-  Lowest,
-  Low,
-  Normal,
-  High,
-  Highest,
-};
-
-struct AudioDeviceProperties {
-  char name[128]{};
-  AudioDeviceID id;
-  AudioDeviceType type;
-  AudioIOType io_type;
-};
-
-struct AudioDeviceFormat {
-  AudioDeviceSampleRate sample_rate;
-  AudioFormat output_sample_format;
-  uint16_t output_channels;
-  uint16_t input_channels;
-};
+using AudioDeviceRemovedFn = void (*)(void* userdata, bool rescan_only);
+using AudioDeviceFormatChangedFn = void (*)(void* userdata);
+using AudioStreamFn =
+    void (*)(AudioBuffer<float>& output_buffer, const AudioBuffer<float>& input_buffer, double sample_rate);
 
 struct AudioIO {
   static constexpr int max_channel_map = 64;
 
-  AudioDeviceRemovedCb device_removed_cb{};
+  AudioDeviceRemovedFn device_removed_cb{};
   AudioDeviceProperties default_input_device;
   AudioDeviceProperties default_output_device;
   AudioDeviceID current_input_device_id{ 0 };
@@ -88,10 +47,12 @@ struct AudioIO {
   uint32_t get_input_device_count() const {
     return input_device_count;
   }
+
   uint32_t get_output_device_count() const {
     return output_device_count;
   }
-  bool is_open() const {
+
+  bool is_device_open() const {
     return open;
   }
 
@@ -119,12 +80,12 @@ struct AudioIO {
   int32_t get_max_input_channels() const {
     return max_input_channel_count;
   }
+
   int32_t get_max_output_channels() const {
     return max_output_channel_count;
   }
 
-
-  void set_on_device_removed_cb(AudioDeviceRemovedCb cb) {
+  void set_on_device_removed_cb(AudioDeviceRemovedFn cb) {
     device_removed_cb = cb;
   }
 
@@ -177,6 +138,140 @@ struct AudioIO {
       AudioFormat output_format,
       AudioDeviceSampleRate sample_rate,
       AudioThreadPriority priority) = 0;
+
+  static AudioIO* create(AudioIOType type);
+};
+
+struct AudioIO2 {
+  uint32_t num_output_device{};
+  uint32_t num_input_device{};
+  AudioDeviceProperties default_input_device;
+  AudioDeviceProperties default_output_device;
+  AudioDeviceID current_input_device_id{};
+  AudioDeviceID current_output_device_id{};
+
+  bool shared_mode_support{};
+  bool exclusive_mode_support{};
+  AudioDevicePeriod min_period{};
+  uint32_t buffer_alignment{};
+  int32_t max_input_channel_count{};
+  int32_t max_output_channel_count{};
+  uint32_t exclusive_sample_rate_bit_flags{};
+  uint32_t exclusive_input_format_bit_flags{};
+  uint32_t exclusive_output_format_bit_flags{};
+  uint32_t exclusive_input_sample_rate_bit_flags{};
+  uint32_t exclusive_output_sample_rate_bit_flags{};
+  AudioFormat shared_mode_input_format{};
+  AudioFormat shared_mode_output_format{};
+  AudioDeviceSampleRate shared_mode_sample_rate{};
+  AudioDeviceFormat current_input_format{};
+  AudioDeviceFormat current_output_format{};
+  Pair<AudioDeviceRemovedFn, void*> device_removed_listener_fn{};
+  Pair<AudioDeviceFormatChangedFn, void*> device_format_changed_listener_fn{};
+  volatile bool open{};
+
+  virtual ~AudioIO2() {
+  }
+
+  bool is_device_open() const {
+    return open;
+  }
+
+  /*
+      Check if sample rate is supported. This function only valid if the audio device has been opened.
+  */
+  bool is_sample_rate_supported(AudioDeviceSampleRate sample_rate) const {
+    return has_bit_enum(exclusive_sample_rate_bit_flags, sample_rate);
+  }
+
+  /*
+      Check if sample rate is supported by device type. This function only valid if the audio device has been opened.
+  */
+  bool is_sample_rate_supported(AudioDeviceType device_type, AudioDeviceSampleRate sample_rate) const {
+    uint32_t flags = (device_type == AudioDeviceType::Input) ? exclusive_input_sample_rate_bit_flags
+                                                             : exclusive_output_sample_rate_bit_flags;
+    return has_bit_enum(flags, sample_rate);
+  }
+
+  /*
+      Check if input sample format is supported. This function only valid if the audio device has been opened.
+  */
+  bool is_input_sample_format_supported(AudioFormat format) const {
+    return has_bit_enum(exclusive_input_format_bit_flags, format);
+  }
+
+  /*
+      Check if output sample format is supported. This function only valid if the audio device has been opened.
+  */
+  bool is_output_sample_format_supported(AudioFormat format) const {
+    return has_bit_enum(exclusive_output_format_bit_flags, format);
+  }
+
+  /*
+       Get current stream input format. This function only valid if the audio stream has been started.
+  */
+  AudioDeviceFormat get_current_input_format() const {
+    return current_input_format;
+  }
+
+  /*
+       Get current stream output format. This function only valid if the audio stream has been started.
+  */
+  AudioDeviceFormat get_current_output_format() const {
+    return current_input_format;
+  }
+
+  uint32_t get_max_input_channel_count() const {
+    return max_input_channel_count;
+  }
+
+  uint32_t get_max_output_channel_count() const {
+    return max_output_channel_count;
+  }
+
+  uint32_t get_input_device_count() const {
+    return num_input_device;
+  }
+
+  uint32_t get_output_device_count() const {
+    return num_output_device;
+  }
+
+  virtual bool rescan_device() = 0;
+  virtual uint32_t get_input_device_index(AudioDeviceID id) const = 0;
+  virtual uint32_t get_output_device_index(AudioDeviceID id) const = 0;
+  virtual const AudioDeviceProperties& get_input_device_properties(uint32_t device_idx) const = 0;
+  virtual const AudioDeviceProperties& get_output_device_properties(uint32_t device_idx) const = 0;
+  virtual bool is_stream_running() const = 0;
+  virtual bool is_on_the_same_driver(AudioDeviceType a_type, uint32_t a_device, AudioDeviceType b_type, uint32_t b_device)
+      const = 0;
+
+  virtual bool open_device(uint32_t input_device_idx, uint32_t output_device_idx) = 0;
+  virtual void close_device() = 0;
+  virtual bool start(
+      bool exclusive_mode,
+      uint32_t buffer_size,
+      AudioDeviceSampleRate sample_rate,
+      AudioFormat input_format,
+      AudioFormat output_format,
+      uint32_t num_input_channels,
+      uint32_t num_output_channels,
+      AudioThreadPriority priority,
+      AudioStreamFn stream_callback_fn) = 0;
+
+  void set_device_removed_listener(void* userdata, AudioDeviceRemovedFn fn) {
+    device_removed_listener_fn = { fn, userdata };
+  }
+
+  void set_device_format_changed_listener(void* userdata, AudioDeviceFormatChangedFn fn) {
+    device_format_changed_listener_fn = { fn, userdata };
+  }
+
+  // Only call this in the implementation class!
+  void reset_state();
+
+  static AudioIO2* create(AudioIOType type);
+  static AudioIOType get_platform_recommended_audio_io_type();
 };
 
 inline static uint32_t period_to_buffer_size(AudioDevicePeriod period, uint32_t sample_rate) {
