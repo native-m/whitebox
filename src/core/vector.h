@@ -123,6 +123,10 @@ struct Vector {
     return size_ == 0;
   }
 
+  inline bool valid_range(uint32_t idx) const noexcept {
+    return idx < size_;
+  }
+
   inline Vector<T>& operator=(const Vector<T>& other)
     requires std::copyable<T>
   {

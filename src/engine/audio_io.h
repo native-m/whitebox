@@ -302,6 +302,19 @@ inline static uint32_t get_sample_rate_value(AudioDeviceSampleRate sr_enum) {
   return 0;
 }
 
+inline static AudioDeviceSampleRate get_device_sample_rate(uint32_t sample_rate) {
+  switch (sample_rate) {
+    case 44100: return AudioDeviceSampleRate::Hz44100;
+    case 48000: return AudioDeviceSampleRate::Hz48000;
+    case 88200: return AudioDeviceSampleRate::Hz88200;
+    case 96000: return AudioDeviceSampleRate::Hz96000;
+    case 176400: return AudioDeviceSampleRate::Hz176400;
+    case 192000: return AudioDeviceSampleRate::Hz192000;
+    default: break;
+  }
+  return {};
+}
+
 static const std::pair<uint32_t, AudioDeviceSampleRate> compatible_sample_rates[] = {
   { 44100, AudioDeviceSampleRate::Hz44100 },   { 48000, AudioDeviceSampleRate::Hz48000 },
   { 88200, AudioDeviceSampleRate::Hz88200 },   { 96000, AudioDeviceSampleRate::Hz96000 },

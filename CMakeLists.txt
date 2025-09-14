@@ -1,4 +1,4 @@
-# CMakeList.txt : CMake project for whitebox, include source and define
+﻿# CMakeList.txt : CMake project for whitebox, include source and define
 # project specific logic here.
 #
 cmake_minimum_required(VERSION 3.20)
@@ -114,6 +114,7 @@ set(WB_SOURCES
     "src/engine/assets_table.h"
     "src/engine/audio_io.cpp"
     "src/engine/audio_io.h"
+    "src/engine/audio_io_coreaudio.cpp"
     "src/engine/audio_io_pulseaudio.cpp"
     "src/engine/audio_io_types.h"
     "src/engine/audio_io_wasapi.cpp"
@@ -271,6 +272,11 @@ if (WB_PLATFORM_WINDOWS)
     set(WB_LINK_LIBRARIES ${WB_LINK_LIBRARIES} imgui-d3d11 Avrt Dwmapi)
 elseif (WB_PLATFORM_LINUX)
     set(WB_LINK_LIBRARIES ${WB_LINK_LIBRARIES} PkgConfig::LIBPULSE xcb X11 X11-xcb)
+elseif (WB_PLATFORM_MACOS)
+    set(WB_LINK_LIBRARIES
+        ${WB_LINK_LIBRARIES}
+        "-framework CoreAudio"
+        "-framework AudioToolbox")
 endif ()
 
 add_library(whitebox-lib STATIC ${WB_SOURCES})

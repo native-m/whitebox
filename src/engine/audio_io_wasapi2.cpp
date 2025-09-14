@@ -1024,4 +1024,12 @@ AudioIO2* create_audio_io_wasapi2() {
 
 #else
 
+namespace wb {
+
+AudioIO2* create_audio_io_wasapi2() {
+  return nullptr;
+}
+
+}  // namespace wb
+
 #endif

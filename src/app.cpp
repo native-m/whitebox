@@ -79,6 +79,7 @@ SDL_AppResult app_init(void** appstate, int argc, char** argv) {
   Engine2::set_bpm(140.0f);
   Engine2::add_audio_device_format_changed_listener(nullptr, audio_device_format_changed_listener);
   Engine2::add_audio_device_removed_listener(nullptr, audio_device_removed_listener);
+  Engine2::init_audio_io();
   if (Engine2::init_audio_io())
     Engine2::start_audio_engine();
   // start_audio_engine();

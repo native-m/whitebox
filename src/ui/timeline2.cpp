@@ -287,6 +287,7 @@ void timeline_render_navbar() {
     switch (tr_result) {
       case controls::TimelineRulerResult::Zoom: redraw_ = true; break;
       case controls::TimelineRulerResult::TimePositionChanged: Engine2::set_playhead_position(time_pos); break;
+      default: break;
     }
   }
 
@@ -797,6 +798,7 @@ void timeline_render_track_lanes() {
               break;
             }
           }
+          default: break;
         }
 
         if (clip->name.size() != 0) {

@@ -10,6 +10,7 @@ extern AudioIO* create_audio_io_wasapi();
 extern AudioIO* create_audio_io_pulseaudio();
 extern AudioIO* create_audio_io_asio();
 extern AudioIO2* create_audio_io_wasapi2();
+extern AudioIO2* create_audio_io_coreaudio();
 
 AudioIO* AudioIO::create(AudioIOType type) {
   switch (type) {
@@ -24,6 +25,7 @@ AudioIO2* AudioIO2::create(AudioIOType type) {
   switch (type) {
     case AudioIOType::NoAudio: break;
     case AudioIOType::WASAPI: return create_audio_io_wasapi2();
+    case AudioIOType::CoreAudio: return create_audio_io_coreaudio();
     default: assert(false && "Unknown Audio IO"); break;
   }
   return nullptr;
@@ -34,6 +36,8 @@ AudioIOType AudioIO2::get_platform_recommended_audio_io_type() {
   return AudioIOType::WASAPI;
 #elif defined(WB_PLATFORM_LINUX)
   return AudioIOType::PulseAudio;
+#elif defined(WB_PLATFORM_MACOS)
+  return AudioIOType::CoreAudio;
 #else
   return AudioIOType::NoAudio;
 #endif

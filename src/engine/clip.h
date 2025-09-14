@@ -143,6 +143,7 @@ struct Clip : public InplaceList<Clip> {
           audio.asset = nullptr;
         }
         break;
+      default: break;
     }
   }
 
