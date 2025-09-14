@@ -69,7 +69,7 @@ SDL_AppResult app_init(void** appstate, int argc, char** argv) {
   init_font_assets();
   init_renderer(main_window);
   init_windows();
-  start_audio_engine();
+  //start_audio_engine();
 
   g_cmd_manager.init(10);
   g_engine.set_bpm(150.0f);
@@ -226,7 +226,7 @@ SDL_AppResult app_handle_event(void* appstate, SDL_Event* event) {
         viewport->PlatformRequestMove = false;
       } else if (event->type == SDL_EVENT_WINDOW_RESIZED) {
         viewport->PlatformRequestResize = false;
-      } else if (event->type = SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED) {
+      } else if (event->type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED) {
         if (is_main_window) {
           float w = (float)event->window.data1;
           float h = (float)event->window.data2;

@@ -4,3 +4,4 @@ cmake-build-debug/
 build/
 .idea/
 .vscode/settings.json
+.DS_Store

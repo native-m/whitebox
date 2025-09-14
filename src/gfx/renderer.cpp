@@ -40,6 +40,12 @@ bool GPURenderer::init(SDL_Window* window) {
   auto waveform_aa_fs = read_file_content("assets/waveform_aa.fs.spv");
   auto waveform_fill_vs = read_file_content("assets/waveform_fill.vs.spv");
 
+  assert(imgui_vs.size());
+  assert(imgui_fs.size());
+  assert(waveform_aa_vs.size());
+  assert(waveform_aa_fs.size());
+  assert(waveform_fill_vs.size());
+
   waveform_aa = create_pipeline({
     .vs = waveform_aa_vs.data(),
     .vs_size = (uint32_t)waveform_aa_vs.size(),
@@ -61,6 +67,7 @@ bool GPURenderer::init(SDL_Window* window) {
     .enable_blending = false,
     .enable_color_write = true,
   });
+  
   assert(waveform_aa && waveform_fill);
 
   GPUVertexAttribute imgui_vertex_attributes[3]{

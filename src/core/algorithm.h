@@ -10,7 +10,7 @@
 #define WB_BUILTIN_MEMSET(dst, val, size)  memset((dst), (val), (size))
 #else
 #define WB_BUILTIN_MEMCPY(dst, src, size)  __builtin_memcpy((dst), (src), (size))
-#define WB_BUIlTIN_MEMMOVE(dst, src, size) __builtin_memmove((dst), (src), (size))
+#define WB_BUILTIN_MEMMOVE(dst, src, size) __builtin_memmove((dst), (src), (size))
 #define WB_BUILTIN_MEMSET(dst, val, size)  __builtin_memset((dst), (val), (size))
 #endif
 

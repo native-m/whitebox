@@ -11,6 +11,10 @@
 #define VK_USE_PLATFORM_XCB_KHR
 #endif
 
+#ifdef WB_PLATFORM_MACOS
+#define VK_USE_PLATFORM_METAL_EXT
+#endif
+
 // clang-format off
 #define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
 #include <volk.h>

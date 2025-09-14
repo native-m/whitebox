@@ -118,7 +118,7 @@ void item_tooltip(const char* str) {
     ImFont* font = ImGui::GetFont();
     set_current_font(FontType::Normal);  // Force tooltip to use main font
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6.0f, 4.0f));
-    ImGui::SetTooltip(str);
+    ImGui::SetTooltip("%s", str);
     ImGui::PopStyleVar();
     ImGui::SetCurrentFont(font);
   }

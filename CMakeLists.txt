@@ -1,4 +1,4 @@
-﻿# CMakeList.txt : CMake project for whitebox, include source and define
+# CMakeList.txt : CMake project for whitebox, include source and define
 # project specific logic here.
 #
 cmake_minimum_required(VERSION 3.20)
@@ -24,6 +24,8 @@ if (WIN32)
 elseif (LINUX)
     set(WB_PLATFORM_LINUX 1)
 elseif (APPLE AND (NOT IOS))
+    enable_language(OBJC)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nullability-completeness -Wno-format-security -Wno-deprecated-declarations")
     set(WB_PLATFORM_MACOS 1)
 endif()
 

@@ -113,7 +113,7 @@ void load_settings_data() {
     }
   }
 
-  init_audio_io(g_audio_io_type);
+  /* init_audio_io(g_audio_io_type);
   uint32_t output_device_idx = g_audio_io->get_output_device_index(output_device_id);
   uint32_t input_device_idx = g_audio_io->get_input_device_index(input_device_id);
   g_output_device_properties = output_device_idx != WB_INVALID_AUDIO_DEVICE_INDEX
@@ -122,16 +122,16 @@ void load_settings_data() {
   g_input_device_properties = input_device_idx != WB_INVALID_AUDIO_DEVICE_INDEX
                                   ? g_audio_io->get_input_device_properties(input_device_idx)
                                   : g_audio_io->default_input_device;
-  shutdown_audio_io();
+  shutdown_audio_io(); */
 }
 
 void load_default_settings() {
+  return;
 #if defined(WB_PLATFORM_WINDOWS)
   g_audio_io_type = AudioIOType::WASAPI;
 #elif defined(WB_PLATFORM_LINUX)
   g_audio_io_type = AudioIOType::PulseAudio;
 #else
-  // ..
 #endif
 
   init_audio_io(g_audio_io_type);
