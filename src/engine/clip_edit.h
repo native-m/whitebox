@@ -38,12 +38,12 @@ static inline ClipResizeResult calc_resize_clip(
     double new_speed = 1.0;
 
     if (shift) {
-      SampleAsset* asset = nullptr;
+      AudioAsset* asset = nullptr;
       double mult = 1.0;
       if (clip->is_audio()) {
         asset = clip->audio.asset;
         mult = clip->audio.speed;
-        start_offset = samples_to_beat(start_offset, (double)asset->sample_instance.sample_rate, beat_duration);
+        start_offset = samples_to_beat(start_offset, (double)asset->sample.sample_rate, beat_duration);
       }
       if (old_max < new_max)
         start_offset -= (new_max - old_max) * mult;
@@ -51,15 +51,15 @@ static inline ClipResizeResult calc_resize_clip(
         start_offset += (old_max - new_max) * mult;
       start_offset = math::max(start_offset, 0.0);
       if (clip->is_audio() && asset) {
-        start_offset = math::min(start_offset, (double)asset->sample_instance.count);
-        start_offset = beat_to_samples(start_offset, (double)asset->sample_instance.sample_rate, beat_duration);
+        start_offset = math::min(start_offset, (double)asset->sample.count);
+        start_offset = beat_to_samples(start_offset, (double)asset->sample.sample_rate, beat_duration);
       }
     }
 
     if (stretch && clip->is_audio()) {
-      SampleAsset* asset = clip->audio.asset;
+      AudioAsset* asset = clip->audio.asset;
       if (asset) {
-        double sample_count = (double)asset->sample_instance.count;
+        double sample_count = (double)asset->sample.count;
         double old_length = sample_count / clip->audio.speed;
         double num_samples = beat_to_samples(relative_pos, clip->get_asset_sample_rate(), beat_duration);
         new_speed = sample_count / (old_length + num_samples);
@@ -88,10 +88,10 @@ static inline ClipResizeResult calc_resize_clip(
 
   if (!shift) {
     double old_start_offset = start_offset;
-    SampleAsset* asset = nullptr;
+    AudioAsset* asset = nullptr;
     if (clip->is_audio()) {
       asset = clip->audio.asset;
-      start_offset = samples_to_beat(start_offset, (double)asset->sample_instance.sample_rate, beat_duration);
+      start_offset = samples_to_beat(start_offset, (double)asset->sample.sample_rate, beat_duration);
     }
 
     if (old_min < new_min)
@@ -104,13 +104,13 @@ static inline ClipResizeResult calc_resize_clip(
 
     start_offset = math::max(start_offset, 0.0);
     if (clip->is_audio() && asset)
-      start_offset = beat_to_samples(start_offset, (double)asset->sample_instance.sample_rate, beat_duration);
+      start_offset = beat_to_samples(start_offset, (double)asset->sample.sample_rate, beat_duration);
   }
 
   if (stretch && clip->is_audio()) {
-    SampleAsset* asset = clip->audio.asset;
+    AudioAsset* asset = clip->audio.asset;
     if (asset) {
-      double sample_count = (double)asset->sample_instance.count;
+      double sample_count = (double)asset->sample.count;
       double old_length = sample_count / clip->audio.speed;
       double num_samples = beat_to_samples(old_min - new_min, clip->get_asset_sample_rate(), beat_duration);
       new_speed = sample_count / (old_length + num_samples);
@@ -141,8 +141,8 @@ static double shift_clip_content(Clip* clip, double relative_pos, double beat_du
   double sample_rate = 0.0;
 
   if (is_audio_clip) {
-    SampleAsset* asset = clip->audio.asset;
-    sample_rate = (double)asset->sample_instance.sample_rate;
+    AudioAsset* asset = clip->audio.asset;
+    sample_rate = (double)asset->sample.sample_rate;
     relative_pos *= clip->audio.speed;
   }
 

@@ -2,10 +2,9 @@
 
 #include <fmt/chrono.h>
 
-#include "audio_asset.h"
+#include "asset.h"
 #include "audio_io.h"
 #include "audio_record.h"
-#include "core/thread.h"
 #include "extern/xxhash.h"
 #include "plughost/plugin_manager.h"
 #include "track.h"
@@ -22,28 +21,28 @@ static const uint32_t audio_record_buffer_size = 64 * 1024;
 static const uint32_t audio_record_file_chunk_size = 8 * 1024;
 static const uint32_t audio_record_chunk_size = 256 * 1024;
 
-static Pool<Clip> clip_allocator;
-static std::unordered_map<uint64_t, AudioAsset> audio_assets;
-static std::vector<TrackInputGroup> track_input_groups;
-static Vector<Pair<BpmUpdatedCallbackFn, void*>> bpm_updated_listener;
-static Vector<Pair<AudioDeviceRemovedFn, void*>> device_removed_listener;
-static Vector<Pair<AudioDeviceFormatChangedFn, void*>> device_format_changed_listener;
-static Vector<uint32_t> active_track_inputs;
-static Vector<uint32_t> active_record_tracks;
-static PlaybackState playback_state;
-static double audio_buffer_duration_ms;
-static double playhead_start;
-static double sample_position;
-static double ppq = 96.0;
+static Pool<Clip> clip_allocator_;
+static std::vector<TrackInputGroup> track_input_groups_;
+static Vector<Pair<BpmUpdatedCallbackFn, void*>> bpm_updated_listener_;
+static Vector<Pair<AudioDeviceRemovedFn, void*>> device_removed_listener_;
+static Vector<Pair<AudioDeviceFormatChangedFn, void*>> device_format_changed_listener_;
+static Vector<uint32_t> active_track_inputs_;
+static Vector<uint32_t> active_record_tracks_;
+static PlaybackState playback_state_;
+static double playhead_start_;
+static double sample_position_;
+static double ppq_ = 96.0;
 
-alignas(64) static Spinlock edit_lock;
-alignas(64) static std::atomic<uint32_t> playhead_updated;
-alignas(64) static std::atomic<double> beat_duration;
+alignas(64) static Spinlock edit_lock_;
+alignas(64) static std::atomic<uint32_t> playhead_updated_;
+alignas(64) static std::atomic<double> beat_duration_;
 
-static AudioBuffer<float> mixing_buffer;
-static AudioRecordQueue recorder_queue;
+static AudioBuffer<float> mixing_buffer_;
+static AudioRecordQueue recorder_queue_;
 static Vector<Sample> recorded_samples;
-static std::thread record_thread;
+static std::thread record_thread_;
+
+static Vector<Clip*> tmp_clips_;
 
 uint32_t Engine2::num_input_channels;
 uint32_t Engine2::num_output_channels;
@@ -62,7 +61,7 @@ AudioEngineConfig Engine2::audio_engine_config;
 
 static void call_device_removed_listener(void* userdata, bool reset_audio_device);
 static void call_device_format_changed_listener(void* userdata);
-static void set_playback_state(PlaybackState playback_state);
+static void set_playback_state(PlaybackState state);
 static void set_track_input(Track* track, TrackInputType type, uint32_t index, bool armed);
 static void stop_recording();
 static void write_recorded_samples(uint32_t num_samples);
@@ -75,6 +74,10 @@ void Engine2::initialize() {
 void Engine2::shutdown() {
   if (audio_io != nullptr || Engine2::is_audio_engine_running())
     Engine2::shutdown_audio_io();
+  clear_all();
+}
+
+void Engine2::clear_all() {
   for (auto track : tracks) {
     delete track;
   }
@@ -85,41 +88,66 @@ void Engine2::play() {
 }
 
 void Engine2::stop() {
-  if (playback_state == PlaybackState::Record)
+  if (playback_state_ == PlaybackState::Record)
     stop_recording();
   set_playback_state(PlaybackState::Stop);
 }
 
 void Engine2::record() {
-  if (playback_state == PlaybackState::Record)
+  if (playback_state_ == PlaybackState::Record)
     return;
-  if (track_input_groups.size() != 0) {
-    recorder_queue.start(AudioFormat::F32, audio_record_buffer_size / 4, track_input_groups);
-    record_thread = std::thread(record_thread_runner);
+  if (track_input_groups_.size() != 0) {
+    recorder_queue_.start(AudioFormat::F32, audio_record_buffer_size / 4, track_input_groups_);
+    record_thread_ = std::thread(record_thread_runner);
   }
   set_playback_state(PlaybackState::Record);
 }
 
+void Engine2::stop_record() {
+  if (playback_state_ == PlaybackState::Record)
+    stop_recording();
+}
+
 void Engine2::set_playhead_position(double position) {
-  std::scoped_lock lock(edit_lock);
-  playhead_start = position;
+  std::scoped_lock lock(edit_lock_);
+  playhead_start_ = position;
   playhead = position;
 }
 
 void Engine2::set_bpm(double bpm) {
   double new_beat_duration = 60.0 / bpm;
-  beat_duration.store(new_beat_duration, std::memory_order_release);
-  for (auto [cb, userdata] : bpm_updated_listener) {
+  beat_duration_.store(new_beat_duration, std::memory_order_release);
+  for (auto [cb, userdata] : bpm_updated_listener_) {
     cb(userdata, new_beat_duration, bpm);
   }
 }
 
+double Engine2::get_beat_duration() {
+  return beat_duration_.load(std::memory_order_relaxed);
+}
+
+double Engine2::get_bpm() {
+  return 60.0 / beat_duration_.load(std::memory_order_relaxed);
+}
+
+double Engine2::get_ppq() {
+  return ppq_;
+}
+
 bool Engine2::is_playing() {
-  return playback_state == PlaybackState::Play;
+  return playback_state_ != PlaybackState::Stop;
 }
 
 bool Engine2::is_recording() {
-  return playback_state == PlaybackState::Record;
+  return playback_state_ == PlaybackState::Record;
+}
+
+void Engine2::begin_edit() {
+  edit_lock_.lock();
+}
+
+void Engine2::end_edit() {
+  edit_lock_.unlock();
 }
 
 Track* Engine2::create_track(const std::string& name, const Color& color, float height, float volume_db, float pan) {
@@ -127,14 +155,14 @@ Track* Engine2::create_track(const std::string& name, const Color& color, float 
       new Track(name, color, height, true, TrackParameterState{ .volume_db = volume_db, .pan = pan, .mute = false });
   if (is_audio_engine_running())
     track->prepare_effect_buffer(current_engine_config.num_output_channels, current_engine_config.buffer_size);
-  std::scoped_lock lock(edit_lock);
+  std::scoped_lock lock(edit_lock_);
   tracks.push_back(track);
   return track;
 }
 
 void Engine2::delete_track(uint32_t slot) {
   Track* track = tracks[slot];
-  std::scoped_lock lock(edit_lock);
+  std::scoped_lock lock(edit_lock_);
   if (track->input.type != TrackInputType::None)
     set_track_input(track, TrackInputType::None, 0, false);
   tracks.erase_at(slot);
@@ -165,36 +193,105 @@ void Engine2::set_track_recording_state(uint32_t slot, bool armed) {
   set_track_input(track, track->input.type, track->input.index, armed);
 }
 
-Clip* Engine2::create_clip() {
-  return nullptr;
+void Engine2::set_track_input(Track* track, TrackInputType type, uint32_t index, bool armed) {
+  uint32_t new_input = TrackInput{ type, index }.as_packed_u32();
+  uint32_t old_input = track->input.as_packed_u32();
+  auto new_pred = [new_input](const TrackInputGroup& x) { return x.input == new_input; };
+  auto old_pred = [old_input](const TrackInputGroup& x) { return x.input == old_input; };
+  track->input_attr.armed = armed;
+
+  if (armed && (track->input.type != type || track->input.index != index)) {
+    // Remove previous input assignment
+    auto input_map = std::find_if(track_input_groups_.begin(), track_input_groups_.end(), old_pred);
+    if (input_map != track_input_groups_.end() && input_map->input_attrs == &track->input_attr) {
+      input_map->input_attrs = track->input_attr.next();
+      if (input_map->input_attrs == nullptr)
+        track_input_groups_.erase(input_map);
+    }
+    track->input_attr.remove_from_list();
+    // Assign new input
+    if (type != TrackInputType::None) {
+      input_map = std::find_if(track_input_groups_.begin(), track_input_groups_.end(), new_pred);
+      if (input_map == track_input_groups_.end()) {
+        track_input_groups_.emplace_back(new_input, &track->input_attr);
+      } else {
+        input_map->input_attrs->push_item_front(&track->input_attr);
+        input_map->input_attrs = &track->input_attr;
+      }
+    }
+  } else {
+    auto input_map = std::find_if(track_input_groups_.begin(), track_input_groups_.end(), new_pred);
+    if (armed && type != TrackInputType::None) {
+      // Assign new input
+      if (input_map == track_input_groups_.end()) {
+        track_input_groups_.emplace_back(new_input, &track->input_attr);
+      } else if (track->input.type != type || track->input.index != index) {
+        input_map->input_attrs->push_item_front(&track->input_attr);
+        input_map->input_attrs = &track->input_attr;
+      }
+    } else {
+      // Remove input assignment if not armed
+      if (input_map != track_input_groups_.end() && input_map->input_attrs == &track->input_attr) {
+        input_map->input_attrs = track->input_attr.next();
+        if (input_map->input_attrs == nullptr)
+          track_input_groups_.erase(input_map);
+      }
+      track->input_attr.remove_from_list();
+    }
+  }
+
+  track->input.type = type;
+  track->input.index = index;
+}
+
+void Engine2::update_track_state(Track* track) {
+  Vector<Clip*> new_cliplist;
+  new_cliplist.reserve(track->clips.capacity());
+
+  if (track->has_deleted_clips) {
+    for (auto clip : track->clips) {
+      if (clip->is_deleted()) {
+        tmp_clips_.push_back(clip);
+        continue;
+      }
+      new_cliplist.push_back(clip);
+    }
+    track->has_deleted_clips = false;
+    track->clips = std::move(new_cliplist);
+    for (auto clip : tmp_clips_) {
+      clip->~Clip();
+      clip_allocator_.free(clip);
+    }
+    tmp_clips_.resize(0);
+  }
+
+  std::sort(
+      track->clips.begin(), track->clips.end(), [](const Clip* a, const Clip* b) { return a->min_time < b->min_time; });
+
+  for (uint32_t i = 0; i < (uint32_t)track->clips.size(); i++) {
+    track->clips[i]->id = i;
+  }
+}
+
+Clip* Engine2::allocate_clip() {
+  return (Clip*)clip_allocator_.allocate();
+}
+
+Clip* Engine2::create_clip(
+    const std::string& name,
+    const Color& color,
+    double start_pos,
+    double end_pos,
+    double start_offset) {
+  Clip* clip = (Clip*)clip_allocator_.allocate();
+  if (!clip)
+    return nullptr;
+  return new (clip) Clip(name, color, start_pos, end_pos, start_offset);
 }
 
 void Engine2::destroy_clip(Clip* clip) {
-}
-
-AudioAsset* Engine2::create_or_find_audio_asset(const std::string& asset_path) {
-  if (asset_path.size() == 0)
-    return nullptr;
-
-  uint64_t hash = XXH3_64bits(asset_path.data(), asset_path.size());
-  auto item = audio_assets.find(hash);
-  if (item != audio_assets.end()) {
-    return &item->second;
-  }
-
-  auto sample{ Sample::load_file(asset_path) };
-  if (!sample)
-    return {};
-
-  auto sample_peaks{ WaveformVisual::create(&sample.value(), WaveformVisualQuality::High) };
-  if (sample_peaks == nullptr)
-    return {};
-
-  auto asset = audio_assets.try_emplace(hash, hash, std::move(*sample), sample_peaks, 1u);
-  return &asset.first->second;
-}
-
-void Engine2::create_midi_asset() {
+  clip->~Clip();
+  clip_allocator_.free(clip);
 }
 
 PluginInterface* Engine2::add_plugin(Track* track, uint32_t slot, PluginUID uid) {
@@ -272,20 +369,20 @@ PluginInterface* Engine2::add_plugin(Track* track, PluginUID uid) {
       Log::error("Cannot start plugin processing");
   }
 
-  edit_lock.lock();
+  edit_lock_.lock();
   track->default_input_bus = default_input_bus;
   track->default_output_bus = default_output_bus;
   track->plugin_instance = plugin;
-  edit_lock.unlock();
+  edit_lock_.unlock();
   return plugin;
 }
 
 void Engine2::remove_plugin(Track* track, uint32_t slot) {
   if (track->plugin_instance) {
     PluginInterface* plugin = track->plugin_instance;
-    edit_lock.lock();
+    edit_lock_.lock();
     track->plugin_instance = nullptr;
-    edit_lock.unlock();
+    edit_lock_.unlock();
     plugin->stop_processing();
     plugin->shutdown();
     pm_close_plugin(plugin);
@@ -362,8 +459,8 @@ bool Engine2::start_audio_engine() {
   audio_engine_config.num_input_channels = audio_io->max_input_channel_count;
   audio_engine_config.num_output_channels = audio_io->max_output_channel_count;
   audio_engine_config.priority = AudioThreadPriority::Highest;
-  mixing_buffer.resize(audio_engine_config.buffer_size, true);
-  mixing_buffer.resize_channel(audio_engine_config.num_output_channels);
+  mixing_buffer_.resize(audio_engine_config.buffer_size, true);
+  mixing_buffer_.resize_channel(audio_engine_config.num_output_channels);
 
   for (auto track : tracks)
     track->prepare_effect_buffer(audio_engine_config.num_output_channels, audio_engine_config.buffer_size);
@@ -374,7 +471,7 @@ bool Engine2::start_audio_engine() {
     audio_engine_config.input_format = audio_io->shared_mode_output_format;
     audio_engine_config.output_format = audio_io->shared_mode_input_format;
   }
-  
+
   current_engine_config = audio_engine_config;
 
   bool success = audio_io->start(
@@ -484,8 +581,8 @@ void Engine2::set_processing_param(
   audio_buffer_size = buffer_size;
   audio_sample_rate = sample_rate;
   audio_buffer_duration_ms = period_to_ms(buffer_size_to_period(buffer_size, sample_rate));
-  mixing_buffer.resize(buffer_size);
-  mixing_buffer.resize_channel(output_channels);
+  mixing_buffer_.resize(buffer_size);
+  mixing_buffer_.resize_channel(output_channels);
   for (auto track : tracks)
     track->prepare_effect_buffer(num_output_channels, buffer_size);
 }
@@ -504,16 +601,18 @@ void Engine2::update_audio_visualization(float frame_rate) {
 void Engine2::process(AudioBuffer<float>& output_buffer, const AudioBuffer<float>& input_buffer, double sample_rate) {
   ScopedPerformanceCounter counter;
   {
-    double inv_ppq = 1.0 / ppq;
+    double inv_ppq = 1.0 / ppq_;
     double current_playhead_position = playhead;
-    double current_beat_duration = beat_duration.load(std::memory_order_relaxed);
+    double current_beat_duration = beat_duration_.load(std::memory_order_relaxed);
     double buffer_duration = (double)output_buffer.n_samples / sample_rate;
     double buffer_duration_in_beats = buffer_duration / current_beat_duration;
     double next_playhead_pos = playhead + buffer_duration_in_beats;
     int64_t playhead_in_samples = beat_to_samples(playhead, sample_rate, current_beat_duration);
-    std::scoped_lock lock(edit_lock);
-    PlaybackState state = playback_state;
+    std::scoped_lock lock(edit_lock_);
+    PlaybackState state = playback_state_;
     bool is_playing = state != PlaybackState::Stop;
+
+    output_buffer.clear();
 
     for (uint32_t i = 0; i < tracks.size(); i++) {
       auto track = tracks[i];
@@ -524,39 +623,39 @@ void Engine2::process(AudioBuffer<float>& output_buffer, const AudioBuffer<float
         track->kill_all_voices(0, playhead);
       }
 
-      mixing_buffer.clear();
+      mixing_buffer_.clear();
       track->process(
           input_buffer,
-          mixing_buffer,
+          mixing_buffer_,
           sample_rate,
           current_beat_duration,
           buffer_duration_in_beats,
-          sample_position,
+          sample_position_,
           current_playhead_position,
           next_playhead_pos,
-          ppq,
+          ppq_,
           inv_ppq,
           playhead_in_samples,
           is_playing);
 
-      output_buffer.mix(mixing_buffer);
+      output_buffer.mix(mixing_buffer_);
     }
 
     if (is_playing) {
-      sample_position += beat_to_samples(buffer_duration_in_beats, sample_rate, current_beat_duration);
+      sample_position_ += beat_to_samples(buffer_duration_in_beats, sample_rate, current_beat_duration);
       playhead = next_playhead_pos;
 
       if (state == PlaybackState::Record) {
-        recorder_queue.begin_write(audio_buffer_size);
-        for (uint32_t i = 0; i < track_input_groups.size(); i++) {
-          TrackInput input = TrackInput::from_packed_u32(track_input_groups[i].input);
+        recorder_queue_.begin_write(audio_buffer_size);
+        for (uint32_t i = 0; i < track_input_groups_.size(); i++) {
+          TrackInput input = TrackInput::from_packed_u32(track_input_groups_[i].input);
           switch (input.type) {
-            case TrackInputType::ExternalStereo: recorder_queue.write(i, input.index * 2, 2, input_buffer); break;
-            case TrackInputType::ExternalMono: recorder_queue.write(i, input.index, 1, input_buffer); break;
+            case TrackInputType::ExternalStereo: recorder_queue_.write(i, input.index * 2, 2, input_buffer); break;
+            case TrackInputType::ExternalMono: recorder_queue_.write(i, input.index, 1, input_buffer); break;
             default: WB_UNREACHABLE();
           }
         }
-        recorder_queue.end_write();
+        recorder_queue_.end_write();
       }
     }
 
@@ -575,107 +674,56 @@ void Engine2::process(AudioBuffer<float>& output_buffer, const AudioBuffer<float
 }
 
 void Engine2::add_bpm_update_listener(void* userdata, BpmUpdatedCallbackFn fn) {
-  bpm_updated_listener.emplace_back(fn, userdata);
+  bpm_updated_listener_.emplace_back(fn, userdata);
 }
 
 void Engine2::add_audio_device_removed_listener(void* userdata, AudioDeviceRemovedFn fn) {
-  device_removed_listener.emplace_back(fn, userdata);
+  device_removed_listener_.emplace_back(fn, userdata);
 }
 
 void Engine2::add_audio_device_format_changed_listener(void* userdata, AudioDeviceFormatChangedFn fn) {
-  device_format_changed_listener.emplace_back(fn, userdata);
+  device_format_changed_listener_.emplace_back(fn, userdata);
 }
 
 void call_device_removed_listener(void* internal_userdata, bool reset_audio_device) {
-  for (auto [fn, userdata] : device_removed_listener) {
+  for (auto [fn, userdata] : device_removed_listener_) {
     fn(userdata, reset_audio_device);
   }
 }
 
 void call_device_format_changed_listener(void* internal_userdata) {
-  for (auto [fn, userdata] : device_format_changed_listener) {
+  for (auto [fn, userdata] : device_format_changed_listener_) {
     fn(userdata);
   }
 }
 
 void set_playback_state(PlaybackState state) {
-  std::scoped_lock lock(edit_lock);
+  std::scoped_lock lock(edit_lock_);
 
   if (state == PlaybackState::Stop) {
-    playback_state = state;
-    Engine2::playhead = playhead_start;
+    playback_state_ = state;
+    Engine2::playhead = playhead_start_;
     for (auto track : Engine2::tracks)
       track->stop();
     return;
   }
 
-  bool is_recording = state == PlaybackState::Record;
-  playback_state = state;
-
-  for (auto track : Engine2::tracks) {
-    if (is_recording)
-      track->prepare_record(playhead_start);
-    track->reset_playback_state(playhead_start, false);
+  if (playback_state_ == PlaybackState::Stop) {
+    for (auto track : Engine2::tracks) {
+      if (state == PlaybackState::Record)
+        track->prepare_record(playhead_start_);
+      track->reset_playback_state(playhead_start_, false);
+    }
+    sample_position_ = 0.0;
   }
 
-  sample_position = 0.0;
-}
-
-void set_track_input(Track* track, TrackInputType type, uint32_t index, bool armed) {
-  uint32_t new_input = TrackInput{ type, index }.as_packed_u32();
-  uint32_t old_input = track->input.as_packed_u32();
-  auto new_pred = [new_input](const TrackInputGroup& x) { return x.input == new_input; };
-  auto old_pred = [old_input](const TrackInputGroup& x) { return x.input == old_input; };
-  track->input_attr.armed = armed;
-
-  if (armed && (track->input.type != type || track->input.index != index)) {
-    // Remove previous input assignment
-    auto input_map = std::find_if(track_input_groups.begin(), track_input_groups.end(), old_pred);
-    if (input_map != track_input_groups.end() && input_map->input_attrs == &track->input_attr) {
-      input_map->input_attrs = track->input_attr.next();
-      if (input_map->input_attrs == nullptr)
-        track_input_groups.erase(input_map);
-    }
-    track->input_attr.remove_from_list();
-    // Assign new input
-    if (type != TrackInputType::None) {
-      input_map = std::find_if(track_input_groups.begin(), track_input_groups.end(), new_pred);
-      if (input_map == track_input_groups.end()) {
-        track_input_groups.emplace_back(new_input, &track->input_attr);
-      } else {
-        input_map->input_attrs->push_item_front(&track->input_attr);
-        input_map->input_attrs = &track->input_attr;
-      }
-    }
-  } else {
-    auto input_map = std::find_if(track_input_groups.begin(), track_input_groups.end(), new_pred);
-    if (armed && type != TrackInputType::None) {
-      // Assign new input
-      if (input_map == track_input_groups.end()) {
-        track_input_groups.emplace_back(new_input, &track->input_attr);
-      } else if (track->input.type != type || track->input.index != index) {
-        input_map->input_attrs->push_item_front(&track->input_attr);
-        input_map->input_attrs = &track->input_attr;
-      }
-    } else {
-      // Remove input assignment if not armed
-      if (input_map != track_input_groups.end() && input_map->input_attrs == &track->input_attr) {
-        input_map->input_attrs = track->input_attr.next();
-        if (input_map->input_attrs == nullptr)
-          track_input_groups.erase(input_map);
-      }
-      track->input_attr.remove_from_list();
-    }
-  }
-
-  track->input.type = type;
-  track->input.index = index;
+  playback_state_ = state;
 }
 
 void stop_recording() {
-  if (track_input_groups.size() != 0) {
-    recorder_queue.stop();
-    record_thread.join();
+  if (track_input_groups_.size() != 0) {
+    recorder_queue_.stop();
+    record_thread_.join();
   }
   for (auto track : Engine2::tracks) {
     if (track->input_attr.recording) {
@@ -705,8 +753,8 @@ void stop_recording() {
 }
 
 void write_recorded_samples(uint32_t num_samples) {
-  for (uint32_t i = 0; i < track_input_groups.size(); i++) {
-    TrackInputGroup& group = track_input_groups[i];
+  for (uint32_t i = 0; i < track_input_groups_.size(); i++) {
+    TrackInputGroup& group = track_input_groups_[i];
     TrackInput input = TrackInput::from_packed_u32(group.input);
     uint32_t num_channels = input.type == TrackInputType::ExternalMono ? 1 : 2;
     for (auto input_attr = group.input_attrs; input_attr != nullptr; input_attr = input_attr->next()) {
@@ -722,7 +770,7 @@ void write_recorded_samples(uint32_t num_samples) {
         Log::debug("Resize sample");
       }
       auto sample_data = track->recorded_samples->get_sample_data<float>();
-      recorder_queue.read(i, sample_data, track->num_samples_written, 0, num_channels);
+      recorder_queue_.read(i, sample_data, track->num_samples_written, 0, num_channels);
       track->num_samples_written = required_size;
     }
   }
@@ -730,15 +778,15 @@ void write_recorded_samples(uint32_t num_samples) {
 
 void record_thread_runner() {
   uint32_t num_samples_to_read = audio_record_file_chunk_size / 4;
-  while (recorder_queue.begin_read(num_samples_to_read)) {
+  while (recorder_queue_.begin_read(num_samples_to_read)) {
     write_recorded_samples(num_samples_to_read);
-    recorder_queue.end_read();
+    recorder_queue_.end_read();
   }
-  uint32_t remaining_samples = recorder_queue.size();
+  uint32_t remaining_samples = recorder_queue_.size();
   if (remaining_samples > 0) {
-    recorder_queue.begin_read(remaining_samples);
+    recorder_queue_.begin_read(remaining_samples);
     write_recorded_samples(remaining_samples);
-    recorder_queue.end_read();
+    recorder_queue_.end_read();
   }
 }
 

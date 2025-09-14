@@ -5,6 +5,7 @@
 #include <atomic>
 #include <string>
 
+#include "asset.h"
 #include "assets_table.h"
 #include "core/color.h"
 #include "core/common.h"
@@ -37,7 +38,8 @@ enum class ClipHover {
 };
 
 struct AudioClip {
-  SampleAsset* asset;
+  SampleAsset* asset2;
+  AudioAsset* asset;
   double fade_start;
   double fade_end;
   double speed;
@@ -45,14 +47,15 @@ struct AudioClip {
 };
 
 struct MidiClip {
-  MidiAsset* asset;
+  MidiAsset* asset2;
+  MidiAsset2* asset;
   double length;
   int16_t transpose;
   int16_t rate;
   ClipMode mode;
 };
 
-struct Clip {
+struct Clip : public InplaceList<Clip> {
   uint32_t id{};
 
   // General clip information
@@ -120,8 +123,8 @@ struct Clip {
         max_time(std::exchange(clip.max_time, {})),
         start_offset(std::exchange(clip.start_offset, {})) {
     switch (type) {
-      case ClipType::Audio: audio = clip.audio; break;
-      case ClipType::Midi: midi = clip.midi; break;
+      case ClipType::Audio: audio = std::exchange(clip.audio, {}); break;
+      case ClipType::Midi: midi = std::exchange(clip.midi, {}); break;
       default: break;
     }
   }
@@ -129,14 +132,17 @@ struct Clip {
   ~Clip() {
     switch (type) {
       case ClipType::Audio:
-        if (audio.asset)
+        if (audio.asset) {
           audio.asset->release();
+          audio.asset = nullptr;
+        }
         break;
       case ClipType::Midi:
-        if (midi.asset)
-          midi.asset->release();
+        if (midi.asset) {
+          audio.asset->release();
+          audio.asset = nullptr;
+        }
         break;
-      default: break;
     }
   }
 
@@ -151,15 +157,16 @@ struct Clip {
     start_offset = clip.start_offset;
     switch (type) {
       case ClipType::Audio: {
-        SampleAsset* old_asset = audio.asset;
+        AudioAsset* old_asset = audio.asset;
         audio = clip.audio;
         audio.asset->add_ref();
-        if (old_asset)
+        if (old_asset) {
           old_asset->release();
+        }
         break;
       }
       case ClipType::Midi: {
-        MidiAsset* old_asset = midi.asset;
+        MidiAsset2* old_asset = midi.asset;
         midi = clip.midi;
         midi.asset->add_ref();
         if (old_asset)
@@ -212,7 +219,7 @@ struct Clip {
 
   inline double get_asset_sample_rate() const {
     if (type == ClipType::Audio && audio.asset) {
-      return audio.asset->sample_instance.sample_rate;
+      return audio.asset->sample.sample_rate;
     }
     return 0.0;
   }
@@ -221,7 +228,7 @@ struct Clip {
     if (type == ClipType::Audio) {
       if (audio.asset == nullptr)
         return 0.0;
-      return samples_to_beat(start_offset, (double)audio.asset->sample_instance.sample_rate, beat_duration);
+      return samples_to_beat(start_offset, (double)audio.asset->sample.sample_rate, beat_duration);
     }
     return start_offset;
   }

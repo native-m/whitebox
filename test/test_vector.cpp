@@ -215,9 +215,9 @@ TEST_CASE("Vector erase") {
     vec.push_back(6);
     vec.push_back(7);
     vec.push_back(8);
-    vec.erase(3);
+    vec.erase_at(3);
     REQUIRE(vec[3] == 5);
-    vec.erase(vec.size() - 1);
+    vec.erase_at(vec.size() - 1);
     REQUIRE(vec[vec.size() - 1] == 7);
   }
 
@@ -228,7 +228,7 @@ TEST_CASE("Vector erase") {
     vec.emplace_back(3);
     vec.emplace_back(4);
     vec.emplace_back(5);
-    vec.erase(2);
+    vec.erase_at(2);
     REQUIRE(vec[2].a == 4);
   }
 }
@@ -314,7 +314,9 @@ TEST_CASE("Vector reserve & resize") {
     wb::Vector<TestType2> vec;
     vec.resize(10);
     REQUIRE(vec.size() == 10);
+    REQUIRE(!vec.empty());
     vec.resize(5);
     REQUIRE(vec.size() == 5);
+    REQUIRE(!vec.empty());
   }
 }

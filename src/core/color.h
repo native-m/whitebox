@@ -1,8 +1,9 @@
 #pragma once
 
-//#include <imgui.h>
+// #include <imgui.h>
 
 #include "core_math.h"
+#include "extern/hsluv.h"
 
 #define WB_IM_COLOR_U32_SET_ALPHA(col, alpha) (((col) & 0x00FFFFFFu) | (alpha << 24u))
 #define WB_IM_COLOR_U32_GET_ALPHA(col)        (((col) & 0xFF000000u) >> 24u)
@@ -27,10 +28,18 @@ namespace wb {
 
 using ColorU32 = uint32_t;
 
-struct Color {
-  float r = 0.0f, g = 0.0f, b = 0.0f, a = 0.0f;
+struct ColorHSV {
+  float h, s, v, a;
+};
 
-  constexpr Color() {
+struct ColorLCH {
+  float l, c, h, a;
+};
+
+struct Color {
+  float r, g, b, a;
+
+  constexpr Color() : r(0.0f), g(0.0f), b(0.0f), a(1.0f) {
   }
 
   constexpr Color(float r, float g, float b, float a = 1.0f) : r(r), g(g), b(b), a(a) {
@@ -166,9 +175,15 @@ struct Color {
 
     return Color(out_r, out_g, out_b, 1.0f);
   }
+
+  inline static Color from_hsluv(float h, float s, float l, float a = 1.0f) {
+    double r, g, b;
+    hsluv2rgb((double)h * 360.0, (double)s * 100.0, (double)l * 100.0, &r, &g, &b);
+    return Color((float)r, (float)g, (float)b, a);
+  }
 };
 
-inline static constexpr float calc_contrast_ratio(const Color& a, const Color& b) {
+inline static constexpr float get_contrast_ratio(const Color& a, const Color& b) {
   float y1 = a.luminance();
   float y2 = b.luminance();
   return y1 > y2 ? (y2 + 0.05f) / (y1 + 0.05f) : (y1 + 0.05f) / (y2 + 0.05f);

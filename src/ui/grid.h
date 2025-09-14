@@ -11,6 +11,7 @@ struct GridProperties {
 
 GridProperties get_grid_properties(int32_t grid_mode);
 double calc_bar_division(double length_per_beat, double max_division, double gap_scale, bool triplet);
+double round_to_grid(double time_pos, double length_per_beat, int32_t grid_mode, bool triplet);
 bool grid_combo_box(const char* str, int32_t* grid_mode, bool* triplet_grid);
 
 void draw_musical_guidestripes(
@@ -27,8 +28,9 @@ void draw_musical_grid(
     const ImVec2& size,
     double scroll_pos_x,
     double length_per_beat,
-    const GridProperties& properties,
+    const GridProperties& grid_props,
     float alpha,
     bool triplet = false);
+
 
 }  // namespace wb

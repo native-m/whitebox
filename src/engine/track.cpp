@@ -156,6 +156,57 @@ std::optional<ClipQueryResult> Track::query_clip_by_range(double min, double max
   };
 }
 
+ClipQueryResult2 Track::query_clip_by_range2(double start, double end) const {
+  assert(start <= end && "Starting position should be less or equal than ending position");
+  auto it_begin = clips.begin();
+  auto it_end = clips.end();
+
+  if (it_begin == it_end)
+    return {};
+
+  if (end <= (*it_begin)->min_time)
+    return {};
+
+  if (start >= clips.back()->max_time)
+    return {};
+
+  auto first =
+      wb::find_lower_bound(it_begin, it_end, start, [](const Clip* clip, double time) { return clip->max_time <= time; });
+  auto last =
+      wb::find_lower_bound(it_begin, it_end, end, [](const Clip* clip, double time) { return clip->max_time <= time; });
+  uint32_t first_clip = first - it_begin;
+  uint32_t last_clip = last - it_begin;
+
+  if (first == last && (start > (*first)->max_time || end < (*last)->min_time)) {
+    return {};
+  }
+
+  double first_offset;
+  double last_offset;
+
+  if (start > (*first)->max_time) {
+    first_clip++;
+    first_offset = start - clips[first_clip]->min_time;
+  } else {
+    first_offset = start - (*first)->min_time;
+  }
+
+  if (end > (*last)->min_time) {
+    last_offset = end - (*last)->max_time;
+  } else {
+    last_clip--;
+    last_offset = end - clips[last_clip]->max_time;
+  }
+
+  return {
+    .contains_clip = true,
+    .first = first_clip,
+    .last = last_clip,
+    .first_offset = first_offset,
+    .last_offset = last_offset,
+  };
+}
+
 void Track::update_clip_ordering() {
   Vector<Clip*> new_cliplist;
   if (has_deleted_clips) {
@@ -366,7 +417,7 @@ void Track::process_event(
           .speed = clip->audio.speed,
           .sample_offset = (size_t)clip->start_offset,
           .clip = clip,
-          .sample = &clip->audio.asset->sample_instance,
+          .sample = &clip->audio.asset->sample,
         });
       } else {
         event_state.midi_note_idx = clip->midi.asset->find_first_note(clip->start_offset, 0);
@@ -384,7 +435,7 @@ void Track::process_event(
           .speed = clip->audio.speed,
           .sample_offset = sample_offset,
           .clip = clip,
-          .sample = &clip->audio.asset->sample_instance,
+          .sample = &clip->audio.asset->sample,
         });
       } else {
         double actual_start_offset = relative_start_time + clip->start_offset;
@@ -408,7 +459,7 @@ void Track::process_event(
           .speed = clip->audio.speed,
           .sample_offset = sample_offset,
           .clip = clip,
-          .sample = &clip->audio.asset->sample_instance,
+          .sample = &clip->audio.asset->sample,
         });
       } else {
         kill_all_voices(0, start_time);
@@ -460,7 +511,7 @@ void Track::process_midi_event(
     double ppq,
     double inv_ppq,
     uint32_t buffer_size) {
-  MidiAsset* asset = clip->midi.asset;
+  MidiAsset2* asset = clip->midi.asset;
   const MidiNoteBuffer& buffer = asset->data.note_sequence;
   uint32_t midi_note_idx = event_state.midi_note_idx;
   uint32_t note_count = (uint32_t)buffer.size();

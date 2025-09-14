@@ -9,6 +9,7 @@
 #include "core/core_math.h"
 #include "core/debug.h"
 #include "track.h"
+#include "engine2.h"
 
 using namespace std::chrono_literals;
 
@@ -132,7 +133,7 @@ void Engine::stop_record() {
           track->record_min_time,
           track->record_max_time,
           0.0,
-          AudioClip{ .asset = asset, .speed = 1.0, .gain = 1.0f });
+          AudioClip{ .asset2 = asset, .speed = 1.0, .gain = 1.0f });
       track->recorded_samples.reset();
     }
     track->stop_record();
@@ -278,13 +279,13 @@ TrackEditResult Engine::add_clip_from_file(Track* track, const std::filesystem::
     double clip_length = samples_to_beat(sample_asset->sample_instance.count, sample_rate, beat_duration);
     double max_time = time_pos + math::uround(clip_length * ppq) / ppq;
     return add_audio_clip(
-        track, path.filename().string(), time_pos, max_time, 0.0, { .asset = sample_asset, .speed = 1.0, .gain = 1.0f });
+        track, path.filename().string(), time_pos, max_time, 0.0, { .asset2 = sample_asset, .speed = 1.0, .gain = 1.0f });
   }
 
   if (MidiAsset* midi_asset = g_midi_table.load_from_file(path)) {
     double end_time = time_pos + midi_asset->data.max_length;
     return add_midi_clip(
-        track, "", time_pos, end_time, 0.0, { .asset = midi_asset, .length = midi_asset->data.max_length, .rate = 1 });
+        track, "", time_pos, end_time, 0.0, { .asset2 = midi_asset, .length = midi_asset->data.max_length, .rate = 1 });
   }
 
   return {};
@@ -584,7 +585,7 @@ MultiEditResult Engine::create_midi_clips(
     assert(asset != nullptr);
     new (clip) Clip("", track->color, min_pos, max_pos);
     clip->init_as_midi_clip({
-      .asset = asset,
+      .asset2 = asset,
       .length = max_pos - min_pos,
       .rate = 1,
     });
@@ -1112,7 +1113,7 @@ MidiEditResult Engine::add_note(
   if (clip == nullptr)
     return {};
 
-  MidiAsset* asset = clip->midi.asset;
+  MidiAsset2* asset = clip->midi.asset;
   MidiNoteBuffer& note_seq = asset->data.note_sequence;
   std::unique_lock lock(editor_lock);
 
@@ -1136,7 +1137,7 @@ MidiEditResult Engine::add_note(uint32_t track_id, uint32_t clip_id, uint32_t ch
   if (clip == nullptr)
     return {};
 
-  MidiAsset* asset = clip->midi.asset;
+  MidiAsset2* asset = clip->midi.asset;
   MidiNoteBuffer& note_seq = asset->data.note_sequence;
   std::unique_lock lock(editor_lock);
   MidiNote* added_notes = note_seq.append(midi_notes.begin(), midi_notes.end());
@@ -1261,7 +1262,7 @@ std::optional<MidiEditResult> Engine::slice_note(
   if (clip == nullptr)
     return {};
 
-  MidiAsset* asset = clip->midi.asset;
+  MidiAsset2* asset = clip->midi.asset;
   MidiNoteBuffer& note_seq = asset->data.note_sequence;
   NoteSequenceID seq_id = asset->data.find_note(slice_pos, note_key, channel);
   if (seq_id == (uint32_t)-1)
@@ -1300,7 +1301,7 @@ Vector<uint32_t> Engine::mute_selected_note(uint32_t track_id, uint32_t clip_id,
   if (clip == nullptr)
     return {};
 
-  MidiAsset* asset = clip->midi.asset;
+  MidiAsset2* asset = clip->midi.asset;
   MidiNoteBuffer& note_seq = asset->data.note_sequence;
   // MidiNoteMetadataPool& metadata_pool = asset->data.note_metadata_pool;
   uint32_t num_erased = 0;
@@ -1335,7 +1336,7 @@ MidiEditResult Engine::delete_marked_notes(uint32_t track_id, uint32_t clip_id, 
   if (clip == nullptr)
     return {};
 
-  MidiAsset* asset = clip->midi.asset;
+  MidiAsset2* asset = clip->midi.asset;
   MidiNoteBuffer& note_seq = asset->data.note_sequence;
   // MidiNoteMetadataPool& metadata_pool = asset->data.note_metadata_pool;
   MidiNoteBuffer backup;

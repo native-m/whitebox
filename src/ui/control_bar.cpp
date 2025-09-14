@@ -3,17 +3,17 @@
 #include <imgui.h>
 
 #include "IconsMaterialSymbols.h"
-#include "command_manager.h"
 #include "config.h"
 #include "controls.h"
 #include "core/color.h"
 #include "core/mem_info.h"
 #include "dialogs.h"
-#include "engine/engine.h"
+#include "engine/command_manager2.h"
+#include "engine/engine2.h"
 #include "engine/project.h"
 #include "file_dialog.h"
 #include "font.h"
-#include "timeline.h"
+#include "timeline2.h"
 #include "window.h"
 
 namespace wb {
@@ -51,7 +51,7 @@ void perf_counter_display() {
   if (perf_counter_timeout == 0.0) {
     MemoryInfo mem_info = get_app_memory_info();
     perf_counter_timeout = tm_ms_to_sec(100.0);
-    cpu_usage = g_engine.perf_measurer.get_usage() * 100.0;
+    cpu_usage = Engine2::perf_measurer.get_usage() * 100.0;
     mem_usage = mem_info.overall_usage;
   } else {
     perf_counter_timeout = math::max(perf_counter_timeout - GImGui->IO.DeltaTime, 0.0);
@@ -87,8 +87,8 @@ void main_control_bar() {
   ImVec2 frame_padding = GImGui->Style.FramePadding;
   ImVec4 btn_color = GImGui->Style.Colors[ImGuiCol_Button];
   ImVec4 frame_bg = GImGui->Style.Colors[ImGuiCol_FrameBg];
-  bool is_playing = g_engine.is_playing();
-  bool is_recording = g_engine.is_recording();
+  bool is_playing = Engine2::is_playing();
+  bool is_recording = Engine2::is_recording();
   bool new_project = false;
   bool open_project = false;
   bool save_project = false;
@@ -120,13 +120,13 @@ void main_control_bar() {
 
   //
   if (ImGui::Button(ICON_MS_UNDO "##wb_undo")) {
-    g_cmd_manager.undo();
+    CommandManager2::undo();
   }
   controls::item_tooltip("Undo");
   ImGui::SameLine(0.0f, 4.0f);
 
   if (ImGui::Button(ICON_MS_REDO "##wb_redo")) {
-    g_cmd_manager.redo();
+    CommandManager2::redo();
   }
   controls::item_tooltip("Redo");
   ImGui::SameLine(0.0f, 12.0f);
@@ -134,20 +134,20 @@ void main_control_bar() {
   // Transport button
   if (ImGui::Button(!is_playing ? ICON_MS_PLAY_ARROW "##wb_play" : ICON_MS_PAUSE "##wb_play")) {
     if (is_playing) {
-      if (g_engine.recording)
-        g_timeline.redraw_screen();
-      g_engine.stop();
+      if (Engine2::is_recording())
+        timeline_redraw_window();
+      Engine2::stop();
     } else {
-      g_engine.play();
+      Engine2::play();
     }
   }
   controls::item_tooltip("Play or pause");
   ImGui::SameLine(0.0f, 4.0f);
 
   if (ImGui::Button(ICON_MS_STOP "##wb_stop")) {
-    if (g_engine.recording)
-      g_timeline.redraw_screen();
-    g_engine.stop();
+    if (Engine2::is_recording())
+        timeline_redraw_window();
+    Engine2::stop();
   }
   controls::item_tooltip("Stop");
   ImGui::SameLine(0.0f, 4.0f);
@@ -156,10 +156,10 @@ void main_control_bar() {
   if (controls::toggle_button(
           ICON_MS_FIBER_MANUAL_RECORD "##wb_record", &is_recording, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive))) {
     if (!is_recording) {
-      g_engine.record();
+      Engine2::record();
     } else {
-      g_timeline.redraw_screen();
-      g_engine.stop_record();
+      Engine2::stop_record();
+      timeline_redraw_window();
     }
   }
   ImGui::PopStyleColor();
@@ -178,9 +178,9 @@ void main_control_bar() {
 
   // Tempo
   ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 8.5f));
-  float tempo = (float)g_engine.get_bpm();
+  float tempo = (float)Engine2::get_bpm();
   if (ImGui::DragFloat("##tempo_drag", &tempo, 1.0f, 0.0f, 0.0f, "%.2f BPM", ImGuiSliderFlags_Vertical)) {
-    g_engine.set_bpm((double)tempo);
+    Engine2::set_bpm((double)tempo);
   }
   controls::item_tooltip("Tempo (BPM)");
   ImGui::PopItemWidth();
@@ -244,14 +244,14 @@ void main_control_bar() {
   }
 
   if (new_project) {
-    //shutdown_audio_io();
-    g_engine.clear_all();
-    g_cmd_manager.reset(true);
+    // shutdown_audio_io();
+    Engine2::clear_all();
+    CommandManager2::flush();
     g_timeline.reset();
     g_timeline.add_track();
     g_timeline.recalculate_song_length();
-    g_timeline.redraw_screen();
-    //start_audio_engine();
+    timeline_redraw_window();
+    // start_audio_engine();
   } else if (open_project) {
     open_file_dialog_async("open_project", { { "Whitebox Project File (*.wb)", "wb" } }, nullptr);
   } else if (save_project) {
@@ -265,8 +265,8 @@ void main_control_bar() {
   const std::filesystem::path* open_file_path;
   if (auto ret = get_file_dialog_payload("open_project", FileDialogType::OpenFile, &open_file_path);
       ret == FileDialogStatus::Accepted) {
-    //shutdown_audio_io();
-    g_engine.clear_all();
+    // shutdown_audio_io();
+    /*g_engine.clear_all();
     g_cmd_manager.reset(true);
     auto result = read_project_file(*open_file_path, g_engine, g_sample_table, g_midi_table, g_timeline);
     if (result != ProjectFileResult::Ok) {
@@ -274,21 +274,21 @@ void main_control_bar() {
       assert(false);
     }
     g_timeline.recalculate_song_length();
-    g_timeline.redraw_screen();
-    //start_audio_engine();
+    g_timeline.redraw_screen();*/
+    // start_audio_engine();
   }
 
   const std::filesystem::path* save_file_path;
   if (auto ret = get_file_dialog_payload("save_project", FileDialogType::SaveFile, &save_file_path);
       ret == FileDialogStatus::Accepted) {
-    //shutdown_audio_io();
-    auto result = write_project_file(*save_file_path, g_engine, g_sample_table, g_midi_table, g_timeline);
+    // shutdown_audio_io();
+    /*auto result = write_project_file(*save_file_path, g_engine, g_sample_table, g_midi_table, g_timeline);
     if (result != ProjectFileResult::Ok) {
       Log::error("Failed to open project {}", (uint32_t)result);
       assert(false);
     }
-    g_cmd_manager.is_modified = false;
-    //start_audio_engine();
+    g_cmd_manager.is_modified = false;*/
+    // start_audio_engine();
   }
 }
 }  // namespace wb

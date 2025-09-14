@@ -14,7 +14,7 @@ void main() {
     
     //uint dir = (vertex_idx >> (vertex_idx < 3 ? 1 : 2)) & 1;
     float max_height_y = draw_cmd.scale_y * 0.5;
-    float height = max_height_y * draw_cmd.gain;
+    float height = max(max_height_y - 1.0, 0.0) * draw_cmd.gain;
     float y = vertex_idx == 1 ? minmax.y : minmax.x;
     
     vec2 pos;

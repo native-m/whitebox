@@ -71,7 +71,7 @@ static ImU32 text_color;
 static ImFont* font;
 static ImDrawList* piano_roll_dl{};
 static ImDrawList* layer1_dl{};
-static ImDrawList* layer2_dl{};
+static ImDrawList* layer2_dl_{};
 static ImDrawData layer_draw_data;
 static GPUTexture* piano_roll_fb{};
 
@@ -902,11 +902,11 @@ static void clip_editor_render_note_editor() {
   if (clip_editor_base.redraw) {
     ImTextureID font_tex_id = ImGui::GetIO().Fonts->TexID;
     layer1_dl->_ResetForNewFrame();
-    layer2_dl->_ResetForNewFrame();
+    layer2_dl_->_ResetForNewFrame();
     layer1_dl->PushTextureID(font_tex_id);
-    layer2_dl->PushTextureID(font_tex_id);
+    layer2_dl_->PushTextureID(font_tex_id);
     layer1_dl->PushClipRect(view_min, view_max);
-    layer2_dl->PushClipRect(view_min, view_max);
+    layer2_dl_->PushClipRect(view_min, view_max);
     fg_notes.resize_fast(0);
 
     // Draw guidestripes & grid
@@ -1293,13 +1293,13 @@ static void clip_editor_render_note_editor() {
     float b_x = (float)math::round(scroll_offset_x + sel_end_pos * note_scale);
     float a_y = (float)(131 - sel_first_key) * note_height_in_pixel;
     float b_y = (float)(131 - sel_last_key + 1) * note_height_in_pixel;
-    im_draw_rect_filled(layer2_dl, a_x, a_y + cursor_pos.y, b_x, b_y + cursor_pos.y, selection_range_fill);
-    im_draw_rect(layer2_dl, a_x, a_y + cursor_pos.y, b_x, b_y + cursor_pos.y, selection_range_border);
+    im_draw_rect_filled(layer2_dl_, a_x, a_y + cursor_pos.y, b_x, b_y + cursor_pos.y, selection_range_fill);
+    im_draw_rect(layer2_dl_, a_x, a_y + cursor_pos.y, b_x, b_y + cursor_pos.y, selection_range_border);
   }
 
   if (clip_editor_base.redraw) {
-    layer2_dl->PopClipRect();
-    layer2_dl->PopTextureID();
+    layer2_dl_->PopClipRect();
+    layer2_dl_->PopTextureID();
     layer1_dl->PopClipRect();
     layer1_dl->PopTextureID();
 
@@ -1313,7 +1313,7 @@ static void clip_editor_render_note_editor() {
     layer_draw_data.FramebufferScale.y = 1.0f;
     layer_draw_data.OwnerViewport = owner_viewport;
     layer_draw_data.AddDrawList(layer1_dl);
-    layer_draw_data.AddDrawList(layer2_dl);
+    layer_draw_data.AddDrawList(layer2_dl_);
     g_renderer->render_imgui_draw_data(&layer_draw_data);
 
     g_renderer->end_render();
@@ -1705,14 +1705,14 @@ static void clip_editor_render_context_menu() {
 void clip_editor_init() {
   g_cmd_manager.add_on_history_update_listener([&] { force_redraw = true; });
   layer1_dl = new ImDrawList(ImGui::GetDrawListSharedData());
-  layer2_dl = new ImDrawList(ImGui::GetDrawListSharedData());
+  layer2_dl_ = new ImDrawList(ImGui::GetDrawListSharedData());
   ev_layer1_dl = new ImDrawList(ImGui::GetDrawListSharedData());
   ev_layer2_dl = new ImDrawList(ImGui::GetDrawListSharedData());
 }
 
 void clip_editor_shutdown() {
   delete layer1_dl;
-  delete layer2_dl;
+  delete layer2_dl_;
   delete ev_layer1_dl;
   delete ev_layer2_dl;
   if (piano_roll_fb)

@@ -7,12 +7,12 @@ namespace wb {
 template<typename T>
 struct Span {
   T* data{};
-  size_t size{};
+  uint32_t size{};
 
   Span() {
   }
 
-  Span(T* ptr, size_t size) : data(ptr), size(size) {
+  Span(T* ptr, uint32_t size) : data(ptr), size(size) {
   }
 
   template<typename It>
@@ -30,7 +30,7 @@ struct Span {
     assert(begin_it < end_it);
     auto length = end_it - begin_it;
     data = &*begin_it;
-    size = (size_t)length;
+    size = (uint32_t)length;
   }
 
   inline T& front() noexcept {
@@ -53,22 +53,22 @@ struct Span {
     return data[size - 1];
   }
 
-  inline T& at(size_t n) noexcept {
+  inline T& at(uint32_t n) noexcept {
     assert(n < size && "Index out of bounds");
     return data[n];
   }
 
-  inline const T& at(size_t n) const noexcept {
+  inline const T& at(uint32_t n) const noexcept {
     assert(n < size && "Index out of bounds");
     return data[n];
   }
 
-  T& operator[](size_t n) {
+  T& operator[](uint32_t n) {
     assert(n < size && "Index out of bounds");
     return data[n];
   }
 
-  const T& operator[](size_t n) const {
+  const T& operator[](uint32_t n) const {
     assert(n < size && "Index out of bounds");
     return data[n];
   }

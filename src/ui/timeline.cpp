@@ -1372,7 +1372,7 @@ void TimelineWindow::render_track(
       if (clip->is_audio()) {
         cmd->speed = clip->audio.speed;
         cmd->gain = clip->audio.gain;
-        cmd->audio = clip->audio.asset->peaks;
+        cmd->audio = clip->audio.asset2->peaks;
       } else {
         cmd->gain = 0.0f;
         cmd->midi = &clip->midi.asset->data;
@@ -1589,7 +1589,7 @@ void TimelineWindow::render_edited_clips(double mouse_at_gridline) {
           if (clip->is_audio()) {
             cmd->speed = clip->audio.speed;
             cmd->gain = clip->audio.gain;
-            cmd->audio = clip->audio.asset->peaks;
+            cmd->audio = clip->audio.asset2->peaks;
           } else {
             cmd->gain = 0.0f;
             cmd->midi = &clip->midi.asset->data;
@@ -1649,7 +1649,7 @@ void TimelineWindow::render_clip(
 
     if (clip->is_audio()) {
       cmd->gain = clip->audio.gain;
-      cmd->audio = clip->audio.asset->peaks;
+      cmd->audio = clip->audio.asset2->peaks;
     } else {
       cmd->gain = 0.0f;
       cmd->midi = &clip->midi.asset->data;
@@ -1673,7 +1673,7 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
 
     Clip* clip = cmd.clip;
     const Color color(clip->color);
-    const float bg_contrast_ratio = calc_contrast_ratio(color, text_color);
+    const float bg_contrast_ratio = get_contrast_ratio(color, text_color);
     const Color border_color =
         (bg_contrast_ratio > border_contrast_ratio) ? Color(0.0f, 0.0f, 0.0f, 0.3f) : Color(1.0f, 1.0f, 1.0f, 0.2f);
     Color text_color_adjusted =
@@ -1719,7 +1719,7 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
 
     switch (clip->type) {
       case ClipType::Audio: {
-        SampleAsset* asset = clip->audio.asset;
+        SampleAsset* asset = clip->audio.asset2;
         if (asset && mini_clip) {
           WaveformVisual* waveform = cmd.audio;
           if (!waveform)
@@ -1812,7 +1812,7 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
         constexpr float min_note_size_px = 2.5f;
         constexpr float max_note_size_px = 10.0f;
         constexpr uint32_t min_note_range = 4;
-        const MidiAsset* asset = clip->midi.asset;
+        const MidiAsset* asset = clip->midi.asset2;
         if (asset) {
           const uint32_t min_note = asset->data.min_note;
           const uint32_t max_note = asset->data.max_note;

@@ -77,6 +77,7 @@ struct BrowserFilePayload {
   BrowserItem::FileType type;
   double content_length;
   double sample_rate;
+  std::string filename;
   std::filesystem::path path;
 };
 

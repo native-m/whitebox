@@ -8,6 +8,7 @@ static Vector<Pair<CmdHistoryUpdateCallbackFn, void*>> history_update_listener;
 static uint32_t max_commands_;
 static uint32_t num_commands_;
 static uint32_t num_commands_used_;
+static bool locked_;
 
 InplaceList<Command2> CommandManager2::commands;
 Command2* CommandManager2::current_command;
@@ -54,7 +55,7 @@ bool CommandManager2::execute_command(std::string_view name, Command2* cmd) {
 }
 
 void CommandManager2::undo() {
-  if (num_commands_ == 0)
+  if (locked_ || num_commands_ == 0)
     return;
   current_command->undo();
   current_command = current_command->prev();
@@ -64,7 +65,7 @@ void CommandManager2::undo() {
 }
 
 void CommandManager2::redo() {
-  if (num_commands_ == max_commands_ || current_command == last_command)
+  if (locked_ || num_commands_ == max_commands_ || current_command == last_command)
     return;
   current_command = current_command->next();
   current_command->execute();
@@ -80,6 +81,14 @@ void CommandManager2::flush() {
   current_command = nullptr;
   last_command = nullptr;
   num_commands_ = 0;
+}
+
+void CommandManager2::lock() {
+  locked_ = true;
+}
+
+void CommandManager2::unlock() {
+  locked_ = false;
 }
 
 uint32_t CommandManager2::get_executed_commands_count() {

@@ -10,8 +10,10 @@
 #include "core/debug.h"
 #include "core/deferred_job.h"
 #include "engine/audio_io.h"
+#include "engine/asset.h"
 #include "engine/engine.h"
 #include "engine/engine2.h"
+#include "engine/command_manager2.h"
 #include "engine/project.h"
 #include "gfx/renderer.h"
 #include "path_def.h"
@@ -72,7 +74,9 @@ SDL_AppResult app_init(void** appstate, int argc, char** argv) {
   init_font_assets();
   init_renderer(main_window);
   init_windows();
-  Engine2::set_bpm(150.0f);
+
+  CommandManager2::initialize(10);
+  Engine2::set_bpm(140.0f);
   Engine2::add_audio_device_format_changed_listener(nullptr, audio_device_format_changed_listener);
   Engine2::add_audio_device_removed_listener(nullptr, audio_device_removed_listener);
   if (Engine2::init_audio_io())
@@ -80,7 +84,8 @@ SDL_AppResult app_init(void** appstate, int argc, char** argv) {
   // start_audio_engine();
 
   g_cmd_manager.init(10);
-  g_engine.set_bpm(150.0f);
+  g_engine.set_bpm(140.0f);
+  g_engine.set_audio_channel_config(2, 2, 512, 44100);
 
   return SDL_APP_CONTINUE;
 }
@@ -102,25 +107,25 @@ SDL_AppResult app_iterate(void* appstate) {
 
   hkey_process();
 
-  bool is_playing = g_engine.is_playing();
+  bool is_playing = Engine2::is_playing();
   if (hkey_pressed(Hotkey::Play)) {
     if (is_playing) {
-      g_engine.stop();
+      Engine2::stop();
       g_timeline.redraw_screen();
     } else {
-      g_engine.play();
+      Engine2::play();
     }
   }
 
   if (hkey_pressed(Hotkey::Undo)) {
-    g_cmd_manager.undo();
+    CommandManager2::undo();
   }
 
   if (hkey_pressed(Hotkey::Redo)) {
-    g_cmd_manager.redo();
+    CommandManager2::redo();
   }
 
-  g_engine.update_audio_visualization(GImGui->IO.Framerate);
+  Engine2::update_audio_visualization(GImGui->IO.Framerate);
   render_control_bar();
   render_windows();
 
@@ -295,7 +300,9 @@ void app_quit(void* appstate, SDL_AppResult result) {
   g_cmd_manager.reset();
   g_sample_table.shutdown();
   g_midi_table.shutdown();
+  CommandManager2::flush();
   Engine2::shutdown();
+  AssetManager::shutdown();
   shutdown_renderer();
   ImGui_ImplSDL3_Shutdown();
   ImGui::DestroyContext();

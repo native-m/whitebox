@@ -2,7 +2,7 @@
 
 #include <string>
 
-#include "audio_asset.h"
+#include "asset.h"
 #include "audio_io.h"
 #include "core/audio_buffer.h"
 #include "core/color.h"
@@ -11,6 +11,7 @@
 #include "core/vector.h"
 #include "etypes.h"
 #include "plughost/plugin_interface.h"
+#include "track_input.h"
 
 namespace wb {
 
@@ -42,22 +43,30 @@ struct Engine2 {
   static void play();
   static void stop();
   static void record();
+  static void stop_record();
   static void set_playhead_position(double position);
   static void set_bpm(double bpm);
+  static double get_beat_duration();
+  static double get_bpm();
+  static double get_ppq();
   static bool is_playing();
   static bool is_recording();
+
+  static void begin_edit();
+  static void end_edit();
 
   static Track*
   create_track(const std::string& name, const Color& color, float height, float volume_db = 0.0f, float pan = 0.0f);
   static void delete_track(uint32_t slot);
   static void solo_track(uint32_t slot);
   static void set_track_recording_state(uint32_t slot, bool armed);
+  static void set_track_input(Track* track, TrackInputType type, uint32_t index, bool armed);
+  static void update_track_state(Track* track);
 
-  static Clip* create_clip();
+  static Clip* allocate_clip();
+  static Clip*
+  create_clip(const std::string& name, const Color& color, double start_pos, double end_pos, double start_offset = 0.0);
   static void destroy_clip(Clip* clip);
-
-  static AudioAsset* create_or_find_audio_asset(const std::string& asset_path);
-  static void create_midi_asset();
 
   static PluginInterface* add_plugin(Track* track, uint32_t slot, PluginUID uid);
   static PluginInterface* add_plugin(Track* track, PluginUID uid);

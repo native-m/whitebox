@@ -16,6 +16,8 @@ struct CommandManager2 {
   static void undo();
   static void redo();
   static void flush();
+  static void lock();
+  static void unlock();
   static uint32_t get_executed_commands_count();
   static void add_cmd_history_update_listener(void* userdata, CmdHistoryUpdateCallbackFn fn);
 };

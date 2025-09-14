@@ -185,7 +185,7 @@ ProjectFileResult read_project_file(
                     case ClipType::Audio:
                       if (asset_id != (uint32_t)-1) {
                         clip->init_as_audio_clip({
-                          .asset = sample_assets[asset_id],
+                          .asset2 = sample_assets[asset_id],
                           .fade_start = data.map_find("fstart").as_number(0.0),
                           .fade_end = data.map_find("fend").as_number(0.0),
                           .speed = data.map_find("speed").as_number(1.0),
@@ -196,7 +196,7 @@ ProjectFileResult read_project_file(
                     case ClipType::Midi:
                       if (asset_id != WB_INVALID_ASSET_ID) {
                         clip->init_as_midi_clip({
-                          .asset = midi_assets[asset_id],
+                          .asset2 = midi_assets[asset_id],
                           .transpose = data.map_find("trans").as_number<int16_t>(),
                           .rate = data.map_find("rate").as_number<int16_t>(),
                         });
@@ -310,14 +310,14 @@ ProjectFileResult write_project_file(
         switch (clip->type) {
           case ClipType::Audio:
             w.write_kv_map("data", 4);
-            w.write_kv_num("asset_id", sample_index_map[clip->audio.asset]);
+            w.write_kv_num("asset_id", sample_index_map[clip->audio.asset2]);
             w.write_kv_num("fstart", clip->audio.fade_start);
             w.write_kv_num("fend", clip->audio.fade_end);
             w.write_kv_num("gain", clip->audio.gain);
             break;
           case ClipType::Midi:
             w.write_kv_map("data", 3);
-            w.write_kv_num("asset_id", midi_index_map[clip->midi.asset]);
+            w.write_kv_num("asset_id", midi_index_map[clip->midi.asset2]);
             w.write_kv_num("trans", clip->midi.transpose);
             w.write_kv_num("rate", clip->midi.rate);
             break;

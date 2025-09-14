@@ -9,7 +9,7 @@
 #define WB_GRID_SIZE_HEADER_BAR_DIVISION (const char*)3
 
 namespace wb {
-    
+
 static const char* note_scale[] = {
   "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
 };
@@ -68,6 +68,14 @@ double calc_bar_division(double length_per_beat, double max_division, double gap
   return division * div_scale;
 }
 
+double round_to_grid(double time_pos, double length_per_beat, int32_t grid_mode, bool triplet) {
+  const GridProperties& grid_props = grid_div_table[grid_mode];
+  double max_division = grid_props.max_division;
+  if (grid_props.max_division == DBL_MAX)
+    max_division = calc_bar_division(length_per_beat, max_division, grid_props.gap_scale, triplet) * 0.25;
+  return math::round(time_pos * max_division) / max_division;
+}
+
 bool grid_combo_box(const char* str, int32_t* grid_mode, bool* triplet_grid) {
   bool value_changed = false;
   const char* grid_size_text = nullptr;
@@ -91,7 +99,7 @@ bool grid_combo_box(const char* str, int32_t* grid_mode, bool* triplet_grid) {
         if (ImGui::Selectable(type, mode == i)) {
           value_changed = true;
           *grid_mode = i;
-          //beat_division = grid_div_table[i].max_division * 0.25;
+          // beat_division = grid_div_table[i].max_division * 0.25;
         }
       }
       i++;
@@ -128,7 +136,7 @@ void draw_musical_grid(
     const ImVec2& size,
     double scroll_pos_x,
     double length_per_beat,
-    const GridProperties& properties,
+    const GridProperties& grid_props,
     float alpha,
     bool triplet) {
   static constexpr float beat_line_alpha = 0.28f;
@@ -139,8 +147,8 @@ void draw_musical_grid(
   const ImU32 bar_line_color = Color(line_color).change_alpha(bar_line_alpha * alpha).to_uint32();
   const double beat = length_per_beat;
   const double bar = 4.0 * beat;
-  const double division = std::exp2(std::round(std::log2(beat / properties.gap_scale)));
-  const double max_division = math::min(division, properties.max_division * 0.5);
+  const double division = std::exp2(std::round(std::log2(beat / grid_props.gap_scale)));
+  const double max_division = math::min(division, grid_props.max_division * 0.5);
   const double div_scale = triplet && (max_division >= 1.0) ? 3.0 : 2.0;
   const double grid_inc_x = bar / (max_division * div_scale);
   const double inv_grid_inc_x = 1.0 / grid_inc_x;

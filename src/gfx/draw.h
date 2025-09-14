@@ -80,12 +80,28 @@ struct DrawCommandList {
   }
 };
 
-inline void im_draw_rect_filled(ImDrawList* dl, float x0, float y0, float x1, float y1, ImU32 col, float rounding = 0.0f) {
-  dl->AddRectFilled(ImVec2(x0, y0), ImVec2(x1, y1), col, rounding);
+inline void im_draw_rect_filled(
+    ImDrawList* dl,
+    float x0,
+    float y0,
+    float x1,
+    float y1,
+    ImU32 col,
+    float rounding = 0.0f,
+    ImDrawFlags flags = 0) {
+  dl->AddRectFilled(ImVec2(x0, y0), ImVec2(x1, y1), col, rounding, flags);
 }
 
-inline void im_draw_rect(ImDrawList* dl, float x0, float y0, float x1, float y1, ImU32 col, float rounding = 0.0f) {
-  dl->AddRect(ImVec2(x0, y0), ImVec2(x1, y1), col, rounding);
+inline void im_draw_rect(
+    ImDrawList* dl,
+    float x0,
+    float y0,
+    float x1,
+    float y1,
+    ImU32 col,
+    float rounding = 0.0f,
+    ImDrawFlags flags = 0) {
+  dl->AddRect(ImVec2(x0, y0), ImVec2(x1, y1), col, rounding, flags);
 }
 
 inline void im_draw_box_filled(ImDrawList* dl, float x, float y, float w, float h, ImU32 col, float rounding = 0.0f) {

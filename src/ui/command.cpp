@@ -80,7 +80,7 @@ void TrackMoveCmd::undo() {
 
 //
 
-bool wb::ClipAddFromFileCmd::execute() {
+bool ClipAddFromFileCmd::execute() {
   Track* track = g_engine.tracks[track_id];
   auto result = g_engine.add_clip_from_file(track, file, cursor_pos);
   assert(result.added_clips.size() && "Cannot create clip");

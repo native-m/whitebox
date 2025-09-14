@@ -178,6 +178,8 @@ struct Track {
    */
   std::optional<ClipQueryResult> query_clip_by_range(double min, double max) const;
 
+  ClipQueryResult2 query_clip_by_range2(double start, double end) const;
+
   void update_clip_ordering();
 
   /**

@@ -1,9 +1,9 @@
 #pragma once
 
-#include "core/common.h"
-#include "core/midi.h"
 #include "audio_io_types.h"
 #include "clip.h"
+#include "core/common.h"
+#include "core/midi.h"
 
 namespace wb {
 
@@ -61,6 +61,26 @@ struct ClipQueryResult {
 
   uint32_t num_clips() const {
     return (last - first) + 1;
+  }
+};
+
+struct ClipQueryResult2 {
+  bool contains_clip;
+  uint32_t first;
+  uint32_t last;
+  double first_offset;
+  double last_offset;
+
+  bool right_side_partially_selected(uint32_t id) const {
+    return first == id && first_offset > 0.0;
+  }
+
+  bool left_side_partially_selected(uint32_t id) const {
+    return last == id && last_offset < 0.0;
+  }
+
+  operator bool() const {
+    return contains_clip;
   }
 };
 

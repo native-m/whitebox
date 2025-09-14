@@ -1,9 +1,12 @@
+#include "window.h"
+
 #include <imgui_stdlib.h>
 
 #include "browser.h"
 #include "clip_editor.h"
 #include "command_manager.h"
 #include "controls.h"
+#include "engine/command_manager2.h"
 #include "engine/engine.h"
 #include "env_editor.h"
 #include "mixer.h"
@@ -12,7 +15,6 @@
 #include "settings.h"
 #include "timeline.h"
 #include "timeline2.h"
-#include "window.h"
 
 namespace wb {
 
@@ -96,16 +98,17 @@ void history_window() {
   ImVec2 space = ImGui::GetContentRegionAvail();
 
   if (ImGui::BeginListBox("##history_listbox", ImVec2(-FLT_MIN, space.y))) {
-    auto cmd = g_cmd_manager.commands.next();
+    auto cmd = CommandManager2::commands.next();
+    uint32_t num_history = CommandManager2::get_executed_commands_count();
     uint32_t id = 0;
     while (cmd != nullptr) {
-      Command* item = static_cast<Command*>(cmd);
-      bool is_current_command = item == g_cmd_manager.current_command;
+      Command2* item = static_cast<Command2*>(cmd);
+      bool is_current_command = item == CommandManager2::current_command;
       ImGui::PushID(id);
-      if (id >= g_cmd_manager.num_history)
+      if (id >= num_history)
         ImGui::PushStyleVar(ImGuiStyleVar_Alpha, GImGui->Style.DisabledAlpha);
-      ImGui::Selectable(item->name.c_str(), is_current_command);
-      if (id >= g_cmd_manager.num_history)
+      ImGui::Selectable(item->cmd_name.data(), is_current_command);
+      if (id >= num_history)
         ImGui::PopStyleVar();
       ImGui::PopID();
       cmd = cmd->next();

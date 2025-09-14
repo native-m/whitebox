@@ -149,6 +149,7 @@ void BrowserWindow::render_item(const std::filesystem::path& root_path, BrowserI
           drop_payload.type = item.file_type;
           drop_payload.content_length = length;
           drop_payload.sample_rate = sample_rate;
+          drop_payload.filename = path.filename().generic_string();
           drop_payload.path = std::move(path);
         }
       }

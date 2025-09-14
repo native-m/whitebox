@@ -18,7 +18,7 @@ void main() {
     float y1 = draw_cmd.is_min == 1 ? minmax1.x : minmax1.y;
     
     float max_height_y = draw_cmd.scale_y * 0.5;
-    float height = max_height_y * draw_cmd.gain;
+    float height = max(max_height_y - 1.0, 0.0) * draw_cmd.gain;
     vec2 offset = vec2(draw_cmd.origin.x, draw_cmd.origin.y + max_height_y);
     vec2 pos0 = vec2(float(peak_pos) * draw_cmd.gap_size, -y0 * height) + offset;
     vec2 pos1 = vec2((float(peak_pos) + 1) * draw_cmd.gap_size, -y1 * height) + offset;

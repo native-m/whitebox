@@ -6,6 +6,7 @@
 #include "plughost/plugin_interface.h"
 
 namespace wb {
+
 struct PluginItem {
   PluginFormat format;
   uint32_t flags;
@@ -27,4 +28,5 @@ struct PluginsWindow {
 };
 
 extern PluginsWindow g_plugins_window;
+
 }  // namespace wb

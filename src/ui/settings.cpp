@@ -57,8 +57,8 @@ void render_settings() {
 void render_audio_settings() {
   uint32_t io_type_index = static_cast<uint32_t>(Engine2::audio_io_type);
   const char* io_type_preview = io_types[io_type_index];
-  const AudioDeviceProperties& current_output_devprop = Engine2::output_device_properties;
-  const AudioDeviceProperties& current_input_devprop = Engine2::input_device_properties;
+  AudioDeviceProperties& current_output_devprop = Engine2::output_device_properties;
+  AudioDeviceProperties& current_input_devprop = Engine2::input_device_properties;
   bool audio_io_type_changed = false;
   bool audio_settings_changed = false;
 
@@ -94,12 +94,12 @@ void render_audio_settings() {
     if (ImGui::BeginCombo("Input", current_input_devprop.name)) {
       for (uint32_t i = 0; i < audio_io->get_input_device_count(); i++) {
         const AudioDeviceProperties& device_properties = audio_io->get_input_device_properties(i);
-        const bool is_selected = device_properties.id == g_input_device_properties.id;
+        const bool is_selected = device_properties.id == current_input_devprop.id;
 
         if (ImGui::Selectable(device_properties.name, is_selected)) {
           if (!is_selected)
             audio_settings_changed = true;
-          g_input_device_properties = device_properties;
+          current_input_devprop = device_properties;
           Engine2::audio_engine_config.input_device_id = device_properties.id;
         }
 
@@ -112,12 +112,12 @@ void render_audio_settings() {
     if (ImGui::BeginCombo("Output", current_output_devprop.name)) {
       for (uint32_t i = 0; i < audio_io->get_output_device_count(); i++) {
         const AudioDeviceProperties& device_properties = audio_io->get_output_device_properties(i);
-        const bool is_selected = device_properties.id == g_output_device_properties.id;
+        const bool is_selected = device_properties.id == current_output_devprop.id;
 
         if (ImGui::Selectable(device_properties.name, is_selected)) {
           if (!is_selected)
             audio_settings_changed = true;
-          g_output_device_properties = device_properties;
+          current_output_devprop = device_properties;
           Engine2::audio_engine_config.output_device_id = device_properties.id;
         }
 
