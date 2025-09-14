@@ -421,7 +421,7 @@ if (vst3sdk_ADDED)
         set(VST3_SDK_COMMON_SRC ${VST3_SDK_COMMON_SRC}
             "${VST3_PUBLICSDK_PATH}/source/common/systemclipboard_linux.cpp"
             "${VST3_PUBLICSDK_PATH}/source/common/threadchecker_linux.cpp")
-    elseif (WB_PLATFORM_MAC)
+    elseif (WB_PLATFORM_MACOS)
         set(VST3_SDK_COMMON_SRC ${VST3_SDK_COMMON_SRC}
             "${VST3_PUBLICSDK_PATH}/source/common/systemclipboard_mac.mm"
             "${VST3_PUBLICSDK_PATH}/source/common/threadchecker_mac.mm")
@@ -462,11 +462,12 @@ if (vst3sdk_ADDED)
     elseif (WB_PLATFORM_LINUX)
         set(VST3_SDK_HOSTING_SRC ${VST3_SDK_HOSTING_SRC}
             "${VST3_PUBLICSDK_PATH}/source/vst/hosting/module_linux.cpp")
-    elseif (WB_PLATFORM_MAC)
+    elseif (WB_PLATFORM_MACOS)
         set(VST3_SDK_HOSTING_SRC ${VST3_SDK_HOSTING_SRC}
             "${VST3_PUBLICSDK_PATH}/source/vst/hosting/module_mac.mm")
     endif()
     
     add_library(vst3-sdk-hosting STATIC ${VST3_SDK_HOSTING_SRC})
+    set_property(TARGET vst3-sdk-hosting APPEND_STRING PROPERTY COMPILE_FLAGS "-fobjc-arc")
     target_link_libraries(vst3-sdk-hosting PUBLIC vst3-sdk-common)
 endif()

@@ -17,6 +17,10 @@ extern "C" {
 }
 #endif
 
+#ifdef VK_USE_PLATFORM_METAL_EXT
+#include <SDL3/SDL_metal.h>
+#endif
+
 #if defined(SDL_VIDEO_DRIVER_X11)
 #undef None
 #endif
@@ -171,6 +175,22 @@ static VkSurfaceKHR create_surface(VkInstance instance, SDL_Window* window) {
     return VK_NULL_HANDLE;
   }
 #endif
+#elif defined(WB_PLATFORM_MACOS)
+  SDL_MetalView mtl_view = SDL_Metal_CreateView(window);
+  SDL_PropertiesID window_props = SDL_GetWindowProperties(window);
+  SDL_SetPointerProperty(window_props, "wb_mtv", mtl_view);
+
+  CAMetalLayer* metal_layer = SDL_Metal_GetLayer(mtl_view);
+  VkMetalSurfaceCreateInfoEXT surfaceCreateInfo = {};
+  surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT;
+  surfaceCreateInfo.pNext = nullptr;
+  surfaceCreateInfo.flags = 0;
+  surfaceCreateInfo.pLayer = metal_layer;  // Objective-C layer
+
+  if (VK_FAILED(vkCreateMetalSurfaceEXT(instance, &surfaceCreateInfo, nullptr, &surface))) {
+    Log::error("Failed to create window surface");
+    return VK_NULL_HANDLE;
+  }
 #endif
 
   return surface;
@@ -447,6 +467,7 @@ bool GPURendererVK::init(SDL_Window* window) {
 
   GPUViewportDataVK* main_viewport = new GPUViewportDataVK();
   main_viewport->surface = main_surface_;
+  main_viewport->window = window;
   create_or_recreate_swapchain_(main_viewport);
   viewports.push_back(main_viewport);
   main_vp = main_viewport;
@@ -986,6 +1007,7 @@ void GPURendererVK::add_viewport(ImGuiViewport* viewport) {
   GPUViewportDataVK* vp_data = new GPUViewportDataVK();
   vp_data->viewport = viewport;
   vp_data->surface = surface;
+  vp_data->window = window;
   create_or_recreate_swapchain_(vp_data);
   viewport->RendererUserData = vp_data->render_target;
   added_viewports.push_back(vp_data);
@@ -1044,7 +1066,7 @@ void GPURendererVK::begin_frame() {
   }
 
   vkQueueWaitIdle(graphics_queue_);
-  
+
   dispose_resources_(frame_count_);
   descriptor_stream_.reset(device_, frame_id);
   vkResetCommandPool(device_, cmd_pool_[frame_id], 0);
@@ -1864,6 +1886,7 @@ void GPURendererVK::dispose_viewport_data_(GPUViewportDataVK* vp_data, VkSurface
   swapchain.frame_stamp = frame_count_;
   swapchain.swapchain = {
     .swapchain = vp_data->swapchain,
+    .window = vp_data->window,
     .surface = surface,
   };
 }
@@ -1896,8 +1919,16 @@ void GPURendererVK::dispose_resources_(uint64_t frame_count) {
           break;
         case GPUResourceDisposeItemVK::Swapchain:
           vkDestroySwapchainKHR(device_, item.swapchain.swapchain, nullptr);
-          if (item.swapchain.surface)
+          if (item.swapchain.surface) {
             vkDestroySurfaceKHR(instance_, item.swapchain.surface, nullptr);
+#ifdef WB_PLATFORM_MACOS
+            SDL_PropertiesID window_props = SDL_GetWindowProperties(item.swapchain.window);
+            SDL_MetalView mtl_view = SDL_GetPointerProperty(window_props, "wb_mtv", nullptr);
+            if (mtl_view) {
+              SDL_Metal_DestroyView(mtl_view);
+            }
+#endif
+          }
 #if WB_LOG_VULKAN_RESOURCE_DISPOSAL
           Log::debug("Swapchain destroyed {:x} on frame {}", (uintptr_t)item.swapchain.swapchain, item.frame_stamp);
 #endif
@@ -1947,32 +1978,37 @@ GPURenderer* GPURendererVK::create(SDL_Window* window) {
   bool has_platform_surface = false;
   Vector<const char*> enabled_extensions;
   for (const auto& ext : extensions) {
-    if (std::strncmp(ext.extensionName, "VK_KHR_surface", sizeof("VK_KHR_surface")) == 0) {
+    if (std::strncmp(ext.extensionName, "VK_KHR_surface", sizeof(ext.extensionName)) == 0) {
       enabled_extensions.push_back("VK_KHR_surface");
       has_surface = true;
     }
 #if defined(WB_PLATFORM_WINDOWS)
-    else if (std::strncmp(ext.extensionName, "VK_KHR_win32_surface", sizeof("VK_KHR_win32_surface")) == 0) {
+    else if (std::strncmp(ext.extensionName, "VK_KHR_win32_surface", sizeof(ext.extensionName)) == 0) {
       enabled_extensions.push_back("VK_KHR_win32_surface");
       has_platform_surface = true;
     }
 #elif defined(WB_PLATFORM_LINUX)
-    else if (std::strncmp(ext.extensionName, "VK_KHR_xcb_surface", sizeof("VK_KHR_xcb_surface")) == 0) {
+    else if (std::strncmp(ext.extensionName, "VK_KHR_xcb_surface", sizeof(ext.extensionName)) == 0) {
       enabled_extensions.push_back("VK_KHR_xcb_surface");
       has_platform_surface = true;
-    } else if (std::strncmp(ext.extensionName, "VK_KHR_xlib_surface", sizeof("VK_KHR_xlib_surface")) == 0) {
+    } else if (std::strncmp(ext.extensionName, "VK_KHR_xlib_surface", sizeof(ext.extensionName)) == 0) {
       enabled_extensions.push_back("VK_KHR_xlib_surface");
       has_platform_surface = true;
-    } else if (std::strncmp(ext.extensionName, "VK_KHR_wayland_surface", sizeof("VK_KHR_wayland_surface")) == 0) {
+    } else if (std::strncmp(ext.extensionName, "VK_KHR_wayland_surface", sizeof(ext.extensionName)) == 0) {
       enabled_extensions.push_back("VK_KHR_wayland_surface");
+      has_platform_surface = true;
+    }
+#elif defined(WB_PLATFORM_MACOS)
+    else if (
+        std::strncmp(ext.extensionName, VK_EXT_METAL_SURFACE_EXTENSION_NAME, sizeof(ext.extensionName)) ==
+        0) {
+      enabled_extensions.push_back(VK_EXT_METAL_SURFACE_EXTENSION_NAME);
       has_platform_surface = true;
     }
 #endif
 
-#if defined(WB_PLATFORM_WINDOWS)
     if (has_surface && has_platform_surface)
       break;
-#endif
   }
 
   if (!(has_surface && has_platform_surface)) {
@@ -1984,7 +2020,7 @@ GPURenderer* GPURendererVK::create(SDL_Window* window) {
     .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
     .pApplicationInfo = &app_info,
 #ifdef WB_VULKAN_ENABLE_VALIDATION
-    .enabledLayerCount = 1,
+    .enabledLayerCount = 0,
 #endif
     .ppEnabledLayerNames = &instance_layer,
     .enabledExtensionCount = (uint32_t)enabled_extensions.size(),
@@ -2037,24 +2073,26 @@ GPURenderer* GPURendererVK::create(SDL_Window* window) {
   const float queue_priority = 1.0f;
   for (uint32_t i = 0; const auto& queue_family : queue_families) {
     if (graphics_queue_index == (uint32_t)-1 && contain_bit(queue_family.queueFlags, VK_QUEUE_GRAPHICS_BIT)) {
-      queue_info.push_back({
-        .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-        .queueFamilyIndex = i,
-        .queueCount = 1,
-        .pQueuePriorities = &queue_priority,
-      });
+      queue_info.push_back(
+          {
+            .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+            .queueFamilyIndex = i,
+            .queueCount = 1,
+            .pQueuePriorities = &queue_priority,
+          });
       graphics_queue_index = i;
     }
     VkBool32 presentation_supported = VK_FALSE;
     vkGetPhysicalDeviceSurfaceSupportKHR(selected_physical_device, i, surface, &presentation_supported);
     if (presentation_supported && present_queue_index == (uint32_t)-1) {
       if (graphics_queue_index != i) {
-        queue_info.push_back({
-          .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-          .queueFamilyIndex = i,
-          .queueCount = 1,
-          .pQueuePriorities = &queue_priority,
-        });
+        queue_info.push_back(
+            {
+              .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+              .queueFamilyIndex = i,
+              .queueCount = 1,
+              .pQueuePriorities = &queue_priority,
+            });
       }
       present_queue_index = i;
     }

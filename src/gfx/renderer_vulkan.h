@@ -46,6 +46,7 @@ struct GPUViewportDataVK : public GPUViewportData {
   VkSwapchainKHR swapchain{};
   VkSurfaceKHR surface{};
   VkSemaphore image_acquire_semaphore[WB_VULKAN_SYNC_COUNT];
+  SDL_Window* window{};
   uint32_t sync_id;
   uint32_t image_id;
   uint32_t num_sync{};
@@ -92,6 +93,7 @@ struct GPUPipelineDisposalVK {
 struct GPUSwapchainDisposalVK {
   VkSwapchainKHR swapchain;
   VkSurfaceKHR surface;
+  SDL_Window* window;
 };
 
 struct GPUSyncObjectDisposalVK {

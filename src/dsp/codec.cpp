@@ -21,6 +21,7 @@ bool AudioSFEncoder::open(const char* file, uint32_t n_channels) {
     case AudioFormat::I24: info.format |= SF_FORMAT_PCM_24; break;
     case AudioFormat::I32: info.format |= SF_FORMAT_PCM_32; break;
     case AudioFormat::F32: info.format |= SF_FORMAT_FLOAT; break;
+    default: return false;
   }
 
   switch (file_format_) {

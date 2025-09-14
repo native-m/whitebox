@@ -16,6 +16,10 @@
 #define DWM_ATTRIBUTE_CAPTION_COLOR           35
 #endif
 
+#ifdef WB_PLATFORM_MACOS
+#include <SDL3/SDL_metal.h>
+#endif
+
 namespace wb {
 
 static SDL_Window* main_window;
@@ -58,14 +62,22 @@ void init_window_manager() {
   }
 #endif
 
-  main_window = SDL_CreateWindow("whitebox", 1280, 720, SDL_WINDOW_RESIZABLE);
+  uint32_t window_flags = SDL_WINDOW_RESIZABLE;
+
+#ifdef WB_PLATFORM_MACOS
+  window_flags |= SDL_WINDOW_METAL;
+#endif
+
+  main_window = SDL_CreateWindow("whitebox", 1280, 720, window_flags);
   SDL_SetWindowMinimumSize(main_window, 640, 480);
   wm_setup_dark_mode(main_window);
 }
 
 void shutdown_window_manager() {
   SDL_DestroyWindow(main_window);
+#if defined(WB_PLATFORM_WINDOWS)
   taskbar_list->Release();
+#endif
 }
 
 SDL_Window* wm_get_main_window() {

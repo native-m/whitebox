@@ -868,6 +868,7 @@ static void clip_editor_render_note_editor() {
         }
         break;
       }
+      default: break;
     }
 
     if (preview_note_data) {
@@ -1418,6 +1419,7 @@ static void clip_editor_render_event_editor() {
 
     if (!left_mouse_down && ev_editor_command != EventEditorCmd::None) {
       switch (ev_editor_command) {
+        default: break;
         case EventEditorCmd::ChangeVelocity: {
           MidiChangeSelectedNoteVelocityCmd* cmd = new MidiChangeSelectedNoteVelocityCmd();
           cmd->track_id = current_track_id.value();
