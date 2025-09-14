@@ -906,7 +906,7 @@ void AudioIOWASAPI2::audio_thread_runner(AudioIOWASAPI2* io, AudioThreadPriority
 #endif
     }
 
-    stream_fn(input_buffer, output_buffer, sample_rate);
+    stream_fn(output_buffer, input_buffer, sample_rate);
     // engine->process(input_buffer, output_buffer, sample_rate);
 
 #if LOG_BUFFERING

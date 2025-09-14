@@ -322,12 +322,24 @@ bool Engine2::start_audio_engine() {
 
   uint32_t input_device_idx = audio_io->get_input_device_index(audio_engine_config.input_device_id);
   uint32_t output_device_idx = audio_io->get_output_device_index(audio_engine_config.output_device_id);
-  output_device_properties = output_device_idx != WB_INVALID_AUDIO_DEVICE_INDEX
-                                 ? audio_io->get_output_device_properties(output_device_idx)
-                                 : audio_io->default_output_device;
+
   input_device_properties = input_device_idx != WB_INVALID_AUDIO_DEVICE_INDEX
                                 ? audio_io->get_input_device_properties(input_device_idx)
                                 : audio_io->default_input_device;
+  output_device_properties = output_device_idx != WB_INVALID_AUDIO_DEVICE_INDEX
+                                 ? audio_io->get_output_device_properties(output_device_idx)
+                                 : audio_io->default_output_device;
+
+  // Override invalid input/output device
+  if (input_device_properties.id != audio_engine_config.input_device_id) {
+    audio_engine_config.input_device_id = input_device_properties.id;
+    input_device_idx = audio_io->get_input_device_index(input_device_properties.id);
+  }
+
+  if (output_device_properties.id != audio_engine_config.output_device_id) {
+    audio_engine_config.output_device_id = output_device_properties.id;
+    output_device_idx = audio_io->get_output_device_index(output_device_properties.id);
+  }
 
   if (!audio_io->open_device(input_device_idx, output_device_idx)) {
     Log::error("Cannot open audio device");
