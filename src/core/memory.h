@@ -126,4 +126,33 @@ struct Pool {
   }
 };
 
+template<typename T>
+struct HeapBlock {
+  T* ptr_ = nullptr;
+
+  HeapBlock() {
+  }
+
+  HeapBlock(size_t size) {
+    ptr_ = (T*)std::malloc(size);
+  }
+
+  HeapBlock(HeapBlock<T>&& other) : ptr_(other.ptr_) {
+    other.ptr_ = nullptr;
+  }
+
+  ~HeapBlock() {
+    if (ptr_)
+      std::free(ptr_);
+  }
+
+  T* data() {
+    return ptr_;
+  }
+
+  const T* data() const {
+    return ptr_;
+  }
+};
+
 }  // namespace wb

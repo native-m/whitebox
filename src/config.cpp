@@ -131,11 +131,15 @@ void save_settings_data() {
   settings["version"] = "0.0.2";
 
   switch (Engine2::audio_io_type) {
+    case AudioIOType::NoAudio: settings["audio"]["type"] = "no_audio"; break;
 #ifdef WB_PLATFORM_WINDOWS
     case AudioIOType::WASAPI: settings["audio"]["type"] = "wasapi"; break;
 #endif
 #ifdef WB_PLATFORM_LINUX
     case AudioIOType::PulseAudio: settings["audio"]["type"] = "pulseaudio"; break;
+#endif
+#ifdef WB_PLATFORM_MACOS
+    case AudioIOType::CoreAudio: settings["audio"]["type"] = "coreaudio"; break;
 #endif
     default: break;
   }

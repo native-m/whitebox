@@ -74,6 +74,9 @@ void render_audio_settings() {
 #elif defined(WB_PLATFORM_LINUX)
         if (type != AudioIOType::PulseAudio)
           continue;
+#elif defined(WB_PLATFORM_MACOS)
+        if (type != AudioIOType::CoreAudio)
+          continue;
 #endif
       }
 
