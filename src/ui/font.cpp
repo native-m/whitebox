@@ -8,13 +8,19 @@
 
 namespace wb {
 
-ImFont* g_fonts[3];
+static ImFont* font_collection_[3];
 
 void init_font_assets() {
   static const ImWchar icons_ranges[] = { ICON_MIN_MS, ICON_MAX_MS, 0 };
   ImFontConfig config;
   ImGuiIO& io = ImGui::GetIO();
-  io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
+  io.Fonts->FontLoader = ImGuiFreeType::GetFontLoader();
+  
+  font_collection_[(uint32_t)FontType::Normal] = io.Fonts->AddFontFromFileTTF("assets/Inter-Regular.ttf");
+  font_collection_[(uint32_t)FontType::MonoMedium] = io.Fonts->AddFontFromFileTTF("assets/RobotoMono-Regular.ttf");
+  font_collection_[(uint32_t)FontType::Icon] = io.Fonts->AddFontFromFileTTF("assets/MaterialSymbolsSharp_Filled-Regular.ttf");
+
+  /*
   config.SizePixels = 13.0f;
   config.OversampleV = 2.0f;
   // config.FontBuilderFlags = ImGuiFreeTypeBuilderFlags_NoHinting;
@@ -30,10 +36,16 @@ void init_font_assets() {
   g_fonts[(uint32_t)FontType::Icon] =
       io.Fonts->AddFontFromFileTTF("assets/MaterialSymbolsSharp_Filled-Regular.ttf", 0.0f, &config, icons_ranges);
   io.Fonts->Build();
+  */
 }
 
-void set_current_font(FontType type) {
-  ImGui::SetCurrentFont(g_fonts[(uint32_t)type]);
+void font_push(FontType type, float font_base_size) {
+  ImFont* font = font_collection_[(uint32_t)type];
+  ImGui::PushFont(font, font_base_size);
+}
+
+void font_pop() {
+  ImGui::PopFont();
 }
 
 }  // namespace wb

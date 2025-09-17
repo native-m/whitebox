@@ -319,7 +319,7 @@ static void clip_editor_render_toolbar() {
       ImGuiWindowFlags_NoBackground);
   ImGui::PopStyleVar(1);
 
-  set_current_font(FontType::Icon);
+  font_push(FontType::Icon, 24.0f);
   ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0f);
   ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(3.0f, 1.0f));
 
@@ -362,7 +362,7 @@ static void clip_editor_render_toolbar() {
   controls::item_tooltip("Use last edited note properties");
 
   ImGui::PopStyleVar(2);
-  set_current_font(FontType::Normal);
+  font_pop();
 
   if (any_of(piano_roll_tool, PianoRollCmd::Draw, PianoRollCmd::Marker, PianoRollCmd::Paint)) {
     ImGui::PushStyleVarY(ImGuiStyleVar_FramePadding, 6.5f);

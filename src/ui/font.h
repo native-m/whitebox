@@ -8,5 +8,6 @@ enum class FontType {
 };
 
 void init_font_assets();
-void set_current_font(FontType type);
+void font_push(FontType type, float font_base_size);
+void font_pop();
 }  // namespace wb

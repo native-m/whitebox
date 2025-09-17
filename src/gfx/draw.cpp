@@ -111,15 +111,18 @@ void DrawCommandList::draw_polygon(const ImVec2* points, uint32_t count) {
 }
 
 ImVec2 im_draw_simple_text(ImDrawList* draw_list, const char* text, ImVec2 pos, ImU32 text_color) {
+  float font_size = ImGui::GetFontSize();
   ImFont* font = ImGui::GetFont();
-  float half_size = font->FontSize * 0.5f;
+  ImFontBaked* baked_font = font->GetFontBaked(font_size);
+
+  float half_size = font_size * 0.5f;
   float x = (float)(int)pos.x;
   float y = (float)(int)pos.y;
   const ImFontGlyph* glyph;
-  // draw_list->AddText(pos, text_color, text);
+  
   char c;
   while ((c = *text++)) {
-    glyph = font->FindGlyph(c);
+    glyph = baked_font->FindGlyph(c);
     if (!glyph)
       continue;
     if (glyph->Visible) {
@@ -133,19 +136,25 @@ ImVec2 im_draw_simple_text(ImDrawList* draw_list, const char* text, ImVec2 pos, 
     }
     x += glyph->AdvanceX;
   }
+
   return pos;
 }
 
 void im_draw_vertical_text(ImDrawList* draw_list, const char* text, ImVec2 pos, ImVec4 rect, ImU32 text_color) {
   pos.x = IM_ROUND(pos.x);
   pos.y = IM_ROUND(pos.y);
-  ImFont* font = GImGui->Font;
+  
+  float font_size = ImGui::GetFontSize();
+  ImFont* font = ImGui::GetFont();
+  ImFontBaked* baked_font = font->GetFontBaked(font_size);
+
   const ImFontGlyph* glyph;
   ImGuiContext& g = *GImGui;
   ImVec2 text_size = ImGui::CalcTextSize(text);
   char c;
+
   while ((c = *text++)) {
-    glyph = font->FindGlyph(c);
+    glyph = baked_font->FindGlyph(c);
     if (!glyph)
       continue;
     if (glyph->Visible) {

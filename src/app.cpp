@@ -65,9 +65,17 @@ SDL_AppResult app_init(void** appstate, int argc, char** argv) {
   // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
   io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
   io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+  io.ConfigDpiScaleFonts = true;
+  io.ConfigDpiScaleViewports = true;
   io.ConfigViewportsNoTaskBarIcon = false;
   io.IniFilename = imgui_ini_filepath.c_str();
-  apply_theme(ImGui::GetStyle());
+
+  float main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
+  ImGuiStyle& style = ImGui::GetStyle();
+  style.ScaleAllSizes(main_scale);
+  style.FontScaleDpi = main_scale;
+  style.FontSizeBase = 13.0f;
+  apply_theme(style);
 
   SDL_Window* main_window = wm_get_main_window();
   ImGui_ImplSDL3_InitForOther(main_window);

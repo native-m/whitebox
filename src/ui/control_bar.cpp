@@ -103,8 +103,8 @@ void main_control_bar() {
   ImGui::PushStyleColor(ImGuiCol_Button, Color(btn_color).brighten(0.12f).to_uint32());
   ImGui::PushStyleColor(ImGuiCol_FrameBg, Color(frame_bg).brighten(0.12f).to_uint32());
 
+  font_push(FontType::Icon, 24.0f);
   ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 3.0f));
-  set_current_font(FontType::Icon);
   open_menu = ImGui::Button(ICON_MS_MENU);
   controls::item_tooltip("Main menu");
   ImGui::SameLine(0.0f, 12.0f);
@@ -117,6 +117,7 @@ void main_control_bar() {
   save_project = ImGui::Button(ICON_MS_SAVE "##wb_save_project");
   controls::item_tooltip("Save project file");
   ImGui::SameLine(0.0f, 12.0f);
+  font_pop();
 
   //
   if (ImGui::Button(ICON_MS_UNDO "##wb_undo")) {
@@ -170,9 +171,9 @@ void main_control_bar() {
   // Song position
   ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 3.0f));
   ImGui::PushItemWidth(85.0f);
-  set_current_font(FontType::MonoMedium);
+  font_push(FontType::MonoMedium, 24.0f);
   controls::song_position();
-  set_current_font(FontType::Normal);
+  font_pop();
   ImGui::SameLine(0.0f, 4.0f);
   ImGui::PopStyleVar();
 

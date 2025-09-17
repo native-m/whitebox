@@ -62,7 +62,7 @@ void init_window_manager() {
   }
 #endif
 
-  uint32_t window_flags = SDL_WINDOW_RESIZABLE;
+  uint32_t window_flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
 
 #ifdef WB_PLATFORM_MACOS
   window_flags |= SDL_WINDOW_METAL;

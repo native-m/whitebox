@@ -115,12 +115,11 @@ void item_tooltip(const char* str) {
   static constexpr uint32_t hover_flags = ImGuiHoveredFlags_ForTooltip | ImGuiHoveredFlags_Stationary |
                                           ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay;
   if (ImGui::IsItemHovered(hover_flags)) {
-    ImFont* font = ImGui::GetFont();
-    set_current_font(FontType::Normal);  // Force tooltip to use main font
+    font_push(FontType::Normal, 13.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6.0f, 4.0f));
     ImGui::SetTooltip("%s", str);
     ImGui::PopStyleVar();
-    ImGui::SetCurrentFont(font);
+    font_pop();
   }
 }
 
