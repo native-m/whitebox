@@ -297,6 +297,8 @@ void GPURenderer::update_textures_(ImTextureData* tex) {
 
     GPUTexture* texture = (GPUTexture*)tex->GetTexID();
     Vector<GPUUpdateTextureRegion> regions;
+    regions.reserve(tex->Updates.size());
+    
     for (ImTextureRect& r : tex->Updates) {
       regions.push_back({
         .x = r.x,

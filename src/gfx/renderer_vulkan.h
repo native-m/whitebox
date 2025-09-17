@@ -283,7 +283,7 @@ struct GPURendererVK : public GPURenderer {
   void bind_resources_(VkCommandBuffer cmd_buf);
   void begin_render_pass_();
   void end_render_pass_();
-  void transition_texture(VkImage image, VkImageLayout prev_layout, VkImageLayout next_layout, bool temp = false);
+  void transition_texture_(VkImage image, VkImageLayout prev_layout, VkImageLayout next_layout);
   bool create_or_recreate_swapchain_(GPUViewportDataVK* vp_data);
   void dispose_buffer_(GPUBufferVK* buffer);
   void dispose_texture_(GPUTextureVK* texture);

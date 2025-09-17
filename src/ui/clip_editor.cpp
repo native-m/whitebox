@@ -486,7 +486,8 @@ static void draw_piano_keys(ImDrawList* draw_list, ImVec2& pos, const ImVec2& si
   ImU32 separator = ImGui::GetColorU32(ImGuiCol_Separator);
   ImVec2 half_size = size * ImVec2(0.5f, 1.0f);
   ImVec2 note_pos = pos + ImVec2(half_size.x, 0.0f);
-  float half_font_size = font->FontSize * 0.5f;
+  float font_size = ImGui::GetFontSize();
+  float half_font_size = font_size * 0.5f;
   uint32_t note_id = 11;
 
   for (int i = 0; i < 13; i++) {
@@ -523,7 +524,7 @@ static void draw_piano_keys(ImDrawList* draw_list, ImVec2& pos, const ImVec2& si
 
   char note_name[5]{};
   fmt::format_to_n(note_name, sizeof(note_name), "C{}", oct);
-  im_draw_simple_text(draw_list, note_name, ImVec2(pos.x + 4.0f, note_pos.y - font->FontSize - 4.0f), 0xFFFFFFFF);
+  im_draw_simple_text(draw_list, note_name, ImVec2(pos.x + 4.0f, note_pos.y - font_size - 4.0f), 0xFFFFFFFF);
   im_draw_hline(draw_list, note_pos.y - 1.0f, pos.x, pos.x + half_size.x, separator);
   pos.y = note_pos.y;
 }
@@ -901,11 +902,11 @@ static void clip_editor_render_note_editor() {
   }
 
   if (clip_editor_base.redraw) {
-    ImTextureID font_tex_id = ImGui::GetIO().Fonts->TexID;
+    ImTextureRef font_tex_ref = ImGui::GetIO().Fonts->TexRef;
     layer1_dl->_ResetForNewFrame();
     layer2_dl_->_ResetForNewFrame();
-    layer1_dl->PushTextureID(font_tex_id);
-    layer2_dl_->PushTextureID(font_tex_id);
+    layer1_dl->PushTexture(font_tex_ref);
+    layer2_dl_->PushTexture(font_tex_ref);
     layer1_dl->PushClipRect(view_min, view_max);
     layer2_dl_->PushClipRect(view_min, view_max);
     fg_notes.resize_fast(0);
@@ -940,7 +941,7 @@ static void clip_editor_render_note_editor() {
   }
 
   auto font = ImGui::GetFont();
-  float font_size = font->FontSize;
+  float font_size = ImGui::GetFontSize();
   float half_font_size = font_size * 0.5f;
   float half_note_size = note_height_in_pixel * 0.5f;
   float end_x = cursor_pos.x + clip_editor_base.timeline_width;
@@ -1408,11 +1409,11 @@ static void clip_editor_render_event_editor() {
     }
 
     if (redraw) {
-      ImTextureID font_tex_id = ImGui::GetIO().Fonts->TexID;
+      ImTextureRef font_tex_ref = ImGui::GetIO().Fonts->TexRef;
       ev_layer1_dl->_ResetForNewFrame();
       ev_layer2_dl->_ResetForNewFrame();
-      ev_layer1_dl->PushTextureID(font_tex_id);
-      ev_layer2_dl->PushTextureID(font_tex_id);
+      ev_layer1_dl->PushTexture(font_tex_ref);
+      ev_layer2_dl->PushTexture(font_tex_ref);
       ev_layer1_dl->PushClipRect(view_min, view_max);
       ev_layer2_dl->PushClipRect(view_min, view_max);
     }

@@ -808,16 +808,16 @@ void TimelineWindow::render_track_lanes() {
   }
 
   if (redraw) {
-    ImTextureID font_tex_id = ImGui::GetIO().Fonts->TexID;
+    ImTextureRef font_tex_ref = ImGui::GetIO().Fonts->TexRef;
     clip_draw_cmd.resize(0);
     waveform_cmd_list1.resize(0);
     waveform_cmd_list2.resize(0);
     layer1_draw_list->_ResetForNewFrame();
     layer2_draw_list->_ResetForNewFrame();
     layer3_draw_list->_ResetForNewFrame();
-    layer1_draw_list->PushTextureID(font_tex_id);
-    layer2_draw_list->PushTextureID(font_tex_id);
-    layer3_draw_list->PushTextureID(font_tex_id);
+    layer1_draw_list->PushTexture(font_tex_ref);
+    layer2_draw_list->PushTexture(font_tex_ref);
+    layer3_draw_list->PushTexture(font_tex_ref);
     layer1_draw_list->PushClipRect(view_min, view_max);
     layer2_draw_list->PushClipRect(view_min, view_max);
     layer3_draw_list->PushClipRect(view_min, view_max);
@@ -993,11 +993,11 @@ void TimelineWindow::render_track_lanes() {
     }
 
     layer3_draw_list->PopClipRect();
-    layer3_draw_list->PopTextureID();
+    layer3_draw_list->PopTexture();
     layer2_draw_list->PopClipRect();
-    layer2_draw_list->PopTextureID();
+    layer2_draw_list->PopTexture();
     layer1_draw_list->PopClipRect();
-    layer1_draw_list->PopTextureID();
+    layer1_draw_list->PopTexture();
 
     ImGuiViewport* owner_viewport = ImGui::GetWindowViewport();
     g_renderer->begin_render(timeline_fb, ImGui::GetStyleColorVec4(ImGuiCol_WindowBg));
@@ -1074,7 +1074,7 @@ void TimelineWindow::render_track_lanes() {
       ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0f);
 
       if (controls::begin_floating_window("Timeline floating buttons", pos)) {
-        set_current_font(FontType::Icon);
+        font_push(FontType::Icon, 24.0f);
         ImGui::Button(ICON_MS_MUSIC_NOTE_ADD);
         controls::item_tooltip("Create MIDI clips");
         ImGui::SameLine(0.0f, 0.0f);
@@ -1086,7 +1086,7 @@ void TimelineWindow::render_track_lanes() {
         ImGui::SameLine(0.0f, 0.0f);
         ImGui::Button(ICON_MS_SURGICAL);
         controls::item_tooltip("Slice region");
-        set_current_font(FontType::Normal);
+        font_pop();
         floating_button_size = ImGui::GetWindowSize();
       }
 
@@ -1664,7 +1664,7 @@ void TimelineWindow::draw_clips(const Vector<ClipDrawCmd>& clip_cmd_list, double
   Color text_col(text_color);
   ImVec2 half(0.5f, 0.5f);
   const ImVec4& rect = layer1_draw_list->_ClipRectStack.back();
-  const float font_size = font->FontSize;
+  const float font_size = ImGui::GetFontSize();
 
   for (auto& cmd : clip_cmd_list) {
     static constexpr float border_contrast_ratio = 1.0f / 3.5f;

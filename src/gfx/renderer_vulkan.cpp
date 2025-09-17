@@ -1244,7 +1244,8 @@ void GPURendererVK::end_upload_data() {
 void GPURendererVK::update_texture_region(GPUTexture* tex, uint32_t num_regions, const GPUUpdateTextureRegion* regions) {
   GPUTextureVK* tex_impl = static_cast<GPUTextureVK*>(tex);
   uint32_t buffer_size = 0;
-  VkBuffer staging_buffer;
+
+  buffer_image_copy.reserve(num_regions);
 
   // Calculate offsets
   for (uint32_t i = 0; i < num_regions; i++) {
@@ -1311,12 +1312,12 @@ void GPURendererVK::update_texture_region(GPUTexture* tex, uint32_t num_regions,
     end_render_pass_();
   }
 
-  VkImage image = tex_impl->get_current_image();
   VkImageLayout current_layout = tex_impl->get_current_layout();
-  transition_texture(image, current_layout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, true);
+  VkImage image = tex_impl->get_current_image();
+  transition_texture_(image, current_layout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
   vkCmdCopyBufferToImage(
       current_cb_, staging_buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, num_regions, buffer_image_copy.data());
-  transition_texture(image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, current_layout, true);
+  transition_texture_(image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, current_layout);
 
   // Resume suspended render pass
   if (!render_pass_started_) {
@@ -1788,6 +1789,31 @@ void GPURendererVK::begin_render_pass_() {
 void GPURendererVK::end_render_pass_() {
   vkCmdEndRenderPass(current_cb_);
   render_pass_started_ = false;
+}
+
+void GPURendererVK::transition_texture_(VkImage image, VkImageLayout prev_layout, VkImageLayout next_layout) {
+  if (prev_layout != next_layout) {
+    GPUTextureAccessVK src_access = get_texture_access(prev_layout);
+    GPUTextureAccessVK dst_access = get_texture_access(next_layout);
+    VkImageMemoryBarrier image_barrier {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .srcAccessMask = src_access.mask,
+        .dstAccessMask = dst_access.mask,
+        .oldLayout = src_access.layout,
+        .newLayout = dst_access.layout,
+        .srcQueueFamilyIndex = graphics_queue_index_,
+        .dstQueueFamilyIndex = graphics_queue_index_,
+        .image = image,
+        .subresourceRange = {
+          .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+          .baseMipLevel = 0,
+          .levelCount = 1,
+          .baseArrayLayer = 0,
+          .layerCount = 1,
+        },
+    };
+    vkCmdPipelineBarrier(current_cb_, src_access.stages, dst_access.stages, 0, 0, nullptr, 0, nullptr, 1, &image_barrier);
+  }
 }
 
 bool GPURendererVK::create_or_recreate_swapchain_(GPUViewportDataVK* vp_data) {

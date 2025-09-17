@@ -631,13 +631,13 @@ void timeline_render_track_lanes() {
   timeline_handle_track_event();
 
   if (redraw_) {
-    ImTextureID font_tex_id = ImGui::GetIO().Fonts->TexID;
+    ImTextureRef font_tex_ref = ImGui::GetIO().Fonts->TexRef;
     layer1_dl_->_ResetForNewFrame();
     layer2_dl_->_ResetForNewFrame();
     layer3_dl_->_ResetForNewFrame();
-    layer1_dl_->PushTextureID(font_tex_id);
-    layer2_dl_->PushTextureID(font_tex_id);
-    layer3_dl_->PushTextureID(font_tex_id);
+    layer1_dl_->PushTexture(font_tex_ref);
+    layer2_dl_->PushTexture(font_tex_ref);
+    layer3_dl_->PushTexture(font_tex_ref);
     layer1_dl_->PushClipRect(view_min_, view_max_);
     layer2_dl_->PushClipRect(view_min_, view_max_);
     layer3_dl_->PushClipRect(view_min_, view_max_);
@@ -849,9 +849,9 @@ void timeline_render_track_lanes() {
     layer3_dl_->PopClipRect();
     layer2_dl_->PopClipRect();
     layer1_dl_->PopClipRect();
-    layer3_dl_->PopTextureID();
-    layer2_dl_->PopTextureID();
-    layer1_dl_->PopTextureID();
+    layer3_dl_->PopTexture();
+    layer2_dl_->PopTexture();
+    layer1_dl_->PopTexture();
 
     ImGuiViewport* owner_viewport = ImGui::GetWindowViewport();
     g_renderer->begin_render(timeline_fb_, ImGui::GetStyleColorVec4(ImGuiCol_WindowBg));
