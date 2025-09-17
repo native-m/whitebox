@@ -3,9 +3,9 @@
 #include "core/bit_manipulation.h"
 #include "core/debug.h"
 #include "core/fs.h"
-#include "window_manager.h"
 #include "renderer_vulkan.h"
 #include "waveform_visual.h"
+#include "window_manager.h"
 
 namespace wb {
 
@@ -46,28 +46,30 @@ bool GPURenderer::init(SDL_Window* window) {
   assert(waveform_aa_fs.size());
   assert(waveform_fill_vs.size());
 
-  waveform_aa = create_pipeline({
-    .vs = waveform_aa_vs.data(),
-    .vs_size = (uint32_t)waveform_aa_vs.size(),
-    .fs = waveform_aa_fs.data(),
-    .fs_size = (uint32_t)waveform_aa_fs.size(),
-    .shader_parameter_size = sizeof(WaveformDrawParam),
-    .primitive_topology = GPUPrimitiveTopology::TriangleList,
-    .enable_blending = true,
-    .enable_color_write = true,
-  });
+  waveform_aa = create_pipeline(
+      {
+        .vs = waveform_aa_vs.data(),
+        .vs_size = (uint32_t)waveform_aa_vs.size(),
+        .fs = waveform_aa_fs.data(),
+        .fs_size = (uint32_t)waveform_aa_fs.size(),
+        .shader_parameter_size = sizeof(WaveformDrawParam),
+        .primitive_topology = GPUPrimitiveTopology::TriangleList,
+        .enable_blending = true,
+        .enable_color_write = true,
+      });
 
-  waveform_fill = create_pipeline({
-    .vs = waveform_fill_vs.data(),
-    .vs_size = (uint32_t)waveform_fill_vs.size(),
-    .fs = waveform_aa_fs.data(),
-    .fs_size = (uint32_t)waveform_aa_fs.size(),
-    .shader_parameter_size = sizeof(WaveformDrawParam),
-    .primitive_topology = GPUPrimitiveTopology::TriangleStrip,
-    .enable_blending = false,
-    .enable_color_write = true,
-  });
-  
+  waveform_fill = create_pipeline(
+      {
+        .vs = waveform_fill_vs.data(),
+        .vs_size = (uint32_t)waveform_fill_vs.size(),
+        .fs = waveform_aa_fs.data(),
+        .fs_size = (uint32_t)waveform_aa_fs.size(),
+        .shader_parameter_size = sizeof(WaveformDrawParam),
+        .primitive_topology = GPUPrimitiveTopology::TriangleStrip,
+        .enable_blending = false,
+        .enable_color_write = true,
+      });
+
   assert(waveform_aa && waveform_fill);
 
   GPUVertexAttribute imgui_vertex_attributes[3]{
@@ -91,27 +93,20 @@ bool GPURenderer::init(SDL_Window* window) {
     },
   };
 
-  imgui_pipeline = create_pipeline({
-    .vs = imgui_vs.data(),
-    .vs_size = (uint32_t)imgui_vs.size(),
-    .fs = imgui_fs.data(),
-    .fs_size = (uint32_t)imgui_fs.size(),
-    .shader_parameter_size = sizeof(float) * 4,
-    .vertex_stride = sizeof(ImDrawVert),
-    .num_vertex_attributes = 3,
-    .vertex_attributes = imgui_vertex_attributes,
-    .primitive_topology = GPUPrimitiveTopology::TriangleList,
-    .enable_blending = true,
-    .enable_color_write = true,
-  });
-
-  ImGuiIO& io = ImGui::GetIO();
-  unsigned char* pixels;
-  int width, height;
-  io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
-  font_texture =
-      create_texture(GPUTextureUsage::Sampled, GPUFormat::UnormR8G8B8A8, width, height, true, width, height, pixels);
-  io.Fonts->SetTexID((ImTextureID)font_texture);
+  imgui_pipeline = create_pipeline(
+      {
+        .vs = imgui_vs.data(),
+        .vs_size = (uint32_t)imgui_vs.size(),
+        .fs = imgui_fs.data(),
+        .fs_size = (uint32_t)imgui_fs.size(),
+        .shader_parameter_size = sizeof(float) * 4,
+        .vertex_stride = sizeof(ImDrawVert),
+        .num_vertex_attributes = 3,
+        .vertex_attributes = imgui_vertex_attributes,
+        .primitive_topology = GPUPrimitiveTopology::TriangleList,
+        .enable_blending = true,
+        .enable_color_write = true,
+      });
 
   return true;
 }
@@ -138,6 +133,11 @@ void GPURenderer::begin_frame() {
 }
 
 void GPURenderer::render_imgui_draw_data(ImDrawData* draw_data) {
+  if (draw_data->Textures != nullptr)
+    for (ImTextureData* tex : *draw_data->Textures)
+      if (tex->Status != ImTextureStatus_OK)
+        update_textures_(tex);
+
   static constexpr GPUBufferUsageFlags usage =
       GPUBufferUsage::Writeable | GPUBufferUsage::CPUAccessible | GPUBufferUsage::SharedGPUHeap;
   uint32_t new_total_vtx_count = immediate_vtx_offset + draw_data->TotalVtxCount;
@@ -247,7 +247,7 @@ void GPURenderer::render_imgui_draw_data(ImDrawData* draw_data) {
         set_scissor((int32_t)clip_min.x, (int32_t)clip_min.y, clip_w, clip_h);
 
         // Bind font or user texture
-        bind_texture(0, (GPUTexture*)pcmd->TextureId);
+        bind_texture(0, (GPUTexture*)pcmd->GetTexID());
 
         // Draw
         draw_indexed(pcmd->ElemCount, pcmd->IdxOffset + global_idx_offset, pcmd->VtxOffset + global_vtx_offset);
@@ -258,6 +258,73 @@ void GPURenderer::render_imgui_draw_data(ImDrawData* draw_data) {
   }
   immediate_vtx_offset = global_vtx_offset;
   immediate_idx_offset = global_idx_offset;
+}
+
+void GPURenderer::update_textures_(ImTextureData* tex) {
+  if (tex->Status == ImTextureStatus_WantCreate) {
+    // Create texture based on tex->Width, tex->Height.
+    // - Most backends only support tex->Format == ImTextureFormat_RGBA32.
+    // - Backends for particularly memory constrainted platforms may support tex->Format == ImTextureFormat_Alpha8.
+
+    // Upload all texture pixels
+    // - Read from our CPU-side copy of the texture and copy to your graphics API.
+    // - Use tex->Width, tex->Height, tex->GetPixels(), tex->GetPixelsAt(), tex->GetPitch() as needed.
+    font_texture = create_texture(
+        GPUTextureUsage::Sampled,
+        GPUFormat::UnormR8G8B8A8,
+        tex->Width,
+        tex->Height,
+        true,
+        tex->Width,
+        tex->Height,
+        tex->GetPixels());
+
+    // Store your data, and acknowledge creation.
+    tex->SetTexID(
+        (ImTextureID)font_texture);  // Specify backend-specific ImTextureID identifier which will be stored in ImDrawCmd.
+    tex->SetStatus(ImTextureStatus_OK);
+    tex->BackendUserData =
+        nullptr;  // Store more backend data if needed (most backend allocate a small texture to store data in there)
+  }
+  if (tex->Status == ImTextureStatus_WantUpdates) {
+    // Upload a rectangle of pixels to the existing texture
+    // - We only ever write to textures regions which have never been used before!
+    // - Use tex->TexID or tex->BackendUserData to retrieve your stored data.
+    // - Use tex->UpdateRect.x/y, tex->UpdateRect.w/h to obtain the block position and size.
+    //   - Use tex->Updates[] to obtain individual sub-regions within tex->UpdateRect. Not recommended.
+    // - Read from our CPU-side copy of the texture and copy to your graphics API.
+    // - Use tex->Width, tex->Height, tex->GetPixels(), tex->GetPixelsAt(), tex->GetPitch() as needed.
+
+    GPUTexture* texture = (GPUTexture*)tex->GetTexID();
+    Vector<GPUUpdateTextureRegion> regions;
+    for (ImTextureRect& r : tex->Updates) {
+      regions.push_back({
+        .x = r.x,
+        .y = r.y,
+        .width = r.w,
+        .height = r.h,
+        .pitch = (uint32_t)tex->GetPitch(),
+        .pixel_data = tex->GetPixelsAt(r.x, r.y),
+      });
+    }
+    
+    update_texture_region(texture, regions.size(), regions.data());
+    
+    // Acknowledge update
+    tex->SetStatus(ImTextureStatus_OK);
+  }
+  if (tex->Status == ImTextureStatus_WantDestroy && tex->UnusedFrames > 0) {
+    // If you use staged rendering and have in-flight renders, changed tex->UnusedFrames > 0 check to higher count as needed
+    // e.g. > 2
+
+    // Destroy texture
+    // - Use tex->TexID or tex->BackendUserData to retrieve your stored data.
+    // - Destroy texture in your graphics API.
+
+    // Acknowledge destruction
+    tex->SetTexID(ImTextureID_Invalid);
+    tex->SetStatus(ImTextureStatus_Destroyed);
+  }
 }
 
 void GPURenderer::clear_state() {
@@ -279,6 +346,7 @@ void init_renderer(SDL_Window* window) {
   io.BackendRendererName = "imgui_impl_whitebox";
   io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;
   io.BackendFlags |= ImGuiBackendFlags_RendererHasViewports;
+  io.BackendFlags |= ImGuiBackendFlags_RendererHasTextures;
 
   ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
   platform_io.Renderer_CreateWindow = imgui_renderer_create_window;

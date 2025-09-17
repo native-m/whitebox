@@ -34,6 +34,9 @@ struct GPUTextureVK : public GPUTexture {
   VkImageLayout layout[WB_GPU_RENDER_BUFFER_SIZE]{};
   GPUViewportDataVK* parent_viewport{};
   bool window_framebuffer{};
+
+  inline VkImage get_current_image() { return image[active_id]; }
+  inline VkImageLayout get_current_layout() { return layout[active_id]; }
 };
 
 struct GPUPipelineVK : public GPUPipeline {
@@ -206,12 +209,13 @@ struct GPURendererVK : public GPURenderer {
   std::mutex mtx_;
   std::deque<GPUResourceDisposeItemVK> resource_disposal_;
 
-  // NOTE(native-m): Use arena allocator to allocate temporary data
+  // NOTE(native-m): Use temporary stack allocator to allocate temporary data
   Vector<VkResult> swapchain_results;
   Vector<VkSemaphore> submit_wait_semaphores;
   Vector<VkSwapchainKHR> swapchain_present;
   Vector<VkPipelineStageFlags> submit_wait_stages;
   Vector<uint32_t> sc_image_index_present;
+  Vector<VkBufferImageCopy> buffer_image_copy;
 
   GPURendererVK(
       VkInstance instance,
@@ -259,6 +263,8 @@ struct GPURendererVK : public GPURenderer {
   void* begin_upload_data(GPUBuffer* buffer, size_t upload_size) override;
   void end_upload_data() override;
 
+  void update_texture_region(GPUTexture* tex, uint32_t num_regions, const GPUUpdateTextureRegion* regions) override;
+
   void begin_render(GPUTexture* render_target, const ImVec4& clear_color) override;
   void end_render() override;
   void set_shader_parameter(size_t size, const void* data) override;
@@ -277,6 +283,7 @@ struct GPURendererVK : public GPURenderer {
   void bind_resources_(VkCommandBuffer cmd_buf);
   void begin_render_pass_();
   void end_render_pass_();
+  void transition_texture(VkImage image, VkImageLayout prev_layout, VkImageLayout next_layout, bool temp = false);
   bool create_or_recreate_swapchain_(GPUViewportDataVK* vp_data);
   void dispose_buffer_(GPUBufferVK* buffer);
   void dispose_texture_(GPUTextureVK* texture);

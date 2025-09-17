@@ -1241,6 +1241,91 @@ void GPURendererVK::end_upload_data() {
   current_upload_item_ = nullptr;
 }
 
+void GPURendererVK::update_texture_region(GPUTexture* tex, uint32_t num_regions, const GPUUpdateTextureRegion* regions) {
+  GPUTextureVK* tex_impl = static_cast<GPUTextureVK*>(tex);
+  uint32_t buffer_size = 0;
+  VkBuffer staging_buffer;
+
+  // Calculate offsets
+  for (uint32_t i = 0; i < num_regions; i++) {
+    auto& region = regions[i];
+    uint32_t byte_size = region.pitch / tex_impl->width;
+    uint32_t size = region.width * region.height * byte_size;
+    buffer_image_copy.push_back({
+      .bufferOffset = buffer_size,
+      .bufferRowLength = region.width * byte_size,
+      .bufferImageHeight = region.height,
+      .imageSubresource = {
+        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+        .mipLevel = 0,
+        .baseArrayLayer = 0,
+        .layerCount = 1,
+      },
+      .imageOffset = { (int32_t)region.x, (int32_t)region.y, 0 },
+      .imageExtent = { region.width, region.height, 1u },
+    });
+    buffer_size += size;
+    buffer_size += buffer_size % 4;
+  }
+
+  VmaAllocationCreateInfo alloc_info{
+    .flags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+    .pool = staging_pool_,
+  };
+
+  VkBufferCreateInfo buffer_info{
+    .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+    .size = (VkDeviceSize)buffer_size,
+    .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+  };
+
+  // NOTE(native-m): Use ring buffer to enqueue resource data
+  VkBuffer staging_buffer;
+  VmaAllocation allocation;
+  VmaAllocationInfo alloc_result;
+  VK_CHECK(vmaCreateBuffer(allocator_, &buffer_info, &alloc_info, &staging_buffer, &allocation, &alloc_result));
+
+  // Copy pixel data into the staging buffer
+  uint32_t buffer_offset = 0;
+  std::byte* mapped_data = (std::byte*)alloc_result.pMappedData;
+  for (uint32_t i = 0; i < num_regions; i++) {
+    auto& region = regions[i];
+    uint32_t byte_size = region.pitch / tex_impl->width;
+    uint32_t size = region.width * region.height * byte_size;
+    std::memcpy(mapped_data + buffer_offset, region.pixel_data, size);
+    buffer_offset += size;
+    buffer_offset += buffer_offset % 4;
+  }
+
+  vmaFlushAllocation(allocator_, allocation, 0, VK_WHOLE_SIZE);
+  GPUResourceDisposeItemVK& buf = resource_disposal_.emplace_back();
+  buf.type = GPUResourceDisposeItemVK::Buffer;
+  buf.frame_stamp = frame_count_;
+  buf.buffer = {
+    .buffer = staging_buffer,
+    .allocation = allocation,
+  };
+
+  // Suspend render pass before transfering
+  if (render_pass_started_) {
+    end_render_pass_();
+  }
+
+  VkImage image = tex_impl->get_current_image();
+  VkImageLayout current_layout = tex_impl->get_current_layout();
+  transition_texture(image, current_layout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, true);
+  vkCmdCopyBufferToImage(
+      current_cb_, staging_buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, num_regions, buffer_image_copy.data());
+  transition_texture(image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, current_layout, true);
+
+  // Resume suspended render pass
+  if (!render_pass_started_) {
+    begin_render_pass_();
+  }
+
+  buffer_image_copy.resize(0);
+}
+
 void GPURendererVK::begin_render(GPUTexture* render_target, const ImVec4& clear_color) {
   assert(!inside_render_pass);
   assert(render_target->usage & GPUTextureUsage::RenderTarget);
@@ -1999,9 +2084,7 @@ GPURenderer* GPURendererVK::create(SDL_Window* window) {
       has_platform_surface = true;
     }
 #elif defined(WB_PLATFORM_MACOS)
-    else if (
-        std::strncmp(ext.extensionName, VK_EXT_METAL_SURFACE_EXTENSION_NAME, sizeof(ext.extensionName)) ==
-        0) {
+    else if (std::strncmp(ext.extensionName, VK_EXT_METAL_SURFACE_EXTENSION_NAME, sizeof(ext.extensionName)) == 0) {
       enabled_extensions.push_back(VK_EXT_METAL_SURFACE_EXTENSION_NAME);
       has_platform_surface = true;
     }

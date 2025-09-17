@@ -76,6 +76,15 @@ struct GPUPipelineDesc {
   bool enable_color_write;
 };
 
+struct GPUUpdateTextureRegion {
+  uint32_t x;
+  uint32_t y;
+  uint32_t width;
+  uint32_t height;
+  uint32_t pitch;
+  void* pixel_data;
+};
+
 struct GPUResource : public InplaceList<GPUResource> {
   // Some impls may require this to determine which internal resources to work on.
   uint32_t active_id = 0;
@@ -185,7 +194,7 @@ struct GPURenderer {
       uint32_t init_w = 0,
       uint32_t init_h = 0,
       const void* init_data = nullptr) = 0;
-  
+
   virtual GPUPipeline* create_pipeline(const GPUPipelineDesc& desc) = 0;
   virtual void destroy_buffer(GPUBuffer* buffer) = 0;
   virtual void destroy_texture(GPUTexture* buffer) = 0;
@@ -202,6 +211,8 @@ struct GPURenderer {
   virtual void unmap_buffer(GPUBuffer* buffer) = 0;
   virtual void* begin_upload_data(GPUBuffer* buffer, size_t upload_size) = 0;
   virtual void end_upload_data() = 0;
+
+  virtual void update_texture_region(GPUTexture* tex, uint32_t num_regions, const GPUUpdateTextureRegion* regions) = 0;
 
   virtual void begin_render(GPUTexture* render_target, const ImVec4& clear_color) = 0;
   virtual void end_render() = 0;
@@ -274,6 +285,8 @@ struct GPURenderer {
   }
 
   void render_imgui_draw_data(ImDrawData* draw_data);
+
+  void update_textures_(ImTextureData* tex);
 
  protected:
   void clear_state();  // Must be called in begin_frame() by the implementation!
