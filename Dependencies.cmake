@@ -42,8 +42,8 @@ CPMAddPackage(
 CPMAddPackage(
     NAME                volk
     GITHUB_REPOSITORY   zeux/volk
-    VERSION             1.3.268.0
-    GIT_TAG             vulkan-sdk-1.3.268.0
+    VERSION             1.4.321
+    GIT_TAG             vulkan-sdk-1.4.321.0
     OPTIONS             "VOLK_PULL_IN_VULKAN OFF"
                         "VOLK_HEADERS_ONLY ON"
                         "VOLK_INSTALL OFF"

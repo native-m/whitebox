@@ -1247,7 +1247,7 @@ void GPURendererVK::update_texture_region(GPUTexture* tex, uint32_t num_regions,
 
   buffer_image_copy.reserve(num_regions);
 
-  // Calculate offsets
+  // Calculate offsets & sizes
   for (uint32_t i = 0; i < num_regions; i++) {
     auto& region = regions[i];
     uint32_t byte_size = region.pitch / tex_impl->width;
@@ -2089,35 +2089,37 @@ GPURenderer* GPURendererVK::create(SDL_Window* window) {
   bool has_platform_surface = false;
   Vector<const char*> enabled_extensions;
   for (const auto& ext : extensions) {
-    if (std::strncmp(ext.extensionName, "VK_KHR_surface", sizeof(ext.extensionName)) == 0) {
-      enabled_extensions.push_back("VK_KHR_surface");
+    const char* name = ext.extensionName;
+    if (std::strncmp(name, VK_KHR_SURFACE_EXTENSION_NAME, sizeof(ext.extensionName)) == 0) {
+      enabled_extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
       has_surface = true;
+    } else if (std::strncmp(name, VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, sizeof(ext.extensionName)) == 0) {
+      enabled_extensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
     }
 #if defined(WB_PLATFORM_WINDOWS)
-    else if (std::strncmp(ext.extensionName, "VK_KHR_win32_surface", sizeof(ext.extensionName)) == 0) {
+    else if (std::strncmp(name, "VK_KHR_win32_surface", sizeof(ext.extensionName)) == 0) {
       enabled_extensions.push_back("VK_KHR_win32_surface");
       has_platform_surface = true;
     }
 #elif defined(WB_PLATFORM_LINUX)
-    else if (std::strncmp(ext.extensionName, "VK_KHR_xcb_surface", sizeof(ext.extensionName)) == 0) {
+    else if (std::strncmp(name, "VK_KHR_xcb_surface", sizeof(ext.extensionName)) == 0) {
       enabled_extensions.push_back("VK_KHR_xcb_surface");
       has_platform_surface = true;
-    } else if (std::strncmp(ext.extensionName, "VK_KHR_xlib_surface", sizeof(ext.extensionName)) == 0) {
+    } else if (std::strncmp(name, "VK_KHR_xlib_surface", sizeof(ext.extensionName)) == 0) {
       enabled_extensions.push_back("VK_KHR_xlib_surface");
       has_platform_surface = true;
-    } else if (std::strncmp(ext.extensionName, "VK_KHR_wayland_surface", sizeof(ext.extensionName)) == 0) {
+    } else if (std::strncmp(name, "VK_KHR_wayland_surface", sizeof(ext.extensionName)) == 0) {
       enabled_extensions.push_back("VK_KHR_wayland_surface");
-      has_platform_surface = true;
+      has_platform_surface = true
     }
 #elif defined(WB_PLATFORM_MACOS)
-    else if (std::strncmp(ext.extensionName, VK_EXT_METAL_SURFACE_EXTENSION_NAME, sizeof(ext.extensionName)) == 0) {
+    else if (std::strncmp(name, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME, sizeof(ext.extensionName)) == 0) {
+      enabled_extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+    } else if (std::strncmp(name, VK_EXT_METAL_SURFACE_EXTENSION_NAME, sizeof(ext.extensionName)) == 0) {
       enabled_extensions.push_back(VK_EXT_METAL_SURFACE_EXTENSION_NAME);
       has_platform_surface = true;
     }
 #endif
-
-    if (has_surface && has_platform_surface)
-      break;
   }
 
   if (!(has_surface && has_platform_surface)) {
@@ -2135,6 +2137,9 @@ GPURenderer* GPURendererVK::create(SDL_Window* window) {
     .enabledExtensionCount = (uint32_t)enabled_extensions.size(),
     .ppEnabledExtensionNames = enabled_extensions.data(),
   };
+
+  if constexpr (WB_PLATFORM_MACOS)
+    instance_info.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
 
   VkInstance instance;
   if (VK_FAILED(vkCreateInstance(&instance_info, nullptr, &instance)))
