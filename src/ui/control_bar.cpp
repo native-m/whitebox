@@ -117,7 +117,6 @@ void main_control_bar() {
   save_project = ImGui::Button(ICON_MS_SAVE "##wb_save_project");
   controls::item_tooltip("Save project file");
   ImGui::SameLine(0.0f, 12.0f);
-  font_pop();
 
   //
   if (ImGui::Button(ICON_MS_UNDO "##wb_undo")) {
@@ -167,6 +166,7 @@ void main_control_bar() {
   controls::item_tooltip("Record");
   ImGui::PopStyleVar();
   ImGui::SameLine(0.0f, 4.0f);
+  font_pop();
 
   // Song position
   ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 3.0f));

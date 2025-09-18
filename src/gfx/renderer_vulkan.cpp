@@ -1853,7 +1853,7 @@ bool GPURendererVK::create_or_recreate_swapchain_(GPUViewportDataVK* vp_data) {
     .pQueueFamilyIndices = queue_family_indicies,
     .preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
     .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-    .presentMode = VK_PRESENT_MODE_FIFO_RELAXED_KHR,
+    .presentMode = VK_PRESENT_MODE_FIFO_KHR,
     .clipped = VK_FALSE,
     .oldSwapchain = vp_data->swapchain,
   };
@@ -2226,13 +2226,20 @@ GPURenderer* GPURendererVK::create(SDL_Window* window) {
   VkPhysicalDeviceFeatures features{};
   vkGetPhysicalDeviceFeatures(selected_physical_device, &features);
 
+  Vector<const char*> device_extensions;
+  device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+
+#ifdef WB_PLATFORM_MACOS
+  device_extensions.push_back("VK_KHR_portability_subset");
+#endif
+
   const char* extension_name = "VK_KHR_swapchain";
   VkDeviceCreateInfo device_info{
     .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
     .queueCreateInfoCount = (uint32_t)queue_info.size(),
     .pQueueCreateInfos = queue_info.data(),
-    .enabledExtensionCount = 1,
-    .ppEnabledExtensionNames = &extension_name,
+    .enabledExtensionCount = device_extensions.size(),
+    .ppEnabledExtensionNames = device_extensions.data(),
     .pEnabledFeatures = &features,
   };
 

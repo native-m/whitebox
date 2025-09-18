@@ -76,11 +76,11 @@ SDL_AppResult app_init(void** appstate, int argc, char** argv) {
   style.FontScaleDpi = main_scale;
   style.FontSizeBase = 13.0f;
   apply_theme(style);
-
+  
   SDL_Window* main_window = wm_get_main_window();
   ImGui_ImplSDL3_InitForOther(main_window);
-  init_font_assets();
   init_renderer(main_window);
+  init_font_assets();
   init_windows();
 
   CommandManager2::initialize(10);

@@ -12,6 +12,7 @@
 #include "engine/engine2.h"
 #include "engine/track.h"
 #include "engine/track_command.h"
+#include "font.h"
 #include "gfx/draw.h"
 #include "gfx/renderer.h"
 #include "grid.h"
@@ -629,6 +630,7 @@ void timeline_render_track_lanes() {
 
   timeline_handle_mouse_event();
   timeline_handle_track_event();
+  font_push(FontType::Normal, 13.0f);
 
   if (redraw_) {
     ImTextureRef font_tex_ref = ImGui::GetIO().Fonts->TexRef;
@@ -749,51 +751,54 @@ void timeline_render_track_lanes() {
               const float pos_y = clip_content_min.y - offset_y;
               if (waveform->channels == 2) {
                 const float height = std::floor((clip_content_max.y - clip_content_min.y) * 0.5f);
-                waveform_cmd.push_back({
-                  .waveform_vis = waveform,
-                  .min_x = min_bb_x,
-                  .min_y = pos_y,
-                  .max_x = max_bb_x,
-                  .max_y = pos_y + height,
-                  .gain = clip->audio.gain,
-                  .scale_x = (float)mip_scale,
-                  .gap_size = gap_size,
-                  .color = content_color_u32,
-                  .mip_index = index,
-                  .channel = 0,
-                  .start_idx = (uint32_t)start_idx,
-                  .draw_count = (uint32_t)draw_count + 2,
-                });
-                waveform_cmd.push_back({
-                  .waveform_vis = waveform,
-                  .min_x = min_bb_x,
-                  .min_y = pos_y + height,
-                  .max_x = max_bb_x,
-                  .max_y = pos_y + height * 2.0f,
-                  .gain = clip->audio.gain,
-                  .scale_x = (float)mip_scale,
-                  .gap_size = gap_size,
-                  .color = content_color_u32,
-                  .mip_index = index,
-                  .channel = 1,
-                  .start_idx = (uint32_t)start_idx,
-                  .draw_count = (uint32_t)draw_count + 2,
-                });
+                waveform_cmd.push_back(
+                    {
+                      .waveform_vis = waveform,
+                      .min_x = min_bb_x,
+                      .min_y = pos_y,
+                      .max_x = max_bb_x,
+                      .max_y = pos_y + height,
+                      .gain = clip->audio.gain,
+                      .scale_x = (float)mip_scale,
+                      .gap_size = gap_size,
+                      .color = content_color_u32,
+                      .mip_index = index,
+                      .channel = 0,
+                      .start_idx = (uint32_t)start_idx,
+                      .draw_count = (uint32_t)draw_count + 2,
+                    });
+                waveform_cmd.push_back(
+                    {
+                      .waveform_vis = waveform,
+                      .min_x = min_bb_x,
+                      .min_y = pos_y + height,
+                      .max_x = max_bb_x,
+                      .max_y = pos_y + height * 2.0f,
+                      .gain = clip->audio.gain,
+                      .scale_x = (float)mip_scale,
+                      .gap_size = gap_size,
+                      .color = content_color_u32,
+                      .mip_index = index,
+                      .channel = 1,
+                      .start_idx = (uint32_t)start_idx,
+                      .draw_count = (uint32_t)draw_count + 2,
+                    });
               } else {
-                waveform_cmd.push_back({
-                  .waveform_vis = waveform,
-                  .min_x = min_bb_x,
-                  .min_y = pos_y,
-                  .max_x = max_bb_x,
-                  .max_y = clip_content_max.y - offset_y,
-                  .gain = clip->audio.gain,
-                  .scale_x = (float)mip_scale,
-                  .gap_size = gap_size,
-                  .color = content_color_u32,
-                  .mip_index = index,
-                  .start_idx = (uint32_t)start_idx,
-                  .draw_count = (uint32_t)draw_count + 2,
-                });
+                waveform_cmd.push_back(
+                    {
+                      .waveform_vis = waveform,
+                      .min_x = min_bb_x,
+                      .min_y = pos_y,
+                      .max_x = max_bb_x,
+                      .max_y = clip_content_max.y - offset_y,
+                      .gain = clip->audio.gain,
+                      .scale_x = (float)mip_scale,
+                      .gap_size = gap_size,
+                      .color = content_color_u32,
+                      .mip_index = index,
+                      .start_idx = (uint32_t)start_idx,
+                      .draw_count = (uint32_t)draw_count + 2,
+                    });
               }
               break;
             }
@@ -862,6 +867,7 @@ void timeline_render_track_lanes() {
     layer_draw_data_.FramebufferScale.x = 1.0f;
     layer_draw_data_.FramebufferScale.y = 1.0f;
     layer_draw_data_.OwnerViewport = owner_viewport;
+    layer_draw_data_.Textures = &ImGui::GetPlatformIO().Textures;
     layer_draw_data_.AddDrawList(layer1_dl_);
     g_renderer->render_imgui_draw_data(&layer_draw_data_);
     gfx_draw_waveform_batch(waveform_cmd, 0, 0, (int32_t)display_size.x, (int32_t)display_size.y);
@@ -872,21 +878,24 @@ void timeline_render_track_lanes() {
     layer_draw_data_.FramebufferScale.x = 1.0f;
     layer_draw_data_.FramebufferScale.y = 1.0f;
     layer_draw_data_.OwnerViewport = owner_viewport;
+    layer_draw_data_.Textures = &ImGui::GetPlatformIO().Textures;
     layer_draw_data_.AddDrawList(layer2_dl_);
     g_renderer->render_imgui_draw_data(&layer_draw_data_);
 
-    // if (layer3_dl_._)
     layer_draw_data_.Clear();
     layer_draw_data_.DisplayPos = view_min_;
     layer_draw_data_.DisplaySize = display_size;
     layer_draw_data_.FramebufferScale.x = 1.0f;
     layer_draw_data_.FramebufferScale.y = 1.0f;
     layer_draw_data_.OwnerViewport = owner_viewport;
+    layer_draw_data_.Textures = &ImGui::GetPlatformIO().Textures;
     layer_draw_data_.AddDrawList(layer3_dl_);
     g_renderer->render_imgui_draw_data(&layer_draw_data_);
 
     g_renderer->end_render();
   }
+
+  font_pop();
 
   ImTextureID fb_tex_id = (ImTextureID)timeline_fb_;
   dl->AddImage(fb_tex_id, view_min_, view_min_ + display_size);

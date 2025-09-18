@@ -194,7 +194,11 @@ void GPURenderer::render_imgui_draw_data(ImDrawData* draw_data) {
     bind_vertex_buffer(imm_vtx_buf);
     bind_index_buffer(imm_idx_buf);
     set_shader_parameter(sizeof(shader_param), shader_param);
-    set_viewport(0.0f, 0.0f, draw_data->DisplaySize.x, draw_data->DisplaySize.y);
+    set_viewport(
+        0.0f,
+        0.0f,
+        draw_data->DisplaySize.x * draw_data->FramebufferScale.x,
+        draw_data->DisplaySize.y * draw_data->FramebufferScale.y);
   };
 
   setup_imgui_render_state();
@@ -298,20 +302,21 @@ void GPURenderer::update_textures_(ImTextureData* tex) {
     GPUTexture* texture = (GPUTexture*)tex->GetTexID();
     Vector<GPUUpdateTextureRegion> regions;
     regions.reserve(tex->Updates.size());
-    
+
     for (ImTextureRect& r : tex->Updates) {
-      regions.push_back({
-        .x = r.x,
-        .y = r.y,
-        .width = r.w,
-        .height = r.h,
-        .pitch = (uint32_t)tex->GetPitch(),
-        .pixel_data = tex->GetPixelsAt(r.x, r.y),
-      });
+      regions.push_back(
+          {
+            .x = r.x,
+            .y = r.y,
+            .width = r.w,
+            .height = r.h,
+            .pitch = (uint32_t)tex->GetPitch(),
+            .pixel_data = tex->GetPixelsAt(r.x, r.y),
+          });
     }
-    
+
     update_texture_region(texture, regions.size(), regions.data());
-    
+
     // Acknowledge update
     tex->SetStatus(ImTextureStatus_OK);
   }
