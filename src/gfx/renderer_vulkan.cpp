@@ -62,6 +62,18 @@ static constexpr GPUTextureAccessVK get_texture_access(VkImageLayout layout) {
         .mask = 0,
         .layout = VK_IMAGE_LAYOUT_UNDEFINED,
       };
+    case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+      return {
+        .stages = VK_PIPELINE_STAGE_TRANSFER_BIT,
+        .mask = VK_ACCESS_TRANSFER_READ_BIT,
+        .layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+      };
+    case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+      return {
+        .stages = VK_PIPELINE_STAGE_TRANSFER_BIT,
+        .mask = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+      };
     case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
       return {
         .stages = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -1254,7 +1266,7 @@ void GPURendererVK::update_texture_region(GPUTexture* tex, uint32_t num_regions,
     uint32_t size = region.width * region.height * byte_size;
     buffer_image_copy.push_back({
       .bufferOffset = buffer_size,
-      .bufferRowLength = region.width * byte_size,
+      .bufferRowLength = region.width,
       .bufferImageHeight = region.height,
       .imageSubresource = {
         .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -1288,14 +1300,19 @@ void GPURendererVK::update_texture_region(GPUTexture* tex, uint32_t num_regions,
 
   // Copy pixel data into the staging buffer
   uint32_t buffer_offset = 0;
-  std::byte* mapped_data = (std::byte*)alloc_result.pMappedData;
+  unsigned char* mapped_data = (unsigned char*)alloc_result.pMappedData;
+  std::memset(mapped_data, 0, buffer_size);
   for (uint32_t i = 0; i < num_regions; i++) {
     auto& region = regions[i];
     uint32_t byte_size = region.pitch / tex_impl->width;
-    uint32_t size = region.width * region.height * byte_size;
-    std::memcpy(mapped_data + buffer_offset, region.pixel_data, size);
-    buffer_offset += size;
-    buffer_offset += buffer_offset % 4;
+
+    unsigned char* pixel_row = (unsigned char*)region.pixel_data;
+    for (uint32_t h = 0; h < region.height; h++) {
+      uint32_t pitch = region.width * byte_size;
+      std::memcpy(mapped_data + buffer_offset, pixel_row, region.width * byte_size);
+      buffer_offset += pitch;
+      pixel_row += region.pitch;
+    }
   }
 
   vmaFlushAllocation(allocator_, allocation, 0, VK_WHOLE_SIZE);
@@ -1308,8 +1325,10 @@ void GPURendererVK::update_texture_region(GPUTexture* tex, uint32_t num_regions,
   };
 
   // Suspend render pass before transfering
+  bool render_pass_suspended = false;
   if (render_pass_started_) {
     end_render_pass_();
+    render_pass_suspended = true;
   }
 
   VkImageLayout current_layout = tex_impl->get_current_layout();
@@ -1320,7 +1339,7 @@ void GPURendererVK::update_texture_region(GPUTexture* tex, uint32_t num_regions,
   transition_texture_(image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, current_layout);
 
   // Resume suspended render pass
-  if (!render_pass_started_) {
+  if (render_pass_suspended) {
     begin_render_pass_();
   }
 
@@ -2233,7 +2252,6 @@ GPURenderer* GPURendererVK::create(SDL_Window* window) {
   device_extensions.push_back("VK_KHR_portability_subset");
 #endif
 
-  const char* extension_name = "VK_KHR_swapchain";
   VkDeviceCreateInfo device_info{
     .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
     .queueCreateInfoCount = (uint32_t)queue_info.size(),

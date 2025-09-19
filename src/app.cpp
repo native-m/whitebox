@@ -72,10 +72,10 @@ SDL_AppResult app_init(void** appstate, int argc, char** argv) {
 
   float main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
   ImGuiStyle& style = ImGui::GetStyle();
+  apply_theme(style);
   style.ScaleAllSizes(main_scale);
   style.FontScaleDpi = main_scale;
   style.FontSizeBase = 13.0f;
-  apply_theme(style);
   
   SDL_Window* main_window = wm_get_main_window();
   ImGui_ImplSDL3_InitForOther(main_window);
@@ -102,6 +102,8 @@ SDL_AppResult app_iterate(void* appstate) {
   g_renderer->begin_frame();
   ImGui_ImplSDL3_NewFrame();
   ImGui::NewFrame();
+
+  ImGui::GetDrawListSharedData()->InitialFringeScale = 0.5f;
 
   ImGuiViewport* main_viewport = ImGui::GetMainViewport();
   ImGuiID main_dockspace_id = ImGui::DockSpaceOverViewport(0, main_viewport, ImGuiDockNodeFlags_PassthruCentralNode);

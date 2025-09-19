@@ -16,7 +16,8 @@ void init_font_assets() {
   ImGuiIO& io = ImGui::GetIO();
   io.Fonts->FontLoader = ImGuiFreeType::GetFontLoader();
   
-  font_collection_[(uint32_t)FontType::Normal] = io.Fonts->AddFontFromFileTTF("assets/Inter-Regular.ttf");
+  config.FontLoaderFlags |= ImGuiFreeTypeBuilderFlags_NoHinting;
+  font_collection_[(uint32_t)FontType::Normal] = io.Fonts->AddFontFromFileTTF("assets/Inter-Regular.ttf", 0.0f, &config);
   font_collection_[(uint32_t)FontType::MonoMedium] = io.Fonts->AddFontFromFileTTF("assets/RobotoMono-Regular.ttf");
   font_collection_[(uint32_t)FontType::Icon] = io.Fonts->AddFontFromFileTTF("assets/MaterialSymbolsSharp_Filled-Regular.ttf");
 
