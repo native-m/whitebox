@@ -4,6 +4,8 @@
 #include <Windows.h>
 #elif defined(WB_PLATFORM_LINUX)
 #include <time.h>
+#elif defined(WB_PLATFORM_MACOS)
+#include <mach/mach_time.h>
 #endif
 
 namespace wb {
@@ -20,8 +22,8 @@ uint64_t tm_get_ticks() {
   ticks = now.tv_sec * 1000000000ull;
   ticks += now.tv_nsec;
   return ticks;
-#else
-  return 0;
+#elif defined(WB_PLATFORM_MACOS)
+  return mach_absolute_time();
 #endif
 }
 
@@ -39,7 +41,9 @@ uint64_t tm_get_ticks_per_seconds() {
 #elif defined(WB_PLATFORM_LINUX)
   return 1000000000;
 #else
-  return 0;
+  mach_timebase_info_data_t info;
+  mach_timebase_info(&info);
+  return (1000000000ULL * (uint64_t)info.denom) / (uint64_t)info.numer;
 #endif
 }
 
