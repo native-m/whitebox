@@ -2,7 +2,7 @@
 
 #include "controls.h"
 #include "core/debug.h"
-#include "engine/engine.h"
+#include "engine/engine2.h"
 #include "engine/track.h"
 #include "window.h"
 
@@ -94,7 +94,7 @@ void MixerWindow::render() {
 
     ImGui::SameLine(0.0f, 2.0f);
     if (ImGui::Button("S", ImVec2(ms_btn_width, 0.0f)))
-      g_engine.solo_track(id);
+      Engine2::solo_track(id);
     ImGui::PopStyleVar();
 
     ImGui::SetCursorPos(ImGui::GetCursorPos() + ImVec2(0.0f, 2.0f));

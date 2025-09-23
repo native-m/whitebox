@@ -160,7 +160,7 @@ void draw_musical_grid(
   float line_end_y = pos.y + size.y;
   for (uint32_t i = 0; i <= gridline_count; i++) {
     line_pos_x += grid_inc_x;
-    float line_pixel_pos_x = (float)math::round(line_pos_x);
+    float line_pixel_pos_x = (float)std::floor(line_pos_x);
     uint32_t grid_id = i + count_offset + 1u;
     ImU32 line_color = base_line_color;
     if (grid_id % lines_per_bar) {

@@ -36,7 +36,7 @@ void main() {
     gl_Position.x = pos.x * draw_cmd.vp_width - 1.0f;
     gl_Position.y = pos.y * draw_cmd.vp_height - 1.0f;
     gl_Position.zw = vec2(0.5f, 1.0f);
-    coverage = float(1 - dir);
+    coverage = float(1.0 - dir);
     //ps_input.length = float(side) * len - len * 0.5;
     //ps_input.half_length = len * 0.5;
     //ps_input.pos_x = float4((n0 + n1) * 0.5, 0.0, 0.0);
