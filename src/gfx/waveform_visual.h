@@ -66,9 +66,11 @@ struct WaveformVisual {
 void gfx_draw_waveform(const WaveformDrawCmd& command);
 void gfx_draw_waveform_batch(
     const Vector<WaveformDrawCmd>& commands,
-    int32_t clip_x0,
-    int32_t clip_y0,
-    int32_t clip_x1,
-    int32_t clip_y1);
+    float fb_scale_x,
+    float fb_scale_y,
+    float scissor_x0,
+    float scissor_y0,
+    float scissor_x1,
+    float scissor_y1);
 
 }  // namespace wb

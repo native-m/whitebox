@@ -1010,7 +1010,7 @@ void TimelineWindow::render_track_lanes() {
     layer_draw_data.OwnerViewport = owner_viewport;
     layer_draw_data.AddDrawList(layer1_draw_list);
     g_renderer->render_imgui_draw_data(&layer_draw_data);
-    gfx_draw_waveform_batch(waveform_cmd_list1, 0, 0, (int32_t)timeline_area.x, (int32_t)timeline_area.y);
+    //gfx_draw_waveform_batch(waveform_cmd_list1, 0, 0, (int32_t)timeline_area.x, (int32_t)timeline_area.y);
 
     layer_draw_data.Clear();
     layer_draw_data.DisplayPos = view_min;
@@ -1020,7 +1020,7 @@ void TimelineWindow::render_track_lanes() {
     layer_draw_data.OwnerViewport = owner_viewport;
     layer_draw_data.AddDrawList(layer2_draw_list);
     g_renderer->render_imgui_draw_data(&layer_draw_data);
-    gfx_draw_waveform_batch(waveform_cmd_list2, 0, 0, (int32_t)timeline_area.x, (int32_t)timeline_area.y);
+    //gfx_draw_waveform_batch(waveform_cmd_list2, 0, 0, (int32_t)timeline_area.x, (int32_t)timeline_area.y);
 
     layer_draw_data.Clear();
     layer_draw_data.DisplayPos = view_min;

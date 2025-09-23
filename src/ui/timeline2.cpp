@@ -593,6 +593,7 @@ void timeline_render_track_lanes() {
   view_min_ = ImVec2(view_pos_.x, vscroll_ + view_pos_.y);
   view_max_ = ImVec2(view_pos_.x + available_size.x, vscroll_ + view_pos_.y + timeline_layout_size_.y);
 
+  ImVec2 framebuffer_scale = ImGui::GetWindowViewport()->FramebufferScale;
   ImVec2 view_size(available_size.x, math::max(track_lanes_height_, timeline_layout_size_.y));
   ImVec2 display_size = view_max_ - view_min_;
   const float offset_y = vscroll_ + view_pos_.y;
@@ -604,8 +605,8 @@ void timeline_render_track_lanes() {
   ImGui::PopStyleVar();
 
   if (display_size.x != timeline_display_size_.x || display_size.y != timeline_display_size_.y) {
-    int width = (int)math::max(display_size.x, 16.0f);
-    int height = (int)math::max(display_size.y, 16.0f);
+    int width = (int)math::max(display_size.x * framebuffer_scale.x, 16.0f);
+    int height = (int)math::max(display_size.y * framebuffer_scale.y, 16.0f);
     if (timeline_fb_)
       g_renderer->destroy_texture(timeline_fb_);
     timeline_fb_ = g_renderer->create_texture(
@@ -633,6 +634,7 @@ void timeline_render_track_lanes() {
   font_push(FontType::Normal, 13.0f);
 
   if (redraw_) {
+    ImFontBaked* font_baked = font_->GetFontBaked(font_size_);
     ImTextureRef font_tex_ref = ImGui::GetIO().Fonts->TexRef;
     layer1_dl_->_ResetForNewFrame();
     layer2_dl_->_ResetForNewFrame();
@@ -858,37 +860,33 @@ void timeline_render_track_lanes() {
     layer2_dl_->PopTexture();
     layer1_dl_->PopTexture();
 
+    // ImGui::UpdateTexturesEndFrame();
+
     ImGuiViewport* owner_viewport = ImGui::GetWindowViewport();
     g_renderer->begin_render(timeline_fb_, ImGui::GetStyleColorVec4(ImGuiCol_WindowBg));
 
     layer_draw_data_.Clear();
     layer_draw_data_.DisplayPos = view_min_;
     layer_draw_data_.DisplaySize = display_size;
-    layer_draw_data_.FramebufferScale.x = 1.0f;
-    layer_draw_data_.FramebufferScale.y = 1.0f;
+    layer_draw_data_.FramebufferScale = framebuffer_scale;
     layer_draw_data_.OwnerViewport = owner_viewport;
-    layer_draw_data_.Textures = &ImGui::GetPlatformIO().Textures;
     layer_draw_data_.AddDrawList(layer1_dl_);
     g_renderer->render_imgui_draw_data(&layer_draw_data_);
-    gfx_draw_waveform_batch(waveform_cmd, 0, 0, (int32_t)display_size.x, (int32_t)display_size.y);
+    gfx_draw_waveform_batch(waveform_cmd, framebuffer_scale.x, framebuffer_scale.y, 0, 0, display_size.x, display_size.y);
 
     layer_draw_data_.Clear();
     layer_draw_data_.DisplayPos = view_min_;
     layer_draw_data_.DisplaySize = display_size;
-    layer_draw_data_.FramebufferScale.x = 1.0f;
-    layer_draw_data_.FramebufferScale.y = 1.0f;
+    layer_draw_data_.FramebufferScale = framebuffer_scale;
     layer_draw_data_.OwnerViewport = owner_viewport;
-    layer_draw_data_.Textures = &ImGui::GetPlatformIO().Textures;
     layer_draw_data_.AddDrawList(layer2_dl_);
     g_renderer->render_imgui_draw_data(&layer_draw_data_);
 
     layer_draw_data_.Clear();
     layer_draw_data_.DisplayPos = view_min_;
     layer_draw_data_.DisplaySize = display_size;
-    layer_draw_data_.FramebufferScale.x = 1.0f;
-    layer_draw_data_.FramebufferScale.y = 1.0f;
+    layer_draw_data_.FramebufferScale = framebuffer_scale;
     layer_draw_data_.OwnerViewport = owner_viewport;
-    layer_draw_data_.Textures = &ImGui::GetPlatformIO().Textures;
     layer_draw_data_.AddDrawList(layer3_dl_);
     g_renderer->render_imgui_draw_data(&layer_draw_data_);
 

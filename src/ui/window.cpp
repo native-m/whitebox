@@ -61,8 +61,8 @@ void render_windows() {
     g_mixer.render();
   //if (g_timeline_window_open)
   //  g_timeline.render();
-  //if (g_timeline2_window_open)
-  //  render_timeline();
+  if (g_timeline2_window_open)
+    render_timeline();
   if (g_clip_editor_window_open)
     render_clip_editor();
   /*if (g_env_editor_window_open)

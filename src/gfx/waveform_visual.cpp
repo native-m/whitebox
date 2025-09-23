@@ -252,19 +252,26 @@ void gfx_draw_waveform(const WaveformDrawCmd& command) {
 
 void gfx_draw_waveform_batch(
     const Vector<WaveformDrawCmd>& commands,
-    int32_t clip_x0,
-    int32_t clip_y0,
-    int32_t clip_x1,
-    int32_t clip_y1) {
+    float fb_scale_x,
+    float fb_scale_y,
+    float scissor_x0,
+    float scissor_y0,
+    float scissor_x1,
+    float scissor_y1) {
   if (commands.size() == 0)
     return;
 
-  float fb_width = (float)(clip_x1 - clip_x0);
-  float fb_height = (float)(clip_y1 - clip_y0);
+  float clip_scaled_x0 = (float)scissor_x0 * fb_scale_x;
+  float clip_scaled_y0 = (float)scissor_y0 * fb_scale_y;
+  float clip_scaled_x1 = (float)scissor_x1 * fb_scale_x;
+  float clip_scaled_y1 = (float)scissor_y1 * fb_scale_y;
+
+  float fb_width = clip_scaled_x1 - clip_scaled_x0;
+  float fb_height = clip_scaled_y1 - clip_scaled_y0;
   float vp_width = 2.0f / fb_width;
   float vp_height = 2.0f / fb_height;
 
-  g_renderer->set_viewport((float)clip_x0, (float)clip_y0, fb_width, fb_height);
+  g_renderer->set_viewport((float)clip_scaled_x0, (float)clip_scaled_y0, fb_width, fb_height);
 
   for (auto& cmd : commands) {
     if (cmd.draw_count == 0)
@@ -275,10 +282,10 @@ void gfx_draw_waveform_batch(
       continue;
 
     WaveformMipmap& mip = cmd.waveform_vis->mipmaps[cmd.mip_index];
-    int32_t x0 = std::max((int32_t)cmd.min_x, clip_x0);
-    int32_t y0 = std::max((int32_t)cmd.min_y, clip_y0);
-    int32_t x1 = std::min((int32_t)cmd.max_x, clip_x1);
-    int32_t y1 = std::min((int32_t)cmd.max_y, clip_y1);
+    float x0 = std::max((float)cmd.min_x * 2.0f, clip_scaled_x0);
+    float y0 = std::max((float)cmd.min_y * 2.0f, clip_scaled_y0);
+    float x1 = std::min((float)cmd.max_x * 2.0f, clip_scaled_x1);
+    float y1 = std::min((float)cmd.max_y * 2.0f, clip_scaled_y1);
     uint32_t vertex_count = cmd.draw_count * 2;
 
     WaveformDrawParam draw_cmd{
@@ -287,8 +294,8 @@ void gfx_draw_waveform_batch(
       .scale_x = cmd.scale_x,
       .scale_y = cmd.max_y - cmd.min_y,
       .gain = cmd.gain,
-      .vp_width = vp_width,
-      .vp_height = vp_height,
+      .vp_width = vp_width * 2.0f,
+      .vp_height = vp_height * 2.0f,
       .gap_size = cmd.gap_size,
       .is_min = 0,
       .color = cmd.color,
