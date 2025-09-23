@@ -276,7 +276,7 @@ GPUDescriptorStreamVK::create_chunk(VkDevice device, uint32_t max_descriptor_set
   VkDescriptorPoolSize pool_sizes[2];
   pool_sizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   pool_sizes[0].descriptorCount = max_descriptors;
-  pool_sizes[1].type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+  pool_sizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
   pool_sizes[1].descriptorCount = max_descriptors;
 
   VkDescriptorPoolCreateInfo pool_info{
@@ -2150,7 +2150,7 @@ GPURenderer* GPURendererVK::create(SDL_Window* window) {
     .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
     .pApplicationInfo = &app_info,
 #ifdef WB_VULKAN_ENABLE_VALIDATION
-    .enabledLayerCount = 0,
+    .enabledLayerCount = 1,
 #endif
     .ppEnabledLayerNames = &instance_layer,
     .enabledExtensionCount = (uint32_t)enabled_extensions.size(),

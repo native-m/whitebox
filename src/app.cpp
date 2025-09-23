@@ -104,7 +104,7 @@ SDL_AppResult app_iterate(void* appstate) {
   ImGui::NewFrame();
 
   ImGui::GetDrawListSharedData()->InitialFringeScale = 0.5f;
-
+  
   ImGuiViewport* main_viewport = ImGui::GetMainViewport();
   ImGuiID main_dockspace_id = ImGui::DockSpaceOverViewport(0, main_viewport, ImGuiDockNodeFlags_PassthruCentralNode);
 

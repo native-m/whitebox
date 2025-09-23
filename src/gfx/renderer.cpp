@@ -117,8 +117,14 @@ void GPURenderer::shutdown() {
   if (waveform_fill)
     destroy_pipeline(waveform_fill);
 
-  if (font_texture)
-    destroy_texture(font_texture);
+  for (ImTextureData* tex : ImGui::GetPlatformIO().Textures) {
+    if (tex->RefCount == 1) {
+      destroy_texture((GPUTexture*)tex->GetTexID());
+      tex->SetTexID(ImTextureID_Invalid);
+      tex->SetStatus(ImTextureStatus_Destroyed);
+    }
+  }
+
   if (imm_vtx_buf)
     destroy_buffer(imm_vtx_buf);
   if (imm_idx_buf)
@@ -133,10 +139,24 @@ void GPURenderer::begin_frame() {
 }
 
 void GPURenderer::render_imgui_draw_data(ImDrawData* draw_data) {
-  if (draw_data->Textures != nullptr)
+  if (draw_data->Textures == nullptr) {
+    // draw_data->Textures is not valid until ImGui::Render(), so we need to pull them manually here
+    ImGuiContext& g = *GImGui;
+    for (ImFontAtlas* atlas : g.FontAtlases) {
+      for (ImTextureData* tex : atlas->TexList) {
+        tex->RefCount = (unsigned short)atlas->RefCount;
+        if (tex->Status != ImTextureStatus_OK)
+          update_textures_(tex);
+      }
+    }
+    for (ImTextureData* tex : g.UserTextures)
+      if (tex->Status != ImTextureStatus_OK)
+        update_textures_(tex);
+  } else {
     for (ImTextureData* tex : *draw_data->Textures)
       if (tex->Status != ImTextureStatus_OK)
         update_textures_(tex);
+  }
 
   static constexpr GPUBufferUsageFlags usage =
       GPUBufferUsage::Writeable | GPUBufferUsage::CPUAccessible | GPUBufferUsage::SharedGPUHeap;
@@ -266,13 +286,6 @@ void GPURenderer::render_imgui_draw_data(ImDrawData* draw_data) {
 
 void GPURenderer::update_textures_(ImTextureData* tex) {
   if (tex->Status == ImTextureStatus_WantCreate) {
-    // Create texture based on tex->Width, tex->Height.
-    // - Most backends only support tex->Format == ImTextureFormat_RGBA32.
-    // - Backends for particularly memory constrainted platforms may support tex->Format == ImTextureFormat_Alpha8.
-
-    // Upload all texture pixels
-    // - Read from our CPU-side copy of the texture and copy to your graphics API.
-    // - Use tex->Width, tex->Height, tex->GetPixels(), tex->GetPixelsAt(), tex->GetPitch() as needed.
     font_texture = create_texture(
         GPUTextureUsage::Sampled,
         GPUFormat::UnormR8G8B8A8,
@@ -282,23 +295,11 @@ void GPURenderer::update_textures_(ImTextureData* tex) {
         tex->Width,
         tex->Height,
         tex->GetPixels());
-
-    // Store your data, and acknowledge creation.
-    tex->SetTexID(
-        (ImTextureID)font_texture);  // Specify backend-specific ImTextureID identifier which will be stored in ImDrawCmd.
+    tex->SetTexID((ImTextureID)font_texture);
     tex->SetStatus(ImTextureStatus_OK);
-    tex->BackendUserData =
-        nullptr;  // Store more backend data if needed (most backend allocate a small texture to store data in there)
+    tex->BackendUserData = nullptr;
   }
   if (tex->Status == ImTextureStatus_WantUpdates) {
-    // Upload a rectangle of pixels to the existing texture
-    // - We only ever write to textures regions which have never been used before!
-    // - Use tex->TexID or tex->BackendUserData to retrieve your stored data.
-    // - Use tex->UpdateRect.x/y, tex->UpdateRect.w/h to obtain the block position and size.
-    //   - Use tex->Updates[] to obtain individual sub-regions within tex->UpdateRect. Not recommended.
-    // - Read from our CPU-side copy of the texture and copy to your graphics API.
-    // - Use tex->Width, tex->Height, tex->GetPixels(), tex->GetPixelsAt(), tex->GetPitch() as needed.
-
     GPUTexture* texture = (GPUTexture*)tex->GetTexID();
     Vector<GPUUpdateTextureRegion> regions;
     regions.reserve(tex->Updates.size());
@@ -321,14 +322,7 @@ void GPURenderer::update_textures_(ImTextureData* tex) {
     tex->SetStatus(ImTextureStatus_OK);
   }
   if (tex->Status == ImTextureStatus_WantDestroy && tex->UnusedFrames > 0) {
-    // If you use staged rendering and have in-flight renders, changed tex->UnusedFrames > 0 check to higher count as needed
-    // e.g. > 2
-
-    // Destroy texture
-    // - Use tex->TexID or tex->BackendUserData to retrieve your stored data.
-    // - Destroy texture in your graphics API.
-
-    // Acknowledge destruction
+    destroy_texture((GPUTexture*)tex->GetTexID());
     tex->SetTexID(ImTextureID_Invalid);
     tex->SetStatus(ImTextureStatus_Destroyed);
   }
