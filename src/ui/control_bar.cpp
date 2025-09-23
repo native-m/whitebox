@@ -52,7 +52,7 @@ void perf_counter_display() {
     MemoryInfo mem_info = get_app_memory_info();
     perf_counter_timeout = tm_ms_to_sec(100.0);
     cpu_usage = Engine2::perf_measurer.get_usage() * 100.0;
-    mem_usage = mem_info.overall_usage;
+    mem_usage = mem_info.physical_usage;
   } else {
     perf_counter_timeout = math::max(perf_counter_timeout - GImGui->IO.DeltaTime, 0.0);
   }

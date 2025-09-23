@@ -5,6 +5,8 @@
 #include <Windows.h>
 #include <Psapi.h>
 // clang-format on
+#elif defined(WB_PLATFORM_MACOS)
+#include <mach/mach.h>
 #endif
 
 namespace wb {
@@ -23,6 +25,15 @@ MemoryInfo get_app_memory_info() {
   };
 #elif defined(WB_PLATFORM_LINUX)
   return {};
+#elif defined(WB_PLATFORM_MACOS)
+  task_basic_info_data_t info;
+  mach_msg_type_number_t count = TASK_BASIC_INFO_COUNT;
+  auto task_self = mach_task_self();
+  task_info(task_self, TASK_BASIC_INFO, (task_info_t)&info, &count);
+  return {
+    .overall_usage = info.virtual_size / 1024,
+    .physical_usage = info.resident_size,
+  };
 #else
   return {};
 #endif

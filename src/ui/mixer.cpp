@@ -69,7 +69,7 @@ void MixerWindow::render() {
 
   // Log::info("{}", size.y);
   int id = 0;
-  for (auto track : g_engine.tracks) {
+  for (auto track : Engine2::tracks) {
     float volume = track->ui_parameter_state.volume_db;
     float pan = track->ui_parameter_state.pan;
     bool mute = track->ui_parameter_state.mute;
