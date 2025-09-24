@@ -270,6 +270,7 @@ void gfx_draw_waveform_batch(
   float fb_height = clip_scaled_y1 - clip_scaled_y0;
   float vp_width = 2.0f / fb_width;
   float vp_height = 2.0f / fb_height;
+  float waveform_offset_x = 0.5f / fb_scale_x;
 
   g_renderer->set_viewport((float)clip_scaled_x0, (float)clip_scaled_y0, fb_width, fb_height);
 
@@ -282,20 +283,20 @@ void gfx_draw_waveform_batch(
       continue;
 
     WaveformMipmap& mip = cmd.waveform_vis->mipmaps[cmd.mip_index];
-    float x0 = std::max((float)cmd.min_x * 2.0f, clip_scaled_x0);
-    float y0 = std::max((float)cmd.min_y * 2.0f, clip_scaled_y0);
-    float x1 = std::min((float)cmd.max_x * 2.0f, clip_scaled_x1);
-    float y1 = std::min((float)cmd.max_y * 2.0f, clip_scaled_y1);
+    float x0 = std::max((float)cmd.min_x * fb_scale_x, clip_scaled_x0);
+    float y0 = std::max((float)cmd.min_y * fb_scale_y, clip_scaled_y0);
+    float x1 = std::min((float)cmd.max_x * fb_scale_x, clip_scaled_x1);
+    float y1 = std::min((float)cmd.max_y * fb_scale_y, clip_scaled_y1);
     uint32_t vertex_count = cmd.draw_count * 2;
 
     WaveformDrawParam draw_cmd{
-      .origin_x = cmd.min_x + 0.5f,
+      .origin_x = cmd.min_x + waveform_offset_x,
       .origin_y = cmd.min_y,
       .scale_x = cmd.scale_x,
       .scale_y = cmd.max_y - cmd.min_y,
       .gain = cmd.gain,
-      .vp_width = vp_width * 2.0f,
-      .vp_height = vp_height * 2.0f,
+      .vp_width = vp_width * fb_scale_x,
+      .vp_height = vp_height * fb_scale_y,
       .gap_size = cmd.gap_size,
       .is_min = 0,
       .color = cmd.color,
@@ -304,7 +305,7 @@ void gfx_draw_waveform_batch(
       .sample_count = mip.count,
     };
 
-    g_renderer->set_scissor(x0, y0, x1 - x0, y1 - y0);
+    g_renderer->set_scissor((int32_t)x0, (int32_t)y0, (uint32_t)(x1 - x0), (uint32_t)(y1 - y0));
     g_renderer->bind_storage_buffer(0, mip.data);
 
     // Draw filling
