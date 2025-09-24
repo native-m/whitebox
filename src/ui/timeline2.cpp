@@ -158,7 +158,7 @@ inline static double timeline_get_view_scale() {
 }
 
 inline static double timeline_get_scroll_pos_x() {
-  return std::floor((view_state_.start * max_length_) / view_scale_);
+  return math::round((view_state_.start * max_length_) / view_scale_);
 }
 
 inline static double timeline_get_hovered_position() {
@@ -671,7 +671,6 @@ void timeline_render_track_lanes() {
     draw_musical_guidestripes(layer1_dl_, view_min_, display_size, scroll_pos_x, view_scale_);
     draw_musical_grid(layer1_dl_, view_min_, display_size, scroll_pos_x, inv_view_scale, grid_props, 1.0f, false);
 
-    const float clip_gap = 0.75 / framebuffer_scale.x;
     float track_pos_y = first_visible_track_pos_y_;
     for (int32_t i = first_visible_track_; i < last_visible_track_; i++) {
       Track* track = Engine2::tracks[i];
@@ -683,8 +682,8 @@ void timeline_render_track_lanes() {
         Clip* clip = track->clips[j];
         const double start_pos = clip->min_time * inv_view_scale;
         const double end_pos = clip->max_time * inv_view_scale;
-        const float x0 = (float)(scroll_offset_x_ + std::floor(start_pos));
-        const float x1 = (float)(scroll_offset_x_ + std::floor(end_pos) - clip_gap);
+        const float x0 = (float)(scroll_offset_x_ + math::round(start_pos) + 0.75);
+        const float x1 = (float)(scroll_offset_x_ + math::round(end_pos));
 
         if (x0 >= view_max_.x)
           break;
@@ -748,9 +747,9 @@ void timeline_render_track_lanes() {
             if (draw_count) {
               // auto& waveform_cmd_list = !draw_in_layer2 ? waveform_cmd_list1 : waveform_cmd_list2;
               double waveform_start = start_offset * inv_scale_x;
-              const double start_idx = std::floor(math::max(-rel_min_x, 0.0) + waveform_start);
-              const float min_bb_x = (float)std::floor(min_pos_x);
-              const float max_bb_x = (float)std::floor(max_pos_x);
+              const double start_idx = std::round(math::max(-rel_min_x, 0.0) + waveform_start);
+              const float min_bb_x = (float)math::round(min_pos_x);
+              const float max_bb_x = (float)math::round(max_pos_x);
               const float pos_y = clip_content_min.y - offset_y;
               if (waveform->channels == 2) {
                 const float height = std::floor((clip_content_max.y - clip_content_min.y) * 0.5f);
@@ -819,8 +818,8 @@ void timeline_render_track_lanes() {
         // static const ImU32 selection_range_border = ImColor(28, 150, 237, 255);
         static const ImU32 selection_range_fill = ImColor(0, 120, 215, 90);
         static const ImU32 selection_range_border = ImColor(28, 150, 237, 255);
-        double x0 = std::floor(selection_start_pos * inv_view_scale);
-        double x1 = std::floor(selection_end_pos * inv_view_scale);
+        double x0 = math::round(selection_start_pos * inv_view_scale);
+        double x1 = math::round(selection_end_pos * inv_view_scale);
         const ImVec2 min_bb((float)(scroll_offset_x_ + x0), track_pos_abs_y);
         const ImVec2 max_bb((float)(scroll_offset_x_ + x1), track_pos_abs_y + height);
         layer3_dl_->AddRectFilled(min_bb, max_bb, selection_range_fill);

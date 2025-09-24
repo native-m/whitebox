@@ -2016,8 +2016,8 @@ void GPURendererVK::dispose_viewport_data_(GPUViewportDataVK* vp_data, VkSurface
   swapchain.frame_stamp = frame_count_;
   swapchain.swapchain = {
     .swapchain = vp_data->swapchain,
-    .window = vp_data->window,
     .surface = surface,
+    .window = vp_data->window,
   };
 }
 
@@ -2157,8 +2157,9 @@ GPURenderer* GPURendererVK::create(SDL_Window* window) {
     .ppEnabledExtensionNames = enabled_extensions.data(),
   };
 
-  if constexpr (WB_PLATFORM_MACOS)
-    instance_info.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+#ifdef WB_PLATFORM_MACOS
+  instance_info.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+#endif
 
   VkInstance instance;
   if (VK_FAILED(vkCreateInstance(&instance_info, nullptr, &instance)))
@@ -2206,26 +2207,24 @@ GPURenderer* GPURendererVK::create(SDL_Window* window) {
   const float queue_priority = 1.0f;
   for (uint32_t i = 0; const auto& queue_family : queue_families) {
     if (graphics_queue_index == (uint32_t)-1 && contain_bit(queue_family.queueFlags, VK_QUEUE_GRAPHICS_BIT)) {
-      queue_info.push_back(
-          {
-            .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-            .queueFamilyIndex = i,
-            .queueCount = 1,
-            .pQueuePriorities = &queue_priority,
-          });
+      queue_info.push_back({
+        .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+        .queueFamilyIndex = i,
+        .queueCount = 1,
+        .pQueuePriorities = &queue_priority,
+      });
       graphics_queue_index = i;
     }
     VkBool32 presentation_supported = VK_FALSE;
     vkGetPhysicalDeviceSurfaceSupportKHR(selected_physical_device, i, surface, &presentation_supported);
     if (presentation_supported && present_queue_index == (uint32_t)-1) {
       if (graphics_queue_index != i) {
-        queue_info.push_back(
-            {
-              .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-              .queueFamilyIndex = i,
-              .queueCount = 1,
-              .pQueuePriorities = &queue_priority,
-            });
+        queue_info.push_back({
+          .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+          .queueFamilyIndex = i,
+          .queueCount = 1,
+          .pQueuePriorities = &queue_priority,
+        });
       }
       present_queue_index = i;
     }
