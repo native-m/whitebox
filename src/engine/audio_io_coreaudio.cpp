@@ -512,12 +512,15 @@ bool AudioIOCoreAudio::open_device(uint32_t input_device_idx, uint32_t output_de
 
   max_input_channel_count = input_devices[input_device_idx].num_channels;
   max_output_channel_count = output_devices[output_device_idx].num_channels;
+
   shared_mode_input_format = AudioFormat::F32;
   shared_mode_output_format = AudioFormat::F32;
   shared_mode_sample_rate = output.shared_mode_sample_rate;
+
   exclusive_input_sample_rate_bit_flags = input.supported_sample_rate_flags;
   exclusive_output_sample_rate_bit_flags = output.supported_sample_rate_flags;
   exclusive_sample_rate_bit_flags = exclusive_input_sample_rate_bit_flags & exclusive_output_sample_rate_bit_flags;
+
   open = true;
 
   return true;
@@ -541,6 +544,8 @@ void AudioIOCoreAudio::close_device() {
   max_output_channel_count = 0;
   current_input_format = {};
   current_output_format = {};
+  is_device_aggregated = false;
+  stream_running = false;
 }
 
 bool AudioIOCoreAudio::start(
@@ -622,7 +627,6 @@ bool AudioIOCoreAudio::start(
       main_device_id, kAudioDevicePropertyBufferFrameSize, kAudioObjectPropertyScopeGlobal, buffer_size);
   auto actual_buffer_size =
       aobj_get_property<uint32_t>(main_device_id, kAudioDevicePropertyBufferFrameSize, kAudioObjectPropertyScopeGlobal);
-  Log::debug("Buffer size: {}", actual_buffer_size.value());
 
   // Calculate roundtrip latency
   auto input_latency =
@@ -635,7 +639,6 @@ bool AudioIOCoreAudio::start(
       aobj_get_property<uint32_t>(main_device_id, kAudioDevicePropertySafetyOffset, kAudioObjectPropertyScopeOutput).value();
 
   auto roundtrip_latency = input_latency + input_safety_offset + buffer_size + output_latency + output_safety_offset;
-  Log::debug("Roundtrip latency: {}", (roundtrip_latency / sample_rate_value) * 1000.0);
 
   Vector<::AudioStreamID> input_stream_ids =
       aobj_get_array_property<::AudioStreamID>(main_device_id, kAudioDevicePropertyStreams, kAudioDevicePropertyScopeInput);
@@ -646,9 +649,14 @@ bool AudioIOCoreAudio::start(
   auto output_stream_conf = aobj_get_property_block<::AudioBufferList>(
       main_device_id, kAudioDevicePropertyStreamConfiguration, kAudioDevicePropertyScopeOutput);
 
+  ::AudioDeviceIOProcID io_proc;
+  OSStatus s = ::AudioDeviceCreateIOProcID(main_device_id, audio_callback, this, &io_proc);
+  if (s != noErr) {
+    return false;
+  }
+
   in_buffer_info = make_buffer_info(input_stream_ids, input_stream_conf.data());
   out_buffer_info = make_buffer_info(output_stream_ids, output_stream_conf.data());
-
   in_buffer.resize(buffer_size);
   in_buffer.resize_channel(num_input_channels);
   out_buffer.resize(buffer_size);
@@ -658,8 +666,6 @@ bool AudioIOCoreAudio::start(
   current_sample_rate = sample_rate_value;
   stream_fn = stream_callback_fn;
 
-  AudioDeviceIOProcID io_proc;
-  ::AudioDeviceCreateIOProcID(main_device_id, audio_callback, this, &io_proc);
   ::AudioDeviceStart(main_device_id, io_proc);
 
   device_id = main_device_id;
