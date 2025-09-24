@@ -259,13 +259,11 @@ set(WB_LINK_LIBRARIES
     imgui-sdl3
     imgui-cpp
     imgui-freetype
-    imgui-vulkan
     leveldb
     msgpack-cxx
     sndfile
     vorbisfile
     midi-parser
-    nfd
     vst3-sdk-hosting)
 
 if (WB_PLATFORM_WINDOWS)

@@ -3,8 +3,8 @@ include(cmake/CPM.cmake)
 CPMAddPackage(
     NAME                SDL
     GITHUB_REPOSITORY   libsdl-org/SDL
-    VERSION             3.2.18
-    GIT_TAG             release-3.2.18
+    VERSION             3.2.22
+    GIT_TAG             release-3.2.22
     OPTIONS             "SDL_SHARED OFF"
                         "SDL_STATIC ON"
                         "SDL_TESTS OFF"
@@ -185,12 +185,6 @@ CPMAddPackage(
 )
 
 CPMAddPackage(
-    NAME                nativefiledialog-extended
-    GITHUB_REPOSITORY   btzy/nativefiledialog-extended
-    VERSION             1.1.0
-)
-
-CPMAddPackage(
     NAME                vst3sdk
     VERSION             3.7.11
     URL                 https://download.steinberg.net/sdk_downloads/vst-sdk_3.7.11_build-10_2024-04-22.zip
@@ -258,14 +252,6 @@ if (imgui_ADDED)
         target_include_directories(imgui-d3d11 PUBLIC $<BUILD_INTERFACE:${imgui_SOURCE_DIR}/backends>)
         target_link_libraries(imgui-d3d11 PUBLIC imgui dxguid)
     endif()
-
-    set(IMGUI_BACKEND_VULKAN_SOURCES
-        "${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp"
-        "${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.h")
-    add_library(imgui-vulkan STATIC ${IMGUI_BACKEND_VULKAN_SOURCES})
-    target_include_directories(imgui-vulkan PUBLIC $<BUILD_INTERFACE:${imgui_SOURCE_DIR}/backends>)
-    target_link_libraries(imgui-vulkan PUBLIC imgui Vulkan-Headers)
-    target_compile_definitions(imgui-vulkan PRIVATE VK_NO_PROTOTYPES)
 
     # set(IMGUI_GL3_SRC_FILES
     #     "${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp"

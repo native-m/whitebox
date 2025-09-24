@@ -3,7 +3,6 @@
 #include <SDL3/SDL_dialog.h>
 
 #include <filesystem>
-#include <nfd.hpp>
 #include <optional>
 #include <utility>
 
