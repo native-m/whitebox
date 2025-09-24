@@ -96,6 +96,7 @@ static ImVec2 mouse_pos_;
 static ImVec2 view_pos_;
 static ImVec2 view_min_;
 static ImVec2 view_max_;
+static ImVec2 current_fb_scale_;
 static ImVec2 timeline_layout_size_;
 static ImVec2 timeline_display_size_{ 16.0f, 16.0f };
 static int32_t grid_mode_ = 4;
@@ -604,9 +605,10 @@ void timeline_render_track_lanes() {
   timeline_hovered_ = ImGui::IsItemHovered();
   ImGui::PopStyleVar();
 
-  if (display_size.x != timeline_display_size_.x || display_size.y != timeline_display_size_.y) {
-    int width = (int)math::max(display_size.x * framebuffer_scale.x, 16.0f);
-    int height = (int)math::max(display_size.y * framebuffer_scale.y, 16.0f);
+  if (display_size.x != timeline_display_size_.x || display_size.y != timeline_display_size_.y ||
+      current_fb_scale_.x != fb_scale.x || current_fb_scale_.y != fb_scale.y) {
+    int width = (int)math::max(display_size.x * fb_scale.x, 16.0f);
+    int height = (int)math::max(display_size.y * fb_scale.y, 16.0f);
     if (timeline_fb_)
       g_renderer->destroy_texture(timeline_fb_);
     timeline_fb_ = g_renderer->create_texture(
@@ -619,6 +621,7 @@ void timeline_render_track_lanes() {
         0,
         nullptr);
     timeline_display_size_ = display_size;
+    current_fb_scale_ = fb_scale;
     redraw_ = true;
     Log::debug("Timeline framebuffer resized ({}x{})", (int)width, (int)height);
   }
@@ -868,16 +871,16 @@ void timeline_render_track_lanes() {
     layer_draw_data_.Clear();
     layer_draw_data_.DisplayPos = view_min_;
     layer_draw_data_.DisplaySize = display_size;
-    layer_draw_data_.FramebufferScale = framebuffer_scale;
+    layer_draw_data_.FramebufferScale = fb_scale;
     layer_draw_data_.OwnerViewport = owner_viewport;
     layer_draw_data_.AddDrawList(layer1_dl_);
     g_renderer->render_imgui_draw_data(&layer_draw_data_);
-    gfx_draw_waveform_batch(waveform_cmd, framebuffer_scale.x, framebuffer_scale.y, 0, 0, display_size.x, display_size.y);
+    gfx_draw_waveform_batch(waveform_cmd, fb_scale.x, fb_scale.y, 0, 0, display_size.x, display_size.y);
 
     layer_draw_data_.Clear();
     layer_draw_data_.DisplayPos = view_min_;
     layer_draw_data_.DisplaySize = display_size;
-    layer_draw_data_.FramebufferScale = framebuffer_scale;
+    layer_draw_data_.FramebufferScale = fb_scale;
     layer_draw_data_.OwnerViewport = owner_viewport;
     layer_draw_data_.AddDrawList(layer2_dl_);
     g_renderer->render_imgui_draw_data(&layer_draw_data_);
@@ -885,7 +888,7 @@ void timeline_render_track_lanes() {
     layer_draw_data_.Clear();
     layer_draw_data_.DisplayPos = view_min_;
     layer_draw_data_.DisplaySize = display_size;
-    layer_draw_data_.FramebufferScale = framebuffer_scale;
+    layer_draw_data_.FramebufferScale = fb_scale;
     layer_draw_data_.OwnerViewport = owner_viewport;
     layer_draw_data_.AddDrawList(layer3_dl_);
     g_renderer->render_imgui_draw_data(&layer_draw_data_);
