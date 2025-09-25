@@ -71,7 +71,7 @@ bool timeline_scrollbar(
   ImGuiID id = ImGui::GetID(str_id);
   TimelineScrollbarInstance* instance = timeline_scrollbars.GetOrAddByKey(id);
   ImVec2 btn_size(font_size + style.FramePadding.x * 2.0f, font_size + style.FramePadding.y * 2.0f);
-  ImVec2 grab_size(width - (btn_size.x + grab_padding) * 2.0f, btn_size.y);
+  ImVec2 grab_size(width - (btn_size.x + grab_padding) * 2.0f - 2.0f, btn_size.y);
   ImVec2 grab_position;
   bool ret = false;
 
@@ -280,7 +280,7 @@ TimelineRulerResult timeline_ruler(
   double bar = 4.0 * inv_view_scale;
   float grid_inc_x = (float)(bar * mult);
   float inv_grid_inc_x = 1.0f / grid_inc_x;
-  float scroll_pos_x = (float)std::floor(view_range->start * song_length * inv_view_scale);
+  float scroll_pos_x = (float)std::round(view_range->start * song_length * inv_view_scale);
   float gridline_pos_x = cursor_pos.x - std::fmod(scroll_pos_x, grid_inc_x);
   float scroll_offset = cursor_pos.x - scroll_pos_x;
   int tick_count = (uint32_t)(size.x * inv_grid_inc_x) + 1;
@@ -295,7 +295,7 @@ TimelineRulerResult timeline_ruler(
   for (int i = 0; i <= tick_count; i++) {
     char digits[24]{};
     int bar_point = i + count_offset;
-    float rounded_gridline_pos_x = std::floor(gridline_pos_x);
+    float rounded_gridline_pos_x = std::round(gridline_pos_x);
     fmt::format_to_n(digits, sizeof(digits), "{}", bar_point * step + 1);
     dl->AddText(
         ImVec2(rounded_gridline_pos_x + 4.0f, cursor_pos.y + style.FramePadding.y * 2.0f - 2.0f), time_point_color, digits);
@@ -308,7 +308,7 @@ TimelineRulerResult timeline_ruler(
   constexpr ImU32 playhead_color = 0xE553A3F9;
   float playhead_size = size.y;
   float playhead_half_size = size.y * 0.5f;
-  float playhead_pos = (float)std::floor(scroll_offset + *time_pos * inv_view_scale) - playhead_half_size;
+  float playhead_pos = (float)std::round(scroll_offset + *time_pos * inv_view_scale) - playhead_half_size;
   if (math::in_range(playhead_pos, cursor_pos.x - playhead_size, max_bb.x + playhead_size)) {
     dl->AddTriangleFilled(
         ImVec2(playhead_pos, cursor_pos.y + 2.5f),

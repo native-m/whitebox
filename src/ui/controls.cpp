@@ -7,7 +7,7 @@
 #include "core/core_math.h"
 #include "core/debug.h"
 #include "core/queue.h"
-#include "engine/engine.h"
+#include "engine/engine2.h"
 #include "font.h"
 #include "gfx/draw.h"
 
@@ -85,10 +85,10 @@ void song_position() {
   if (window->SkipItems)
     return;
 
-  double playhead = g_engine.playhead_pos();
+  double playhead = Engine2::playhead;
   float bar = IM_TRUNC(playhead * 0.25) + 1.0f;
   float beat = IM_TRUNC(std::fmod(playhead, 4.0)) + 1.0f;
-  float tick = IM_TRUNC(math::fract(playhead) * g_engine.ppq);
+  float tick = IM_TRUNC(math::fract(playhead) * Engine2::get_ppq());
   char buf[32]{};
   fmt::format_to(buf, "{}:{}:{:03}", bar, beat, tick);
 

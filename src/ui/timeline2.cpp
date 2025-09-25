@@ -4,6 +4,7 @@
 
 #include <algorithm>
 
+#include "IconsMaterialSymbols.h"
 #include "browser.h"
 #include "context_menu.h"
 #include "controls.h"
@@ -16,7 +17,6 @@
 #include "gfx/draw.h"
 #include "gfx/renderer.h"
 #include "grid.h"
-#include "layout.h"
 #include "plugins.h"
 #include "timeline_controls.h"
 
@@ -99,6 +99,8 @@ static ImVec2 view_max_;
 static ImVec2 current_fb_scale_;
 static ImVec2 timeline_layout_size_;
 static ImVec2 timeline_display_size_{ 16.0f, 16.0f };
+static ImVec2 track_panel_pos_;
+static ImVec2 track_lanes_pos_;
 static int32_t grid_mode_ = 4;
 static bool scrolling_;
 static bool triplet_;
@@ -146,6 +148,7 @@ static std::string tmp_name_;
 bool g_timeline2_window_open = true;
 
 static void timeline_render_navbar();
+static void timeline_render_splitter();
 static void timeline_render_track_panel();
 static void timeline_render_track_lanes();
 static void timeline_handle_mouse_event();
@@ -242,8 +245,7 @@ void render_timeline() {
   timeline_render_navbar();
 
   timeline_layout_size_ = ImGui::GetContentRegionAvail();
-  layout::begin_columns("tl_cols", 2, timeline_layout_size_);
-  {
+  if (ImGui::BeginChild("timeline_content")) {
     ImGuiID scrollbar_id = ImGui::GetWindowScrollbarID(ImGui::GetCurrentWindow(), ImGuiAxis_Y);
     vscroll_ = ImGui::GetScrollY();
 
@@ -257,13 +259,11 @@ void render_timeline() {
       redraw_ = true;
 
     last_vscroll_ = vscroll_;
-
-    layout::next_column(track_panel_width_, 100.0f);
+    timeline_render_splitter();
     timeline_render_track_panel();
-    layout::next_column(0.0f);
     timeline_render_track_lanes();
   }
-  layout::end_columns();
+  ImGui::EndChild();
 
   controls::end_window();
 }
@@ -307,6 +307,49 @@ void timeline_render_navbar() {
   ImGui::PopStyleVar();
 }
 
+void timeline_render_splitter() {
+  ImDrawList* dl = ImGui::GetWindowDrawList();
+  ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
+  ImVec2 content_min = ImGui::GetWindowContentRegionMin();
+  ImVec2 content_max = ImGui::GetWindowContentRegionMax();
+  ImVec2 splitter_pos = ImVec2(cursor_pos.x + track_panel_width_, cursor_pos.y + vscroll_);
+  float content_height = content_max.y - content_min.y;
+
+  ImGui::SetCursorScreenPos(ImVec2(cursor_pos.x + track_panel_width_, cursor_pos.y + vscroll_));
+  ImGui::InvisibleButton("tl_splitter", ImVec2(4.0f, content_height));
+  bool is_splitter_hovered = ImGui::IsItemHovered();
+  bool is_splitter_active = ImGui::IsItemActive();
+  ImU32 color = ImGui::GetColorU32(ImGuiCol_Separator);
+
+  // Change the color
+  if (is_splitter_active) {
+    color = ImGui::GetColorU32(ImGuiCol_SeparatorActive);
+  } else if (is_splitter_hovered) {
+    color = ImGui::GetColorU32(ImGuiCol_SeparatorHovered);
+  }
+
+  if (is_splitter_hovered || is_splitter_active) {
+    if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+      track_panel_width_ = 150.0f;
+    ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+  }
+
+  // Adjust splitter size
+  if (is_splitter_active) {
+    ImVec2 drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left, 1.0f);
+    ImGui::ResetMouseDragDelta(ImGuiMouseButton_Left);
+    track_panel_width_ += drag_delta.x;
+    redraw_ = true;
+  } else {
+    track_panel_width_ = math::max(track_panel_width_, track_panel_min_width_);
+  }
+
+  im_draw_vline(dl, cursor_pos.x + track_panel_width_ + 0.5f, cursor_pos.y, splitter_pos.y + content_height, color, 2.0f);
+
+  track_panel_pos_ = cursor_pos;
+  track_lanes_pos_ = ImVec2(cursor_pos.x + track_panel_width_ + 2.0f, cursor_pos.y);
+}
+
 void timeline_render_track_panel() {
   static constexpr float vu_meter_width = 11.0f;
   static constexpr float track_color_width = 8.0f;
@@ -315,6 +358,8 @@ void timeline_render_track_panel() {
   constexpr ImGuiWindowFlags track_control_window_flags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse |
                                                           ImGuiWindowFlags_NoBackground |
                                                           ImGuiWindowFlags_AlwaysUseWindowPadding;
+
+  ImGui::SetCursorScreenPos(track_panel_pos_);
 
   const bool is_recording = Engine2::is_recording();
   uint32_t num_tracks = Engine2::tracks.size();
@@ -326,11 +371,10 @@ void timeline_render_track_panel() {
   uint32_t move_track_src = 0;
   uint32_t move_track_dst = 0;
 
-  track_panel_width_ = layout::get_current_column_width();
-
   for (uint32_t i = 0; i < num_tracks; i++) {
     Track* track = Engine2::tracks[i];
     float height = track->get_height();
+    bool shown = track->shown;
     ImVec2 color_size(track_color_width, height);
     ImVec2 start_pos = ImGui::GetCursorScreenPos();
     ImVec2 end_pos = start_pos + ImVec2(track_panel_width_, height);
@@ -362,11 +406,12 @@ void timeline_render_track_panel() {
 
       ImGui::PopStyleVar();  // ImGuiStyleVar_WindowPadding
       ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, tmp_item_spacing);
+      ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(tmp_item_spacing.x, 2.0f));
 
       if (controls::collapse_button2("##track_collapse", &track->shown)) {
         redraw_ = true;
       }
-      ImGui::SameLine(0.0f, 5.0f);
+      ImGui::SameLine(0.0f, 4.0f);
 
       const char* begin_name_str = track->name.c_str();
       const char* end_name_str = begin_name_str + track->name.size();
@@ -378,7 +423,8 @@ void timeline_render_track_panel() {
         ImGui::TextUnformatted("(unnamed)");
         ImGui::EndDisabled();
       }
-      ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2.0f);
+
+      ImGui::PopStyleVar();  // ImGuiStyleVar_ItemSpacing
 
       if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
         ImGui::SetDragDropPayload("WB_MOVE_TRACK", &i, sizeof(uint32_t), ImGuiCond_Once);
@@ -484,9 +530,11 @@ void timeline_render_track_panel() {
           ImGui::OpenPopup("track_input_context_menu");
         ImGui::EndDisabled();
 
+        font_push(FontType::Icon, 13.0f);
         ImGui::SameLine(0.0f, 2.0f);
-        if (ImGui::SmallButton("FX"))
+        if (ImGui::SmallButton(ICON_MS_POWER))
           ImGui::OpenPopup("track_plugin_context_menu");
+        font_pop();
       }
 
       if (ImGui::BeginPopup("track_input_context_menu")) {
@@ -587,14 +635,16 @@ void timeline_render_track_panel() {
 }
 
 void timeline_render_track_lanes() {
+  ImGui::SetCursorScreenPos(track_lanes_pos_);
+
   ImVec2 available_size = ImGui::GetContentRegionAvail();
-  const float view_width = layout::get_current_column_width();
+  const float view_width = available_size.x;
 
   view_pos_ = ImGui::GetCursorScreenPos();
   view_min_ = ImVec2(view_pos_.x, vscroll_ + view_pos_.y);
   view_max_ = ImVec2(view_pos_.x + available_size.x, vscroll_ + view_pos_.y + timeline_layout_size_.y);
 
-  ImVec2 framebuffer_scale = ImGui::GetWindowViewport()->FramebufferScale;
+  ImVec2 fb_scale = ImGui::GetWindowViewport()->FramebufferScale;
   ImVec2 view_size(available_size.x, math::max(track_lanes_height_, timeline_layout_size_.y));
   ImVec2 display_size = view_max_ - view_min_;
   const float offset_y = vscroll_ + view_pos_.y;
@@ -940,11 +990,10 @@ void timeline_handle_mouse_event() {
   }
 
   if (scrolling_) {
-    const ImVec2 drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Middle, 1.0f);
+    const ImVec2 drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Middle, 0.0f);
     timeline_hscroll(drag_delta.x);
     scroll_delta_y_ = drag_delta.y;
-    if (drag_delta.x != 0.0f || drag_delta.y != 0.0f)
-      redraw_ = true;
+    redraw_ = true;
     ImGui::ResetMouseDragDelta(ImGuiMouseButton_Middle);
   }
 
