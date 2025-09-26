@@ -735,8 +735,8 @@ void timeline_render_track_lanes() {
         Clip* clip = track->clips[j];
         const double start_pos = clip->min_time * inv_view_scale;
         const double end_pos = clip->max_time * inv_view_scale;
-        const float x0 = (float)(scroll_offset_x_ + math::round(start_pos) + 0.75);
-        const float x1 = (float)(scroll_offset_x_ + math::round(end_pos));
+        const float x0 = (float)(scroll_offset_x_ + math::round(start_pos));
+        const float x1 = (float)(scroll_offset_x_ + math::round(end_pos) - 0.5f);
 
         if (x0 >= view_max_.x)
           break;

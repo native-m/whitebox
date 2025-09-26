@@ -1,0 +1,64 @@
+#include <CoreFoundation/CoreFoundation.h>
+
+#include "defer.h"
+#include "fs.h"
+
+namespace wb {
+
+Vector<DirectoryEntry> enumerate_directory(const std::filesystem::path& path) {
+  CFStringRef path_str = CFStringCreateWithCString(kCFAllocatorDefault, path.c_str(), kCFStringEncodingUTF8);
+  defer(CFRelease(path_str));
+
+  CFURLRef url = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, path_str, kCFURLPOSIXPathStyle, true);
+  defer(CFRelease(url));
+  if (url == nullptr) {
+    return {};
+  }
+
+  CFURLEnumeratorRef enumerator =
+      CFURLEnumeratorCreateForDirectoryURL(kCFAllocatorDefault, url, kCFURLEnumeratorDefaultBehavior, nullptr);
+  defer(CFRelease(enumerator));
+  if (enumerator == nullptr) {
+    return {};
+  }
+
+  Vector<DirectoryEntry> ret;
+  CFURLRef url_item{};
+  while (CFURLEnumeratorGetNextURL(enumerator, &url_item, NULL) == kCFURLEnumeratorSuccess) {
+    CFStringRef file_type{};
+    CFURLCopyResourcePropertyForKey(url_item, kCFURLFileResourceTypeKey, &file_type, nullptr);
+    defer(CFRelease(file_type));
+
+    uint32_t type;
+    int64_t file_size_value = 0;
+    if (file_type == kCFURLFileResourceTypeDirectory) {
+      type = DirectoryEntry::Folder;
+    } else if (file_type == kCFURLFileResourceTypeRegular) {
+      CFNumberRef file_size{};
+      CFURLCopyResourcePropertyForKey(url_item, kCFURLFileSizeKey, &file_size, nullptr);
+      CFNumberGetValue(file_size, kCFNumberSInt64Type, &file_size_value);
+      type = DirectoryEntry::File;
+      CFRelease(file_size);
+    } else if (file_type == kCFURLFileResourceTypeSymbolicLink) {
+      type = DirectoryEntry::Symlink;
+    } else {
+      continue;
+    }
+
+    CFStringRef name = CFURLCopyFileSystemPath(url_item, kCFURLPOSIXPathStyle);
+    CFIndex len = CFStringGetLength(name) + 1;
+    std::filesystem::path::string_type str(len - 1, '\x00');
+
+    CFStringGetCString(name, str.data(), len, kCFStringEncodingUTF8);
+    ret.emplace_back(std::move(str), (size_t)file_size_value, type);
+
+    CFRelease(name);
+  }
+
+  if (url_item)
+    CFRelease(url_item);
+
+  return ret;
+}
+
+}  // namespace wb

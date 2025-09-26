@@ -37,7 +37,7 @@ struct Vector {
     }
   }
 
-  Vector(Vector&& other) : data_(other.data_), size_(other.size_), capacity_(other.capacity_) {
+  Vector(Vector&& other) noexcept : data_(other.data_), size_(other.size_), capacity_(other.capacity_) {
     other.data_ = nullptr;
     other.size_ = 0;
     other.capacity_ = 0;

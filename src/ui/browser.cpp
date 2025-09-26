@@ -52,14 +52,26 @@ void BrowserWindow::sort_directory() {
 }
 
 void BrowserWindow::glob_path(const std::filesystem::path& path, BrowserItem& item) {
+  Vector<DirectoryEntry> entries = enumerate_directory(path);
+  std::sort(entries.begin(), entries.end(), [](const DirectoryEntry& a, const DirectoryEntry& b) {
+    auto ch_pred = [](char32_t a, char32_t b) {
+      a = std::tolower(a);
+      b = std::tolower(b);
+      return a < b;
+    };
+    const auto& path_a = a.path.native();
+    const auto& path_b = b.path.native();
+    return std::lexicographical_compare(path_a.begin(), path_a.end(), path_b.begin(), path_b.end(), ch_pred);
+  });
+
   item.dir_items.emplace();
   item.file_items.emplace();
-  for (const auto& dir_entry : fs::directory_iterator(path, fs::directory_options::skip_permission_denied)) {
-    if (dir_entry.is_directory()) {
+  for (const auto& dir_entry : entries) {
+    if (dir_entry.is_folder()) {
       BrowserItem& child_item = item.dir_items->emplace_back(
-          BrowserItem::Directory, BrowserItem::Unknown, &item, FileSize(), dir_entry.path().filename().generic_u8string());
-    } else if (dir_entry.is_regular_file()) {
-      std::filesystem::path filename{ dir_entry.path().filename() };
+          BrowserItem::Directory, BrowserItem::Unknown, &item, FileSize(), dir_entry.path.filename().generic_u8string());
+    } else if (dir_entry.is_file()) {
+      std::filesystem::path filename{ dir_entry.path.filename() };
       std::filesystem::path ext{ filename.extension() };
       BrowserItem::FileType file_type{};
       if (any_of(ext, ".wav", ".wave", ".aiff", ".mp3", ".ogg", ".aifc", ".aif", ".iff", ".8svx")) {
@@ -70,7 +82,7 @@ void BrowserWindow::glob_path(const std::filesystem::path& path, BrowserItem& it
         continue;
       }
       BrowserItem& child_item = item.file_items->emplace_back(
-          BrowserItem::File, file_type, &item, FileSize(dir_entry.file_size()), filename.generic_u8string());
+          BrowserItem::File, file_type, &item, FileSize(dir_entry.size), filename.generic_u8string());
     }
   }
 }
