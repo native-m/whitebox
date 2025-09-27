@@ -53,7 +53,7 @@ Vector<DirectoryEntry> enumerate_directory(const std::filesystem::path& path) {
     std::filesystem::path::string_type str(len - 1, '\x00');
 
     CFStringGetCString(name, str.data(), len, kCFStringEncodingUTF8);
-    ret.emplace_back(std::move(str), (size_t)file_size_value, type);
+    entries.emplace_back(std::move(str), (size_t)file_size_value, type);
 
     CFRelease(name);
   }
