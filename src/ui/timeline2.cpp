@@ -677,14 +677,15 @@ void timeline_render_track_lanes() {
   }
 
   view_scale_ = timeline_get_view_scale();
+  timeline_handle_mouse_event();
+  timeline_handle_track_event();
+  font_push(FontType::Normal, 13.0f);
+
+  view_scale_ = timeline_get_view_scale();
   const double inv_view_scale = 1.0 / view_scale_;
   const double scroll_pos_x = timeline_get_scroll_pos_x();
   const GridProperties grid_props = get_grid_properties(grid_mode_);
   scroll_offset_x_ = (double)view_pos_.x - scroll_pos_x;
-
-  timeline_handle_mouse_event();
-  timeline_handle_track_event();
-  font_push(FontType::Normal, 13.0f);
 
   if (redraw_) {
     ImFontBaked* font_baked = font_->GetFontBaked(font_size_);
@@ -1117,7 +1118,7 @@ void timeline_handle_track_event() {
       first_visible_track_ = track_idx;
     }
 
-    if (hovered) {
+    if (hovered && timeline_state_.type != TimelineState::Select) {
       hovered_track_id = track_idx;
 
       if (can_select_ && left_mouse_clicked_) {
