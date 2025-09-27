@@ -78,5 +78,49 @@ void File::close() {
   }
 }
 
+Vector<DirectoryEntry> enumerate_directory(const std::filesystem::path& path) {
+  if (path.empty())
+    return {};
+
+  using PathStringType = std::filesystem::path::string_type;
+  std::filesystem::path current_path = to_system_preferred_path(path.native());
+  PathStringType path_str = current_path.native();
+  path_str.reserve(path_str.size() + 6);
+  path_str.append(L"\\*");
+  path_str.insert(0, L"\\\\?\\");
+
+  int32_t control_directory_counter = 0;
+  Vector<DirectoryEntry> entries;
+  WIN32_FIND_DATA ffd;
+  HANDLE ffh =
+      FindFirstFileEx(path_str.c_str(), FindExInfoStandard, &ffd, FindExSearchNameMatch, nullptr, FIND_FIRST_EX_LARGE_FETCH);
+
+  do {
+    uint32_t type = 0;
+    size_t file_size = 0;
+    std::wstring_view filename(ffd.cFileName);
+
+    if (control_directory_counter < 2) {
+      if (filename == L"." || filename == L"..") {
+        control_directory_counter++;
+        continue;
+      }
+    }
+
+    if (has_bit(ffd.dwFileAttributes, FILE_ATTRIBUTE_DIRECTORY)) {
+      type = DirectoryEntry::Folder;
+    } else {
+      file_size = (size_t)ffd.nFileSizeLow | ((size_t)ffd.nFileSizeHigh << 32);
+      type = DirectoryEntry::File;
+    }
+
+    entries.emplace_back(current_path / filename, file_size, type);
+  } while (FindNextFile(ffh, &ffd));
+
+  FindClose(ffh);
+
+  return entries;
+}
+
 }  // namespace wb
 #endif

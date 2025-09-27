@@ -45,9 +45,23 @@ struct DirectoryEntry {
   size_t size;
   uint32_t type;
 
-  inline bool is_folder() const { return type == Folder; }
-  inline bool is_file() const { return type == File; }
-  inline bool is_symlink() const { return type == Symlink; }
+  DirectoryEntry(const std::filesystem::path& path, size_t size, uint32_t type) : path(path), size(size), type(type) {
+  }
+
+  DirectoryEntry(DirectoryEntry&& other) : path(std::move(other.path)), size(other.size), type(other.type) {
+    other.size = size;
+    other.type = type;
+  }
+
+  inline bool is_folder() const {
+    return type == Folder;
+  }
+  inline bool is_file() const {
+    return type == File;
+  }
+  inline bool is_symlink() const {
+    return type == Symlink;
+  }
 };
 
 consteval uint32_t fourcc(const char ch[5]) {

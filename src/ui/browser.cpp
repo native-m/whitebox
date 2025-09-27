@@ -53,17 +53,6 @@ void BrowserWindow::sort_directory() {
 
 void BrowserWindow::glob_path(const std::filesystem::path& path, BrowserItem& item) {
   Vector<DirectoryEntry> entries = enumerate_directory(path);
-  std::sort(entries.begin(), entries.end(), [](const DirectoryEntry& a, const DirectoryEntry& b) {
-    auto ch_pred = [](char32_t a, char32_t b) {
-      a = std::tolower(a);
-      b = std::tolower(b);
-      return a < b;
-    };
-    const auto& path_a = a.path.native();
-    const auto& path_b = b.path.native();
-    return std::lexicographical_compare(path_a.begin(), path_a.end(), path_b.begin(), path_b.end(), ch_pred);
-  });
-
   item.dir_items.emplace();
   item.file_items.emplace();
   for (const auto& dir_entry : entries) {

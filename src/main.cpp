@@ -1,6 +1,6 @@
-#include "app.h"
-
 #include <SDL3/SDL_main.h>
+
+#include "app.h"
 
 #ifdef WB_PLATFORM_WINDOWS
 struct MemoryLeakDetection {

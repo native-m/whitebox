@@ -1,7 +1,10 @@
+#include "fs.h"
+
+#ifdef WB_PLATFORM_MACOS
+
 #include <CoreFoundation/CoreFoundation.h>
 
 #include "defer.h"
-#include "fs.h"
 
 namespace wb {
 
@@ -22,7 +25,7 @@ Vector<DirectoryEntry> enumerate_directory(const std::filesystem::path& path) {
     return {};
   }
 
-  Vector<DirectoryEntry> ret;
+  Vector<DirectoryEntry> entries;
   CFURLRef url_item{};
   while (CFURLEnumeratorGetNextURL(enumerator, &url_item, NULL) == kCFURLEnumeratorSuccess) {
     CFStringRef file_type{};
@@ -58,7 +61,20 @@ Vector<DirectoryEntry> enumerate_directory(const std::filesystem::path& path) {
   if (url_item)
     CFRelease(url_item);
 
-  return ret;
+  std::sort(entries.begin(), entries.end(), [](const DirectoryEntry& a, const DirectoryEntry& b) {
+    auto ch_pred = [](char32_t a, char32_t b) {
+      a = std::tolower(a);
+      b = std::tolower(b);
+      return a < b;
+    };
+    const auto& path_a = a.path.native();
+    const auto& path_b = b.path.native();
+    return std::lexicographical_compare(path_a.begin(), path_a.end(), path_b.begin(), path_b.end(), ch_pred);
+  });
+
+  return entries;
 }
 
 }  // namespace wb
+
+#endif
