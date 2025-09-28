@@ -52,6 +52,12 @@ endif()
 include(Dependencies.cmake)
 add_subdirectory(assets)
 
+if (WB_PLATFORM_MACOS)
+    set(WB_METAL_RENDERER_SRC
+        "src/gfx/renderer_metal.mm"
+        "src/gfx/renderer_metal.h")
+endif()
+
 set(WB_SOURCES
     "src/core/algorithm.h"
     "src/core/audio_buffer.h"
@@ -176,6 +182,7 @@ set(WB_SOURCES
     "src/gfx/vsync_provider.h"
     "src/gfx/waveform_visual.cpp"
     "src/gfx/waveform_visual.h"
+    ${WB_METAL_RENDERER_SRC}
 
     "src/plughost/plugin_interface.cpp"
     "src/plughost/plugin_interface.h"
