@@ -213,10 +213,6 @@ if (imgui_ADDED)
     add_library(imgui STATIC ${IMGUI_SRC_FILES})
     target_include_directories(imgui PUBLIC "${imgui_SOURCE_DIR}")
     target_compile_definitions(imgui PUBLIC IMGUI_DEFINE_MATH_OPERATORS ImDrawIdx=ImU32)
-    target_precompile_headers(imgui
-        PUBLIC
-            "$<$<COMPILE_LANGUAGE:CXX>:${imgui_SOURCE_DIR}/imgui.h>"
-            "$<$<COMPILE_LANGUAGE:CXX>:${imgui_SOURCE_DIR}/imgui_internal.h>")
     if (WB_IPO_SUPPORTED)
         set_target_properties(imgui PROPERTIES INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
     endif()

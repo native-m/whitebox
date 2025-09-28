@@ -1,5 +1,6 @@
 #include "renderer_vulkan.h"
 
+#include <imgui_internal.h>
 #include <imgui_impl_sdl3.h>
 
 #include "core/bit_manipulation.h"

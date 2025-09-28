@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <imgui.h>
 
 #include "core/vector.h"
 #include "plughost/plugin_interface.h"

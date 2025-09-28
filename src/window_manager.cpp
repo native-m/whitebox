@@ -63,11 +63,6 @@ void init_window_manager() {
 #endif
 
   uint32_t window_flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
-
-#ifdef WB_PLATFORM_MACOS
-  window_flags |= SDL_WINDOW_METAL;
-#endif
-
   main_window = SDL_CreateWindow("whitebox", 1280, 720, window_flags);
   SDL_SetWindowMinimumSize(main_window, 640, 480);
   wm_setup_dark_mode(main_window);

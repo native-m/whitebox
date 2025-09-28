@@ -1,7 +1,7 @@
 #include "timeline_base.h"
 
 #include <fmt/format.h>
-#include <imgui.h>
+#include <imgui_internal.h>
 
 #include "core/core_math.h"
 #include "core/debug.h"
