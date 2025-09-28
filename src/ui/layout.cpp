@@ -1,6 +1,8 @@
 #include "layout.h"
 
+#include <imgui_internal.h>
 #include "core/debug.h"
+#include "core/core_math.h"
 
 namespace wb::layout {
 

@@ -1,5 +1,7 @@
 #include "plugin_interface.h"
 
+#include <imgui.h>
+
 #include "extern/xxhash.h"
 
 namespace wb {

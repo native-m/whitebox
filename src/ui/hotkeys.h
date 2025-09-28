@@ -1,5 +1,7 @@
 #pragma once
 
+#include "core/common.h"
+
 namespace wb {
 
 enum class Hotkey : uint16_t {

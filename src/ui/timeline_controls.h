@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/common.h"
+#include "core/types.h"
 
 namespace wb {
 

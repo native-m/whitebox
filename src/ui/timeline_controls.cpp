@@ -1,6 +1,7 @@
 #include "timeline_controls.h"
 
 #include <bit>
+#include <imgui_internal.h>
 
 #include "core/debug.h"
 #include "grid.h"

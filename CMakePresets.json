@@ -8,10 +8,11 @@
       "binaryDir": "${sourceDir}/out/build/${presetName}",
       "installDir": "${sourceDir}/out/install/${presetName}",
       "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "CMAKE_C_COMPILER": "cl.exe",
         "CMAKE_CXX_COMPILER": "cl.exe",
-        "WB_ENABLE_INSTALL": true,
-        "WB_ENABLE_PACKAGING": true
+        "WB_ENABLE_INSTALL": "ON",
+        "WB_ENABLE_PACKAGING": "ON"
       },
       "condition": {
         "type": "equals",
@@ -117,6 +118,7 @@
       "binaryDir": "${sourceDir}/out/build/${presetName}",
       "installDir": "${sourceDir}/out/install/${presetName}",
       "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "CMAKE_BUILD_TYPE": "Debug"
       },
       "condition": {

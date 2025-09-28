@@ -1,7 +1,7 @@
 #include "settings.h"
 
 #include <fmt/format.h>
-#include <imgui.h>
+#include <imgui_internal.h>
 
 #include "app_event.h"
 #include "config.h"

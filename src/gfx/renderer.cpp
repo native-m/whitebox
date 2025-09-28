@@ -1,5 +1,7 @@
 #include "renderer.h"
 
+#include <imgui_internal.h>
+
 #include "core/bit_manipulation.h"
 #include "core/debug.h"
 #include "core/fs.h"

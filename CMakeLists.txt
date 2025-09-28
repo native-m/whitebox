@@ -292,9 +292,6 @@ set_target_properties(whitebox-lib PROPERTIES
     CXX_STANDARD 20
     DEBUG_POSTFIX "-debug")
 
-target_precompile_headers(whitebox-lib PRIVATE
-    "$<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/src/core/core_math.h>")
-
 if (WB_IPO_SUPPORTED)
     set_target_properties(whitebox-lib PROPERTIES INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
 endif()

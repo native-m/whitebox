@@ -1,5 +1,6 @@
 #include "plugin_mgr.h"
 
+#include <imgui_internal.h>
 #include <imgui_stdlib.h>
 
 #include <algorithm>
