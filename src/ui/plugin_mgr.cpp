@@ -5,7 +5,6 @@
 
 #include <algorithm>
 
-#include "core/bit_manipulation.h"
 #include "core/core_math.h"
 #include "dialogs.h"
 #include "window.h"

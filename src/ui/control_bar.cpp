@@ -3,7 +3,6 @@
 #include <imgui.h>
 
 #include "IconsMaterialSymbols.h"
-#include "config.h"
 #include "controls.h"
 #include "core/color.h"
 #include "core/mem_info.h"
@@ -96,7 +95,7 @@ void main_control_bar() {
 
   ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_TitleBg));
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 4.0f));
-  ImGui::BeginChild("WB_TOOLBAR", ImVec2(), ImGuiChildFlags_AlwaysUseWindowPadding);
+  ImGui::BeginChild("WB_TOOLBAR", ImVec2(), ImGuiChildFlags_AlwaysUseWindowPadding, ImGuiWindowFlags_NoBackground);
   ImGui::PopStyleColor();
 
   ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);

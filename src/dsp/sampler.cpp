@@ -85,7 +85,7 @@ inline static void sample_catmull_rom(
   }
 }
 
-void Sampler::stream(
+bool Sampler::stream(
     Sample* sample,
     uint32_t num_channels,
     uint32_t num_samples,
@@ -97,7 +97,7 @@ void Sampler::stream(
   static constexpr double i32_pcm_normalizer = 1.0 / static_cast<double>(std::numeric_limits<int32_t>::max());
 
   if (sample_offset_ >= sample->count)
-    return;  // has finished streaming
+    return false;  // has finished streaming
 
   double stream_max_length = ((double)sample->count - sample_offset_) / playback_speed_;
   double next_sample_offset = sample_offset_ + ((double)num_samples * playback_speed_);
@@ -207,6 +207,7 @@ void Sampler::stream(
   }
 
   sample_offset_ = next_sample_offset;
+  return true;
 }
 
 }  // namespace wb::dsp

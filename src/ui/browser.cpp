@@ -5,8 +5,11 @@
 #include "core/fs.h"
 #include "dialogs.h"
 #include "dsp/sample.h"
+#include "engine/asset.h"
+#include "engine/engine2.h"
 #include "file_dialog.h"
 #include "file_dropper.h"
+#include "imgui.h"
 #include "window.h"
 
 namespace fs = std::filesystem;
@@ -130,7 +133,9 @@ void BrowserWindow::render_item(const std::filesystem::path& root_path, BrowserI
     ImGui::PopStyleVar();
 
     if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
+      context_menu_path = item.get_file_path(root_path);
       selected_item = &item;
+      play_file = true;
     }
 
     if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
@@ -225,6 +230,27 @@ void BrowserWindow::render() {
 
   if (!is_dragging_item && last_dragged_item != nullptr) {
     last_dragged_item = nullptr;
+  }
+
+  if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)) {
+    if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
+      Log::debug("Browser down key press");
+    }
+    if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
+      Log::debug("Browser up key pressed");
+    }
+  }
+
+  if (play_file && selected_item->type == BrowserItem::File) {
+    if (auto asset = AssetManager::create_or_get_audio_asset(context_menu_path)) {
+      if (current_audio_asset)
+        current_audio_asset->release();
+      Engine2::preview_sample(asset);
+      current_audio_asset = asset;
+    }
+
+    Log::debug("Should play file");
+    play_file = false;
   }
 
   if (open_context_menu) {

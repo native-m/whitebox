@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <unordered_map>
 #include <string>
 
@@ -19,7 +20,7 @@ struct AudioAsset {
   Sample sample;
   WaveformVisual* waveform_visual;
   InplaceList<Clip> clip_refs;
-  uint32_t ref_count;
+  std::atomic_uint32_t ref_count;
 
   AudioAsset(uint64_t hash, Sample&& sample, WaveformVisual* waveform_visual)
       : hash(hash),
@@ -31,7 +32,7 @@ struct AudioAsset {
   ~AudioAsset();
 
   void add_ref() {
-    ++ref_count;
+    ref_count.fetch_add(1, std::memory_order_relaxed);
   }
 
   void release();

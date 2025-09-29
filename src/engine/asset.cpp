@@ -1,5 +1,7 @@
 #include "asset.h"
 
+#include <atomic>
+
 #include "core/debug.h"
 #include "extern/xxhash.h"
 
@@ -10,9 +12,7 @@ AudioAsset::~AudioAsset() {
 }
 
 void AudioAsset::release() {
-  if (ref_count == 0)
-    return;
-  if (ref_count-- == 1) {
+  if (ref_count.load(std::memory_order_acquire) == 1 || ref_count.fetch_sub(1, std::memory_order_acq_rel) == 1) {
     AssetManager::destroy_audio_asset(hash);
   }
 }
@@ -94,7 +94,7 @@ void AssetManager::destroy_midi_asset(MidiAsset2* asset) {
 
 void AssetManager::shutdown() {
   for (auto& [hash, asset] : audio_assets)
-    Log::debug("Sample asset leak: {}", asset.sample.path.string(), asset.ref_count);
+    Log::debug("Sample asset leak: {}", asset.sample.path.string(), asset.ref_count.load(std::memory_order_relaxed));
   audio_assets.clear();
 
   while (auto asset = midi_asset_list.pop_next_item()) {

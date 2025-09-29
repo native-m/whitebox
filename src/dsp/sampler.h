@@ -26,7 +26,7 @@ struct Sampler {
     resampler_type_ = resampler_type;
   }
 
-  void stream(
+  bool stream(
       Sample* sample,
       uint32_t num_channels,
       uint32_t num_samples,

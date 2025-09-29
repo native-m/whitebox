@@ -3,6 +3,7 @@
 #include <SDL3/SDL_events.h>
 // #include <SDL_mouse.h>
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <imgui_impl_sdl3.h>
 
 #include "app_event.h"
@@ -20,7 +21,6 @@
 #include "plughost/plugin_manager.h"
 #include "ui/command_manager.h"
 #include "ui/control_bar.h"
-#include "ui/controls.h"
 #include "ui/dialogs.h"
 #include "ui/file_dialog.h"
 #include "ui/file_dropper.h"
@@ -103,7 +103,7 @@ SDL_AppResult app_iterate(void* appstate) {
   ImGui_ImplSDL3_NewFrame();
   ImGui::NewFrame();
 
-  ImGui::GetDrawListSharedData()->InitialFringeScale = 1.0f;
+  ImGui::GetDrawListSharedData()->InitialFringeScale = 0.5f;
   
   ImGuiViewport* main_viewport = ImGui::GetMainViewport();
 

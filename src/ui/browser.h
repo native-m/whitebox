@@ -6,8 +6,7 @@
 #include <optional>
 #include <unordered_set>
 
-#include "core/common.h"
-#include "engine/track.h"
+#include "engine/asset.h"
 
 namespace wb {
 
@@ -91,6 +90,9 @@ struct BrowserWindow {
   std::filesystem::path context_menu_path;
   BrowserItem* context_menu_item = nullptr;
   uint32_t selected_root_dir;
+
+  bool play_file = false;
+  AudioAsset* current_audio_asset = nullptr;
 
   bool is_dragging_item = false;
   BrowserItem* last_dragged_item = nullptr;

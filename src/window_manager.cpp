@@ -1,11 +1,9 @@
 #include "window_manager.h"
 
 #include <SDL3/SDL_mouse.h>
+#include <imgui.h>
 
-#include "app.h"
-#include "core/bit_manipulation.h"
 #include "core/debug.h"
-#include "gfx/renderer.h"
 
 #ifdef WB_PLATFORM_WINDOWS
 #define WIN32_LEAN_AND_MEAN

@@ -5,6 +5,8 @@
 #include "asset.h"
 #include "audio_io.h"
 #include "audio_record.h"
+#include "core/queue.h"
+#include "dsp/sampler.h"
 #include "extern/xxhash.h"
 #include "plughost/plugin_manager.h"
 #include "track.h"
@@ -15,6 +17,20 @@ enum class PlaybackState {
   Stop,
   Play,
   Record,
+};
+
+struct EngineMessage {
+  enum {
+    SetMainVolume,
+    PreviewSample,
+  };
+
+  uint32_t type;
+
+  union {
+    float main_volume;
+    AudioAsset* preview_sample;
+  };
 };
 
 static const uint32_t audio_record_buffer_size = 64 * 1024;
@@ -32,6 +48,10 @@ static PlaybackState playback_state_;
 static double playhead_start_;
 static double sample_position_;
 static double ppq_ = 96.0;
+
+static ConcurrentRingBuffer<EngineMessage> engine_msg_queue_;
+static AudioAsset* current_preview_sample;
+static dsp::Sampler preview_sampler;
 
 alignas(64) static Spinlock edit_lock_;
 alignas(64) static std::atomic<uint32_t> playhead_updated_;
@@ -68,6 +88,7 @@ static void write_recorded_samples(uint32_t num_samples);
 static void record_thread_runner();
 
 void Engine2::initialize() {
+  engine_msg_queue_.set_capacity(64);
   audio_engine_config.num_output_channels = 2;
 }
 
@@ -148,6 +169,14 @@ void Engine2::begin_edit() {
 
 void Engine2::end_edit() {
   edit_lock_.unlock();
+}
+
+void Engine2::preview_sample(AudioAsset* asset) {
+  asset->add_ref();
+  engine_msg_queue_.push({
+    .type = EngineMessage::PreviewSample,
+    .preview_sample = asset,
+  });
 }
 
 Track* Engine2::create_track(const std::string& name, const Color& color, float height, float volume_db, float pan) {
@@ -614,6 +643,22 @@ void Engine2::process(AudioBuffer<float>& output_buffer, const AudioBuffer<float
 
     output_buffer.clear();
 
+    EngineMessage msg;
+    while (engine_msg_queue_.pop(msg)) {
+      switch (msg.type) {
+        case EngineMessage::SetMainVolume: break;
+        case EngineMessage::PreviewSample: {
+          if (is_playing)
+            break;
+          current_preview_sample = msg.preview_sample;
+          preview_sampler.reset_state(
+              dsp::ResamplerType::Linear, 0.0, 1.0, msg.preview_sample->sample.sample_rate, sample_rate);
+          Log::debug("Playing sample");
+          break;
+        }
+      }
+    }
+
     for (uint32_t i = 0; i < tracks.size(); i++) {
       auto track = tracks[i];
       track->audio_event_buffer.resize(0);
@@ -645,6 +690,11 @@ void Engine2::process(AudioBuffer<float>& output_buffer, const AudioBuffer<float
       sample_position_ += beat_to_samples(buffer_duration_in_beats, sample_rate, current_beat_duration);
       playhead = next_playhead_pos;
 
+      if (current_preview_sample) {
+        current_preview_sample->release();
+        current_preview_sample = nullptr;
+      }
+
       if (state == PlaybackState::Record) {
         recorder_queue_.begin_write(audio_buffer_size);
         for (uint32_t i = 0; i < track_input_groups_.size(); i++) {
@@ -656,6 +706,16 @@ void Engine2::process(AudioBuffer<float>& output_buffer, const AudioBuffer<float
           }
         }
         recorder_queue_.end_write();
+      }
+    }
+
+    if (current_preview_sample) {
+      Sample* sample = &current_preview_sample->sample;
+      if (!preview_sampler.stream(
+              sample, output_buffer.n_channels, output_buffer.n_samples, 0, 1.0f, output_buffer.channel_buffers)) {
+        // Has finished playing
+        current_preview_sample->release();
+        current_preview_sample = nullptr;
       }
     }
 

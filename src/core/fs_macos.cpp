@@ -58,9 +58,6 @@ Vector<DirectoryEntry> enumerate_directory(const std::filesystem::path& path) {
     CFRelease(name);
   }
 
-  if (url_item)
-    CFRelease(url_item);
-
   std::sort(entries.begin(), entries.end(), [](const DirectoryEntry& a, const DirectoryEntry& b) {
     auto ch_pred = [](char32_t a, char32_t b) {
       a = std::tolower(a);

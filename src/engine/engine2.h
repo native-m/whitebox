@@ -55,6 +55,8 @@ struct Engine2 {
   static void begin_edit();
   static void end_edit();
 
+  static void preview_sample(AudioAsset* asset);
+
   static Track*
   create_track(const std::string& name, const Color& color, float height, float volume_db = 0.0f, float pan = 0.0f);
   static void delete_track(uint32_t slot);
