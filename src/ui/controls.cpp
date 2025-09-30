@@ -10,6 +10,8 @@
 #include "engine/engine2.h"
 #include "font.h"
 #include "gfx/draw.h"
+#include "imgui.h"
+#include "imgui_internal.h"
 
 namespace wb::controls {
 
@@ -198,6 +200,17 @@ bool icon_toggle_button(const char* str, bool* value, const ImVec4& toggled_colo
   return pressed;
 }
 
+bool image_view(const char* str_id, const ImVec2& size, ImTextureRef tex_ref) {
+  ImVec2 cur_pos = ImGui::GetCursorScreenPos();
+  ImRect bb(cur_pos, cur_pos + size);
+  bool ret = ImGui::InvisibleButton(str_id, size, ImGuiButtonFlags_MouseButtonLeft);
+  
+  ImDrawList* dl = ImGui::GetWindowDrawList();
+  dl->AddRect(bb.Min, bb.Max, ImGui::GetColorU32(ImGuiCol_Border));
+
+  return ret;
+}
+
 // bool hsplitter(uint32_t id, float* size, float default_size, float min_size = 0.0f, float max_size = 0.0f) {
 //     return hsplitter(ImGui::GetID(id), size, default_size, min_size, max_size);
 // }
@@ -208,7 +221,7 @@ bool hsplitter(ImGuiID id, float* size, float default_size, float min_size, floa
     return false;
 
   ImGuiID real_id = ImGui::GetID(id);
-  ImDrawList* draw_list = ImGui::GetWindowDrawList();
+  ImDrawList* dl = ImGui::GetWindowDrawList();
   ImVec2 cur_pos = ImGui::GetCursorScreenPos();
   ImGuiStyle& style = ImGui::GetStyle();
   ImGuiCol color = ImGuiCol_Separator;
@@ -242,7 +255,7 @@ bool hsplitter(ImGuiID id, float* size, float default_size, float min_size, floa
     }
   }
 
-  draw_list->AddLine(
+  dl->AddLine(
       ImVec2(cur_pos.x, cur_pos.y + 0.5f), ImVec2(cur_pos.x + width, cur_pos.y + 0.5f), ImGui::GetColorU32(color), 2.0f);
 
   return is_separator_active;
@@ -373,11 +386,10 @@ bool mixer_label(const char* caption, const float height, const Color& color) {
     return false;
 
   auto header_color = color.brighten(0.25f).change_alpha(0.7f).to_uint32();
-  auto draw_list = GImGui->CurrentWindow->DrawList;
-  draw_list->AddRectFilled(bb.Min, ImVec2(bb.Max.x - 3.0f, bb.Max.y), ImGui::GetColorU32(ImGuiCol_FrameBg));
-  draw_list->AddRectFilled(ImVec2(bb.Max.x - 3.0f, bb.Min.y), bb.Max, header_color);
-  im_draw_vertical_text(
-      draw_list, caption, ImVec2(bb.Min.x + 2.0f, bb.Max.y - 4.0f), ImVec4(), ImGui::GetColorU32(ImGuiCol_Text));
+  auto dl = ImGui::GetWindowDrawList();
+  dl->AddRectFilled(bb.Min, ImVec2(bb.Max.x - 3.0f, bb.Max.y), ImGui::GetColorU32(ImGuiCol_FrameBg));
+  dl->AddRectFilled(ImVec2(bb.Max.x - 3.0f, bb.Min.y), bb.Max, header_color);
+  im_draw_vertical_text(dl, caption, ImVec2(bb.Min.x + 2.0f, bb.Max.y - 4.0f), ImVec4(), ImGui::GetColorU32(ImGuiCol_Text));
 
   return true;
 }

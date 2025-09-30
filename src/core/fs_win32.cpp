@@ -114,7 +114,7 @@ Vector<DirectoryEntry> enumerate_directory(const std::filesystem::path& path) {
       type = DirectoryEntry::File;
     }
 
-    entries.emplace_back(current_path / filename, file_size, type);
+    entries.emplace_back(filename, file_size, type);
   } while (FindNextFile(ffh, &ffd));
 
   FindClose(ffh);

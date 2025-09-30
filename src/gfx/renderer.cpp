@@ -48,29 +48,27 @@ bool GPURenderer::init(SDL_Window* window) {
   assert(waveform_aa_fs.size());
   assert(waveform_fill_vs.size());
 
-  waveform_aa = create_pipeline(
-      {
-        .vs = waveform_aa_vs.data(),
-        .vs_size = (uint32_t)waveform_aa_vs.size(),
-        .fs = waveform_aa_fs.data(),
-        .fs_size = (uint32_t)waveform_aa_fs.size(),
-        .shader_parameter_size = sizeof(WaveformDrawParam),
-        .primitive_topology = GPUPrimitiveTopology::TriangleList,
-        .enable_blending = true,
-        .enable_color_write = true,
-      });
+  waveform_aa = create_pipeline({
+    .vs = waveform_aa_vs.data(),
+    .vs_size = (uint32_t)waveform_aa_vs.size(),
+    .fs = waveform_aa_fs.data(),
+    .fs_size = (uint32_t)waveform_aa_fs.size(),
+    .shader_parameter_size = sizeof(WaveformDrawParam),
+    .primitive_topology = GPUPrimitiveTopology::TriangleList,
+    .enable_blending = true,
+    .enable_color_write = true,
+  });
 
-  waveform_fill = create_pipeline(
-      {
-        .vs = waveform_fill_vs.data(),
-        .vs_size = (uint32_t)waveform_fill_vs.size(),
-        .fs = waveform_aa_fs.data(),
-        .fs_size = (uint32_t)waveform_aa_fs.size(),
-        .shader_parameter_size = sizeof(WaveformDrawParam),
-        .primitive_topology = GPUPrimitiveTopology::TriangleStrip,
-        .enable_blending = false,
-        .enable_color_write = true,
-      });
+  waveform_fill = create_pipeline({
+    .vs = waveform_fill_vs.data(),
+    .vs_size = (uint32_t)waveform_fill_vs.size(),
+    .fs = waveform_aa_fs.data(),
+    .fs_size = (uint32_t)waveform_aa_fs.size(),
+    .shader_parameter_size = sizeof(WaveformDrawParam),
+    .primitive_topology = GPUPrimitiveTopology::TriangleStrip,
+    .enable_blending = false,
+    .enable_color_write = true,
+  });
 
   assert(waveform_aa && waveform_fill);
 
@@ -95,20 +93,19 @@ bool GPURenderer::init(SDL_Window* window) {
     },
   };
 
-  imgui_pipeline = create_pipeline(
-      {
-        .vs = imgui_vs.data(),
-        .vs_size = (uint32_t)imgui_vs.size(),
-        .fs = imgui_fs.data(),
-        .fs_size = (uint32_t)imgui_fs.size(),
-        .shader_parameter_size = sizeof(float) * 4,
-        .vertex_stride = sizeof(ImDrawVert),
-        .num_vertex_attributes = 3,
-        .vertex_attributes = imgui_vertex_attributes,
-        .primitive_topology = GPUPrimitiveTopology::TriangleList,
-        .enable_blending = true,
-        .enable_color_write = true,
-      });
+  imgui_pipeline = create_pipeline({
+    .vs = imgui_vs.data(),
+    .vs_size = (uint32_t)imgui_vs.size(),
+    .fs = imgui_fs.data(),
+    .fs_size = (uint32_t)imgui_fs.size(),
+    .shader_parameter_size = sizeof(float) * 4,
+    .vertex_stride = sizeof(ImDrawVert),
+    .num_vertex_attributes = 3,
+    .vertex_attributes = imgui_vertex_attributes,
+    .primitive_topology = GPUPrimitiveTopology::TriangleList,
+    .enable_blending = true,
+    .enable_color_write = true,
+  });
 
   return true;
 }
@@ -307,15 +304,14 @@ void GPURenderer::update_textures_(ImTextureData* tex) {
     regions.reserve(tex->Updates.size());
 
     for (ImTextureRect& r : tex->Updates) {
-      regions.push_back(
-          {
-            .x = r.x,
-            .y = r.y,
-            .width = r.w,
-            .height = r.h,
-            .pitch = (uint32_t)tex->GetPitch(),
-            .pixel_data = tex->GetPixelsAt(r.x, r.y),
-          });
+      regions.push_back({
+        .x = r.x,
+        .y = r.y,
+        .width = r.w,
+        .height = r.h,
+        .pitch = (uint32_t)tex->GetPitch(),
+        .pixel_data = tex->GetPixelsAt(r.x, r.y),
+      });
     }
 
     update_texture_region(texture, regions.size(), regions.data());

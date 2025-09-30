@@ -487,6 +487,7 @@ bool small_toggle_button(const char* str, bool value, const ImVec4& toggled_colo
 bool small_toggle_button(const char* str, bool* value, const ImVec4& toggled_color);
 bool icon_toggle_button(const char* str, bool value, const ImVec4& toggled_color);
 bool icon_toggle_button(const char* str, bool* value, const ImVec4& toggled_color);
+bool image_view(const char* str_id, const ImVec2& size, ImTextureRef tex_ref);
 
 bool hsplitter(
     ImGuiID id,

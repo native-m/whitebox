@@ -61,10 +61,9 @@ void BrowserWindow::glob_path(const std::filesystem::path& path, BrowserItem& it
   for (const auto& dir_entry : entries) {
     if (dir_entry.is_folder()) {
       BrowserItem& child_item = item.dir_items->emplace_back(
-          BrowserItem::Directory, BrowserItem::Unknown, &item, FileSize(), dir_entry.path.filename().generic_u8string());
+          BrowserItem::Directory, BrowserItem::Unknown, &item, FileSize(), dir_entry.name.filename().generic_u8string());
     } else if (dir_entry.is_file()) {
-      std::filesystem::path filename{ dir_entry.path.filename() };
-      std::filesystem::path ext{ filename.extension() };
+      std::filesystem::path ext{ dir_entry.name.extension() };
       BrowserItem::FileType file_type{};
       if (any_of(ext, ".wav", ".wave", ".aiff", ".mp3", ".ogg", ".aifc", ".aif", ".iff", ".8svx")) {
         file_type = BrowserItem::Sample;
@@ -74,7 +73,7 @@ void BrowserWindow::glob_path(const std::filesystem::path& path, BrowserItem& it
         continue;
       }
       BrowserItem& child_item = item.file_items->emplace_back(
-          BrowserItem::File, file_type, &item, FileSize(dir_entry.size), filename.generic_u8string());
+          BrowserItem::File, file_type, &item, FileSize(dir_entry.size), dir_entry.name.generic_u8string());
     }
   }
 }
@@ -91,8 +90,10 @@ void BrowserWindow::render_item(const std::filesystem::path& root_path, BrowserI
     bool directory_open = ImGui::TreeNodeEx("##browser_dir", flags, (const char*)item.name.data());
     ImGui::PopStyleVar();
 
+
+
     if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
-      context_menu_path = item.get_file_path(root_path);
+      selected_item_path = item.get_file_path(root_path);
       context_menu_item = &item;
       open_context_menu = true;
     }
@@ -133,13 +134,13 @@ void BrowserWindow::render_item(const std::filesystem::path& root_path, BrowserI
     ImGui::PopStyleVar();
 
     if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
-      context_menu_path = item.get_file_path(root_path);
+      selected_item_path = item.get_file_path(root_path);
       selected_item = &item;
       play_file = true;
     }
 
     if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
-      context_menu_path = item.get_file_path(root_path);
+      selected_item_path = item.get_file_path(root_path);
       context_menu_item = &item;
       open_context_menu = true;
     }
@@ -193,11 +194,26 @@ void BrowserWindow::render() {
   is_dragging_item = false;
   dragging_item = nullptr;
 
+  if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)) {
+    if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
+      if (selected_item) {
+        if (selected_item->type == BrowserItem::File) {
+          // ...
+        } else {
+          // ...
+        }
+      }
+      play_file = true;
+    } else if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
+      play_file = true;
+    }
+  }
+
   static constexpr auto table_flags =
       ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY;
   auto default_item_spacing = ImGui::GetStyle().ItemSpacing;
   auto table_size = ImGui::GetContentRegionAvail();
-  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(default_item_spacing.x, 0.0f));
+  // ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(default_item_spacing.x, 0.0f));
   if (ImGui::BeginTable("content_browser", 2, table_flags, ImVec2(table_size.x, table_size.y - 50.0f))) {
     ImGui::TableSetupScrollFreeze(0, 1);
     ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_NoHide);
@@ -211,7 +227,7 @@ void BrowserWindow::render() {
       if (context_menu_item == &dir.second && context_menu_item->root_dir)
         selected_root_dir = i;
     }
-    ImGui::PopStyleVar();
+    ImGui::PopStyleVar();  // ImGuiStyleVar_IndentSpacing
 
     ImGui::EndTable();
 
@@ -226,31 +242,25 @@ void BrowserWindow::render() {
       ImGui::EndDragDropTarget();
     }
   }
-  ImGui::PopStyleVar();
+
+  ImVec2 waveform_view_size = ImGui::GetContentRegionAvail();
+  if (controls::image_view("waveform_view", waveform_view_size, nullptr)) {
+    play_file = true;
+  }
 
   if (!is_dragging_item && last_dragged_item != nullptr) {
     last_dragged_item = nullptr;
   }
 
-  if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)) {
-    if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
-      Log::debug("Browser down key press");
+  if (selected_item && play_file) {
+    if (selected_item->type == BrowserItem::File) {
+      if (auto asset = AssetManager::create_or_get_audio_asset(selected_item_path)) {
+        if (current_audio_asset)
+          current_audio_asset->release();
+        Engine2::preview_sample(asset);
+        current_audio_asset = asset;
+      }
     }
-    if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
-      Log::debug("Browser up key pressed");
-    }
-  }
-
-  if (play_file && selected_item->type == BrowserItem::File) {
-    if (auto asset = AssetManager::create_or_get_audio_asset(context_menu_path)) {
-      if (current_audio_asset)
-        current_audio_asset->release();
-      Engine2::preview_sample(asset);
-      current_audio_asset = asset;
-    }
-
-    Log::debug("Should play file");
-    play_file = false;
   }
 
   if (open_context_menu) {
@@ -264,16 +274,16 @@ void BrowserWindow::render() {
     ImGui::MenuItem("Copy path");
 
     if (ImGui::MenuItem("Open parent folder")) {
-      explore_folder(context_menu_path.parent_path());
+      explore_folder(selected_item_path.parent_path());
     }
 
     if (context_menu_item->type == BrowserItem::Directory) {
       if (ImGui::MenuItem("Open directory")) {
-        explore_folder(context_menu_path);
+        explore_folder(selected_item_path);
       }
     } else {
       if (ImGui::MenuItem("Locate file")) {
-        locate_file(context_menu_path);
+        locate_file(selected_item_path);
       }
     }
 
@@ -303,6 +313,7 @@ void BrowserWindow::render() {
   }
 
   controls::end_window();
+  play_file = false;
 }
 
 BrowserWindow g_browser;

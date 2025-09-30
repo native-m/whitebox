@@ -650,10 +650,12 @@ void Engine2::process(AudioBuffer<float>& output_buffer, const AudioBuffer<float
         case EngineMessage::PreviewSample: {
           if (is_playing)
             break;
+          if (current_preview_sample) {
+            current_preview_sample->release();
+          }
           current_preview_sample = msg.preview_sample;
           preview_sampler.reset_state(
               dsp::ResamplerType::Linear, 0.0, 1.0, msg.preview_sample->sample.sample_rate, sample_rate);
-          Log::debug("Playing sample");
           break;
         }
       }

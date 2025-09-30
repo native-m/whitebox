@@ -1,3 +1,4 @@
+#include <CoreFoundation/CFURL.h>
 #include "fs.h"
 
 #ifdef WB_PLATFORM_MACOS
@@ -48,14 +49,15 @@ Vector<DirectoryEntry> enumerate_directory(const std::filesystem::path& path) {
       continue;
     }
 
-    CFStringRef name = CFURLCopyFileSystemPath(url_item, kCFURLPOSIXPathStyle);
-    CFIndex len = CFStringGetLength(name) + 1;
-    std::filesystem::path::string_type str(len - 1, '\x00');
+    CFStringRef filename = nullptr;
+    CFURLCopyResourcePropertyForKey(url_item, kCFURLNameKey, &filename, nullptr);
 
-    CFStringGetCString(name, str.data(), len, kCFStringEncodingUTF8);
-    entries.emplace_back(std::move(str), (size_t)file_size_value, type);
+    CFIndex len = CFStringGetLength(filename) + 1;
+    std::filesystem::path::string_type filename_str(len - 1, '\x00');
+    CFStringGetCString(filename, filename_str.data(), len, kCFStringEncodingUTF8);
+    entries.emplace_back(std::move(filename_str), (size_t)file_size_value, type);
 
-    CFRelease(name);
+    CFRelease(filename);
   }
 
   std::sort(entries.begin(), entries.end(), [](const DirectoryEntry& a, const DirectoryEntry& b) {
@@ -64,8 +66,8 @@ Vector<DirectoryEntry> enumerate_directory(const std::filesystem::path& path) {
       b = std::tolower(b);
       return a < b;
     };
-    const auto& path_a = a.path.native();
-    const auto& path_b = b.path.native();
+    const auto& path_a = a.name.native();
+    const auto& path_b = b.name.native();
     return std::lexicographical_compare(path_a.begin(), path_a.end(), path_b.begin(), path_b.end(), ch_pred);
   });
 

@@ -41,7 +41,7 @@ struct DirectoryEntry {
     Symlink,
   };
 
-  std::filesystem::path path;
+  std::filesystem::path name;
   size_t size;
   uint32_t type;
 

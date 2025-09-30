@@ -30,7 +30,9 @@ struct TimelineDragDropFilesState {
 };
 
 struct TimelineMoveState {
-  double relative_pos;
+  int32_t track_id;
+  uint32_t clip_id;
+  double initial_pos;
 };
 
 struct TimelineState {
@@ -134,7 +136,7 @@ static float font_size_;
 static float first_visible_track_pos_y_;
 static int32_t first_visible_track_;
 static int32_t last_visible_track_;
-static TimelineState timeline_state_;
+static TimelineState tl_state_;
 static std::optional<int32_t> hovered_track_id_;
 
 static Vector<WaveformDrawCmd> waveform_cmd;
@@ -706,11 +708,11 @@ void timeline_render_track_lanes() {
     const ImU32 track_line_color = Color(ImGui::GetColorU32(ImGuiCol_Separator)).change_alpha(0.85f).to_uint32();
     const ImU32 label_line = Color(ImGui::GetColorU32(ImGuiCol_Separator)).change_alpha(0.45f).to_uint32();
 
-    const bool selecting_range = timeline_state_.type == TimelineState::Select || timeline_state_.select.is_selected;
-    double selection_start_pos = timeline_state_.select.start_pos;
-    double selection_end_pos = timeline_state_.select.end_pos;
-    int32_t first_selected_track = timeline_state_.select.first_track_id;
-    int32_t last_selected_track = timeline_state_.select.last_track_id;
+    const bool selecting_range = tl_state_.type == TimelineState::Select || tl_state_.select.is_selected;
+    double selection_start_pos = tl_state_.select.start_pos;
+    double selection_end_pos = tl_state_.select.end_pos;
+    int32_t first_selected_track = tl_state_.select.first_track_id;
+    int32_t last_selected_track = tl_state_.select.last_track_id;
 
     if (selecting_range) {
       // Flip the range if it is opposite
@@ -807,54 +809,51 @@ void timeline_render_track_lanes() {
               const float pos_y = clip_content_min.y - offset_y;
               if (waveform->channels == 2) {
                 const float height = std::floor((clip_content_max.y - clip_content_min.y) * 0.5f);
-                waveform_cmd.push_back(
-                    {
-                      .waveform_vis = waveform,
-                      .min_x = min_bb_x,
-                      .min_y = pos_y,
-                      .max_x = max_bb_x,
-                      .max_y = pos_y + height,
-                      .gain = clip->audio.gain,
-                      .scale_x = (float)mip_scale,
-                      .gap_size = gap_size,
-                      .color = content_color_u32,
-                      .mip_index = index,
-                      .channel = 0,
-                      .start_idx = (uint32_t)start_idx,
-                      .draw_count = (uint32_t)draw_count + 2,
-                    });
-                waveform_cmd.push_back(
-                    {
-                      .waveform_vis = waveform,
-                      .min_x = min_bb_x,
-                      .min_y = pos_y + height,
-                      .max_x = max_bb_x,
-                      .max_y = pos_y + height * 2.0f,
-                      .gain = clip->audio.gain,
-                      .scale_x = (float)mip_scale,
-                      .gap_size = gap_size,
-                      .color = content_color_u32,
-                      .mip_index = index,
-                      .channel = 1,
-                      .start_idx = (uint32_t)start_idx,
-                      .draw_count = (uint32_t)draw_count + 2,
-                    });
+                waveform_cmd.push_back({
+                  .waveform_vis = waveform,
+                  .min_x = min_bb_x,
+                  .min_y = pos_y,
+                  .max_x = max_bb_x,
+                  .max_y = pos_y + height,
+                  .gain = clip->audio.gain,
+                  .scale_x = (float)mip_scale,
+                  .gap_size = gap_size,
+                  .color = content_color_u32,
+                  .mip_index = index,
+                  .channel = 0,
+                  .start_idx = (uint32_t)start_idx,
+                  .draw_count = (uint32_t)draw_count + 2,
+                });
+                waveform_cmd.push_back({
+                  .waveform_vis = waveform,
+                  .min_x = min_bb_x,
+                  .min_y = pos_y + height,
+                  .max_x = max_bb_x,
+                  .max_y = pos_y + height * 2.0f,
+                  .gain = clip->audio.gain,
+                  .scale_x = (float)mip_scale,
+                  .gap_size = gap_size,
+                  .color = content_color_u32,
+                  .mip_index = index,
+                  .channel = 1,
+                  .start_idx = (uint32_t)start_idx,
+                  .draw_count = (uint32_t)draw_count + 2,
+                });
               } else {
-                waveform_cmd.push_back(
-                    {
-                      .waveform_vis = waveform,
-                      .min_x = min_bb_x,
-                      .min_y = pos_y,
-                      .max_x = max_bb_x,
-                      .max_y = clip_content_max.y - offset_y,
-                      .gain = clip->audio.gain,
-                      .scale_x = (float)mip_scale,
-                      .gap_size = gap_size,
-                      .color = content_color_u32,
-                      .mip_index = index,
-                      .start_idx = (uint32_t)start_idx,
-                      .draw_count = (uint32_t)draw_count + 2,
-                    });
+                waveform_cmd.push_back({
+                  .waveform_vis = waveform,
+                  .min_x = min_bb_x,
+                  .min_y = pos_y,
+                  .max_x = max_bb_x,
+                  .max_y = clip_content_max.y - offset_y,
+                  .gain = clip->audio.gain,
+                  .scale_x = (float)mip_scale,
+                  .gap_size = gap_size,
+                  .color = content_color_u32,
+                  .mip_index = index,
+                  .start_idx = (uint32_t)start_idx,
+                  .draw_count = (uint32_t)draw_count + 2,
+                });
               }
               break;
             }
@@ -881,21 +880,21 @@ void timeline_render_track_lanes() {
         layer3_dl_->AddLine(ImVec2(max_bb.x, min_bb.y), max_bb, selection_range_border);
       }
 
-      if (timeline_state_.type == TimelineState::DragDropFiles) {
-        if (!timeline_state_.drag_drop_files.item_dropped && timeline_state_.drag_drop_files.first_track_id == i) {
-          BrowserFilePayload* payload_data = timeline_state_.drag_drop_files.payload_data;
+      if (tl_state_.type == TimelineState::DragDropFiles) {
+        if (!tl_state_.drag_drop_files.item_dropped && tl_state_.drag_drop_files.first_track_id == i) {
+          BrowserFilePayload* payload_data = tl_state_.drag_drop_files.payload_data;
           double length = 1.0;
 
           if (payload_data->type == BrowserItem::Sample) {
             length = samples_to_beat(payload_data->content_length, payload_data->sample_rate, beat_duration);
           }
 
-          const double highlight_pos = timeline_state_.drag_drop_files.position;
+          const double highlight_pos = tl_state_.drag_drop_files.position;
           const double x0 = highlight_pos * inv_view_scale;
           const double x1 = (highlight_pos + length) * inv_view_scale;
           const ImVec2 min_bb((float)(scroll_offset_x_ + x0), track_pos_abs_y);
           const ImVec2 max_bb((float)(scroll_offset_x_ + x1), track_pos_abs_y + height);
-          std::string_view filename = timeline_state_.drag_drop_files.payload_data->filename;
+          std::string_view filename = tl_state_.drag_drop_files.payload_data->filename;
           layer3_dl_->AddRectFilled(min_bb, max_bb, highlight_color_);
           timeline_draw_clip_label(layer3_dl_, filename, mini_clip, height, min_bb, max_bb);
         }
@@ -1018,7 +1017,7 @@ void timeline_handle_mouse_event() {
   }
 
   // Handle automatic scrolling
-  if (dragging_file || timeline_state_.type == TimelineState::Select) {
+  if (dragging_file || tl_state_.type == TimelineState::Select) {
     static constexpr float drag_offset_x = 20.0f;
     static constexpr float drag_offset_y = 40.0f;
     float speed = 10.0f * GImGui->IO.DeltaTime;  // Make sure this is not frame-dependent
@@ -1058,16 +1057,16 @@ void timeline_handle_mouse_event() {
   }
 
   if (dragging_file) {
-    timeline_state_.type = TimelineState::DragDropFiles;
-    timeline_state_.drag_drop_files = {
+    tl_state_.type = TimelineState::DragDropFiles;
+    tl_state_.drag_drop_files = {
       .payload_data = drop_payload_data,
       .first_track_id = -1,
       .item_dropped = item_dropped,
     };
   }
 
-  if (timeline_state_.select.is_selected && left_mouse_clicked_) {
-    timeline_state_.clear_selection();
+  if (tl_state_.select.is_selected && left_mouse_clicked_) {
+    tl_state_.clear_selection();
     redraw_ = true;
   }
 
@@ -1075,8 +1074,8 @@ void timeline_handle_mouse_event() {
     ImGui::SetMouseCursor(ImGuiMouseCursor_TextInput);
   }
 
-  if (timeline_state_.type == TimelineState::DragDropFiles && !dragging_file) {
-    timeline_state_.end_action();
+  if (tl_state_.type == TimelineState::DragDropFiles && !dragging_file) {
+    tl_state_.end_action();
   }
 }
 
@@ -1091,7 +1090,7 @@ void timeline_handle_track_event() {
   int32_t track_count = (int32_t)Engine2::tracks.size();
   int32_t track_idx = 0;
   std::optional<int32_t> hovered_track_id;
-  bool require_drag = !any_of(timeline_state_.type, TimelineState::DragDropFiles, TimelineState::Select);
+  bool require_drag = !any_of(tl_state_.type, TimelineState::Select, TimelineState::DragDropFiles, TimelineState::Move);
 
   for (; track_idx < track_count; track_idx++) {
     Track* track = Engine2::tracks[track_idx];
@@ -1111,19 +1110,19 @@ void timeline_handle_track_event() {
     ImVec2 track_min(view_min_.x, view_min_.y + track_pos_y);
     ImVec2 track_max(view_max_.x, view_min_.y + next_pos_y);
     bool rect_hovered = ImGui::IsMouseHoveringRect(track_min, track_max, require_drag);
-    bool hovered = rect_hovered && timeline_focused_;
+    bool hovered = rect_hovered && timeline_hovered_;
 
     if (first_visible_pos_y == INFINITY) {
       first_visible_pos_y = track_pos_y;
       first_visible_track_ = track_idx;
     }
 
-    if (hovered && timeline_state_.type != TimelineState::Select) {
+    if (hovered && tl_state_.type != TimelineState::Select) {
       hovered_track_id = track_idx;
 
       if (can_select_ && left_mouse_clicked_) {
-        timeline_state_.type = TimelineState::Select;
-        timeline_state_.select = {
+        tl_state_.type = TimelineState::Select;
+        tl_state_.select = {
           .start_pos = hovered_position,
           .first_track_id = track_idx,
           .last_track_id = track_idx,
@@ -1154,6 +1153,15 @@ void timeline_handle_track_event() {
           // Left handle
           ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
         } else if (math::in_range(mouse_pos_.x, x0_min, x1_max)) {
+          if (left_mouse_clicked_) {
+            tl_state_.type = TimelineState::Move;
+            tl_state_.move = {
+              .clip_id = i,
+              .track_id = track_idx,
+              .initial_pos = hovered_position,
+            };
+            Log::debug("Clip Move");
+          }
           ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
         }
       }
@@ -1169,10 +1177,10 @@ void timeline_handle_track_event() {
       }
     }*/
 
-    if (timeline_state_.type == TimelineState::DragDropFiles) {
+    if (tl_state_.type == TimelineState::DragDropFiles) {
       if (rect_hovered) {
-        timeline_state_.drag_drop_files.first_track_id = track_idx;
-        timeline_state_.drag_drop_files.position = hovered_position;
+        tl_state_.drag_drop_files.first_track_id = track_idx;
+        tl_state_.drag_drop_files.position = hovered_position;
         redraw_ = true;
       }
     }
@@ -1180,22 +1188,22 @@ void timeline_handle_track_event() {
     track_pos_y = next_pos_y;
   }
 
-  if (timeline_state_.type == TimelineState::DragDropFiles) {
-    if (timeline_state_.drag_drop_files.item_dropped) {
+  if (tl_state_.type == TimelineState::DragDropFiles) {
+    if (tl_state_.drag_drop_files.item_dropped) {
       timeline_add_clip_from_file();
     }
-  } else if (timeline_state_.type == TimelineState::Select) {
+  } else if (tl_state_.type == TimelineState::Select) {
     if (left_mouse_down_ && hovered_track_id) {
-      timeline_state_.select.last_track_id = hovered_track_id.value();
+      tl_state_.select.last_track_id = hovered_track_id.value();
     }
 
     if (left_mouse_down_) {
-      timeline_state_.select.end_pos = hovered_position;
+      tl_state_.select.end_pos = hovered_position;
       redraw_ = true;
     }
 
     if (!left_mouse_down_) {
-      auto& [is_selected, start_pos, end_pos, first_track_id, last_track_id] = timeline_state_.select;
+      auto& [is_selected, start_pos, end_pos, first_track_id, last_track_id] = tl_state_.select;
       is_selected = true;
       if (start_pos > end_pos) {
         std::swap(start_pos, end_pos);
@@ -1203,8 +1211,16 @@ void timeline_handle_track_event() {
       if (first_track_id > last_track_id) {
         std::swap(first_track_id, last_track_id);
       }
-      timeline_state_.end_action();
+      tl_state_.end_action();
       timeline_query_selected_range();
+    }
+  } else if (tl_state_.type == TimelineState::Move) {
+    ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+    if (!left_mouse_down_) {
+      double relative_pos = hovered_position - tl_state_.move.initial_pos;
+      int32_t relative_track = hovered_track_id.value() - tl_state_.move.track_id;
+      Log::debug("End clip move {} {}", relative_pos, relative_track);
+      tl_state_.end_action();
     }
   }
 
@@ -1213,15 +1229,15 @@ void timeline_handle_track_event() {
 }
 
 void timeline_query_selected_range() {
-  int32_t first = timeline_state_.select.first_track_id;
-  int32_t last = timeline_state_.select.last_track_id;
-  timeline_state_.selected_track_clips.reserve(last - first + 1);
+  int32_t first = tl_state_.select.first_track_id;
+  int32_t last = tl_state_.select.last_track_id;
+  tl_state_.selected_track_clips.reserve(last - first + 1);
   Log::debug("Selected tracks:");
   for (int32_t i = first; i <= last; i++) {
     Track* track = Engine2::tracks[i];
-    auto query_result = track->query_clip_by_range2(timeline_state_.select.start_pos, timeline_state_.select.end_pos);
+    auto query_result = track->query_clip_by_range2(tl_state_.select.start_pos, tl_state_.select.end_pos);
     if (query_result) {
-      timeline_state_.selected_track_clips.push_back(query_result);
+      tl_state_.selected_track_clips.push_back(query_result);
       Log::debug(
           "Track {}: {} {} {} {}",
           i,
@@ -1230,7 +1246,7 @@ void timeline_query_selected_range() {
           query_result.first_offset,
           query_result.last_offset);
     } else {
-      timeline_state_.selected_track_clips.emplace_back();  // Insert empty result
+      tl_state_.selected_track_clips.emplace_back();  // Insert empty result
     }
   }
 }
@@ -1251,9 +1267,9 @@ void timeline_add_track() {
 
 void timeline_add_clip_from_file() {
   CmdAddClipFromFile* cmd = new CmdAddClipFromFile();
-  cmd->track_id = timeline_state_.drag_drop_files.first_track_id;
-  cmd->position = timeline_state_.drag_drop_files.position;
-  cmd->file_path = timeline_state_.drag_drop_files.payload_data->path;
+  cmd->track_id = tl_state_.drag_drop_files.first_track_id;
+  cmd->position = tl_state_.drag_drop_files.position;
+  cmd->file_path = tl_state_.drag_drop_files.payload_data->path;
   CommandManager2::execute_command("Add clip", cmd);
 }
 

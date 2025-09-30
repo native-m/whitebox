@@ -87,7 +87,7 @@ struct BrowserWindow {
   std::vector<DirectoryRefItem> directories;
 
   bool open_context_menu = false;
-  std::filesystem::path context_menu_path;
+  std::filesystem::path selected_item_path;
   BrowserItem* context_menu_item = nullptr;
   uint32_t selected_root_dir;
 
