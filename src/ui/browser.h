@@ -51,19 +51,33 @@ struct BrowserItem {
   BrowserItem* parent;
   FileSize size;
   std::u8string name;
+  std::filesystem::path root_path;
+  std::vector<BrowserItem> subitems;
+  int32_t next_item;
+  
   bool root_dir;
   bool open;
-  std::optional<std::vector<BrowserItem>> dir_items;
-  std::optional<std::vector<BrowserItem>> file_items;
+  bool set_open;
+  bool set_close;
 
-  std::filesystem::path get_file_path(const std::filesystem::path& root) const {
+  inline bool is_directory() const { return type == Directory; }
+  inline bool is_file() const { return type == File; }
+  inline bool is_sample() const { return type == File && file_type == Sample; }
+  inline bool is_midi() const { return type == File && file_type == Midi; }
+
+  std::filesystem::path get_file_path() const {
     std::filesystem::path ret;
     const BrowserItem* item = this;
+    const BrowserItem* root_item = nullptr;
+
     while (item != nullptr) {
+      if (item->root_dir)
+        root_item = item;
       ret = (item != this) ? std::filesystem::path(item->name) / ret : std::filesystem::path(item->name);
       item = item->parent;
     }
-    return root.parent_path() / ret;
+
+    return root_item->root_path / ret;
   }
 };
 
@@ -105,6 +119,7 @@ struct BrowserWindow {
   void remove_directory(std::vector<DirectoryRefItem>::iterator dir);
   void sort_directory();
   void glob_path(const std::filesystem::path& path, BrowserItem& item);
+  void handle_navigation();
   void render_item(const std::filesystem::path& root_path, BrowserItem& item);
   void render();
 };

@@ -36,7 +36,7 @@ Vector<DirectoryEntry> enumerate_directory(const std::filesystem::path& path) {
     uint32_t type;
     int64_t file_size_value = 0;
     if (file_type == kCFURLFileResourceTypeDirectory) {
-      type = DirectoryEntry::Folder;
+      type = DirectoryEntry::Directory;
     } else if (file_type == kCFURLFileResourceTypeRegular) {
       CFNumberRef file_size{};
       CFURLCopyResourcePropertyForKey(url_item, kCFURLFileSizeKey, &file_size, nullptr);
@@ -66,6 +66,11 @@ Vector<DirectoryEntry> enumerate_directory(const std::filesystem::path& path) {
       b = std::tolower(b);
       return a < b;
     };
+
+    if (a.is_directory() != b.is_directory()) {
+      return a.is_directory() > b.is_directory();
+    }
+
     const auto& path_a = a.name.native();
     const auto& path_b = b.name.native();
     return std::lexicographical_compare(path_a.begin(), path_a.end(), path_b.begin(), path_b.end(), ch_pred);

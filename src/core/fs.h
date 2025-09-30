@@ -36,7 +36,7 @@ struct File {
 
 struct DirectoryEntry {
   enum {
-    Folder,
+    Directory,
     File,
     Symlink,
   };
@@ -45,8 +45,8 @@ struct DirectoryEntry {
   size_t size;
   uint32_t type;
 
-  inline bool is_folder() const {
-    return type == Folder;
+  inline bool is_directory() const {
+    return type == Directory;
   }
 
   inline bool is_file() const {
