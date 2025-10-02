@@ -17,7 +17,7 @@ struct CmdClip : public Command2 {
   void delete_region();
 
   void delete_region(
-      const Vector<ClipQueryResult2>& selected_track_regions,
+      const Vector<ClipSpan>& selected_track_regions,
       int32_t first_track_idx,
       double start_pos,
       double end_pos);

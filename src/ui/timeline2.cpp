@@ -44,7 +44,7 @@ struct TimelineState {
   };
 
   uint32_t type;
-  Vector<ClipQueryResult2> selected_track_clips;
+  Vector<ClipSpan> selected_track_clips;
 
   struct {
     bool is_selected;
@@ -75,12 +75,12 @@ struct TimelineState {
   }
 };
 
-static constexpr uint32_t timeline_mouse_btn_flags_ =
-    ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_MouseButtonMiddle;
 static constexpr float zoom_sensitivity_ = 0.12f;
 static constexpr float track_separator_height_ = 2.0f;
 static constexpr uint32_t playhead_color_ = 0xE553A3F9;
 static constexpr uint32_t highlight_color_ = 0x9F555555;
+static constexpr uint32_t timeline_mouse_btn_flags_ =
+    ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_MouseButtonMiddle;
 
 static TimelineViewState view_state_;
 static double view_scale_;
@@ -692,6 +692,7 @@ void timeline_render_track_lanes() {
   if (redraw_) {
     ImFontBaked* font_baked = font_->GetFontBaked(font_size_);
     ImTextureRef font_tex_ref = ImGui::GetIO().Fonts->TexRef;
+
     layer1_dl_->_ResetForNewFrame();
     layer2_dl_->_ResetForNewFrame();
     layer3_dl_->_ResetForNewFrame();
@@ -739,7 +740,6 @@ void timeline_render_track_lanes() {
         const double start_pos = clip->min_time * inv_view_scale;
         const double end_pos = clip->max_time * inv_view_scale;
         const float x0 = (float)(scroll_offset_x_ + math::round(start_pos));
-        const float x1 = (float)(scroll_offset_x_ + math::round(end_pos) - 0.5f);
 
         if (x0 >= view_max_.x)
           break;

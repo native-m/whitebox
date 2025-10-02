@@ -156,7 +156,7 @@ std::optional<ClipQueryResult> Track::query_clip_by_range(double min, double max
   };
 }
 
-ClipQueryResult2 Track::query_clip_by_range2(double start, double end) const {
+ClipSpan Track::query_clip_by_range2(double start, double end) const {
   assert(start <= end && "Starting position should be less or equal than ending position");
   auto it_begin = clips.begin();
   auto it_end = clips.end();

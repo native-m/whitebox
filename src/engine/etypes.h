@@ -64,7 +64,7 @@ struct ClipQueryResult {
   }
 };
 
-struct ClipQueryResult2 {
+struct ClipSpan {
   bool contains_clip;
   uint32_t first;
   uint32_t last;
