@@ -348,7 +348,7 @@ void BrowserWindow::render() {
 
   if (selected_item && play_file) {
     if (selected_item->type == BrowserItem::File) {
-      if (auto asset = AssetManager::create_or_get_audio_asset(selected_item_path)) {
+      if (auto asset = AssetManager::create_or_get_audio_asset(selected_item_path.string())) {
         if (current_audio_asset)
           current_audio_asset->release();
         Engine2::preview_sample(asset);

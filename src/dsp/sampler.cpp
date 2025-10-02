@@ -33,7 +33,8 @@ static void sample_nearest(
 
 template<typename T, AudioFormat Fmt>
 inline static void sample_linear(
-    uint32_t num_channels,
+    uint32_t num_dst_channels,
+    uint32_t num_src_channels,
     uint32_t num_samples,
     uint32_t buffer_offset,
     float gain,
@@ -43,8 +44,8 @@ inline static void sample_linear(
     float** output_buffer) {
   static constexpr auto pcm_normalizer = get_pcm_sample_normalizer<Fmt>();
   using NormalizerT = decltype(pcm_normalizer);
-  for (int32_t i = 0; i < num_channels; i++) {
-    const T* src_sample = src_channels[i];
+  for (int32_t i = 0; i < num_dst_channels; i++) {
+    const T* src_sample = src_channels[i % num_src_channels];
     float* dst_buffer = output_buffer[i] + buffer_offset;
     for (int32_t j = 0; j < num_samples; j++) {
       const double x = sample_position + ((double)j * playback_speed);
@@ -60,7 +61,8 @@ inline static void sample_linear(
 
 template<typename T, AudioFormat Fmt>
 inline static void sample_catmull_rom(
-    uint32_t num_channels,
+    uint32_t num_dst_channels,
+    uint32_t num_src_channels,
     uint32_t num_samples,
     uint32_t buffer_offset,
     float gain,
@@ -70,8 +72,8 @@ inline static void sample_catmull_rom(
     float** output_buffer) {
   static constexpr auto pcm_normalizer = get_pcm_sample_normalizer<Fmt>();
   using NormalizerT = decltype(pcm_normalizer);
-  for (uint32_t i = 0; i < num_channels; i++) {
-    const T* src_sample = src_channels[i];
+  for (uint32_t i = 0; i < num_dst_channels; i++) {
+    const T* src_sample = src_channels[i % num_src_channels];
     float* dst_buffer = output_buffer[i] + buffer_offset;
     for (uint32_t j = 0; j < num_samples; j++) {
       const double x = (sample_position + (double)j) * playback_speed;
@@ -161,6 +163,7 @@ bool Sampler::stream(
       case AudioFormat::I16:
         sample_linear<int16_t, AudioFormat::I16>(
             num_channels,
+            sample->channels,
             num_actual_samples,
             buffer_offset,
             gain,
@@ -172,6 +175,7 @@ bool Sampler::stream(
       case AudioFormat::I24:
         sample_linear<int32_t, AudioFormat::I24>(
             num_channels,
+            sample->channels,
             num_actual_samples,
             buffer_offset,
             gain,
@@ -183,6 +187,7 @@ bool Sampler::stream(
       case AudioFormat::I32:
         sample_linear<int32_t, AudioFormat::I32>(
             num_channels,
+            sample->channels,
             num_actual_samples,
             buffer_offset,
             gain,
@@ -194,6 +199,7 @@ bool Sampler::stream(
       case AudioFormat::F32:
         sample_linear<float, AudioFormat::F32>(
             num_channels,
+            sample->channels,
             num_actual_samples,
             buffer_offset,
             gain,

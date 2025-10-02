@@ -108,7 +108,7 @@ Vector<DirectoryEntry> enumerate_directory(const std::filesystem::path& path) {
     }
 
     if (has_bit(ffd.dwFileAttributes, FILE_ATTRIBUTE_DIRECTORY)) {
-      type = DirectoryEntry::Folder;
+      type = DirectoryEntry::Directory;
     } else {
       file_size = (size_t)ffd.nFileSizeLow | ((size_t)ffd.nFileSizeHigh << 32);
       type = DirectoryEntry::File;
@@ -118,6 +118,10 @@ Vector<DirectoryEntry> enumerate_directory(const std::filesystem::path& path) {
   } while (FindNextFile(ffh, &ffd));
 
   FindClose(ffh);
+
+  std::sort(entries.begin(), entries.end(), [](const DirectoryEntry& a, const DirectoryEntry& b) {
+    return a.is_directory() > b.is_directory();
+  });
 
   return entries;
 }

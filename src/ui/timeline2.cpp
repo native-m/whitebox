@@ -740,6 +740,7 @@ void timeline_render_track_lanes() {
         const double start_pos = clip->min_time * inv_view_scale;
         const double end_pos = clip->max_time * inv_view_scale;
         const float x0 = (float)(scroll_offset_x_ + math::round(start_pos));
+        const float x1 = (float)(scroll_offset_x_ + math::round(end_pos) - 0.5f);
 
         if (x0 >= view_max_.x)
           break;
@@ -1156,8 +1157,8 @@ void timeline_handle_track_event() {
           if (left_mouse_clicked_) {
             tl_state_.type = TimelineState::Move;
             tl_state_.move = {
-              .clip_id = i,
               .track_id = track_idx,
+              .clip_id = i,
               .initial_pos = hovered_position,
             };
             Log::debug("Clip Move");

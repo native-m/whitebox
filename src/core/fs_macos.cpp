@@ -1,4 +1,3 @@
-#include <CoreFoundation/CFURL.h>
 #include "fs.h"
 
 #ifdef WB_PLATFORM_MACOS
