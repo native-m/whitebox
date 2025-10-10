@@ -15,6 +15,9 @@ void CmdClip::add_track_backup(int32_t track_id) {
   }
 }
 
+void CmdClip::delete_region(const ClipSpan& clip_span, int32_t track_idx, double start_pos, double end_pos) {
+}
+
 void CmdClip::delete_region(
     const Vector<ClipSpan>& selected_track_regions,
     int32_t first_track_idx,
@@ -28,8 +31,11 @@ void CmdClip::undo() {
     uint32_t count = math::min(track->clips.size(), clip_backups.size());
     uint32_t i = 0;
 
+    for (auto clip : track->clips) {
+      Engine2::destroy_clip(clip);
+    }
+
     for (; i < count; i++) {
-      Engine2::destroy_clip(track->clips[i]);
       Clip* restored_clip = Engine2::allocate_clip();
       new (restored_clip) Clip(std::move(clip_backups[i]));
       track->clips[i] = restored_clip;
@@ -56,8 +62,8 @@ bool CmdAddClipFromFile::execute() {
     double sample_rate = asset->sample.sample_rate;
     double clip_length = samples_to_beat(asset->sample.count, sample_rate, beat_duration);
     double end_pos = position + math::round(clip_length * ppq) / ppq;
-    Clip* clip = Engine2::create_clip(file_path.filename().generic_string(), track->color, position, end_pos);
-    
+    Clip* clip = Engine2::create_clip(file_path.filename().string(), track->color, position, end_pos);
+
     clip->init_as_audio_clip({
       .asset = asset,
       .speed = 1.0,
@@ -65,6 +71,7 @@ bool CmdAddClipFromFile::execute() {
     });
 
     Engine2::begin_edit();
+    add_track_backup(track_id);
     track->clips.push_back(clip);
     Engine2::update_track_state(track);
     Engine2::end_edit();

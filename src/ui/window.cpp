@@ -94,7 +94,7 @@ void history_window() {
   }
 
   if (ImGui::Button("Clear All"))
-    g_cmd_manager.reset();
+    CommandManager2::flush();
 
   ImVec2 space = ImGui::GetContentRegionAvail();
 
@@ -128,13 +128,27 @@ void asset_window() {
   }
 
   ImVec2 space = ImGui::GetContentRegionAvail();
+  if (ImGui::BeginListBox("##audio_assets", ImVec2(-FLT_MIN, space.y * 0.5f))) {
+    uint32_t midi_id = 0;
+    for (const auto& [path, asset] : AssetManager::audio_assets) {
+      const char* tmp;
+      ImFormatStringToTempBuffer(
+          &tmp, nullptr, "%s (rc: %d)", asset.sample.name.c_str(), asset.ref_count.load(std::memory_order_relaxed));
+      ImGui::PushID(midi_id);
+      ImGui::Selectable(tmp);
+      ImGui::PopID();
+    }
+    ImGui::EndListBox();
+  }
+
+  space = ImGui::GetContentRegionAvail();
   uint32_t midi_id = 0;
-  if (ImGui::BeginListBox("##midi_listbox", ImVec2(-FLT_MIN, space.y * 0.5f))) {
+  if (ImGui::BeginListBox("##midi_listbox", ImVec2(-FLT_MIN, space.y))) {
     auto asset = g_midi_table.allocated_assets.next_;
     while (asset != nullptr) {
       auto midi_asset = static_cast<MidiAsset*>(asset);
       char tmp[256]{};
-      fmt::format_to(tmp, "MIDI {:x} Refcount: {}", (uint64_t)midi_asset, midi_asset->ref_count);
+      fmt::format_to(tmp, "MIDI {:x} (rc: {})", (uint64_t)midi_asset, midi_asset->ref_count);
       ImGui::PushID(midi_id);
       ImGui::Selectable(tmp);
       ImGui::PopID();

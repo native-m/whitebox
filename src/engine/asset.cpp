@@ -94,7 +94,7 @@ void AssetManager::destroy_midi_asset(MidiAsset2* asset) {
 
 void AssetManager::shutdown() {
   for (auto& [hash, asset] : audio_assets)
-    Log::debug("Sample asset leak: {}", asset.sample.path.string(), asset.ref_count.load(std::memory_order_relaxed));
+    Log::debug("Sample asset leak: {} (refcount: {})", asset.sample.path.string(), asset.ref_count.load(std::memory_order_relaxed));
   audio_assets.clear();
 
   while (auto asset = midi_asset_list.pop_next_item()) {

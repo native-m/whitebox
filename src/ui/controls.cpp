@@ -141,11 +141,11 @@ bool toggle_button(const char* str, bool* value, const ImVec4& toggled_color, co
   return ret;
 }
 
-bool small_toggle_button(const char* str, bool value, const ImVec4& toggled_color) {
-  return small_toggle_button(str, &value, toggled_color);
+bool small_toggle_button(const char* str, bool value, const ImVec4& toggled_color, const ImVec2& size) {
+  return small_toggle_button(str, &value, toggled_color, size);
 }
 
-bool small_toggle_button(const char* str, bool* value, const ImVec4& toggled_color) {
+bool small_toggle_button(const char* str, bool* value, const ImVec4& toggled_color, const ImVec2& size) {
   if (*value)
     ImGui::PushStyleColor(ImGuiCol_Button, toggled_color);
   bool ret = ImGui::SmallButton(str);
@@ -154,11 +154,11 @@ bool small_toggle_button(const char* str, bool* value, const ImVec4& toggled_col
   return ret;
 }
 
-bool icon_toggle_button(const char* str, bool value, const ImVec4& toggled_color) {
-  return icon_toggle_button(str, &value, toggled_color);
+bool outline_toggle_button(const char* str, bool value, const ImVec4& toggled_color, const ImVec2& size) {
+  return outline_toggle_button(str, &value, toggled_color, size);
 }
 
-bool icon_toggle_button(const char* str, bool* value, const ImVec4& toggled_color) {
+bool outline_toggle_button(const char* str, bool* value, const ImVec4& toggled_color, const ImVec2& size) {
   ImGuiWindow* window = ImGui::GetCurrentWindow();
   if (window->SkipItems)
     return false;
@@ -171,10 +171,10 @@ bool icon_toggle_button(const char* str, bool* value, const ImVec4& toggled_colo
   ImVec2 pos = window->DC.CursorPos;
   /*if ((flags & ImGuiButtonFlags_AlignTextBaseLine) && style.FramePadding.y < window->DC.CurrLineTextBaseOffset)
     pos.y += window->DC.CurrLineTextBaseOffset - style.FramePadding.y;*/
-  ImVec2 size(label_size.x + style.FramePadding.x * 2.0f, label_size.y + style.FramePadding.y * 2.0f);
+  ImVec2 sz = ImGui::CalcItemSize(size, label_size.x + style.FramePadding.x * 2.0f, label_size.y + style.FramePadding.y * 2.0f);
 
-  const ImRect bb(pos, pos + size);
-  ImGui::ItemSize(size, style.FramePadding.y);
+  const ImRect bb(pos, pos + sz);
+  ImGui::ItemSize(sz, style.FramePadding.y);
   if (!ImGui::ItemAdd(bb, id))
     return false;
 
@@ -190,12 +190,19 @@ bool icon_toggle_button(const char* str, bool* value, const ImVec4& toggled_colo
   if (text_len == 0)
     return pressed;
 
-  ImU32 base_color = ImGui::GetColorU32(toggled_color);
-  ImU32 color = last_value ? base_color : WB_IM_COLOR_U32_SET_ALPHA(ImGui::GetColorU32(ImGuiCol_Text), 0x80);
-
   if (hovered)
-    window->DrawList->AddRect(bb.Min, bb.Max, base_color, 4.0f, 0, 1.5f);
-  window->DrawList->AddText(nullptr, 0.0f, bb.Min + style.FramePadding, color, str, text_display_end, 0.0f, nullptr);
+    window->DrawList->AddRect(bb.Min, bb.Max, ImGui::GetColorU32(toggled_color), 4.0f, 0, 1.5f);
+
+  ImVec4 backup_color = g.Style.Colors[ImGuiCol_Text];
+  if (last_value)
+    g.Style.Colors[ImGuiCol_Text] = toggled_color;
+  else
+    g.Style.Colors[ImGuiCol_Text] = ImGui::GetStyleColorVec4(ImGuiCol_Text);
+
+  ImGui::RenderTextClipped(
+      bb.Min + style.FramePadding, bb.Max + style.FramePadding, str, nullptr, &label_size, style.ButtonTextAlign, &bb);
+
+  g.Style.Colors[ImGuiCol_Text] = backup_color;
 
   return pressed;
 }

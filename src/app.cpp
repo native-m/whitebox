@@ -103,7 +103,7 @@ SDL_AppResult app_iterate(void* appstate) {
   ImGui_ImplSDL3_NewFrame();
   ImGui::NewFrame();
 
-  ImGui::GetDrawListSharedData()->InitialFringeScale = 0.5f;
+  ImGui::GetDrawListSharedData()->InitialFringeScale = 1.0f;
   
   ImGuiViewport* main_viewport = ImGui::GetMainViewport();
 

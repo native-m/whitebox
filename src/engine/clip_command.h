@@ -10,11 +10,11 @@
 namespace wb {
 
 struct CmdClip : public Command2 {
-  Vector<Pair<uint32_t, Vector<Clip>>> track_backups; // Would be nice if we have InplaceVector
+  Vector<Pair<int32_t, Vector<Clip>>> track_backups;
 
   void add_track_backup(int32_t track_id);
 
-  void delete_region();
+  void delete_region(const ClipSpan& clip_span, int32_t track_id, double start_pos, double end_pos);
 
   void delete_region(
       const Vector<ClipSpan>& selected_track_regions,

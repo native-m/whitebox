@@ -22,6 +22,13 @@
 
 namespace wb {
 
+enum class TimelineTool {
+  Move,
+  Draw,
+  Slice,
+  Shift,
+};
+
 struct TimelineDragDropFilesState {
   BrowserFilePayload* payload_data;
   double position;
@@ -75,12 +82,17 @@ struct TimelineState {
   }
 };
 
+static constexpr uint32_t timeline_mouse_btn_flags_ =
+    ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_MouseButtonMiddle;
+
+static constexpr ImGuiWindowFlags track_control_window_flags_ =
+    ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoBackground |
+    ImGuiWindowFlags_AlwaysUseWindowPadding;
+
 static constexpr float zoom_sensitivity_ = 0.12f;
 static constexpr float track_separator_height_ = 2.0f;
 static constexpr uint32_t playhead_color_ = 0xE553A3F9;
 static constexpr uint32_t highlight_color_ = 0x9F555555;
-static constexpr uint32_t timeline_mouse_btn_flags_ =
-    ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_MouseButtonMiddle;
 
 static TimelineViewState view_state_;
 static double view_scale_;
@@ -133,6 +145,9 @@ static ImDrawList* layer3_dl_;
 static ImDrawData layer_draw_data_;
 static ImFont* font_;
 static float font_size_;
+
+static bool stretch_mode_;
+static TimelineTool current_tool_;
 static float first_visible_track_pos_y_;
 static int32_t first_visible_track_;
 static int32_t last_visible_track_;
@@ -149,6 +164,7 @@ static std::string tmp_name_;
 
 bool g_timeline2_window_open = true;
 
+static void timeline_render_toolbar();
 static void timeline_render_navbar();
 static void timeline_render_splitter();
 static void timeline_render_track_panel();
@@ -244,10 +260,14 @@ void render_timeline() {
   timeline_focused_ = ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows);
 
   ImGui::PopStyleVar();
+
+  timeline_render_toolbar();
+
+  ImGui::BeginGroup();
   timeline_render_navbar();
 
   timeline_layout_size_ = ImGui::GetContentRegionAvail();
-  if (ImGui::BeginChild("timeline_content")) {
+  if (ImGui::BeginChild("timeline_content", ImVec2(), 0, ImGuiWindowFlags_NoBackground)) {
     ImGuiID scrollbar_id = ImGui::GetWindowScrollbarID(ImGui::GetCurrentWindow(), ImGuiAxis_Y);
     vscroll_ = ImGui::GetScrollY();
 
@@ -266,17 +286,120 @@ void render_timeline() {
     timeline_render_track_lanes();
   }
   ImGui::EndChild();
+  ImGui::EndGroup();
 
   controls::end_window();
 }
 
+void timeline_render_toolbar() {
+  static const ImVec4 move_btn_color = ImColor(50, 190, 255);
+  static const ImVec4 draw_btn_color = ImColor(181, 230, 29);
+  static const ImVec4 slice_btn_color = ImColor(255, 150, 255);
+  static const ImVec4 shift_btn_color = ImColor(147, 165, 255);
+  static const ImVec4 stretch_btn_color = ImColor(50, 190, 255);
+
+  bool move_tool = current_tool_ == TimelineTool::Move;
+  bool draw_tool = current_tool_ == TimelineTool::Draw;
+  bool slice_tool = current_tool_ == TimelineTool::Slice;
+  bool shift_tool = current_tool_ == TimelineTool::Shift;
+
+  constexpr ImVec2 icon_size = ImVec2(26.0f, 26.0f);
+  const ImVec4 icon_color = Color(50, 190, 255).to_vec4();
+  const ImVec4 selected_tool_color =
+      ImGui::ColorConvertU32ToFloat4(Color(ImGui::GetStyleColorVec4(ImGuiCol_Button)).brighten(0.20f).to_uint32());
+
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6.0f, 4.0f));
+  ImGui::BeginChild(
+      "##tl_toobar",
+      ImVec2(),
+      ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_AlwaysAutoResize | ImGuiChildFlags_AutoResizeX,
+      ImGuiWindowFlags_NoBackground);
+
+  ImGui::PopStyleVar();  // ImGuiStyleVar_WindowPadding
+
+  font_push(FontType::Icon, 22.0f);
+  ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.0f, 0.0f));
+
+  if (ImGui::Button(ICON_MS_MENU, icon_size)) {
+    // TODO
+  }
+
+  ImGui::Separator();
+
+  if (controls::outline_toggle_button(ICON_MS_DRAG_PAN "##tl_move", move_tool, icon_color, icon_size)) {
+    current_tool_ = TimelineTool::Move;
+  }
+  controls::item_tooltip("Move tool");
+
+  ImGui::PushStyleVarY(ImGuiStyleVar_ItemSpacing, 0.0f);
+
+  if (controls::outline_toggle_button(ICON_MS_INK_HIGHLIGHTER_MOVE "##tl_draw", draw_tool, icon_color, icon_size)) {
+    current_tool_ = TimelineTool::Draw;
+  }
+  controls::item_tooltip("Draw tool");
+
+  if (controls::outline_toggle_button(ICON_MS_SURGICAL "##tl_slice", slice_tool, icon_color, icon_size)) {
+    current_tool_ = TimelineTool::Slice;
+  }
+  controls::item_tooltip("Slice tool");
+
+  if (controls::outline_toggle_button(ICON_MS_ARROWS_OUTWARD "##tl_shift", shift_tool, icon_color, icon_size)) {
+    current_tool_ = TimelineTool::Shift;
+  }
+  controls::item_tooltip("Shift tool");
+
+  ImGui::PopStyleVar();
+
+  if (controls::outline_toggle_button(ICON_MS_EDIT_AUDIO "##tl_stretch", stretch_mode_, draw_btn_color, icon_size)) {
+    stretch_mode_ = !stretch_mode_;
+  }
+  controls::item_tooltip("Strech mode");
+
+  ImGui::Separator();
+
+  if (ImGui::Button(ICON_MS_VARIABLE_ADD, icon_size)) {
+    timeline_add_track();
+  }
+  ImGui::PopStyleVar();  // ImGuiStyleVar_FramePadding
+
+  font_pop();
+
+  ImGui::EndChild();
+  ImGui::SameLine(0.0f, 2.0f);
+
+  ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
+  ImDrawList* draw_list = ImGui::GetWindowDrawList();
+  im_draw_vline(
+      draw_list,
+      cursor_pos.x - 1.5f,
+      cursor_pos.y,
+      cursor_pos.y + ImGui::GetContentRegionAvail().y,
+      ImGui::GetColorU32(ImGuiCol_Separator),
+      2.0f);
+}
+
 void timeline_render_navbar() {
   static float separator_size = 2.0f;
-  ImVec2 window_size = ImGui::GetContentRegionAvail();
+  ImGuiStyle& style = ImGui::GetStyle();
+  ImVec2 region_size = ImGui::GetContentRegionAvail();
+  float pos_x = ImGui::GetCursorPosX();
+  float font_size = ImGui::GetFontSize();
   float timeline_w = timeline_display_size_.x;
-  float navbar_w = window_size.x - track_panel_width_;
+  float navbar_w = region_size.x - track_panel_width_;
+  float navbar_h = (font_size + style.FramePadding.y * 2.0f) * 2.0f;
 
-  ImGui::SetCursorPosX(math::max(track_panel_width_, track_panel_min_width_) + separator_size);
+  /*ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4.0f, 4.0f));
+  if (ImGui::BeginChild("track_add", ImVec2(track_panel_width_, navbar_h - 1.0f), 0, track_control_window_flags_)) {
+    ImVec2 region_avail = ImGui::GetContentRegionAvail();
+    if (ImGui::Button("+ Track", ImVec2(region_avail.x, region_avail.y)))
+      timeline_add_track();
+  }
+  ImGui::EndChild();
+  ImGui::PopStyleVar();
+
+  ImGui::SameLine(0.0f, 0.0f);*/
+
+  ImGui::SetCursorPosX(math::max(track_panel_width_, track_panel_min_width_) + separator_size + pos_x);
   ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2());
   ImGui::BeginGroup();
 
@@ -357,9 +480,6 @@ void timeline_render_track_panel() {
   static constexpr float track_color_width = 8.0f;
   static constexpr ImVec2 padding(6.0f, 2.0f);
   static constexpr ImVec4 muted_color(0.951f, 0.322f, 0.322f, 1.000f);
-  constexpr ImGuiWindowFlags track_control_window_flags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse |
-                                                          ImGuiWindowFlags_NoBackground |
-                                                          ImGuiWindowFlags_AlwaysUseWindowPadding;
 
   ImGui::SetCursorScreenPos(track_panel_pos_);
 
@@ -402,7 +522,7 @@ void timeline_render_track_panel() {
     ImVec2 track_controls_min_bb = ImGui::GetCursorScreenPos() + padding;
     ImVec2 track_controls_max_bb = track_controls_min_bb + track_controls_size;
 
-    if (ImGui::BeginChild("##track_controls", track_controls_size, 0, track_control_window_flags)) {
+    if (ImGui::BeginChild("##track_controls", track_controls_size, 0, track_control_window_flags_)) {
       float volume = track->ui_parameter_state.volume_db;
       bool mute = track->ui_parameter_state.mute;
 
@@ -606,6 +726,8 @@ void timeline_render_track_panel() {
     ImGui::PopID();
   }
 
+  ImGui::Dummy(ImVec2(track_panel_width_, 60.0f));
+
   if (move_track) {
     CmdMoveTrack* cmd = new CmdMoveTrack();
     cmd->src_slot = move_track_src;
@@ -624,13 +746,6 @@ void timeline_render_track_panel() {
     }*/
     ImGui::EndPopup();
   }
-
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4.0f, 4.0f));
-  ImGui::BeginChild("track_add", ImVec2(track_panel_width_, 60.0f), 0, track_control_window_flags);
-  if (ImGui::Button("+ Track", ImVec2(ImGui::GetContentRegionAvail().x, 0.0f)))
-    timeline_add_track();
-  ImGui::EndChild();
-  ImGui::PopStyleVar();
 
   track_lanes_height_ = ImGui::GetCursorPos().y;
   // Log::debug("{} {}", ImGui::GetCursorPos().y, track_lanes_height_);
@@ -1092,6 +1207,7 @@ void timeline_handle_track_event() {
   int32_t track_idx = 0;
   std::optional<int32_t> hovered_track_id;
   bool require_drag = !any_of(tl_state_.type, TimelineState::Select, TimelineState::DragDropFiles, TimelineState::Move);
+  bool is_selecting = tl_state_.type == TimelineState::Select;
 
   for (; track_idx < track_count; track_idx++) {
     Track* track = Engine2::tracks[track_idx];
@@ -1118,9 +1234,11 @@ void timeline_handle_track_event() {
       first_visible_track_ = track_idx;
     }
 
-    if (hovered && tl_state_.type != TimelineState::Select) {
+    if (hovered) {
       hovered_track_id = track_idx;
+    }
 
+    if (hovered && tl_state_.type != TimelineState::Select) {
       if (can_select_ && left_mouse_clicked_) {
         tl_state_.type = TimelineState::Select;
         tl_state_.select = {
@@ -1147,27 +1265,26 @@ void timeline_handle_track_event() {
         const float x0_max = x0_min + handle_size;
         const float x1_min = x1_max - handle_size;
 
-        if (math::in_range(mouse_pos_.x, x1_min, x1_max)) {
-          // Right handle
-          ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
-        } else if (math::in_range(mouse_pos_.x, x0_min, x0_max)) {
-          // Left handle
-          ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
-        } else if (math::in_range(mouse_pos_.x, x0_min, x1_max)) {
-          if (left_mouse_clicked_) {
-            tl_state_.type = TimelineState::Move;
-            tl_state_.move = {
-              .track_id = track_idx,
-              .clip_id = i,
-              .initial_pos = hovered_position,
-            };
-            Log::debug("Clip Move");
+        if (!can_select_) {
+          if (math::in_range(mouse_pos_.x, x1_min, x1_max)) {
+            // Right handle
+            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+          } else if (math::in_range(mouse_pos_.x, x0_min, x0_max)) {
+            // Left handle
+            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+          } else if (math::in_range(mouse_pos_.x, x0_min, x1_max)) {
+            if (left_mouse_clicked_) {
+              tl_state_.type = TimelineState::Move;
+              tl_state_.move = {
+                .track_id = track_idx,
+                .clip_id = i,
+                .initial_pos = hovered_position,
+              };
+              Log::debug("Clip Move");
+            }
+            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
           }
-          ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
         }
-      }
-
-      if (can_select_) {
       }
     }
 
@@ -1217,7 +1334,7 @@ void timeline_handle_track_event() {
     }
   } else if (tl_state_.type == TimelineState::Move) {
     ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
-    if (!left_mouse_down_) {
+    if (!left_mouse_down_ && hovered_track_id) {
       double relative_pos = hovered_position - tl_state_.move.initial_pos;
       int32_t relative_track = hovered_track_id.value() - tl_state_.move.track_id;
       Log::debug("End clip move {} {}", relative_pos, relative_track);

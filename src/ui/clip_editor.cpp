@@ -311,7 +311,7 @@ static void clip_editor_render_toolbar() {
   bool paint_tool = piano_roll_tool == PianoRollCmd::Paint;
   bool slice_tool = piano_roll_tool == PianoRollCmd::Slice;
 
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(5.0f, 5.0f));
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4.0f, 4.0f));
   ImGui::BeginChild(
       "##piano_roll_toolbar",
       ImVec2(),
@@ -354,11 +354,11 @@ static void clip_editor_render_toolbar() {
   ImGui::SameLine(0.0f);
 
   const char* preview_note_icon = preview_note ? (ICON_MS_VOLUME_UP "##pr_preview") : (ICON_MS_VOLUME_OFF "##pr_preview");
-  controls::icon_toggle_button(preview_note_icon, &preview_note, ImColor(181, 230, 29));
+  controls::outline_toggle_button(preview_note_icon, &preview_note, ImColor(181, 230, 29));
   controls::item_tooltip("Preview note when editing");
   ImGui::SameLine(0.0f, 0.0f);
 
-  controls::icon_toggle_button("\xef\x8b\x81##pr_last_note", &use_last_edited_note, ImColor(0, 162, 232));
+  controls::outline_toggle_button("\xef\x8b\x81##pr_last_note", &use_last_edited_note, ImColor(0, 162, 232));
   controls::item_tooltip("Use last edited note properties");
 
   ImGui::PopStyleVar(2);
@@ -1761,7 +1761,7 @@ void render_clip_editor() {
   }
   ImGui::PopStyleVar();
 
-  if (current_track == nullptr && current_clip == nullptr) {
+  /*if (current_track == nullptr && current_clip == nullptr) {
     auto size = ImGui::GetWindowSize();
     auto text_size = ImGui::CalcTextSize("No clip selected");
     ImGui::SetCursorPos((size - text_size) * 0.5f);
@@ -1773,7 +1773,7 @@ void render_clip_editor() {
   if (!current_clip->is_midi()) {
     controls::end_window();
     return;
-  }
+  }*/
 
   clip_editor_base.redraw = force_redraw;
   if (force_redraw)
@@ -1786,8 +1786,8 @@ void render_clip_editor() {
   clip_editor_base.playhead = g_engine.playhead;
 
   if (ImGui::BeginChild(
-          +"##piano_roll_control", ImVec2(200.0f, 0.0f), ImGuiChildFlags_AlwaysUseWindowPadding, ImGuiWindowFlags_MenuBar)) {
-    clip_editor_render_control_sidebar();
+          "##piano_roll_control", ImVec2(200.0f, 0.0f), ImGuiChildFlags_AlwaysUseWindowPadding, ImGuiWindowFlags_MenuBar)) {
+    //clip_editor_render_control_sidebar();
   }
   ImGui::EndChild();
   ImGui::SameLine(0.0f, 0.0f);
@@ -1799,7 +1799,7 @@ void render_clip_editor() {
   ImGui::SameLine(0.0f, 1.0f);
   if (ImGui::BeginChild("##piano_roll_control2", ImVec2(-FLT_MIN, 0.0f), 0, ImGuiWindowFlags_NoBackground)) {
     clip_editor_render_toolbar();
-    clip_editor_render_piano_roll();
+    //clip_editor_render_piano_roll();
   }
 
   if (open_context_menu) {
