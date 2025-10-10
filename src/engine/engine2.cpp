@@ -661,6 +661,7 @@ void Engine2::process(AudioBuffer<float>& output_buffer, const AudioBuffer<float
       }
     }
 
+    // Process all tracks
     for (uint32_t i = 0; i < tracks.size(); i++) {
       auto track = tracks[i];
       track->audio_event_buffer.resize(0);
@@ -714,7 +715,7 @@ void Engine2::process(AudioBuffer<float>& output_buffer, const AudioBuffer<float
     if (current_preview_sample) {
       Sample* sample = &current_preview_sample->sample;
       if (!preview_sampler.stream(
-              sample, output_buffer.n_channels, output_buffer.n_samples, 0, 1.0f, output_buffer.channel_buffers)) {
+              sample, output_buffer.n_channels, output_buffer.n_samples, 0, 0.75f, output_buffer.channel_buffers)) {
         // Has finished playing
         current_preview_sample->release();
         current_preview_sample = nullptr;

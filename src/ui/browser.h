@@ -3,7 +3,6 @@
 #include <imgui.h>
 
 #include <filesystem>
-#include <optional>
 #include <unordered_set>
 
 #include "engine/asset.h"
@@ -54,7 +53,7 @@ struct BrowserItem {
   std::filesystem::path root_path;
   std::vector<BrowserItem> subitems;
   int32_t next_item;
-  
+
   bool root_dir;
   bool open;
   bool set_open;

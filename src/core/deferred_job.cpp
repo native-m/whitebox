@@ -83,7 +83,7 @@ DeferredJobHandle enqueue_deferred_job(DeferredJobFn fn, void* userdata0, void* 
     uint32_t next_write_pos = (wpos + 1) % WB_MAX_DEFERRED_JOB;
 
     if (next_write_pos == rpos) {
-      // The worker thread is still cookin', let's wait
+      // Wait for worker thread
       reader_data.should_signal.store(1, std::memory_order_release);
       reader_data.pos.wait(rpos, std::memory_order_relaxed);
       continue;

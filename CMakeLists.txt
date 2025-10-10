@@ -7,6 +7,10 @@ set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 
 project("whitebox" VERSION 0.1.0)
 
+if (APPLE AND (NOT IOS))
+    enable_language(OBJC)
+endif()
+
 include(CMakeDependentOption)
 option(WB_BUILD_TEST "Build test programs" ON)
 option(WB_ENABLE_ASAN "Enable address sanitizer" OFF)
@@ -24,7 +28,6 @@ if (WIN32)
 elseif (LINUX)
     set(WB_PLATFORM_LINUX 1)
 elseif (APPLE AND (NOT IOS))
-    enable_language(OBJC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nullability-completeness -Wno-format-security -Wno-deprecated-declarations")
     set(WB_PLATFORM_MACOS 1)
 endif()

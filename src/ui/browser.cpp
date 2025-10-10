@@ -146,6 +146,7 @@ void BrowserWindow::handle_navigation() {
               play_file = true;
             }
           } else {
+            // Navigate to the previous item
             selected_item = prev_item;
             selected_item_path = selected_item->get_file_path();
             if (selected_item->is_sample()) {
