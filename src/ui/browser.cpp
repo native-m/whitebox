@@ -239,12 +239,16 @@ void BrowserWindow::render_item(const std::filesystem::path& root_path, BrowserI
     ImGui::TreeNodeEx("##browser_item", flags, (const char*)item.name.data());
     ImGui::PopStyleVar();
 
-    if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
-      selected_item_path = item.get_file_path();
-      selected_item = &item;
-      play_file = true;
-    }
+    bool hovered = ImGui::IsItemHovered();
 
+    if (hovered) {
+      if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+        selected_item_path = item.get_file_path();
+        selected_item = &item;
+        play_file = true;
+      }
+    }
+    
     if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
       selected_item_path = item.get_file_path();
       context_menu_item = &item;
@@ -254,6 +258,7 @@ void BrowserWindow::render_item(const std::filesystem::path& root_path, BrowserI
     if (ImGui::BeginDragDropSource()) {
       dragging_item = &item;
       is_dragging_item = true;
+
       if (last_dragged_item != dragging_item) {
         last_dragged_item = dragging_item;
         if (last_dragged_item != nullptr) {
@@ -264,6 +269,7 @@ void BrowserWindow::render_item(const std::filesystem::path& root_path, BrowserI
           drop_payload.sample_rate = sample_rate;
           drop_payload.filename = path.filename().generic_string();
           drop_payload.path = std::move(path);
+          play_file = false;
         }
       }
 

@@ -34,4 +34,12 @@ struct CmdAddClipFromFile final : public CmdClip {
   void undo() override;
 };
 
+struct CmdDeleteSelected final : public CmdClip {
+  int32_t first_track;
+  Vector<ClipSpan> clip_spans;
+
+  bool execute() override;
+  void undo() override;
+};
+
 }  // namespace wb

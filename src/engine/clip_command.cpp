@@ -16,6 +16,17 @@ void CmdClip::add_track_backup(int32_t track_id) {
 }
 
 void CmdClip::delete_region(const ClipSpan& clip_span, int32_t track_idx, double start_pos, double end_pos) {
+  Track* track = Engine2::tracks[track_idx];
+  for (uint32_t i = clip_span.first; i <= clip_span.last; i++) {
+    Clip* clip = track->clips[i];
+    if (clip_span.left_side_partially_selected(i) && clip_span.right_side_partially_selected(i)) {
+      
+    } else if (clip_span.left_side_partially_selected(i)) {
+
+    } else if (clip_span.right_side_partially_selected(i)) {
+
+    }
+  }
 }
 
 void CmdClip::delete_region(
@@ -23,6 +34,7 @@ void CmdClip::delete_region(
     int32_t first_track_idx,
     double start_pos,
     double end_pos) {
+
 }
 
 void CmdClip::undo() {
@@ -53,6 +65,8 @@ void CmdClip::undo() {
   }
 }
 
+//
+
 bool CmdAddClipFromFile::execute() {
   Track* track = Engine2::tracks[track_id];
 
@@ -70,8 +84,14 @@ bool CmdAddClipFromFile::execute() {
       .gain = 1.0f,
     });
 
+    auto clip_span = track->query_clip_by_range2(position, end_pos);
+
     Engine2::begin_edit();
     add_track_backup(track_id);
+    
+    if (clip_span)
+      delete_region(clip_span, track_id, position, end_pos);
+
     track->clips.push_back(clip);
     Engine2::update_track_state(track);
     Engine2::end_edit();
@@ -84,6 +104,18 @@ void CmdAddClipFromFile::undo() {
   Engine2::begin_edit();
   CmdClip::undo();
   Engine2::end_edit();
+}
+
+//
+
+bool CmdDeleteSelected::execute() {
+  if (clip_spans.size() == 0)
+    return false;
+  return true;
+}
+
+void CmdDeleteSelected::undo() {
+
 }
 
 }  // namespace wb
