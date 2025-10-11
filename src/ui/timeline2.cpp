@@ -399,8 +399,8 @@ void timeline_render_navbar() {
 
   ImGui::SameLine(0.0f, 0.0f);*/
 
+  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 2.0f));
   ImGui::SetCursorPosX(math::max(track_panel_width_, track_panel_min_width_) + separator_size + pos_x);
-  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2());
   ImGui::BeginGroup();
 
   if (controls::timeline_scrollbar("tl_hscroll", navbar_w, 0.1, max_length_, &view_state_)) {
@@ -419,17 +419,16 @@ void timeline_render_navbar() {
   }
 
   ImGui::EndGroup();
+  ImGui::PopStyleVar();
 
   ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
   ImDrawList* draw_list = ImGui::GetWindowDrawList();
   im_draw_hline(
       draw_list,
-      cursor_pos.y - 1.0f,
+      cursor_pos.y - 1.5f,
       cursor_pos.x,
       cursor_pos.x + ImGui::GetContentRegionAvail().x,
-      ImGui::GetColorU32(ImGuiCol_Separator));
-
-  ImGui::PopStyleVar();
+      ImGui::GetColorU32(ImGuiCol_Separator), 2.0f);
 }
 
 void timeline_render_splitter() {
