@@ -274,25 +274,22 @@ void Engine2::set_track_input(Track* track, TrackInputType type, uint32_t index,
 }
 
 void Engine2::update_track_state(Track* track) {
-  /*Vector<Clip*> new_cliplist;
-  new_cliplist.reserve(track->clips.capacity());
-
   if (track->has_deleted_clips) {
+    Vector<Clip*> new_cliplist;
+    new_cliplist.reserve(track->clips.capacity());
+
     for (auto clip : track->clips) {
       if (clip->is_deleted()) {
-        tmp_clips_.push_back(clip);
+        clip->~Clip();
+        clip_allocator_.free(clip);
         continue;
       }
       new_cliplist.push_back(clip);
     }
+
     track->has_deleted_clips = false;
     track->clips = std::move(new_cliplist);
-    for (auto clip : tmp_clips_) {
-      clip->~Clip();
-      clip_allocator_.free(clip);
-    }
-    tmp_clips_.resize(0);
-  }*/
+  }
 
   std::sort(
       track->clips.begin(), track->clips.end(), [](const Clip* a, const Clip* b) { return a->min_time < b->min_time; });

@@ -17,6 +17,7 @@
 #include "gfx/draw.h"
 #include "gfx/renderer.h"
 #include "grid.h"
+#include "hotkeys.h"
 #include "plugins.h"
 #include "timeline_controls.h"
 
@@ -24,6 +25,7 @@ namespace wb {
 
 enum class TimelineTool {
   Move,
+  Select,
   Draw,
   Slice,
   Shift,
@@ -170,6 +172,7 @@ static void timeline_render_splitter();
 static void timeline_render_track_panel();
 static void timeline_render_track_lanes();
 static void timeline_handle_mouse_event();
+static void timeline_handle_key_event();
 static void timeline_handle_track_event();
 static void timeline_query_selected_range();
 static void timeline_add_clip_from_file();
@@ -298,6 +301,7 @@ void timeline_render_toolbar() {
   static const ImVec4 stretch_btn_color = ImColor(50, 190, 255);
 
   bool move_tool = current_tool_ == TimelineTool::Move;
+  bool select_tool = current_tool_ == TimelineTool::Select;
   bool draw_tool = current_tool_ == TimelineTool::Draw;
   bool slice_tool = current_tool_ == TimelineTool::Slice;
   bool shift_tool = current_tool_ == TimelineTool::Shift;
@@ -325,12 +329,17 @@ void timeline_render_toolbar() {
 
   ImGui::Separator();
 
+  ImGui::PushStyleVarY(ImGuiStyleVar_ItemSpacing, 0.0f);
+
   if (controls::outline_toggle_button(ICON_MS_DRAG_PAN "##tl_move", move_tool, icon_color, icon_size)) {
     current_tool_ = TimelineTool::Move;
   }
   controls::item_tooltip("Move tool");
 
-  ImGui::PushStyleVarY(ImGuiStyleVar_ItemSpacing, 0.0f);
+  if (controls::outline_toggle_button(ICON_MS_INK_SELECTION "##tl_select", select_tool, icon_color, icon_size)) {
+    current_tool_ = TimelineTool::Select;
+  }
+  controls::item_tooltip("Select tool");
 
   if (controls::outline_toggle_button(ICON_MS_INK_HIGHLIGHTER_MOVE "##tl_draw", draw_tool, icon_color, icon_size)) {
     current_tool_ = TimelineTool::Draw;
@@ -427,7 +436,8 @@ void timeline_render_navbar() {
       cursor_pos.y - 1.5f,
       cursor_pos.x,
       cursor_pos.x + ImGui::GetContentRegionAvail().x,
-      ImGui::GetColorU32(ImGuiCol_Separator), 2.0f);
+      ImGui::GetColorU32(ImGuiCol_Separator),
+      2.0f);
 }
 
 void timeline_render_splitter() {
@@ -765,6 +775,7 @@ void timeline_render_track_lanes() {
   const float offset_y = vscroll_ + view_pos_.y;
   ImDrawList* dl = ImGui::GetWindowDrawList();
 
+  ImGui::PushClipRect(view_min_, view_max_, true);
   ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2());
   ImGui::InvisibleButton("##timeline_view", view_size, timeline_mouse_btn_flags_);
   timeline_hovered_ = ImGui::IsItemHovered();
@@ -793,6 +804,7 @@ void timeline_render_track_lanes() {
 
   view_scale_ = timeline_get_view_scale();
   timeline_handle_mouse_event();
+  timeline_handle_key_event();
   timeline_handle_track_event();
   font_push(FontType::Normal, 13.0f);
 
@@ -1070,6 +1082,8 @@ void timeline_render_track_lanes() {
     const float playhead_pos = (float)math::round(view_pos_.x - scroll_pos_x + playhead_offset);
     im_draw_vline(dl, playhead_pos, view_min_.y, view_max_.y, playhead_color_);
   }
+
+  ImGui::PopClipRect();
 }
 
 void timeline_handle_mouse_event() {
@@ -1190,6 +1204,22 @@ void timeline_handle_mouse_event() {
 
   if (tl_state_.type == TimelineState::DragDropFiles && !dragging_file) {
     tl_state_.end_action();
+  }
+}
+
+void timeline_handle_key_event() {
+  if (!timeline_focused_) {
+    return;
+  }
+
+  if (hkey_pressed(Hotkey::Delete) && tl_state_.select.is_selected) {
+    CmdDeleteSelectedRegion* cmd = new CmdDeleteSelectedRegion();
+    cmd->clip_spans = tl_state_.selected_track_clips;
+    cmd->first_track = tl_state_.select.first_track_id;
+    cmd->start_pos = tl_state_.select.start_pos;
+    cmd->end_pos = tl_state_.select.end_pos;
+    CommandManager2::execute_command("Delete selected region", cmd);
+    redraw_ = true;
   }
 }
 
@@ -1378,7 +1408,7 @@ void timeline_add_track() {
 
   CommandManager2::execute_command("Add track", cmd);
   track_color_spin_ = (track_color_spin_ + 1) % 15;
-  redraw_ = true;
+  force_redraw_ = true;
 }
 
 void timeline_add_clip_from_file() {
