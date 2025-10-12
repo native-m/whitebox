@@ -4,6 +4,7 @@
 #include "core/debug.h"
 #include "engine/engine2.h"
 #include "engine/track.h"
+#include "timeline2.h"
 #include "window.h"
 
 namespace wb {
@@ -35,6 +36,9 @@ void MixerWindow::render() {
         ImGui::EndMenu();
       }
       ImGui::EndMenu();
+    }
+    if (ImGui::MenuItem("+ Add Track")) {
+      timeline_add_track();
     }
     ImGui::EndMenuBar();
   }

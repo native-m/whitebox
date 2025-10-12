@@ -172,7 +172,6 @@ static void timeline_render_track_lanes();
 static void timeline_handle_mouse_event();
 static void timeline_handle_track_event();
 static void timeline_query_selected_range();
-static void timeline_add_track();
 static void timeline_add_clip_from_file();
 
 inline static double timeline_get_view_scale() {
