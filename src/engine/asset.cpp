@@ -3,6 +3,7 @@
 #include <atomic>
 
 #include "core/debug.h"
+#include "core/midi_file.h"
 #include "extern/xxhash.h"
 
 namespace wb {
@@ -69,6 +70,23 @@ AudioAsset* AssetManager::create_or_get_audio_asset(const std::string& asset_pat
   return &asset.first->second;
 }
 
+MidiAsset2* AssetManager::create_midi_asset_from_file(const std::string& asset_path) {
+  MidiAsset2* asset = create_midi_asset();
+  if (!asset) {
+    return nullptr;
+  }
+
+  if (!load_notes_from_file(asset->data.note_sequence, asset_path)) {
+    destroy_midi_asset(asset);
+    return nullptr;
+  }
+
+  asset->data.create_metadata(asset->data.note_sequence.data(), asset->data.note_sequence.size());
+  asset->data.update_channel(0);
+
+  return asset;
+}
+
 MidiAsset2* AssetManager::create_midi_asset() {
   void* ptr = midi_assets.allocate();
   if (!ptr) {
@@ -94,7 +112,8 @@ void AssetManager::destroy_midi_asset(MidiAsset2* asset) {
 
 void AssetManager::shutdown() {
   for (auto& [hash, asset] : audio_assets)
-    Log::debug("Sample asset leak: {} (refcount: {})", asset.sample.path.string(), asset.ref_count.load(std::memory_order_relaxed));
+    Log::debug(
+        "Sample asset leak: {} (refcount: {})", asset.sample.path.string(), asset.ref_count.load(std::memory_order_relaxed));
   audio_assets.clear();
 
   while (auto asset = midi_asset_list.pop_next_item()) {

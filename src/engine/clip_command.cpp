@@ -77,10 +77,10 @@ void CmdClip::undo() {
 bool CmdAddClipFromFile::execute() {
   Track* track = Engine2::tracks[track_id];
   std::string name = file_path.filename().string();
+  double beat_duration = Engine2::get_beat_duration();
 
   if (auto asset = AssetManager::create_or_get_audio_asset(file_path.generic_string())) {
     double ppq = Engine2::get_ppq();
-    double beat_duration = Engine2::get_beat_duration();
     double sample_rate = asset->sample.sample_rate;
     double clip_length = samples_to_beat(asset->sample.count, sample_rate, beat_duration);
     double end_pos = position + math::round(clip_length * ppq) / ppq;
@@ -91,6 +91,22 @@ bool CmdAddClipFromFile::execute() {
       .speed = 1.0,
       .gain = 1.0f,
     });
+
+    auto clip_span = track->query_clip_by_range2(position, end_pos);
+
+    Engine2::begin_edit();
+    add_track_backup(track_id);
+
+    if (clip_span)
+      delete_region(clip_span, track, position, end_pos, beat_duration);
+
+    track->clips.push_back(clip);
+    Engine2::update_track_state(track);
+    Engine2::end_edit();
+  } else if (auto asset = AssetManager::create_midi_asset_from_file(file_path.generic_string())) {
+    double end_pos = position + asset->data.max_length;
+    Clip* clip = Engine2::create_clip(name, track->color, position, end_pos);
+    clip->init_as_midi_clip({ .asset = asset, .length = asset->data.max_length, .rate = 1 });
 
     auto clip_span = track->query_clip_by_range2(position, end_pos);
 

@@ -875,6 +875,7 @@ void timeline_render_track_lanes() {
         const float x0_clipped = math::max(x0, view_min_.x - 3.0f);
         const float x1_clipped = math::min(x1, view_max_.x + 3.0f);
         const float clip_label_max_y = track_pos_abs_y + font_size_ + 4.0f;
+        const double start_offset = clip->start_offset;
 
         const ImVec2 clip_label_min_bb(x0_clipped, track_pos_abs_y);
         const ImVec2 clip_label_max_bb(x1_clipped, clip_label_max_y);
@@ -900,7 +901,6 @@ void timeline_render_track_lanes() {
 
             WaveformVisual* waveform = asset->waveform_visual;
             static constexpr double log_base4 = 1.0 / 1.3862943611198906;  // 1.0 / log(4.0)
-            const double start_offset = clip->start_offset;
             const double scale_x = sample_scale * (double)waveform->sample_rate * clip->audio.speed;
             const double inv_scale_x = 1.0 / scale_x;
             const double mip_index = std::log(scale_x * 0.5) * log_base4;  // Scale -> Index
@@ -981,8 +981,67 @@ void timeline_render_track_lanes() {
                   .draw_count = (uint32_t)draw_count + 2,
                 });
               }
-              break;
             }
+            break;
+          }
+          case ClipType::Midi: {
+            constexpr float min_note_size_px = 2.5f;
+            constexpr float max_note_size_px = 10.0f;
+            constexpr uint32_t min_note_range = 4;
+            const MidiAsset2* asset = clip->midi.asset;
+            if (asset) {
+              const uint32_t min_note = asset->data.min_note;
+              const uint32_t max_note = asset->data.max_note;
+              uint32_t note_range = (asset->data.max_note + 1) - min_note;
+
+              if (note_range < min_note_range)
+                note_range = 13;
+
+              const float content_height = clip_content_max.y - clip_content_min.y;
+              const float note_height = content_height / (float)note_range;
+              float max_note_size = math::min(note_height, max_note_size_px);
+              const float min_note_size = math::max(max_note_size, min_note_size_px);
+              const float offset_y = clip_content_min.y + ((content_height * 0.5f) - (max_note_size * note_range * 0.5f));
+
+              // Fix note overflow
+              if (content_height < math::round(min_note_size * note_range)) {
+                max_note_size = (content_height - 2.0f) / (float)(note_range - 1u);
+              }
+
+              const float min_view = math::max(x0_clipped, view_min_.x);
+              const float max_view = math::min(x1_clipped, view_max_.x);
+              const ColorU32 note_color = content_color.change_alpha(!mini_clip ? 1.0f : 0.20f).to_uint32();
+              const double note_scale = inv_view_scale / (double)clip->midi.rate;
+
+              double min_start_x = x0 - start_offset * note_scale;
+              for (uint32_t j = 0; const auto& note : asset->data.note_sequence) {
+                float min_pos_x = (float)math::round(min_start_x + note.min_time * note_scale);
+                float max_pos_x = (float)math::round(min_start_x + note.max_time * note_scale);
+                if (max_pos_x < min_view)
+                  continue;
+                if (min_pos_x >= max_view)
+                  break;
+                const float pos_y = offset_y + (float)(max_note - note.key) * max_note_size;
+                min_pos_x = math::max(min_pos_x, min_view);
+                max_pos_x = math::min(max_pos_x, max_view);
+                if (min_pos_x >= max_pos_x)
+                  continue;
+                const ImVec2 a(min_pos_x + 0.5f, pos_y);
+                const ImVec2 b(max_pos_x, pos_y + min_note_size - 0.5f);
+#if DEBUG_MIDI_CLIPS == 1
+                char c[32]{};
+                fmt::format_to_n(c, std::size(c), "ID: {}", j);
+                layer2_draw_list->AddText(a - ImVec2(0.0f, 13.0f), 0xFFFFFFFF, c);
+                j++;
+#endif
+                layer1_dl_->PathLineTo(a);
+                layer1_dl_->PathLineTo(ImVec2(b.x, a.y));
+                layer1_dl_->PathLineTo(b);
+                layer1_dl_->PathLineTo(ImVec2(a.x, b.y));
+                layer1_dl_->PathFillConvex(note_color);
+              }
+            }
+            break;
           }
           default: break;
         }

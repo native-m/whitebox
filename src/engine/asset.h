@@ -58,6 +58,7 @@ struct AssetManager {
   static InplaceList<MidiAsset2> midi_asset_list;
 
   static AudioAsset* create_or_get_audio_asset(const std::string& asset_path);
+  static MidiAsset2* create_midi_asset_from_file(const std::string& asset_path);
   static MidiAsset2* create_midi_asset();
   static void destroy_audio_asset(uint64_t hash);
   static void destroy_midi_asset(MidiAsset2* asset);

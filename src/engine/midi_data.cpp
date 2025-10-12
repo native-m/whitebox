@@ -9,6 +9,7 @@
 
 namespace wb {
 
+// NOTE: this shouldn't be accepting MidiNote pointer
 void MidiData::create_metadata(MidiNote* notes, uint32_t count) {
 #if WB_ENABLE_NOTE_METADATA
   if (first_free_id != WB_INVALID_NOTE_METADATA_ID) {

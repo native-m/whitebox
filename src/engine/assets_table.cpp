@@ -114,8 +114,8 @@ MidiAsset* MidiTable::load_from_file(const std::filesystem::path& path) {
   
   if (!asset) {
     return nullptr;
-  
   }
+
   if (!load_notes_from_file(asset->data.note_sequence, path)) {
     destroy(asset);
     return nullptr;
