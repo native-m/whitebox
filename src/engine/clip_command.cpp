@@ -8,7 +8,7 @@
 
 namespace wb {
 
-void CmdClip::add_track_backup(int32_t track_id) {
+void CmdClip::backup_track_clips(int32_t track_id) {
   Track* track = Engine2::tracks[track_id];
   auto& track_backup = track_backups.emplace_back(track_id);
   for (auto& clip : track->clips) {
@@ -25,10 +25,13 @@ void CmdClip::delete_region(
   for (uint32_t i = clip_span.first; i <= clip_span.last; i++) {
     Clip* clip = track->clips[i];
     if (clip_span.left_side_partially_selected(i) && clip_span.right_side_partially_selected(i)) {
-      double shift_amount = clip->min_time - start_pos;
-      clip->start_offset = shift_clip_content(clip, shift_amount, beat_duration);
-      clip->min_time = start_pos;
-      clip->max_time = end_pos;
+      double shift_amount = clip->min_time - end_pos;
+      Clip* new_clip = Engine2::allocate_clip();
+      new (new_clip) Clip(*clip);
+      new_clip->start_offset = shift_clip_content(clip, shift_amount, beat_duration);
+      new_clip->min_time = end_pos;
+      clip->max_time = start_pos;
+      track->clips.push_back(new_clip);
     } else if (clip_span.left_side_partially_selected(i)) {
       double shift_amount = clip->min_time - end_pos;
       clip->start_offset = shift_clip_content(clip, shift_amount, beat_duration);
@@ -49,6 +52,7 @@ void CmdClip::delete_regions(
     double beat_duration) {
   for (int32_t i = 0; const auto& clip_span : selected_track_regions) {
     delete_region(clip_span, Engine2::tracks[first_track_idx + i], start_pos, end_pos, beat_duration);
+    i++;
   }
 }
 
@@ -95,7 +99,7 @@ bool CmdAddClipFromFile::execute() {
     auto clip_span = track->query_clip_by_range2(position, end_pos);
 
     Engine2::begin_edit();
-    add_track_backup(track_id);
+    backup_track_clips(track_id);
 
     if (clip_span)
       delete_region(clip_span, track, position, end_pos, beat_duration);
@@ -111,7 +115,7 @@ bool CmdAddClipFromFile::execute() {
     auto clip_span = track->query_clip_by_range2(position, end_pos);
 
     Engine2::begin_edit();
-    add_track_backup(track_id);
+    backup_track_clips(track_id);
 
     if (clip_span)
       delete_region(clip_span, track, position, end_pos, beat_duration);
@@ -132,7 +136,49 @@ void CmdAddClipFromFile::undo() {
 
 //
 
-bool CmdDeleteSelectedRegion::execute() {
+bool CmdMoveClips::execute() {
+  int32_t dst_track_id = src_track_id + dst_track_relative_pos;
+  int32_t src_track_end = src_track_id + clip_spans.size();
+  int32_t dst_track_end = dst_track_id + clip_spans.size();
+  double beat_duration = Engine2::get_beat_duration();
+
+  Engine2::begin_edit();
+  if (dst_track_id >= src_track_id && dst_track_id <= src_track_end) {
+    // bool overlapped_pos;
+    // Overlapped tracks case
+    for (int32_t track_id = src_track_id; track_id <= dst_track_end; track_id++) {
+      backup_track_clips(track_id);
+    }
+  } else {
+    for (int32_t i = 0; i <= clip_spans.size(); i++) {
+      int32_t track_id = src_track_id + i;
+      Track* track = Engine2::tracks[track_id];
+      const ClipSpan& clip_span = clip_spans[i];
+      backup_track_clips(track_id);
+      delete_region(clip_span, track, start_pos, end_pos, beat_duration);
+      Engine2::update_track_state(track);
+    }
+
+    for (int32_t i = 0; i <= clip_spans.size(); i++) {
+      int32_t track_id = dst_track_id + i;
+      Track* track = Engine2::tracks[track_id];
+      const ClipSpan& clip_span = clip_spans[i];
+      backup_track_clips(track_id);
+      delete_region(clip_span, track, start_pos, end_pos, beat_duration);
+      Engine2::update_track_state(track);
+    }
+  }
+  Engine2::end_edit();
+
+  return false;
+}
+
+void CmdMoveClips::undo() {
+}
+
+//
+
+bool CmdDeleteClips::execute() {
   if (clip_spans.size() == 0)
     return false;
 
@@ -140,7 +186,7 @@ bool CmdDeleteSelectedRegion::execute() {
   Engine2::begin_edit();
   for (int32_t i = first_track; const auto& clip_span : clip_spans) {
     Track* track = Engine2::tracks[i];
-    add_track_backup(i);
+    backup_track_clips(i);
     delete_region(clip_span, track, start_pos, end_pos, beat_duration);
     Engine2::update_track_state(track);
     i++;
@@ -150,7 +196,7 @@ bool CmdDeleteSelectedRegion::execute() {
   return true;
 }
 
-void CmdDeleteSelectedRegion::undo() {
+void CmdDeleteClips::undo() {
   Engine2::begin_edit();
   CmdClip::undo();
   Engine2::end_edit();

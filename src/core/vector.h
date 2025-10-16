@@ -255,7 +255,7 @@ struct Vector {
   }
 
   inline T* emplace_back_raw() {
-    if (size_ == capacity_) {
+    if (size_ == capacity_) [[unlikely]] {
       reserve_internal_(grow_capacity_(capacity_));
     }
     T* ret = &data_[size_];

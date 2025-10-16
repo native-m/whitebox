@@ -126,27 +126,28 @@ static inline ClipResizeResult calc_resize_clip(
 }
 
 static double
-calc_clip_shift(bool is_audio_clip, double start_offset, double relative_pos, double beat_duration, double sample_rate) {
+calc_clip_shift(bool is_audio_clip, double start_offset, double relative_ofs, double beat_duration, double sample_rate, double speed = 1.0) {
   if (is_audio_clip) {
     const double offset_in_beat = samples_to_beat(start_offset, sample_rate, beat_duration);
-    return beat_to_samples(math::max(offset_in_beat - relative_pos, 0.0), sample_rate, beat_duration);
+    return beat_to_samples(math::max(offset_in_beat - relative_ofs, 0.0), sample_rate, beat_duration);
   }
 
   const double offset = start_offset;
-  return math::max(offset - relative_pos, 0.0);
+  return math::max(offset - relative_ofs, 0.0);
 }
 
-static double shift_clip_content(Clip* clip, double relative_pos, double beat_duration) {
+static double shift_clip_content(Clip* clip, double relative_ofs, double beat_duration) {
   bool is_audio_clip = clip->is_audio();
   double sample_rate = 0.0;
+  double speed = 1.0;
 
   if (is_audio_clip) {
     AudioAsset* asset = clip->audio.asset;
     sample_rate = (double)asset->sample.sample_rate;
-    relative_pos *= clip->audio.speed;
+    speed = clip->audio.speed;
   }
 
-  return calc_clip_shift(is_audio_clip, clip->start_offset, relative_pos, beat_duration, sample_rate);
+  return calc_clip_shift(is_audio_clip, clip->start_offset, relative_ofs, beat_duration, sample_rate, speed);
 }
 
 }  // namespace wb

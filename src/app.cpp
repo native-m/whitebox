@@ -76,6 +76,7 @@ SDL_AppResult app_init(void** appstate, int argc, char** argv) {
   style.ScaleAllSizes(main_scale);
   style.FontScaleDpi = main_scale;
   style.FontSizeBase = 13.0f;
+  style.CircleTessellationMaxError = 0.15f;
   
   SDL_Window* main_window = wm_get_main_window();
   ImGui_ImplSDL3_InitForOther(main_window);

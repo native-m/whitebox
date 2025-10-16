@@ -12,7 +12,7 @@ namespace wb {
 struct CmdClip : public Command2 {
   Vector<Pair<int32_t, Vector<Clip>>> track_backups;
 
-  void add_track_backup(int32_t track_id);
+  void backup_track_clips(int32_t track_id);
 
   void delete_region(const ClipSpan& clip_span, Track* track, double start_pos, double end_pos, double beat_duration);
 
@@ -35,7 +35,19 @@ struct CmdAddClipFromFile final : public CmdClip {
   void undo() override;
 };
 
-struct CmdDeleteSelectedRegion final : public CmdClip {
+struct CmdMoveClips final : public CmdClip {
+  int32_t src_track_id;
+  int32_t dst_track_relative_pos;
+  Vector<ClipSpan> clip_spans;
+  double start_pos;
+  double end_pos;
+  double relative_pos;
+
+  bool execute() override;
+  void undo() override;
+};
+
+struct CmdDeleteClips final : public CmdClip {
   int32_t first_track;
   Vector<ClipSpan> clip_spans;
   double start_pos;
