@@ -763,8 +763,16 @@ void set_playback_state(PlaybackState state) {
   if (state == PlaybackState::Stop) {
     playback_state_ = state;
     Engine2::playhead = playhead_start_;
+
     for (auto track : Engine2::tracks)
       track->stop();
+
+    // TODO(native-m): Previews must not abruptly stop. Add a fade to smooth the transition.
+    if (current_preview_sample) {
+      current_preview_sample->release();
+      current_preview_sample = nullptr;
+    }
+
     return;
   }
 
