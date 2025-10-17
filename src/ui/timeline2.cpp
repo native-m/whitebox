@@ -298,7 +298,7 @@ inline static void timeline_draw_clip_label(
   const size_t str_size = name.size();
   // const float bg_contrast = label_color.luminance();
   const ColorU32 text_col = text_color_;  // bg_contrast > 0.55f ? content_color_u32 : text_color_;
-  const float label_padding_y = mini_clip ? (height - font_size_) * 0.5f : 2.0f;
+  const float label_padding_y = mini_clip ? (height - font_size_) * 0.5f : ((label_max.y - label_min.y) - font_size_) * 0.5f;
   const ImVec2 label_pos(std::max(label_min.x, view_min_.x) + label_padding_x, label_min.y + label_padding_y);
   const ImVec4 clip_label_rect(label_min.x, label_min.y, label_max.x - 6.0f, label_max.y);
   dl->AddText(font_, font_size_, label_pos, text_col, str, str + str_size, 0.0f, &clip_label_rect);
@@ -312,7 +312,7 @@ inline static float timeline_get_track_pos_y(int32_t id) {
   if (id >= track_count) {
     id = track_count - 1;
   }
-  float track_pos_y = view_min_.y - vscroll_;
+  float track_pos_y = view_min_.y;
   for (uint32_t i = 0; i < id; i++) {
     Track* track = Engine2::tracks[i];
     track_pos_y += track->get_height() + track_separator_height_;
@@ -1003,12 +1003,13 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
   int32_t track_move_offset = 0;
   double relative_move_offset = 0;
 
+  // Draw clip edits
   if (any_of(tl_state_.type, TimelineState::Move, TimelineState::Duplicate, TimelineState::Shift) &&
       tl_state_.select.is_selected) {
     const double hovered_pos = timeline_get_hovered_position();
     const double relative_offset = hovered_pos - tl_state_.initial_pos;
-    double shift_amount = 0.0;
     int32_t first_track = first_selected_track;
+    double shift_amount = 0.0;
 
     if (any_of(tl_state_.type, TimelineState::Move, TimelineState::Duplicate)) {
       int32_t track_size = (int32_t)Engine2::tracks.size();
@@ -1022,7 +1023,7 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
       shift_amount = relative_offset;
     }
 
-    float track_pos_y = timeline_get_track_pos_y(first_track);
+    float track_pos_y = timeline_get_track_pos_y(first_track) - vscroll_;
     for (int32_t i = first_selected_track; i <= last_selected_track; i++) {
       Track* src_track = Engine2::tracks[i];
       Track* dst_track = Engine2::tracks[i + track_move_offset];
@@ -1170,7 +1171,7 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
         math::in_range(i, first_selected_track + track_move_offset, last_selected_track + track_move_offset)) {
       // static const ImU32 selection_range_fill = ImColor(28, 150, 237, 90);
       // static const ImU32 selection_range_border = ImColor(28, 150, 237, 255);
-      static const ImU32 selection_range_fill = ImColor(0, 120, 215, 90);
+      static const ImU32 selection_range_fill = ImColor(115, 165, 230, 86);
       static const ImU32 selection_range_border = ImColor(28, 150, 237, 255);
       double x0 = math::round((selection_start_pos + relative_move_offset) * inv_view_scale);
       double x1 = math::round((selection_end_pos + relative_move_offset) * inv_view_scale);
@@ -1213,7 +1214,7 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
     const float height = clip.height;
     const float x0_clipped = math::max(x0, view_min_.x - 3.0f);
     const float x1_clipped = math::min(x1 - 0.5f, view_max_.x + 3.0f);
-    const float clip_label_max_y = clip.pos_y + font_size_ + 4.0f;
+    const float clip_label_max_y = clip.pos_y + font_size_ + 6.0f;
 
     const ImVec2 clip_label_min_bb(x0_clipped, clip.pos_y);
     const ImVec2 clip_label_max_bb(x1_clipped, clip_label_max_y);
@@ -1221,8 +1222,8 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
     const ImVec2 clip_content_max(x1_clipped, clip.pos_y + height);
 
     const Color color(clip.color);
-    const Color label_color = color.darken(0.10f);
-    const Color content_color = color.brighten(1.3f);
+    const Color label_color = color.darken(0.25f);
+    const Color content_color = color.darken(1.7f);//color.brighten(1.4f);
     const ColorU32 bg_color = color.change_alpha(color.a * 0.80f).premult_alpha().to_uint32();
     const ColorU32 label_color_u32 = label_color.to_uint32();
     const ColorU32 content_color_u32 = content_color.to_uint32();
@@ -1235,7 +1236,8 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
       dl->AddRect(clip_label_min_bb, clip_content_max, 0x3F000000, 3.0f, ImDrawFlags_RoundCornersTop, 4.5f);
     }
 
-    dl->AddRectFilled(clip_label_min_bb, clip_content_max, bg_color, 3.0f, ImDrawFlags_RoundCornersTop);
+    dl->AddRectFilled(clip_label_min_bb, clip_label_max_bb, label_color_u32, 3.0f, ImDrawFlags_RoundCornersTop);
+    dl->AddRectFilled(clip_content_min, clip_content_max, color.to_uint32(), 0.5f, ImDrawFlags_RoundCornersBottom);
 
     switch (clip.type) {
       case ClipType::Audio: {
@@ -1702,6 +1704,9 @@ void timeline_handle_track_event() {
     track_pos_y = next_pos_y;
   }
 
+  first_visible_track_pos_y_ = first_visible_pos_y;
+  last_visible_track_ = track_idx;
+
   if (tl_state_.type == TimelineState::DragDropFiles) {
     if (tl_state_.drag_drop_files.item_dropped) {
       hovered_track_id_.reset();
@@ -1719,23 +1724,39 @@ void timeline_handle_track_event() {
 
     if (!left_mouse_down_) {
       auto& [is_selected, start_pos, end_pos, first_track_id, last_track_id] = tl_state_.select;
-      is_selected = true;
-      if (start_pos > end_pos) {
-        std::swap(start_pos, end_pos);
-      }
-      if (first_track_id > last_track_id) {
-        std::swap(first_track_id, last_track_id);
+      if (start_pos != end_pos) {
+        is_selected = true;
+        if (start_pos > end_pos) {
+          std::swap(start_pos, end_pos);
+        }
+        if (first_track_id > last_track_id) {
+          std::swap(first_track_id, last_track_id);
+        }
+        timeline_query_selected_range();
       }
       hovered_track_id_.reset();
       tl_state_.end_action();
-      timeline_query_selected_range();
     }
   } else if (tl_state_.type == TimelineState::Move || tl_state_.type == TimelineState::Duplicate) {
     ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
 
     if (!left_mouse_down_) {
-      double relative_pos = hovered_position - tl_state_.initial_pos;
-      int32_t relative_track = hovered_track_id_.value() - tl_state_.move.initial_track_id;
+      int32_t track_size = (int32_t)Engine2::tracks.size();
+      int32_t src_track = tl_state_.move.initial_track_id;
+      int32_t min_track_move = src_track - (int32_t)first_selected_track;
+      int32_t max_track_move = track_size - ((int32_t)last_selected_track - src_track) - 1;
+      double relative_pos = math::max(hovered_position - tl_state_.initial_pos, tl_state_.move.min_move_pos);
+      CmdMoveClips* cmd = new CmdMoveClips();
+
+      cmd->clip_spans = tl_state_.selected_track_clips;
+      cmd->src_track_id = tl_state_.select.first_track_id;
+      cmd->dst_track_relative_ofs = math::clamp(hovered_track_id_.value(), min_track_move, max_track_move) - src_track;
+      cmd->start_pos = tl_state_.select.start_pos;
+      cmd->end_pos = tl_state_.select.end_pos;
+      cmd->relative_move_ofs = relative_pos;
+      cmd->duplicate = tl_state_.type == TimelineState::Duplicate;
+      CommandManager2::execute_command("Move clips", cmd);
+
       hovered_track_id_.reset();
       tl_state_.end_action();
     }
@@ -1743,7 +1764,7 @@ void timeline_handle_track_event() {
     redraw_ = true;
   } else if (tl_state_.type == TimelineState::Shift) {
     ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
-    
+
     if (!left_mouse_down_) {
       hovered_track_id_.reset();
       tl_state_.end_action();
@@ -1756,9 +1777,6 @@ void timeline_handle_track_event() {
     tl_state_.clear_selection();
     redraw_ = true;
   }
-
-  first_visible_track_pos_y_ = first_visible_pos_y;
-  last_visible_track_ = track_idx;
 }
 
 void timeline_query_selected_range() {
@@ -1789,9 +1807,11 @@ void timeline_add_track() {
   // float sat_amount = 0.15f * std::fmod(1.0f - 2.0f * hue_index, 1.0f) + 0.85f;
   CmdAddTrack* cmd = new CmdAddTrack();
   cmd->name = "New track";
-  cmd->color = Color::from_hsluv(hue_index, 0.86f, 0.5943f);
-  // cmd->color = Color::from_hsv(hue_index, 0.6321f, 0.90f);
-  // cmd->color = Color::from_hsv((float)track_color_spin_ / 15.0f, 0.6172f, 0.80f);
+  // cmd->color = Color::from_hsluv(251.4 / 360.0f, 0.724f, 0.487f);
+  cmd->color = Color::from_hsluv(hue_index, 0.63f, 0.5343f);
+  //cmd->color = Color::from_hsluv(hue_index, 0.68f, 0.5343f);
+  //  cmd->color = Color::from_hsv(hue_index, 0.6321f, 0.90f);
+  //  cmd->color = Color::from_hsv((float)track_color_spin_ / 15.0f, 0.6172f, 0.80f);
 
   CommandManager2::execute_command("Add track", cmd);
   track_color_spin_ = (track_color_spin_ + 1) % 15;

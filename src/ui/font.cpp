@@ -20,7 +20,7 @@ void init_font_assets() {
   font_collection_[(uint32_t)FontType::Normal] = io.Fonts->AddFontFromFileTTF("assets/Inter-Medium.ttf", 0.0f, &config);
   config.FontLoaderFlags |= ImGuiFreeTypeBuilderFlags_ForceAutoHint;
   font_collection_[(uint32_t)FontType::MonoMedium] = io.Fonts->AddFontFromFileTTF("assets/RobotoMono-Regular.ttf", 0.0f, &config);
-  font_collection_[(uint32_t)FontType::Icon] = io.Fonts->AddFontFromFileTTF("assets/MaterialSymbolsSharp_Filled-Regular.ttf");
+  font_collection_[(uint32_t)FontType::Icon] = io.Fonts->AddFontFromFileTTF("assets/MaterialSymbolsSharp_Filled-Regular.ttf", 0.0f, &config);
 
   /*
   config.SizePixels = 13.0f;

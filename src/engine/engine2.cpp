@@ -297,6 +297,8 @@ void Engine2::update_track_state(Track* track) {
   for (uint32_t i = 0; i < (uint32_t)track->clips.size(); i++) {
     track->clips[i]->id = i;
   }
+
+  track->reset_playback_state(playhead, true);
 }
 
 Clip* Engine2::allocate_clip() {

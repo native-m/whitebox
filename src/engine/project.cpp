@@ -56,7 +56,7 @@ ProjectFileResult read_project_file(
       engine.project_info.description = p_info.map_find("desc").as_str();
     }
 
-    Vector<SampleAsset*> sample_assets;
+    Vector<AudioAsset*> audio_assets;
     if (auto samples = project.map_find("sample_table")) {
       uint32_t count = samples.array_size();
 
@@ -93,27 +93,27 @@ ProjectFileResult read_project_file(
           if (!found) {
             // TODO: Skip this sample if not found
             Log::error("Cannot find sample: {}", filename.string());
-            sample_assets.push_back(nullptr);
+            audio_assets.push_back(nullptr);
             continue;
           }
         }
 
         Log::debug("({}) Loading sample: {}", i, sample_path.string());
-        SampleAsset* asset = sample_table.load_from_file(sample_path);
+        AudioAsset* asset = AssetManager::create_or_get_audio_asset(sample_path.generic_string());
         if (asset == nullptr)
           Log::error("Cannot open sample: {}", sample_path.filename().string());
-        sample_assets.push_back(asset);
+        audio_assets.push_back(asset);
       }
     }
 
-    Vector<MidiAsset*> midi_assets;
+    Vector<MidiAsset2*> midi_assets;
     if (auto midi_asset_array = project.map_find("midi_table")) {
       uint32_t count = midi_asset_array.array_size();
       for (uint32_t i = 0; i < count; i++) {
         if (auto midi = midi_asset_array.array_get(i)) {
           auto midi_notes = midi.map_find("notes");
           uint32_t note_count = midi_notes.array_size();
-          MidiAsset* asset = midi_table.create_midi();
+          MidiAsset2* asset = AssetManager::create_midi_asset();
           MidiNoteBuffer& buffer = asset->data.note_sequence;
           uint32_t actual_count = 0;
 
@@ -185,7 +185,7 @@ ProjectFileResult read_project_file(
                     case ClipType::Audio:
                       if (asset_id != (uint32_t)-1) {
                         clip->init_as_audio_clip({
-                          .asset2 = sample_assets[asset_id],
+                          .asset = audio_assets[asset_id],
                           .fade_start = data.map_find("fstart").as_number(0.0),
                           .fade_end = data.map_find("fend").as_number(0.0),
                           .speed = data.map_find("speed").as_number(1.0),
@@ -196,7 +196,7 @@ ProjectFileResult read_project_file(
                     case ClipType::Midi:
                       if (asset_id != WB_INVALID_ASSET_ID) {
                         clip->init_as_midi_clip({
-                          .asset2 = midi_assets[asset_id],
+                          .asset = midi_assets[asset_id],
                           .transpose = data.map_find("trans").as_number<int16_t>(),
                           .rate = data.map_find("rate").as_number<int16_t>(),
                         });
@@ -228,8 +228,8 @@ ProjectFileResult write_project_file(
   if (!file.open(filepath, IOOpenMode::Write | IOOpenMode::Truncate))
     return ProjectFileResult::ErrCannotAccessFile;
 
-  std::unordered_map<MidiAsset*, uint32_t> midi_index_map;
-  std::unordered_map<SampleAsset*, uint32_t> sample_index_map;
+  std::unordered_map<MidiAsset2*, uint32_t> midi_index_map;
+  std::unordered_map<AudioAsset*, uint32_t> audio_index_map;
   MsgpackWriter w(file);
   w.write_map(1);
   w.write_kv_map("wbpr", 10);
@@ -248,22 +248,22 @@ ProjectFileResult write_project_file(
     w.write_kv_str("desc", engine.project_info.description);
   }
 
-  w.write_kv_array("sample_table", sample_table.samples.size());
+  w.write_kv_array("sample_table", AssetManager::audio_assets.size());
   {
     uint32_t idx = 0;
-    for (auto& sample : sample_table.samples) {
-      std::string path = sample.second.sample_instance.path.string();
+    for (auto& audio : AssetManager::audio_assets) {
+      std::string path = audio.second.sample.path.string();
       w.write_str(path);
-      sample_index_map.emplace(&sample.second, idx);
+      audio_index_map.emplace(&audio.second, idx);
       idx++;
     }
   }
 
-  w.write_kv_array("midi_table", midi_table.midi_assets.num_allocated);
+  w.write_kv_array("midi_table", AssetManager::midi_assets.num_allocated);
   {
     uint32_t idx = 0;
-    auto midi_asset_ptr = midi_table.allocated_assets.next_;
-    while (auto asset = static_cast<MidiAsset*>(midi_asset_ptr)) {
+    auto midi_asset_ptr = AssetManager::midi_asset_list.next_;
+    while (auto asset = static_cast<MidiAsset2*>(midi_asset_ptr)) {
       MidiData& data = asset->data;
       w.write_map(3);
       w.write_kv_num("min_note", data.min_note);
@@ -310,14 +310,14 @@ ProjectFileResult write_project_file(
         switch (clip->type) {
           case ClipType::Audio:
             w.write_kv_map("data", 4);
-            w.write_kv_num("asset_id", sample_index_map[clip->audio.asset2]);
+            w.write_kv_num("asset_id", audio_index_map[clip->audio.asset]);
             w.write_kv_num("fstart", clip->audio.fade_start);
             w.write_kv_num("fend", clip->audio.fade_end);
             w.write_kv_num("gain", clip->audio.gain);
             break;
           case ClipType::Midi:
             w.write_kv_map("data", 3);
-            w.write_kv_num("asset_id", midi_index_map[clip->midi.asset2]);
+            w.write_kv_num("asset_id", midi_index_map[clip->midi.asset]);
             w.write_kv_num("trans", clip->midi.transpose);
             w.write_kv_num("rate", clip->midi.rate);
             break;
