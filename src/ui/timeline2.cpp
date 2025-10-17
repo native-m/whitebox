@@ -343,9 +343,9 @@ inline static double timeline_get_minimum_shift_amount() {
 void timeline_init() {
   Engine2::add_bpm_update_listener(nullptr, [](void* userdata, double beat_duration, double bpm) { force_redraw_ = true; });
   CommandManager2::add_cmd_history_update_listener(nullptr, [](void* userdata) { force_redraw_ = true; });
-  layer1_dl_ = new ImDrawList(ImGui::GetDrawListSharedData());
-  layer2_dl_ = new ImDrawList(ImGui::GetDrawListSharedData());
-  layer3_dl_ = new ImDrawList(ImGui::GetDrawListSharedData());
+  layer1_dl_ = new ImDrawList(ImGui::GetDrawListSharedData()); // Regular clips
+  layer2_dl_ = new ImDrawList(ImGui::GetDrawListSharedData()); // Edit previews
+  layer3_dl_ = new ImDrawList(ImGui::GetDrawListSharedData()); // Overlays (selection range, drag & drop highlight, etc.)
 }
 
 void timeline_shutdown() {
@@ -460,27 +460,27 @@ void timeline_render_toolbar() {
   if (controls::outline_toggle_button(ICON_MS_DRAG_PAN "##tl_move", move_tool, icon_color, icon_size)) {
     current_tool_ = TimelineTool::Move;
   }
-  controls::item_tooltip("Move tool");
+  controls::item_tooltip("Move");
 
   if (controls::outline_toggle_button(ICON_MS_INK_SELECTION "##tl_select", select_tool, icon_color, icon_size)) {
     current_tool_ = TimelineTool::Select;
   }
-  controls::item_tooltip("Select tool");
+  controls::item_tooltip("Select");
 
   if (controls::outline_toggle_button(ICON_MS_INK_HIGHLIGHTER_MOVE "##tl_draw", draw_tool, icon_color, icon_size)) {
     current_tool_ = TimelineTool::Draw;
   }
-  controls::item_tooltip("Draw tool");
+  controls::item_tooltip("Draw");
 
   if (controls::outline_toggle_button(ICON_MS_SURGICAL "##tl_slice", slice_tool, icon_color, icon_size)) {
     current_tool_ = TimelineTool::Slice;
   }
-  controls::item_tooltip("Slice tool");
+  controls::item_tooltip("Slice");
 
   if (controls::outline_toggle_button(ICON_MS_ARROWS_OUTWARD "##tl_shift", shift_tool, icon_color, icon_size)) {
     current_tool_ = TimelineTool::Shift;
   }
-  controls::item_tooltip("Shift tool");
+  controls::item_tooltip("Shift");
 
   ImGui::PopStyleVar();
 

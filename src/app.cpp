@@ -355,7 +355,7 @@ void apply_theme(ImGuiStyle& style) {
   style.ChildBorderSize = 1.0f;
   style.PopupRounding = 0.0f;
   style.PopupBorderSize = 1.0f;
-  style.FramePadding = ImVec2(5.0f, 3.0f);
+  style.FramePadding = ImVec2(6.0f, 3.0f);
   style.FrameRounding = 2.0f;
   style.FrameBorderSize = 0.0f;
   style.ItemSpacing = ImVec2(8.0f, 4.0f);
