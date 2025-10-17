@@ -40,7 +40,6 @@ static std::string imgui_ini_filepath;
 
 static void audio_device_format_changed_listener(void* userdata);
 static void audio_device_removed_listener(void* userdata, bool restart_audio_device);
-static void wait_until_restored();
 static void apply_theme(ImGuiStyle& style);
 
 SDL_AppResult app_init(void** appstate, int argc, char** argv) {
@@ -228,7 +227,7 @@ SDL_AppResult app_iterate(void* appstate) {
 }
 
 SDL_AppResult app_handle_event(void* appstate, SDL_Event* event) {
-  if (wm_process_plugin_window_event(event))
+  if (wm_handle_window_event(event))
     return SDL_APP_CONTINUE;
 
   ImGuiIO& io = GImGui->IO;
@@ -260,10 +259,6 @@ SDL_AppResult app_handle_event(void* appstate, SDL_Event* event) {
       }
       return SDL_APP_CONTINUE;
     }
-    case SDL_EVENT_WINDOW_MINIMIZED:
-      if (is_main_window)
-        wait_until_restored();
-      break;
     case SDL_EVENT_DROP_FILE: Log::debug("Drop file"); break;
     case SDL_EVENT_DROP_BEGIN: Log::debug("Drop begin"); break;
     case SDL_EVENT_DROP_COMPLETE: Log::debug("Drop complete"); break;
@@ -328,17 +323,6 @@ void audio_device_format_changed_listener(void* userdata) {
 
 void audio_device_removed_listener(void* userdata, bool restart_audio_device) {
   app_event_push(AppEvent::audio_device_removed_event, (void*)restart_audio_device);
-}
-
-void wait_until_restored() {
-  SDL_Event next_event;
-  while (SDL_WaitEvent(&next_event)) {
-    if (next_event.type == SDL_EVENT_WINDOW_RESTORED) {
-      if (next_event.window.windowID == wm_get_main_window_id()) {
-        break;
-      }
-    }
-  }
 }
 
 void apply_theme(ImGuiStyle& style) {

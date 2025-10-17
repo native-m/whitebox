@@ -16,6 +16,9 @@ struct WindowNativeHandle {
 void init_window_manager();
 void shutdown_window_manager();
 
+void init_platform_window_manager();
+void shutdown_platform_window_manager();
+
 // Window
 SDL_Window* wm_get_main_window();
 SDL_Window* wm_get_window_from_viewport(ImGuiViewport* vp);
@@ -23,11 +26,12 @@ uint32_t wm_get_main_window_id();
 WindowNativeHandle wm_get_native_window_handle(SDL_Window* window);
 void wm_enable_taskbar_progress_indicator(bool enable);
 void wm_set_taskbar_progress_value(float progress);
-void wm_setup_dark_mode(SDL_Window* window);
+void wm_set_dark_mode(SDL_Window* window);
+bool wm_is_fullscreen();
 void wm_add_foreign_plugin_window(PluginInterface* plugin);
 void wm_close_plugin_window(PluginInterface* plugin);
 void wm_close_all_plugin_window();
-bool wm_process_plugin_window_event(SDL_Event* event);
+bool wm_handle_window_event(SDL_Event* event);
 
 void wm_set_mouse_pos(int x, int y);
 void wm_enable_relative_mouse_mode(ImGuiViewport* vp, bool relative_mode);

@@ -250,6 +250,9 @@ set(WB_SOURCES
     "src/config.h"
     "src/path_def.cpp"
     "src/path_def.h"
+    "src/window_manager_macos.mm"
+    "src/window_manager_linux.cpp"
+    "src/window_manager_win32.cpp"
     "src/window_manager.cpp"
     "src/window_manager.h"
 )

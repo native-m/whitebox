@@ -14,17 +14,26 @@
 #include "font.h"
 #include "timeline2.h"
 #include "window.h"
+#include "window_manager.h"
 
 namespace wb {
 
 void render_control_bar() {
+#ifndef WB_PLATFORM_MACOS
+  float padding_y = 13.0f;
+#else
+  float padding_y = wm_is_fullscreen() ? 13.0f : 26.0f;
+#endif
+
   ImVec2 frame_padding = GImGui->Style.FramePadding;
   ImVec2 window_padding = GImGui->Style.WindowPadding;
+
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
   ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
-  ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, 13.0f));
+  ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding.x, padding_y));
   ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
   ImGui::PushStyleColor(ImGuiCol_MenuBarBg, ImGui::GetStyleColorVec4(ImGuiCol_TitleBg));
+
   if (ImGui::BeginMainMenuBar()) {
     ImGui::PopStyleVar(4);
     ImGui::PopStyleColor();
@@ -98,6 +107,11 @@ void main_control_bar() {
   ImGui::BeginChild("WB_TOOLBAR", ImVec2(), ImGuiChildFlags_AlwaysUseWindowPadding, ImGuiWindowFlags_NoBackground);
   ImGui::PopStyleColor();
 
+#ifdef WB_PLATFORM_MACOS
+  if (!wm_is_fullscreen())
+    ImGui::Dummy(ImVec2(30.0f, 22.0f));
+#endif
+
   ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
   ImGui::PushStyleColor(ImGuiCol_Button, Color(btn_color).brighten(0.12f).to_uint32());
   ImGui::PushStyleColor(ImGuiCol_FrameBg, Color(frame_bg).brighten(0.12f).to_uint32());
@@ -145,7 +159,7 @@ void main_control_bar() {
 
   if (ImGui::Button(ICON_MS_STOP "##wb_stop")) {
     if (Engine2::is_recording())
-        timeline_redraw_window();
+      timeline_redraw_window();
     Engine2::stop();
   }
   controls::item_tooltip("Stop");

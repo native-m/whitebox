@@ -2,17 +2,11 @@
 
 #include <SDL3/SDL_mouse.h>
 #include <imgui.h>
+#include <sys/wait.h>
 
+#include "SDL3/SDL_events.h"
+#include "SDL3/SDL_video.h"
 #include "core/debug.h"
-
-#ifdef WB_PLATFORM_WINDOWS
-#define WIN32_LEAN_AND_MEAN
-#include <dwmapi.h>
-#include <shobjidl_core.h>
-
-#define DWM_ATTRIBUTE_USE_IMMERSIVE_DARK_MODE 20
-#define DWM_ATTRIBUTE_CAPTION_COLOR           35
-#endif
 
 #ifdef WB_PLATFORM_MACOS
 #include <SDL3/SDL_metal.h>
@@ -26,12 +20,9 @@ static int32_t main_window_y;
 static int32_t main_window_width;
 static int32_t main_window_height;
 static bool last_refreshed = false;
+static bool is_fullscreen = false;
 static uint32_t last_event = 0;
 static std::unordered_map<uint32_t, SDL_Window*> plugin_windows;
-
-#ifdef WB_PLATFORM_WINDOWS
-static ITaskbarList4* taskbar_list;
-#endif
 
 static std::optional<SDL_Window*> get_plugin_window_from_id(uint32_t window_id) {
   if (plugin_windows.empty())
@@ -42,122 +33,44 @@ static std::optional<SDL_Window*> get_plugin_window_from_id(uint32_t window_id) 
   return plugin_window->second;
 }
 
-void init_window_manager() {
-#ifdef WB_PLATFORM_WINDOWS
-  enum class PreferredAppMode { Default, AllowDark, ForceDark, ForceLight, Max };
-  using SetPreferredAppModeFn = PreferredAppMode(WINAPI*)(PreferredAppMode appMode);
-  HMODULE uxtheme = LoadLibraryEx(L"uxtheme.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
-  if (uxtheme) {
-    SetPreferredAppModeFn set_preferred_app_mode_fn = (SetPreferredAppModeFn)GetProcAddress(uxtheme, MAKEINTRESOURCEA(135));
-    if (set_preferred_app_mode_fn)
-      set_preferred_app_mode_fn(PreferredAppMode::ForceDark);
+static void wait_until_restored() {
+  SDL_Event next_event;
+  while (SDL_WaitEvent(&next_event)) {
+    if (next_event.type == SDL_EVENT_WINDOW_RESTORED) {
+      if (next_event.window.windowID == wm_get_main_window_id()) {
+        break;
+      }
+    }
   }
+}
 
-  HRESULT hr = ::CoCreateInstance(CLSID_TaskbarList, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&taskbar_list));
-  if (FAILED(hr)) {
-    Log::warn("Cannot create ITaskbarList4 instance");
-    taskbar_list = nullptr;
-  }
-#endif
+void init_window_manager() {
+  init_platform_window_manager();
 
   uint32_t window_flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
   main_window = SDL_CreateWindow("whitebox", 1280, 720, window_flags);
   SDL_SetWindowMinimumSize(main_window, 640, 480);
-  wm_setup_dark_mode(main_window);
+  wm_set_dark_mode(main_window);
 }
 
 void shutdown_window_manager() {
   SDL_DestroyWindow(main_window);
-#if defined(WB_PLATFORM_WINDOWS)
-  taskbar_list->Release();
-#endif
 }
 
 SDL_Window* wm_get_main_window() {
   return main_window;
 }
 
-uint32_t wm_get_main_window_id() {
-  return SDL_GetWindowID(main_window);
-}
-
 SDL_Window* wm_get_window_from_viewport(ImGuiViewport* vp) {
   return SDL_GetWindowFromID((uint32_t)(uint64_t)vp->PlatformHandle);
 }
 
-WindowNativeHandle wm_get_native_window_handle(SDL_Window* window) {
-  SDL_PropertiesID props = SDL_GetWindowProperties(window);
-#if defined(WB_PLATFORM_WINDOWS)
-  HWND hwnd = (HWND)SDL_GetPointerProperty(props, SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
-  if (hwnd) {
-    return {
-      hwnd,
-      nullptr,
-    };
-  }
-#elif defined(WB_PLATFORM_LINUX)
-  std::string_view current_video_driver(SDL_GetCurrentVideoDriver());
-  if (current_video_driver == "x11") {
-    Display* xdisplay =
-        (Display*)SDL_GetPointerProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_X11_DISPLAY_POINTER, NULL);
-    Window xwindow = (Window)SDL_GetNumberProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0);
-    if (xdisplay && xwindow) {
-      return {
-        xwindow,
-        xdisplay,
-      };
-    }
-  } else if (current_video_driver == "wayland") {
-    struct wl_display* display = (struct wl_display*)SDL_GetPointerProperty(
-        SDL_GetWindowProperties(window), SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER, NULL);
-    struct wl_surface* surface = (struct wl_surface*)SDL_GetPointerProperty(
-        SDL_GetWindowProperties(window), SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, NULL);
-    if (display && surface) {
-      return {
-        surface,
-        display,
-      };
-    }
-  }
-#endif
-  return {};
+uint32_t wm_get_main_window_id() {
+  return SDL_GetWindowID(main_window);
 }
 
-void wm_enable_taskbar_progress_indicator(bool enable) {
-#ifdef WB_PLATFORM_WINDOWS
-  if (taskbar_list) {
-    HWND hwnd =
-        (HWND)SDL_GetPointerProperty(SDL_GetWindowProperties(main_window), SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
-    if (!enable)
-      taskbar_list->SetProgressValue(hwnd, 0, 100);
-    taskbar_list->SetProgressState(hwnd, enable ? TBPF_NORMAL : TBPF_NOPROGRESS);
-  }
-#endif
-  // TODO(native-m): Replace this with SDL_SetWindowProgressState function
-  // SDL_SetWindowProgressState(main_window, enable ? SDL_PROGRESS_STATE_NORMAL : SDL_PROGRESS_STATE_NONE);
-}
-
-void wm_set_taskbar_progress_value(float progress) {
-#ifdef WB_PLATFORM_WINDOWS
-  if (taskbar_list) {
-    HWND hwnd =
-        (HWND)SDL_GetPointerProperty(SDL_GetWindowProperties(main_window), SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
-    taskbar_list->SetProgressValue(hwnd, (uint32_t)(progress * 100.0f), 100);
-  }
-#endif
-  // TODO(native-m): Replace this with SDL function
-  // SDL_SetWindowProgressValue(main_window, progress);
-}
-
-void wm_setup_dark_mode(SDL_Window* window) {
-  SDL_PropertiesID props = SDL_GetWindowProperties(window);
-  ImU32 title_bar_color = ImColor(0.15f, 0.15f, 0.15f, 1.00f) & 0x00FFFFFF;
-#ifdef WB_PLATFORM_WINDOWS
-  HWND hwnd = (HWND)SDL_GetPointerProperty(props, SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
-  BOOL dark_mode = true;
-  ::DwmSetWindowAttribute(hwnd, DWM_ATTRIBUTE_USE_IMMERSIVE_DARK_MODE, &dark_mode, sizeof(dark_mode));
-  ::DwmSetWindowAttribute(hwnd, DWM_ATTRIBUTE_CAPTION_COLOR, &title_bar_color, sizeof(title_bar_color));
-#endif
+bool wm_is_fullscreen() {
+  return is_fullscreen;
 }
 
 void wm_add_foreign_plugin_window(PluginInterface* plugin) {
@@ -172,7 +85,7 @@ void wm_add_foreign_plugin_window(PluginInterface* plugin) {
 
   SDL_SetWindowPosition(window, plugin->last_window_x, plugin->last_window_y);
   SDL_SetWindowParent(window, main_window);
-  wm_setup_dark_mode(window);
+  wm_set_dark_mode(window);
 
   if (plugin->attach_window(window) != PluginResult::Ok) {
     Log::debug("Failed to create plugin window");
@@ -209,8 +122,21 @@ void wm_close_all_plugin_window() {
   plugin_windows.clear();
 }
 
-bool wm_process_plugin_window_event(SDL_Event* event) {
-  if (event->type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) {
+bool wm_handle_window_event(SDL_Event* event) {
+  if (event->type == SDL_EVENT_WINDOW_MINIMIZED) {
+    if (event->window.windowID == wm_get_main_window_id()) {
+      wait_until_restored();
+    }
+  } else if (event->type == SDL_EVENT_WINDOW_ENTER_FULLSCREEN) {
+    if (event->window.windowID == wm_get_main_window_id()) {
+      is_fullscreen = true;
+    }
+  } else if (event->type == SDL_EVENT_WINDOW_LEAVE_FULLSCREEN) {
+    if (event->window.windowID == wm_get_main_window_id()) {
+      is_fullscreen = false;
+      wm_set_dark_mode(main_window);
+    }
+  } else if (event->type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) {
     if (auto window = get_plugin_window_from_id(event->window.windowID)) {
       SDL_Window* w = (SDL_Window*)window.value();
       SDL_PropertiesID props = SDL_GetWindowProperties(w);
@@ -220,6 +146,7 @@ bool wm_process_plugin_window_event(SDL_Event* event) {
       return true;
     }
   }
+
   return false;
 }
 
