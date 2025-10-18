@@ -141,7 +141,7 @@ static constexpr uint32_t highlight_color_ = 0x9F555555;
 static TimelineViewState view_state_;
 static double view_scale_;
 static double scroll_offset_x_;
-static double max_length_ = 100.0;
+static double song_duration_ = 100.0;
 static float track_panel_width_ = 150.0f;
 static float track_panel_min_width_ = 100.0f;
 static float scroll_delta_y_ = 0.0f;
@@ -225,20 +225,20 @@ static void timeline_query_selected_range();
 static void timeline_add_clip_from_file();
 
 inline static double timeline_get_view_scale() {
-  return view_state_.get_view_scale(max_length_, timeline_display_size_.x);
+  return view_state_.get_view_scale(song_duration_, timeline_display_size_.x);
 }
 
 inline static double timeline_get_scroll_pos_x() {
-  return math::round((view_state_.start * max_length_) / view_scale_);
+  return math::round((view_state_.start * song_duration_) / view_scale_);
 }
 
 inline static double timeline_get_hovered_position() {
-  double position = ((double)(mouse_pos_.x - view_pos_.x) * view_scale_ + view_state_.start * max_length_);
+  double position = ((double)(mouse_pos_.x - view_pos_.x) * view_scale_ + view_state_.start * song_duration_);
   return math::max(round_to_grid(position, 1.0 / view_scale_, grid_mode_, triplet_), 0.0);
 }
 
 inline static void timeline_hscroll(float scroll_delta) {
-  if (view_state_.scroll(scroll_delta, max_length_, -view_scale_)) {
+  if (view_state_.scroll(scroll_delta, song_duration_, -view_scale_)) {
     redraw_ = true;
   }
 }
@@ -342,10 +342,21 @@ inline static double timeline_get_minimum_shift_amount() {
 
 void timeline_init() {
   Engine2::add_bpm_update_listener(nullptr, [](void* userdata, double beat_duration, double bpm) { force_redraw_ = true; });
-  CommandManager2::add_cmd_history_update_listener(nullptr, [](void* userdata) { force_redraw_ = true; });
-  layer1_dl_ = new ImDrawList(ImGui::GetDrawListSharedData()); // Regular clips
-  layer2_dl_ = new ImDrawList(ImGui::GetDrawListSharedData()); // Edit previews
-  layer3_dl_ = new ImDrawList(ImGui::GetDrawListSharedData()); // Overlays (selection range, drag & drop highlight, etc.)
+  CommandManager2::add_cmd_history_update_listener(nullptr, [](void* userdata) {
+    double new_song_duration = math::max(Engine2::get_song_duration() + 4.0, 100.0);
+    
+    if (new_song_duration != song_duration_) {
+      view_state_.start = view_state_.start * song_duration_ / new_song_duration;
+      view_state_.end = view_state_.end * song_duration_ / new_song_duration;
+      song_duration_ = new_song_duration;
+    }
+
+    force_redraw_ = true;
+  });
+
+  layer1_dl_ = new ImDrawList(ImGui::GetDrawListSharedData());
+  layer2_dl_ = new ImDrawList(ImGui::GetDrawListSharedData());
+  layer3_dl_ = new ImDrawList(ImGui::GetDrawListSharedData());
 }
 
 void timeline_shutdown() {
@@ -537,13 +548,13 @@ void timeline_render_navbar() {
   ImGui::SetCursorPosX(math::max(track_panel_width_, track_panel_min_width_) + separator_size + pos_x);
   ImGui::BeginGroup();
 
-  if (controls::timeline_scrollbar("tl_hscroll", navbar_w, 0.1, max_length_, &view_state_)) {
+  if (controls::timeline_scrollbar("tl_hscroll", navbar_w, 0.1, song_duration_, &view_state_)) {
     redraw_ = true;
   }
 
   double time_pos = Engine2::playhead;
   controls::TimelineRulerResult tr_result =
-      controls::timeline_ruler("tl_ruler", grid_mode_, triplet_, timeline_w, max_length_, &time_pos, &view_state_);
+      controls::timeline_ruler("tl_ruler", grid_mode_, triplet_, timeline_w, song_duration_, &time_pos, &view_state_);
   if (tr_result != controls::TimelineRulerResult::None) {
     switch (tr_result) {
       case controls::TimelineRulerResult::Zoom: redraw_ = true; break;
@@ -1223,7 +1234,7 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
 
     const Color color(clip.color);
     const Color label_color = color.darken(0.25f);
-    const Color content_color = color.darken(1.7f);//color.brighten(1.4f);
+    const Color content_color = color.brighten(1.4f);  // color.darken(1.7f);
     const ColorU32 bg_color = color.change_alpha(color.a * 0.80f).premult_alpha().to_uint32();
     const ColorU32 label_color_u32 = label_color.to_uint32();
     const ColorU32 content_color_u32 = content_color.to_uint32();
@@ -1236,8 +1247,8 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
       dl->AddRect(clip_label_min_bb, clip_content_max, 0x3F000000, 3.0f, ImDrawFlags_RoundCornersTop, 4.5f);
     }
 
-    dl->AddRectFilled(clip_label_min_bb, clip_label_max_bb, label_color_u32, 3.0f, ImDrawFlags_RoundCornersTop);
-    dl->AddRectFilled(clip_content_min, clip_content_max, color.to_uint32(), 0.5f, ImDrawFlags_RoundCornersBottom);
+    // dl->AddRectFilled(clip_label_min_bb, clip_label_max_bb, label_color_u32, 3.0f, ImDrawFlags_RoundCornersTop);
+    dl->AddRectFilled(clip_label_min_bb, clip_content_max, color.to_uint32(), 3.0f, ImDrawFlags_RoundCornersTop);
 
     switch (clip.type) {
       case ClipType::Audio: {
@@ -1454,7 +1465,7 @@ void timeline_handle_mouse_event() {
 
   // Ctrl+MouseWheel Zoom
   if (timeline_hovered_ && holding_ctrl_ && mouse_wheel_ != 0.0f) {
-    view_state_.zoom(mouse_wheel_ * zoom_sensitivity_, mouse_pos_.x - view_pos_.x, max_length_, view_scale_);
+    view_state_.zoom(mouse_wheel_ * zoom_sensitivity_, mouse_pos_.x - view_pos_.x, song_duration_, view_scale_);
     view_scale_ = timeline_get_view_scale();
     redraw_ = true;
   }
@@ -1697,7 +1708,6 @@ void timeline_handle_track_event() {
       if (rect_hovered) {
         tl_state_.drag_drop_files.first_track_id = track_idx;
         tl_state_.drag_drop_files.position = hovered_position;
-        redraw_ = true;
       }
     }
 
@@ -1708,6 +1718,7 @@ void timeline_handle_track_event() {
   last_visible_track_ = track_idx;
 
   if (tl_state_.type == TimelineState::DragDropFiles) {
+    redraw_ = true;
     if (tl_state_.drag_drop_files.item_dropped) {
       hovered_track_id_.reset();
       timeline_add_clip_from_file();
@@ -1808,10 +1819,10 @@ void timeline_add_track() {
   CmdAddTrack* cmd = new CmdAddTrack();
   cmd->name = "New track";
   // cmd->color = Color::from_hsluv(251.4 / 360.0f, 0.724f, 0.487f);
-  cmd->color = Color::from_hsluv(hue_index, 0.63f, 0.5343f);
-  //cmd->color = Color::from_hsluv(hue_index, 0.68f, 0.5343f);
-  //  cmd->color = Color::from_hsv(hue_index, 0.6321f, 0.90f);
-  //  cmd->color = Color::from_hsv((float)track_color_spin_ / 15.0f, 0.6172f, 0.80f);
+  cmd->color = Color::from_hsluv(hue_index, 0.68f, 0.5043f);
+  // cmd->color = Color::from_hsluv(hue_index, 0.68f, 0.5343f);
+  //   cmd->color = Color::from_hsv(hue_index, 0.6321f, 0.90f);
+  //   cmd->color = Color::from_hsv((float)track_color_spin_ / 15.0f, 0.6172f, 0.80f);
 
   CommandManager2::execute_command("Add track", cmd);
   track_color_spin_ = (track_color_spin_ + 1) % 15;

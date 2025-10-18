@@ -47,6 +47,7 @@ static Vector<uint32_t> active_record_tracks_;
 static PlaybackState playback_state_;
 static double playhead_start_;
 static double sample_position_;
+static double song_duration_;
 static double ppq_ = 96.0;
 
 static ConcurrentRingBuffer<EngineMessage> engine_msg_queue_;
@@ -143,6 +144,10 @@ void Engine2::set_bpm(double bpm) {
   }
 }
 
+double Engine2::get_song_duration() {
+  return song_duration_;
+}
+
 double Engine2::get_beat_duration() {
   return beat_duration_.load(std::memory_order_relaxed);
 }
@@ -169,6 +174,17 @@ void Engine2::begin_edit() {
 
 void Engine2::end_edit() {
   edit_lock_.unlock();
+
+  // Update song duration
+  double max_duration = 0.0;
+  for (auto track : tracks) {
+    if (!track->clips.empty()) {
+      Clip* clip = track->clips.back();
+      max_duration = math::max(max_duration, clip->max_time);
+    }
+  }
+
+  song_duration_ = max_duration;
 }
 
 void Engine2::preview_sample(AudioAsset* asset) {

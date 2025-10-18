@@ -46,6 +46,7 @@ struct Engine2 {
   static void stop_record();
   static void set_playhead_position(double position);
   static void set_bpm(double bpm);
+  static double get_song_duration();
   static double get_beat_duration();
   static double get_bpm();
   static double get_ppq();
