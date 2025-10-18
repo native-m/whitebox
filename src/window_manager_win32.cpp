@@ -8,6 +8,8 @@
 #define DWM_ATTRIBUTE_USE_IMMERSIVE_DARK_MODE 20
 #define DWM_ATTRIBUTE_CAPTION_COLOR           35
 
+#include "core/debug.h"
+
 namespace wb {
 
 static ITaskbarList4* taskbar_list;
@@ -47,6 +49,7 @@ WindowNativeHandle wm_get_native_window_handle(SDL_Window* window) {
 
 void wm_enable_taskbar_progress_indicator(bool enable) {
   if (taskbar_list) {
+    SDL_Window* main_window = wm_get_main_window();
     HWND hwnd =
         (HWND)SDL_GetPointerProperty(SDL_GetWindowProperties(main_window), SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
     if (!enable)
@@ -59,6 +62,7 @@ void wm_enable_taskbar_progress_indicator(bool enable) {
 
 void wm_set_taskbar_progress_value(float progress) {
   if (taskbar_list) {
+    SDL_Window* main_window = wm_get_main_window();
     HWND hwnd =
         (HWND)SDL_GetPointerProperty(SDL_GetWindowProperties(main_window), SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
     taskbar_list->SetProgressValue(hwnd, (uint32_t)(progress * 100.0f), 100);

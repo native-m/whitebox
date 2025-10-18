@@ -1225,7 +1225,7 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
     const float height = clip.height;
     const float x0_clipped = math::max(x0, view_min_.x - 3.0f);
     const float x1_clipped = math::min(x1 - 0.5f, view_max_.x + 3.0f);
-    const float clip_label_max_y = clip.pos_y + font_size_ + 6.0f;
+    const float clip_label_max_y = clip.pos_y + font_size_ + 5.0f;
 
     const ImVec2 clip_label_min_bb(x0_clipped, clip.pos_y);
     const ImVec2 clip_label_max_bb(x1_clipped, clip_label_max_y);
@@ -1233,7 +1233,7 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
     const ImVec2 clip_content_max(x1_clipped, clip.pos_y + height);
 
     const Color color(clip.color);
-    const Color label_color = color.darken(0.25f);
+    const Color label_color = color.darken(0.15f);
     const Color content_color = color.brighten(1.4f);  // color.darken(1.7f);
     const ColorU32 bg_color = color.change_alpha(color.a * 0.80f).premult_alpha().to_uint32();
     const ColorU32 label_color_u32 = label_color.to_uint32();
@@ -1247,8 +1247,9 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
       dl->AddRect(clip_label_min_bb, clip_content_max, 0x3F000000, 3.0f, ImDrawFlags_RoundCornersTop, 4.5f);
     }
 
-    // dl->AddRectFilled(clip_label_min_bb, clip_label_max_bb, label_color_u32, 3.0f, ImDrawFlags_RoundCornersTop);
-    dl->AddRectFilled(clip_label_min_bb, clip_content_max, color.to_uint32(), 3.0f, ImDrawFlags_RoundCornersTop);
+    dl->AddRectFilled(clip_label_min_bb, clip_label_max_bb, color.to_uint32(), 3.0f, ImDrawFlags_RoundCornersTop);
+    dl->AddRectFilled(clip_content_min, clip_content_max, label_color.to_uint32(), 0.5f, ImDrawFlags_RoundCornersBottom);
+    im_draw_hline(dl, clip_label_max_bb.y - 0.5f, clip_content_min.x, clip_content_max.x, bg_color);
 
     switch (clip.type) {
       case ClipType::Audio: {

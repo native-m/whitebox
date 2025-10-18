@@ -2,15 +2,10 @@
 
 #include <SDL3/SDL_mouse.h>
 #include <imgui.h>
-#include <sys/wait.h>
 
 #include "SDL3/SDL_events.h"
 #include "SDL3/SDL_video.h"
 #include "core/debug.h"
-
-#ifdef WB_PLATFORM_MACOS
-#include <SDL3/SDL_metal.h>
-#endif
 
 namespace wb {
 
@@ -55,6 +50,7 @@ void init_window_manager() {
 
 void shutdown_window_manager() {
   SDL_DestroyWindow(main_window);
+  shutdown_platform_window_manager();
 }
 
 SDL_Window* wm_get_main_window() {
@@ -126,15 +122,18 @@ bool wm_handle_window_event(SDL_Event* event) {
   if (event->type == SDL_EVENT_WINDOW_MINIMIZED) {
     if (event->window.windowID == wm_get_main_window_id()) {
       wait_until_restored();
+      return true;
     }
   } else if (event->type == SDL_EVENT_WINDOW_ENTER_FULLSCREEN) {
     if (event->window.windowID == wm_get_main_window_id()) {
       is_fullscreen = true;
+      return true;
     }
   } else if (event->type == SDL_EVENT_WINDOW_LEAVE_FULLSCREEN) {
     if (event->window.windowID == wm_get_main_window_id()) {
       is_fullscreen = false;
       wm_set_dark_mode(main_window);
+      return true;
     }
   } else if (event->type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) {
     if (auto window = get_plugin_window_from_id(event->window.windowID)) {
