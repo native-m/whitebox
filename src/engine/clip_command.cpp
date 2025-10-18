@@ -222,7 +222,7 @@ bool CmdMoveClips::execute() {
   // 1. Take out the source region and reserve the destination region
   if (track_overlapped) {
     int32_t first_track = dst_track_relative_ofs >= 0 ? src_track_id : dst_track_id;
-    int32_t last_track = dst_track_relative_ofs >= 0 ? dst_track_end : src_track_end;
+    int32_t last_track = dst_track_relative_ofs >= 0 ? dst_track_end - 1 : src_track_end - 1;
     bool time_overlapped = end_pos_moved >= start_pos && start_pos_moved <= end_pos;
     double src_start_pos = start_pos;
     double src_end_pos = end_pos;
@@ -236,7 +236,7 @@ bool CmdMoveClips::execute() {
 
     // bool overlapped_pos;
     // Overlapped tracks case
-    for (int32_t i = first_track; i < last_track; i++) {
+    for (int32_t i = first_track; i <= last_track; i++) {
       Track* track = Engine2::tracks[i];
 
       if (duplicate) {

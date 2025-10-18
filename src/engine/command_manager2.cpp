@@ -14,7 +14,7 @@ InplaceList<Command2> CommandManager2::commands;
 Command2* CommandManager2::current_command;
 Command2* CommandManager2::last_command;
 
-static void call_history_update_listener();
+static void call_history_update_listener(bool is_undo);
 
 void CommandManager2::initialize(uint32_t num_commands) {
   max_commands_ = num_commands;
@@ -51,7 +51,7 @@ bool CommandManager2::execute_command(std::string_view name, Command2* cmd) {
     ++num_commands_;
   }
 
-  call_history_update_listener();
+  call_history_update_listener(false);
 
   return true;
 }
@@ -63,7 +63,7 @@ void CommandManager2::undo() {
   current_command = current_command->prev();
   // is_modified = true;
   --num_commands_;
-  call_history_update_listener();
+  call_history_update_listener(true);
 }
 
 void CommandManager2::redo() {
@@ -73,7 +73,7 @@ void CommandManager2::redo() {
   current_command->execute();
   // is_modified = true;
   ++num_commands_;
-  call_history_update_listener();
+  call_history_update_listener(false);
 }
 
 void CommandManager2::flush() {
@@ -101,9 +101,9 @@ void CommandManager2::add_cmd_history_update_listener(void* userdata, CmdHistory
   history_update_listener.emplace_back(fn, userdata);
 }
 
-void call_history_update_listener() {
+void call_history_update_listener(bool is_undo) {
   for (auto [fn, userdata] : history_update_listener) {
-    fn(userdata);
+    fn(userdata, is_undo);
   }
 }
 

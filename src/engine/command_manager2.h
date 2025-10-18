@@ -4,7 +4,7 @@
 
 namespace wb {
 
-using CmdHistoryUpdateCallbackFn = void (*)(void* userdata);
+using CmdHistoryUpdateCallbackFn = void (*)(void* userdata, bool is_undo);
 
 struct CommandManager2 {
   static InplaceList<Command2> commands;

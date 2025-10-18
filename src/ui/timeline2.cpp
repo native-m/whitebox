@@ -342,9 +342,13 @@ inline static double timeline_get_minimum_shift_amount() {
 
 void timeline_init() {
   Engine2::add_bpm_update_listener(nullptr, [](void* userdata, double beat_duration, double bpm) { force_redraw_ = true; });
-  CommandManager2::add_cmd_history_update_listener(nullptr, [](void* userdata) {
+  CommandManager2::add_cmd_history_update_listener(nullptr, [](void* userdata, bool is_undo) {
     double new_song_duration = math::max(Engine2::get_song_duration() + 4.0, 100.0);
-    
+
+    if (is_undo) {
+      tl_state_.clear_selection();
+    }
+
     if (new_song_duration != song_duration_) {
       view_state_.start = view_state_.start * song_duration_ / new_song_duration;
       view_state_.end = view_state_.end * song_duration_ / new_song_duration;
@@ -1757,17 +1761,25 @@ void timeline_handle_track_event() {
       int32_t src_track = tl_state_.move.initial_track_id;
       int32_t min_track_move = src_track - (int32_t)first_selected_track;
       int32_t max_track_move = track_size - ((int32_t)last_selected_track - src_track) - 1;
+      int32_t track_relative_ofs = math::clamp(hovered_track_id_.value(), min_track_move, max_track_move) - src_track;
       double relative_pos = math::max(hovered_position - tl_state_.initial_pos, tl_state_.move.min_move_pos);
       CmdMoveClips* cmd = new CmdMoveClips();
 
       cmd->clip_spans = tl_state_.selected_track_clips;
       cmd->src_track_id = tl_state_.select.first_track_id;
-      cmd->dst_track_relative_ofs = math::clamp(hovered_track_id_.value(), min_track_move, max_track_move) - src_track;
+      cmd->dst_track_relative_ofs = track_relative_ofs;
       cmd->start_pos = tl_state_.select.start_pos;
       cmd->end_pos = tl_state_.select.end_pos;
       cmd->relative_move_ofs = relative_pos;
       cmd->duplicate = tl_state_.type == TimelineState::Duplicate;
       CommandManager2::execute_command("Move clips", cmd);
+
+      tl_state_.select.first_track_id += track_relative_ofs;
+      tl_state_.select.last_track_id += track_relative_ofs;
+      tl_state_.select.start_pos += relative_pos;
+      tl_state_.select.end_pos += relative_pos;
+      tl_state_.selected_track_clips.clear();
+      timeline_query_selected_range();
 
       hovered_track_id_.reset();
       tl_state_.end_action();
