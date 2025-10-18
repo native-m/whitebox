@@ -131,6 +131,11 @@ inline static constexpr T sign(T value) {
 
 template<typename T>
 inline static constexpr bool in_range(T x, T min_val, T max_val) {
+  return (x >= min_val) && (x < max_val);
+}
+
+template<typename T>
+inline static constexpr bool in_range_inclusive(T x, T min_val, T max_val) {
   return (x >= min_val) && (x <= max_val);
 }
 

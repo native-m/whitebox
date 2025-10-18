@@ -832,7 +832,7 @@ void TimelineWindow::render_track_lanes() {
   float track_pos_y = timeline_view_pos.y;
   const float expand_max_y = !dragging ? 0.0f : math::max(mouse_pos.y - view_max.y, 0.0f);
   const bool is_mouse_in_selection_range =
-      range_selected && math::in_range(mouse_at_time_pos, selection_start_pos, selection_end_pos);
+      range_selected && math::in_range_inclusive(mouse_at_time_pos, selection_start_pos, selection_end_pos);
 
   for (uint32_t i = 0; i < g_engine.tracks.size(); i++) {
     Track* track = tracks[i];
@@ -1105,7 +1105,7 @@ void TimelineWindow::render_track(
     double mouse_at_gridline,
     bool track_hovered,
     bool is_mouse_in_selection_range) {
-  bool is_track_selected = math::in_range(id, first_selected_track, last_selected_track);
+  bool is_track_selected = math::in_range_inclusive(id, first_selected_track, last_selected_track);
   const float height = track->get_height();
   const bool mini_clip = height > 30.0f;
   double relative_pos = 0.0;
@@ -1134,7 +1134,7 @@ void TimelineWindow::render_track(
   }
 
   bool move_or_shift_cmd = any_of(edit_command, TimelineCommand::ClipMove, TimelineCommand::ClipShift);
-  bool resize_or_shift_cmd = math::in_range(edit_command, TimelineCommand::ClipResizeLeft, TimelineCommand::ClipShiftRight);
+  bool resize_or_shift_cmd = math::in_range_inclusive(edit_command, TimelineCommand::ClipResizeLeft, TimelineCommand::ClipShiftRight);
   bool unset_clip_editor = false;
 
   for (size_t i = 0; i < track->clips.size(); i++) {

@@ -200,7 +200,7 @@ bool outline_toggle_button(const char* str, bool* value, const ImVec4& toggled_c
     g.Style.Colors[ImGuiCol_Text] = ImGui::GetStyleColorVec4(ImGuiCol_Text);
 
   ImGui::RenderTextClipped(
-      bb.Min + style.FramePadding, bb.Max + style.FramePadding, str, nullptr, &label_size, style.ButtonTextAlign, &bb);
+      bb.Min, bb.Max, str, nullptr, &label_size, style.ButtonTextAlign, &bb);
 
   g.Style.Colors[ImGuiCol_Text] = backup_color;
 

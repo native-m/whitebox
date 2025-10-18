@@ -235,7 +235,7 @@ bool TimelineBase::render_time_ruler(
   float playhead_half_size = size.y * 0.5f;
   if (is_playing) {
     float position = (float)std::round(scroll_offset + playhead_start * inv_view_scale) - size.y * 0.5f;
-    if (math::in_range(position, cursor_pos.x - playhead_size, end_pos.x + playhead_size)) {
+    if (math::in_range_inclusive(position, cursor_pos.x - playhead_size, end_pos.x + playhead_size)) {
       dl->AddTriangleFilled(
           ImVec2(position, cursor_pos.y + 2.5f),
           ImVec2(position + playhead_size, cursor_pos.y + 2.5f),
@@ -259,7 +259,7 @@ bool TimelineBase::render_time_ruler(
   }
 
   float playhead_sc_position = (float)std::round(scroll_offset + playhead * inv_view_scale) - playhead_half_size;
-  if (math::in_range(playhead_sc_position, cursor_pos.x - playhead_size, end_pos.x + playhead_size)) {
+  if (math::in_range_inclusive(playhead_sc_position, cursor_pos.x - playhead_size, end_pos.x + playhead_size)) {
     dl->AddTriangleFilled(
         ImVec2(playhead_sc_position, cursor_pos.y + 2.5f),
         ImVec2(playhead_sc_position + playhead_size, cursor_pos.y + 2.5f),

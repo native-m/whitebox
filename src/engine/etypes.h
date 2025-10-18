@@ -89,7 +89,7 @@ struct SelectedTrackRegion {
   ClipQueryResult range;
 
   ClipSelectStatus is_clip_selected(uint32_t id) const {
-    if (math::in_range(id, range.first, range.last)) {
+    if (math::in_range_inclusive(id, range.first, range.last)) {
       if (id == range.first && range.first_offset > 0.0) {
         return ClipSelectStatus::PartiallySelected;
       }

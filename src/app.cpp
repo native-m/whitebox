@@ -231,7 +231,7 @@ SDL_AppResult app_handle_event(void* appstate, SDL_Event* event) {
     return SDL_APP_CONTINUE;
 
   ImGuiIO& io = GImGui->IO;
-  bool is_main_window = math::in_range((SDL_EventType)event->type, SDL_EVENT_WINDOW_FIRST, SDL_EVENT_WINDOW_LAST)
+  bool is_main_window = math::in_range_inclusive((SDL_EventType)event->type, SDL_EVENT_WINDOW_FIRST, SDL_EVENT_WINDOW_LAST)
                             ? event->window.windowID == wm_get_main_window_id()
                             : false;
 

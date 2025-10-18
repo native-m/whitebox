@@ -342,7 +342,7 @@ bool ActiveDeviceWASAPI::init_stream(
     }
   } else {
     uint32_t buffer_size = period_to_buffer_size(period, sample_rate_value.first);
-    if (math::in_range(buffer_size, min_low_latency_buffer_size, max_low_latency_buffer_size) &&
+    if (math::in_range_inclusive(buffer_size, min_low_latency_buffer_size, max_low_latency_buffer_size) &&
         math::is_multiple_of(buffer_size, low_latency_buffer_alignment)) {
       // Use low-latency shared mode
       HRESULT result =

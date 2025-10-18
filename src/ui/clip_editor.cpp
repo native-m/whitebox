@@ -437,7 +437,7 @@ static void clip_editor_render_control_sidebar() {
             0.5f,
             -48,
             48,
-            math::in_range(current_clip->midi.transpose, (int16_t)-1, (int16_t)1) ? "%d semitone" : "%d semitones",
+            math::in_range_inclusive(current_clip->midi.transpose, (int16_t)-1, (int16_t)1) ? "%d semitone" : "%d semitones",
             ImGuiSliderFlags_Vertical);
       },
       [](int16_t old_value, int16_t new_value) {
@@ -1334,7 +1334,7 @@ static void clip_editor_render_note_editor() {
     const double clip_rate = (double)current_clip->midi.rate;
     const double playhead_offset = (clip_editor_base.playhead - current_clip->min_time) * clip_rate * inv_view_scale;
     const float playhead_pos = (float)math::round(view_min.x - scroll_pos_x + playhead_offset);
-    if (math::in_range(playhead_pos, view_min.x, view_max.x)) {
+    if (math::in_range_inclusive(playhead_pos, view_min.x, view_max.x)) {
       im_draw_vline(dl, playhead_pos, offset_y, offset_y + region_size.y, TimelineBase::playhead_color);
     }
   }
