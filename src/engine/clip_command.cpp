@@ -146,7 +146,7 @@ bool CmdMoveClips::execute() {
   double start_pos_moved = start_pos + relative_move_ofs;
   double end_pos_moved = end_pos + relative_move_ofs;
   double beat_duration = Engine2::get_beat_duration();
-  bool track_overlapped = dst_track_id >= src_track_id && dst_track_id <= src_track_end;
+  bool track_overlapped = src_track_id < dst_track_end && dst_track_id < src_track_end;
   Vector<Pair<uint32_t, Clip*>> truncated_clips;
 
   // auto clear_track_region = [&](Track* track, uint32_t track_id, double clear_start, double clear_end, const
@@ -222,12 +222,17 @@ bool CmdMoveClips::execute() {
   // 1. Take out the source region and reserve the destination region
   if (track_overlapped) {
     int32_t first_track = dst_track_relative_ofs >= 0 ? src_track_id : dst_track_id;
-    int32_t last_track = dst_track_relative_ofs >= 0 ? dst_track_end - 1 : src_track_end - 1;
+    int32_t last_track = dst_track_relative_ofs >= 0 ? dst_track_end : src_track_end;
     bool time_overlapped = end_pos_moved >= start_pos && start_pos_moved <= end_pos;
     double src_start_pos = start_pos;
     double src_end_pos = end_pos;
     double dst_start_pos = start_pos_moved;
     double dst_end_pos = end_pos_moved;
+
+    if (duplicate) {
+      first_track = dst_track_id;
+      last_track = dst_track_end;
+    }
 
     if (time_overlapped && src_start_pos > dst_start_pos) {
       std::swap(src_start_pos, dst_start_pos);
@@ -236,7 +241,7 @@ bool CmdMoveClips::execute() {
 
     // bool overlapped_pos;
     // Overlapped tracks case
-    for (int32_t i = first_track; i <= last_track; i++) {
+    for (int32_t i = first_track; i < last_track; i++) {
       Track* track = Engine2::tracks[i];
 
       if (duplicate) {
@@ -246,8 +251,8 @@ bool CmdMoveClips::execute() {
         continue;
       }
 
-      bool is_src_track = i >= src_track_id && i < src_track_end;
       bool is_dst_track = i >= dst_track_id && i < dst_track_end;
+      bool is_src_track = i >= src_track_id && i < src_track_end;
 
       if (is_src_track && is_dst_track) {
         if (time_overlapped) {
@@ -300,7 +305,7 @@ bool CmdMoveClips::execute() {
       int32_t track_id = dst_track_id + i;
       Track* track = Engine2::tracks[track_id];
       if (auto clip_span = track->query_clip_by_range2(start_pos_moved, end_pos_moved)) {
-        clear_track_region(track, track_id, start_pos, end_pos, clip_span);
+        clear_track_region(track, track_id, start_pos_moved, end_pos_moved, clip_span);
       }
     }
 

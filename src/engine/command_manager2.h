@@ -10,7 +10,7 @@ struct CommandManager2 {
   static InplaceList<Command2> commands;
   static Command2* current_command;
   static Command2* last_command;
-
+  
   static void initialize(uint32_t num_commands);
   static bool execute_command(std::string_view name, Command2* cmd);
   static void undo();
