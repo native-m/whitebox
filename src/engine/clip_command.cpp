@@ -228,18 +228,24 @@ bool CmdMoveClips::execute() {
     double src_end_pos = end_pos;
     double dst_start_pos = start_pos_moved;
     double dst_end_pos = end_pos_moved;
-    bool move_backward = false;
 
-    if (src_start_pos > dst_start_pos) {
+    if (time_overlapped && src_start_pos > dst_start_pos) {
       std::swap(src_start_pos, dst_start_pos);
       std::swap(src_end_pos, dst_end_pos);
-      move_backward = true;
     }
 
     // bool overlapped_pos;
     // Overlapped tracks case
     for (int32_t i = first_track; i < last_track; i++) {
       Track* track = Engine2::tracks[i];
+
+      if (duplicate) {
+        if (auto span = track->query_clip_by_range2(dst_start_pos, dst_end_pos)) {
+          clear_track_region(track, i, dst_start_pos, dst_end_pos, span);
+        }
+        continue;
+      }
+
       bool is_src_track = i >= src_track_id && i < src_track_end;
       bool is_dst_track = i >= dst_track_id && i < dst_track_end;
 
@@ -250,13 +256,10 @@ bool CmdMoveClips::execute() {
           }
         } else {
           const ClipSpan& src_span = clip_spans[i - src_track_id];
-          auto dst_span = track->query_clip_by_range2(dst_start_pos, dst_end_pos);
+          ClipSpan dst_span = track->query_clip_by_range2(dst_start_pos, dst_end_pos);
           if (dst_span) {
-            // Swap source & dest ranges if position is moved backwards
-            const ClipSpan& src_clip_span = !move_backward ? src_span : dst_span;
-            const ClipSpan& dst_clip_span = !move_backward ? dst_span : src_span;
-            Clip* last_partially_truncated_clip = clear_track_region(track, i, src_start_pos, src_end_pos, src_clip_span);
-            clear_track_region(track, i, dst_start_pos, dst_end_pos, dst_clip_span, last_partially_truncated_clip);
+            Clip* last_partially_truncated_clip = clear_track_region(track, i, src_start_pos, src_end_pos, src_span);
+            clear_track_region(track, i, dst_start_pos, dst_end_pos, dst_span, last_partially_truncated_clip);
           } else {
             if (src_span.contains_clip) {
               clear_track_region(track, i, start_pos, end_pos, src_span);
@@ -282,12 +285,14 @@ bool CmdMoveClips::execute() {
       }
     }
   } else {
-    for (int32_t i = 0; i < clip_spans.size(); i++) {
-      int32_t track_id = src_track_id + i;
-      Track* track = Engine2::tracks[track_id];
-      const ClipSpan& clip_span = clip_spans[i];
-      if (clip_span.contains_clip) {
-        clear_track_region(track, track_id, start_pos, end_pos, clip_span);
+    if (!duplicate) {
+      for (int32_t i = 0; i < clip_spans.size(); i++) {
+        int32_t track_id = src_track_id + i;
+        Track* track = Engine2::tracks[track_id];
+        const ClipSpan& clip_span = clip_spans[i];
+        if (clip_span.contains_clip) {
+          clear_track_region(track, track_id, start_pos, end_pos, clip_span);
+        }
       }
     }
 
