@@ -101,8 +101,8 @@ struct ClipDrawCmd2 {
     Highlighted = 1 << 1,
   };
 
-  ClipType type : 2;
-  uint32_t flags : 30;
+  ClipType type;
+  uint32_t flags;
   ColorU32 color;
   double start_offset;
   double start_pos_x;
