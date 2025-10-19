@@ -452,66 +452,68 @@ void timeline_render_toolbar() {
   const ImVec4 selected_tool_color =
       ImGui::ColorConvertU32ToFloat4(Color(ImGui::GetStyleColorVec4(ImGuiCol_Button)).brighten(0.20f).to_uint32());
 
+  constexpr uint32_t toolbar_child_flags =
+      ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_AlwaysAutoResize | ImGuiChildFlags_AutoResizeX;
+  constexpr uint32_t toolbar_window_flags = ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollbar;
+
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6.0f, 4.0f));
-  ImGui::BeginChild(
-      "##tl_toobar",
-      ImVec2(),
-      ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_AlwaysAutoResize | ImGuiChildFlags_AutoResizeX,
-      ImGuiWindowFlags_NoBackground);
+  if (ImGui::BeginChild("##tl_toobar", ImVec2(), toolbar_child_flags, toolbar_window_flags)) {
+    ImGui::PopStyleVar();  // ImGuiStyleVar_WindowPadding
 
-  ImGui::PopStyleVar();  // ImGuiStyleVar_WindowPadding
+    font_push(FontType::Icon, 22.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.0f, 0.0f));
 
-  font_push(FontType::Icon, 22.0f);
-  ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.0f, 0.0f));
+    if (ImGui::Button(ICON_MS_MENU, icon_size)) {
+      // TODO
+    }
 
-  if (ImGui::Button(ICON_MS_MENU, icon_size)) {
-    // TODO
+    ImGui::Separator();
+
+    ImGui::PushStyleVarY(ImGuiStyleVar_ItemSpacing, 0.0f);
+
+    if (controls::outline_toggle_button(ICON_MS_TEXT_SELECT_END "##tl_select", move_tool, icon_color, icon_size)) {
+      current_tool_ = TimelineTool::Move;
+    }
+    controls::item_tooltip("Move");
+
+    if (controls::outline_toggle_button(ICON_MS_INK_SELECTION "##tl_select2", select_tool, icon_color, icon_size)) {
+      current_tool_ = TimelineTool::Select;
+    }
+    controls::item_tooltip("Block select");
+
+    if (controls::outline_toggle_button(ICON_MS_INK_HIGHLIGHTER_MOVE "##tl_draw", draw_tool, icon_color, icon_size)) {
+      current_tool_ = TimelineTool::Draw;
+    }
+    controls::item_tooltip("Draw clip");
+
+    if (controls::outline_toggle_button(ICON_MS_SURGICAL "##tl_slice", slice_tool, icon_color, icon_size)) {
+      current_tool_ = TimelineTool::Slice;
+    }
+    controls::item_tooltip("Slice");
+
+    if (controls::outline_toggle_button(ICON_MS_ARROWS_OUTWARD "##tl_shift", shift_tool, icon_color, icon_size)) {
+      current_tool_ = TimelineTool::Shift;
+    }
+    controls::item_tooltip("Shift");
+
+    ImGui::PopStyleVar();
+
+    if (controls::outline_toggle_button(ICON_MS_EDIT_AUDIO "##tl_stretch", stretch_mode_, draw_btn_color, icon_size)) {
+      stretch_mode_ = !stretch_mode_;
+    }
+    controls::item_tooltip("Strech mode");
+
+    ImGui::Separator();
+
+    if (ImGui::Button(ICON_MS_VARIABLE_ADD, icon_size)) {
+      timeline_add_track();
+    }
+    ImGui::PopStyleVar();  // ImGuiStyleVar_FramePadding
+
+    font_pop();
+  } else {
+    ImGui::PopStyleVar();  // ImGuiStyleVar_WindowPadding
   }
-
-  ImGui::Separator();
-
-  ImGui::PushStyleVarY(ImGuiStyleVar_ItemSpacing, 0.0f);
-
-  if (controls::outline_toggle_button(ICON_MS_DRAG_PAN "##tl_move", move_tool, icon_color, icon_size)) {
-    current_tool_ = TimelineTool::Move;
-  }
-  controls::item_tooltip("Move");
-
-  if (controls::outline_toggle_button(ICON_MS_INK_SELECTION "##tl_select", select_tool, icon_color, icon_size)) {
-    current_tool_ = TimelineTool::Select;
-  }
-  controls::item_tooltip("Select");
-
-  if (controls::outline_toggle_button(ICON_MS_INK_HIGHLIGHTER_MOVE "##tl_draw", draw_tool, icon_color, icon_size)) {
-    current_tool_ = TimelineTool::Draw;
-  }
-  controls::item_tooltip("Draw");
-
-  if (controls::outline_toggle_button(ICON_MS_SURGICAL "##tl_slice", slice_tool, icon_color, icon_size)) {
-    current_tool_ = TimelineTool::Slice;
-  }
-  controls::item_tooltip("Slice");
-
-  if (controls::outline_toggle_button(ICON_MS_ARROWS_OUTWARD "##tl_shift", shift_tool, icon_color, icon_size)) {
-    current_tool_ = TimelineTool::Shift;
-  }
-  controls::item_tooltip("Shift");
-
-  ImGui::PopStyleVar();
-
-  if (controls::outline_toggle_button(ICON_MS_EDIT_AUDIO "##tl_stretch", stretch_mode_, draw_btn_color, icon_size)) {
-    stretch_mode_ = !stretch_mode_;
-  }
-  controls::item_tooltip("Strech mode");
-
-  ImGui::Separator();
-
-  if (ImGui::Button(ICON_MS_VARIABLE_ADD, icon_size)) {
-    timeline_add_track();
-  }
-  ImGui::PopStyleVar();  // ImGuiStyleVar_FramePadding
-
-  font_pop();
 
   ImGui::EndChild();
   ImGui::SameLine(0.0f, 2.0f);
@@ -1204,7 +1206,7 @@ void timeline_handle_track_event() {
                 tl_state_.move = {
                   .initial_track_id = track_idx,
                   .clip_id = i,
-                  .min_move_pos = -selection_start_pos,
+                  .min_move_pos = is_selected ? -selection_start_pos : -clip->min_time,
                 };
               }
               ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
@@ -1223,7 +1225,6 @@ void timeline_handle_track_event() {
               ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
               can_select = false;
             } else if (ImGui::IsKeyDown(ImGuiMod_Ctrl)) {
-              ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
               can_select = false;
             }
           }
@@ -1263,78 +1264,119 @@ void timeline_handle_track_event() {
   first_visible_track_pos_y_ = first_visible_pos_y;
   last_visible_track_ = track_idx;
 
-  if (tl_state_.type == TimelineState::DragDropFiles) {
-    redraw_ = true;
-    if (tl_state_.drag_drop_files.item_dropped) {
-      hovered_track_id_.reset();
-      timeline_add_clip_from_file();
-    }
-  } else if (tl_state_.type == TimelineState::Select) {
-    if (left_mouse_down_ && hovered_track_id_) {
-      tl_state_.select.last_track_id = hovered_track_id_.value();
-    }
-
-    if (left_mouse_down_) {
-      tl_state_.select.end_pos = hovered_position;
-      redraw_ = true;
-    }
-
-    if (!left_mouse_down_) {
-      auto& [is_selected, start_pos, end_pos, first_track_id, last_track_id] = tl_state_.select;
-      if (start_pos != end_pos) {
-        is_selected = true;
-        if (start_pos > end_pos) {
-          std::swap(start_pos, end_pos);
-        }
-        if (first_track_id > last_track_id) {
-          std::swap(first_track_id, last_track_id);
-        }
-        timeline_query_selected_range();
+  switch (tl_state_.type) {
+    case TimelineState::DragDropFiles:
+      if (tl_state_.drag_drop_files.item_dropped) {
+        hovered_track_id_.reset();
+        timeline_add_clip_from_file();
       }
+      redraw_ = true;
+      break;
+    case TimelineState::Select:
+      ImGui::SetMouseCursor(ImGuiMouseCursor_TextInput);
+
+      if (left_mouse_down_ && hovered_track_id_) {
+        tl_state_.select.last_track_id = hovered_track_id_.value();
+      }
+
+      if (left_mouse_down_) {
+        tl_state_.select.end_pos = hovered_position;
+        redraw_ = true;
+      }
+
+      if (!left_mouse_down_) {
+        auto& [is_selected, start_pos, end_pos, first_track_id, last_track_id] = tl_state_.select;
+        if (start_pos != end_pos) {
+          is_selected = true;
+          if (start_pos > end_pos) {
+            std::swap(start_pos, end_pos);
+          }
+          if (first_track_id > last_track_id) {
+            std::swap(first_track_id, last_track_id);
+          }
+          timeline_query_selected_range();
+        }
+        redraw_ = true;
+        hovered_track_id_.reset();
+        tl_state_.end_action();
+      }
+
+      break;
+    case TimelineState::Move:
+    case TimelineState::Duplicate:
+      ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+
+      if (!left_mouse_down_) {
+        if (tl_state_.select.is_selected) {
+          int32_t track_size = (int32_t)Engine2::tracks.size();
+          int32_t src_track = tl_state_.move.initial_track_id;
+          int32_t min_track_move = src_track - (int32_t)first_selected_track;
+          int32_t max_track_move = track_size - ((int32_t)last_selected_track - src_track) - 1;
+          int32_t track_relative_ofs = math::clamp(hovered_track_id_.value(), min_track_move, max_track_move) - src_track;
+          double relative_pos = math::max(hovered_position - tl_state_.initial_pos, tl_state_.move.min_move_pos);
+          CmdMoveClips* cmd = new CmdMoveClips();
+
+          cmd->clip_spans = tl_state_.selected_track_clips;
+          cmd->src_track_id = tl_state_.select.first_track_id;
+          cmd->dst_track_relative_ofs = track_relative_ofs;
+          cmd->start_pos = tl_state_.select.start_pos;
+          cmd->end_pos = tl_state_.select.end_pos;
+          cmd->relative_move_ofs = relative_pos;
+          cmd->duplicate = tl_state_.type == TimelineState::Duplicate;
+          CommandManager2::execute_command("Move clips", cmd);
+
+          tl_state_.select.first_track_id += track_relative_ofs;
+          tl_state_.select.last_track_id += track_relative_ofs;
+          tl_state_.select.start_pos += relative_pos;
+          tl_state_.select.end_pos += relative_pos;
+          timeline_query_selected_range();
+        } else {
+          int32_t src_track = tl_state_.move.initial_track_id;
+          Track* track = Engine2::tracks[src_track];
+          Clip* clip = track->clips[tl_state_.move.clip_id];
+          double relative_pos = math::max(hovered_position - tl_state_.initial_pos, -clip->min_time);
+
+          Vector<ClipSpan> clip_span;
+          new (clip_span.emplace_back_raw()) ClipSpan{
+            .contains_clip = true,
+            .first = tl_state_.move.clip_id,
+            .last = tl_state_.move.clip_id,
+            .first_offset = 0.0,
+            .last_offset = 0.0,
+          };
+
+          CmdMoveClips* cmd = new CmdMoveClips();
+          cmd->clip_spans = std::move(clip_span);
+          cmd->src_track_id = src_track;
+          cmd->dst_track_relative_ofs = hovered_track_id_.value() - src_track;
+          cmd->start_pos = clip->min_time;
+          cmd->end_pos = clip->max_time;
+          cmd->relative_move_ofs = relative_pos;
+          cmd->duplicate = tl_state_.type == TimelineState::Duplicate;
+          CommandManager2::execute_command("Move clips", cmd);
+        }
+      }
+      if (!left_mouse_down_) {
+        hovered_track_id_.reset();
+        tl_state_.end_action();
+      }
+
+      redraw_ = true;
+      break;
+    case TimelineState::Shift:
+      ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+
+      if (!left_mouse_down_) {
+        hovered_track_id_.reset();
+        tl_state_.end_action();
+      }
+
+      redraw_ = true;
+      break;
+    default:
       hovered_track_id_.reset();
       tl_state_.end_action();
-    }
-  } else if (tl_state_.type == TimelineState::Move || tl_state_.type == TimelineState::Duplicate) {
-    ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
-
-    if (!left_mouse_down_) {
-      int32_t track_size = (int32_t)Engine2::tracks.size();
-      int32_t src_track = tl_state_.move.initial_track_id;
-      int32_t min_track_move = src_track - (int32_t)first_selected_track;
-      int32_t max_track_move = track_size - ((int32_t)last_selected_track - src_track) - 1;
-      int32_t track_relative_ofs = math::clamp(hovered_track_id_.value(), min_track_move, max_track_move) - src_track;
-      double relative_pos = math::max(hovered_position - tl_state_.initial_pos, tl_state_.move.min_move_pos);
-      CmdMoveClips* cmd = new CmdMoveClips();
-
-      cmd->clip_spans = tl_state_.selected_track_clips;
-      cmd->src_track_id = tl_state_.select.first_track_id;
-      cmd->dst_track_relative_ofs = track_relative_ofs;
-      cmd->start_pos = tl_state_.select.start_pos;
-      cmd->end_pos = tl_state_.select.end_pos;
-      cmd->relative_move_ofs = relative_pos;
-      cmd->duplicate = tl_state_.type == TimelineState::Duplicate;
-      CommandManager2::execute_command("Move clips", cmd);
-
-      tl_state_.select.first_track_id += track_relative_ofs;
-      tl_state_.select.last_track_id += track_relative_ofs;
-      tl_state_.select.start_pos += relative_pos;
-      tl_state_.select.end_pos += relative_pos;
-      timeline_query_selected_range();
-
-      hovered_track_id_.reset();
-      tl_state_.end_action();
-    }
-
-    redraw_ = true;
-  } else if (tl_state_.type == TimelineState::Shift) {
-    ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
-
-    if (!left_mouse_down_) {
-      hovered_track_id_.reset();
-      tl_state_.end_action();
-    }
-
-    redraw_ = true;
+      break;
   }
 
   if (tl_state_.select.is_selected && left_mouse_clicked_ && !tl_state_.in_action()) {
@@ -1393,111 +1435,140 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
   int32_t track_move_offset = 0;
   double relative_move_offset = 0;
 
-  // Draw clip edits
-  if (any_of(tl_state_.type, TimelineState::Move, TimelineState::Duplicate, TimelineState::Shift) &&
-      tl_state_.select.is_selected) {
-    const double hovered_pos = timeline_get_hovered_position();
-    const double relative_offset = hovered_pos - tl_state_.initial_pos;
-    int32_t first_track = first_selected_track;
-    double shift_amount = 0.0;
+  if (tl_state_.select.is_selected) {
+    if (any_of(tl_state_.type, TimelineState::Move, TimelineState::Duplicate, TimelineState::Shift)) {
+      const double hovered_pos = timeline_get_hovered_position();
+      const double relative_offset = hovered_pos - tl_state_.initial_pos;
+      int32_t first_track = first_selected_track;
+      double shift_amount = 0.0;
 
-    if (any_of(tl_state_.type, TimelineState::Move, TimelineState::Duplicate)) {
-      int32_t track_size = (int32_t)Engine2::tracks.size();
-      int32_t src_track = tl_state_.move.initial_track_id;
-      int32_t min_move = src_track - (int32_t)first_selected_track;
-      int32_t max_move = track_size - ((int32_t)last_selected_track - src_track) - 1;
-      track_move_offset = math::clamp(hovered_track_id_.value(), min_move, max_move) - src_track;
-      first_track = first_track + track_move_offset;
-      relative_move_offset = math::max(relative_offset, tl_state_.move.min_move_pos);
-    } else if (any_of(tl_state_.type, TimelineState::Shift)) {
-      shift_amount = relative_offset;
-    }
-
-    float track_pos_y = timeline_get_track_pos_y(first_track) - vscroll_;
-    for (int32_t i = first_selected_track; i <= last_selected_track; i++) {
-      Track* src_track = Engine2::tracks[i];
-      Track* dst_track = Engine2::tracks[i + track_move_offset];
-      const float height = dst_track->get_height();
-      const float track_view_min_y = view_min_.y - height - track_separator_height_;
-
-      if (track_pos_y > view_max_.y) {
-        break;
+      if (any_of(tl_state_.type, TimelineState::Move, TimelineState::Duplicate)) {
+        int32_t track_size = (int32_t)Engine2::tracks.size();
+        int32_t src_track = tl_state_.move.initial_track_id;
+        int32_t min_move = src_track - (int32_t)first_selected_track;
+        int32_t max_move = track_size - ((int32_t)last_selected_track - src_track) - 1;
+        track_move_offset = math::clamp(hovered_track_id_.value(), min_move, max_move) - src_track;
+        first_track = first_track + track_move_offset;
+        relative_move_offset = math::max(relative_offset, tl_state_.move.min_move_pos);
+      } else {
+        shift_amount = relative_offset;
       }
 
-      const ClipSpan& selected_region = tl_state_.selected_track_clips[i - first_selected_track];
-      if (track_pos_y < track_view_min_y || !selected_region.contains_clip) {
-        track_pos_y += height + track_separator_height_;
-        continue;
-      }
+      float track_pos_y = timeline_get_track_pos_y(first_track) - vscroll_;
+      for (int32_t i = first_selected_track; i <= last_selected_track; i++) {
+        Track* src_track = Engine2::tracks[i];
+        Track* dst_track = Engine2::tracks[i + track_move_offset];
+        const float height = dst_track->get_height();
+        const float track_view_min_y = view_min_.y - height - track_separator_height_;
 
-      for (uint32_t j = selected_region.first; j <= selected_region.last; j++) {
-        Clip* clip = src_track->clips[j];
-        double start_pos = clip->min_time;
-        double end_pos = clip->max_time;
-        double start_offset = clip->start_offset;
-        const bool is_audio = clip->is_audio();
-        const double speed = is_audio ? clip->audio.speed : 1.0;
-        const double sample_rate = clip->get_asset_sample_rate();
-        bool left_side_partially_selected = selected_region.left_side_partially_selected(j);
-        bool right_side_partially_selected = selected_region.right_side_partially_selected(j);
-
-        if (left_side_partially_selected && right_side_partially_selected) {
-          const double new_start_pos = start_pos + selected_region.first_offset;
-          const double start_pos_moved = new_start_pos + relative_move_offset;
-          const double length = (end_pos - new_start_pos) + selected_region.last_offset;
-          const double end_pos_moved = start_pos_moved + length;
-          const double new_start_ofs = calc_clip_shift(
-              clip->is_audio(),
-              start_offset,
-              -selected_region.first_offset + shift_amount,
-              beat_duration,
-              clip->get_asset_sample_rate(),
-              speed);
-          start_pos = start_pos_moved;
-          end_pos = end_pos_moved;
-          start_offset = new_start_ofs;
-        } else if (right_side_partially_selected) {
-          const double new_start_pos = start_pos + selected_region.first_offset;
-          const double start_pos_moved = new_start_pos + relative_move_offset;
-          const double end_pos_moved = start_pos_moved + (end_pos - new_start_pos);
-          const double new_start_ofs = calc_clip_shift(
-              clip->is_audio(),
-              start_offset,
-              -selected_region.first_offset + shift_amount,
-              beat_duration,
-              clip->get_asset_sample_rate(),
-              speed);
-          start_pos = start_pos_moved;
-          end_pos = end_pos_moved;
-          start_offset = new_start_ofs;
-        } else if (left_side_partially_selected) {
-          const double new_max_time = end_pos + selected_region.last_offset;
-          const double start_pos_moved = start_pos + relative_move_offset;
-          const double end_pos_moved = start_pos_moved + (new_max_time - start_pos);
-
-          start_pos = start_pos_moved;
-          end_pos = end_pos_moved;
-
-          if (shift_amount != 0.0) {
-            start_offset = calc_clip_shift(
-                clip->is_audio(), start_offset, shift_amount, beat_duration, clip->get_asset_sample_rate(), speed);
-          }
-        } else [[likely]] {
-          const auto [new_start_pos, new_end_pos] = calc_move_clip(clip, relative_move_offset, 0.0);
-          start_pos = new_start_pos;
-          end_pos = new_end_pos;
-
-          if (shift_amount != 0.0) {
-            start_offset = calc_clip_shift(
-                clip->is_audio(), start_offset, shift_amount, beat_duration, clip->get_asset_sample_rate(), speed);
-          }
+        if (track_pos_y > view_max_.y) {
+          break;
         }
 
-        timeline_add_clip_draw_data(
-            clip, inv_view_scale, start_pos, end_pos, start_offset, track_pos_y, height, ClipDrawCmd2::Topmost);
+        const ClipSpan& selected_region = tl_state_.selected_track_clips[i - first_selected_track];
+        if (track_pos_y < track_view_min_y || !selected_region.contains_clip) {
+          track_pos_y += height + track_separator_height_;
+          continue;
+        }
+
+        for (uint32_t j = selected_region.first; j <= selected_region.last; j++) {
+          Clip* clip = src_track->clips[j];
+          double start_pos = clip->min_time;
+          double end_pos = clip->max_time;
+          double start_offset = clip->start_offset;
+          const bool is_audio = clip->is_audio();
+          const double speed = is_audio ? clip->audio.speed : 1.0;
+          const double sample_rate = clip->get_asset_sample_rate();
+          bool left_side_partially_selected = selected_region.left_side_partially_selected(j);
+          bool right_side_partially_selected = selected_region.right_side_partially_selected(j);
+
+          if (left_side_partially_selected && right_side_partially_selected) {
+            const double new_start_pos = start_pos + selected_region.first_offset;
+            const double start_pos_moved = new_start_pos + relative_move_offset;
+            const double length = (end_pos - new_start_pos) + selected_region.last_offset;
+            const double end_pos_moved = start_pos_moved + length;
+            const double new_start_ofs = calc_clip_shift(
+                clip->is_audio(),
+                start_offset,
+                -selected_region.first_offset + shift_amount,
+                beat_duration,
+                clip->get_asset_sample_rate(),
+                speed);
+            start_pos = start_pos_moved;
+            end_pos = end_pos_moved;
+            start_offset = new_start_ofs;
+          } else if (right_side_partially_selected) {
+            const double new_start_pos = start_pos + selected_region.first_offset;
+            const double start_pos_moved = new_start_pos + relative_move_offset;
+            const double end_pos_moved = start_pos_moved + (end_pos - new_start_pos);
+            const double new_start_ofs = calc_clip_shift(
+                clip->is_audio(),
+                start_offset,
+                -selected_region.first_offset + shift_amount,
+                beat_duration,
+                clip->get_asset_sample_rate(),
+                speed);
+            start_pos = start_pos_moved;
+            end_pos = end_pos_moved;
+            start_offset = new_start_ofs;
+          } else if (left_side_partially_selected) {
+            const double new_max_time = end_pos + selected_region.last_offset;
+            const double start_pos_moved = start_pos + relative_move_offset;
+            const double end_pos_moved = start_pos_moved + (new_max_time - start_pos);
+
+            start_pos = start_pos_moved;
+            end_pos = end_pos_moved;
+
+            if (shift_amount != 0.0) {
+              start_offset = calc_clip_shift(
+                  clip->is_audio(), start_offset, shift_amount, beat_duration, clip->get_asset_sample_rate(), speed);
+            }
+          } else [[likely]] {
+            const auto [new_start_pos, new_end_pos] = calc_move_clip(clip, relative_move_offset, 0.0);
+            start_pos = new_start_pos;
+            end_pos = new_end_pos;
+
+            if (shift_amount != 0.0) {
+              start_offset = calc_clip_shift(
+                  clip->is_audio(), start_offset, shift_amount, beat_duration, clip->get_asset_sample_rate(), speed);
+            }
+          }
+
+          timeline_add_clip_draw_data(
+              clip, inv_view_scale, start_pos, end_pos, start_offset, track_pos_y, height, ClipDrawCmd2::Topmost);
+        }
+
+        track_pos_y += height + track_separator_height_;
+      }
+    }
+  } else {
+    if (any_of(tl_state_.type, TimelineState::Move, TimelineState::Duplicate, TimelineState::Shift)) {
+      const double hovered_pos = timeline_get_hovered_position();
+      const double relative_offset = hovered_pos - tl_state_.initial_pos;
+      int32_t dst_track = tl_state_.move.initial_track_id;
+      int32_t src_track = tl_state_.move.initial_track_id;
+      double shift_amount = 0.0;
+
+      if (any_of(tl_state_.type, TimelineState::Move, TimelineState::Duplicate)) {
+        dst_track = hovered_track_id_.value();
+        relative_move_offset = relative_offset;
+      } else {
+        shift_amount = relative_offset;
       }
 
-      track_pos_y += height + track_separator_height_;
+      Track* track = Engine2::tracks[src_track];
+      Clip* clip = track->clips[tl_state_.move.clip_id];
+      double start_offset = clip->start_offset;
+      float track_pos_y = timeline_get_track_pos_y(dst_track) - vscroll_;
+      const auto [start_pos, end_pos] = calc_move_clip(clip, relative_move_offset, 0.0);
+
+      if (shift_amount != 0.0) {
+        start_offset = calc_clip_shift(
+            clip->is_audio(), start_offset, shift_amount, beat_duration, clip->get_asset_sample_rate(), clip->audio.speed);
+      }
+
+      timeline_add_clip_draw_data(
+          clip, inv_view_scale, start_pos, end_pos, start_offset, track_pos_y, track->get_height(), ClipDrawCmd2::Topmost);
     }
   }
 
@@ -1549,6 +1620,17 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
               continue;
             }
           }
+        }
+      } else {
+        switch (tl_state_.type) {
+          case TimelineState::Move:
+          case TimelineState::Shift:
+            if (tl_state_.move.initial_track_id == i && tl_state_.move.clip_id == j) {
+              continue;
+            }
+            break;
+          case TimelineState::Duplicate: break;
+          default: break;
         }
       }
 
@@ -1634,7 +1716,9 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
       im_draw_hline(dl, clip_label_max_bb.y - 0.5f, clip_content_min.x, clip_content_max.x, line_color_u32);
     }
 
-    switch (clip.type) {
+    ClipType type = clip.type;
+
+    switch (type) {
       case ClipType::Audio: {
         WaveformVisual* waveform = clip.audio.waveform;
 
