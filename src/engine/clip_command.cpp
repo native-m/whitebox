@@ -423,7 +423,10 @@ bool CmdDeleteClips::execute() {
   Engine2::begin_edit();
   for (int32_t i = first_track; const auto& clip_span : clip_spans) {
     Track* track = Engine2::tracks[i];
-    delete_region(clip_span, track, i, start_pos, end_pos, beat_duration);
+    if (clip_span.contains_clip) {
+      delete_region(clip_span, track, i, start_pos, end_pos, beat_duration);
+    }
+    modified_tracks.push_back(i);
     Engine2::update_track_state(track);
     i++;
   }
