@@ -14,8 +14,8 @@ enum class Hotkey : uint16_t {
   Save,
   SaveAs,
 
-  SelectAll,
   Delete,
+  SelectAll,
   Duplicate,
   Mute,
   Unmute,

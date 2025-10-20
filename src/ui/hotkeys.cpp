@@ -4,6 +4,7 @@
 #include <imgui_internal.h>
 
 #include "core/debug.h"
+#include "imgui.h"
 
 namespace wb {
 
@@ -13,18 +14,29 @@ struct alignas(8) HotkeyItem {
   uint16_t key;
 };
 
+// Must be placed the same order as Hotkey!
 static HotkeyItem hotkey_table[(uint32_t)Hotkey::Count] = {
   { Hotkey::Play, ImGuiMod_None, ImGuiKey_Space },
   { Hotkey::Undo, ImGuiMod_Ctrl, ImGuiKey_Z },
+
+#ifdef WB_PLATFORM_MACOS
+  { Hotkey::Redo, ImGuiMod_Ctrl | ImGuiMod_Shift, ImGuiKey_Z },
+#else
   { Hotkey::Redo, ImGuiMod_Ctrl, ImGuiKey_Y },
+#endif
 
   { Hotkey::New, ImGuiMod_Ctrl, ImGuiKey_N },
   { Hotkey::Open, ImGuiMod_Ctrl, ImGuiKey_O },
   { Hotkey::Save, ImGuiMod_Ctrl, ImGuiKey_S },
   { Hotkey::SaveAs, ImGuiMod_Ctrl | ImGuiMod_Shift, ImGuiKey_S },
 
-  { Hotkey::SelectAll, ImGuiMod_Ctrl, ImGuiKey_A },
+#ifdef WB_PLATFORM_MACOS
+  { Hotkey::Delete, ImGuiMod_None, ImGuiKey_Backspace },
+#else
   { Hotkey::Delete, ImGuiMod_None, ImGuiKey_Delete },
+#endif
+
+  { Hotkey::SelectAll, ImGuiMod_Ctrl, ImGuiKey_A },
   { Hotkey::Duplicate, ImGuiMod_Ctrl, ImGuiKey_D },
   { Hotkey::Mute, ImGuiMod_Ctrl, ImGuiKey_M },
   { Hotkey::Unmute, ImGuiMod_Ctrl | ImGuiMod_Alt, ImGuiKey_M },

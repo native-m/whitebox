@@ -305,7 +305,7 @@ bool ActiveAudioDeviceCoreAudio::open(::AudioDeviceID id, AudioDeviceType type) 
     uint32_t max_sr = sr_range.mMaximum;
 
     for (const auto [sr, device_sr] : compatible_sample_rates) {
-      if (math::in_range(sr, min_sr, max_sr)) {
+      if (math::in_range_inclusive(sr, min_sr, max_sr)) {
         supported_sr |= 1u << (uint32_t)device_sr;
         maximum_supported_sr = std::max(maximum_supported_sr, sr);
       }

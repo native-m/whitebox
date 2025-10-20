@@ -419,21 +419,26 @@ bool CmdDeleteClips::execute() {
   if (clip_spans.size() == 0)
     return false;
 
+  bool clip_deleted = false;
   double beat_duration = Engine2::get_beat_duration();
   Engine2::begin_edit();
   for (int32_t i = first_track; const auto& clip_span : clip_spans) {
     Track* track = Engine2::tracks[i];
+    
     if (clip_span.contains_clip) {
       delete_region(clip_span, track, i, start_pos, end_pos, beat_duration);
+      modified_tracks.push_back(i);
+      Engine2::update_track_state(track);
+      clip_deleted = true;
     }
-    modified_tracks.push_back(i);
-    Engine2::update_track_state(track);
+
     i++;
   }
+
   Engine2::end_edit();
   resolve_id_for_added_clips();
 
-  return true;
+  return clip_deleted;
 }
 
 void CmdDeleteClips::undo() {

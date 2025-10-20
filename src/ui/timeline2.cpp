@@ -1103,14 +1103,22 @@ void timeline_handle_key_event() {
     return;
   }
 
-  if (hkey_pressed(Hotkey::Delete) && tl_state_.select.is_selected) {
-    CmdDeleteClips* cmd = new CmdDeleteClips();
-    cmd->clip_spans = tl_state_.selected_track_clips;
-    cmd->first_track = tl_state_.select.first_track_id;
-    cmd->start_pos = tl_state_.select.start_pos;
-    cmd->end_pos = tl_state_.select.end_pos;
-    CommandManager2::execute_command("Delete selected region", cmd);
-    redraw_ = true;
+  if (hkey_pressed(Hotkey::Delete)) {
+    Log::debug("Delete key pressed {}", tl_state_.select.is_selected);
+  }
+
+  if (hkey_pressed(Hotkey::Delete)) {
+    timeline_query_selected_range();
+    if (tl_state_.select.is_selected) {
+      CmdDeleteClips* cmd = new CmdDeleteClips();
+      cmd->clip_spans = tl_state_.selected_track_clips;
+      cmd->first_track = tl_state_.select.first_track_id;
+      cmd->start_pos = tl_state_.select.start_pos;
+      cmd->end_pos = tl_state_.select.end_pos;
+      CommandManager2::execute_command("Delete selected region", cmd);
+      tl_state_.clear_selection();
+      redraw_ = true;
+    }
   }
 }
 
