@@ -234,6 +234,10 @@ struct Clip : public InplaceList<Clip> {
     return start_offset;
   }
 
+  inline double get_audio_speed() const {
+    return type == ClipType::Audio ? audio.speed : 1.0;
+  }
+
   inline bool is_active() const {
     return active.load(std::memory_order_relaxed);
   }

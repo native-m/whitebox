@@ -7,11 +7,109 @@
 
 namespace wb {
 
+enum class ClipResizeMode {
+  Resize,
+  Stretch,
+  Nudge,
+};
+
 static inline ClipMoveResult calc_move_clip(Clip* clip, double relative_ofs, double min_move = 0.0) {
   const double new_pos = math::max(clip->min_time + relative_ofs, min_move);
   return {
     new_pos,
     new_pos + (clip->max_time - clip->min_time),
+  };
+}
+
+static inline ClipResizeResult calc_resize_clip(
+    Clip* clip,
+    double relative_ofs,
+    double min_length,
+    double min_resize_pos,
+    double beat_duration,
+    bool left,
+    ClipResizeMode mode = ClipResizeMode::Resize) {
+  bool is_audio = clip->is_audio();
+
+  // MIDI clip cannot be streched
+  if (mode == ClipResizeMode::Stretch && !is_audio) {
+    mode = ClipResizeMode::Resize;
+  }
+
+  if (!left) {
+    const double old_end_pos = clip->max_time;
+    double actual_min_length = min_resize_pos + min_length - clip->min_time;
+    double new_end_pos = math::max(clip->max_time + relative_ofs, 0.0);
+    double length = new_end_pos - clip->min_time;
+    double speed = is_audio ? clip->audio.speed : 1.0;
+
+    if (length < actual_min_length) {
+      new_end_pos = clip->min_time + actual_min_length;
+    }
+
+    if (mode == ClipResizeMode::Stretch) {
+      AudioAsset* asset = clip->audio.asset;
+      if (asset) {
+        double sample_rate = (double)asset->sample.sample_rate;
+        double sample_count = (double)asset->sample.count;
+        double old_length = sample_count / speed;
+        double num_samples = beat_to_samples(new_end_pos - old_end_pos, sample_rate, beat_duration);
+        speed = sample_count / (old_length + num_samples);
+      }
+    }
+
+    return {
+      .min = clip->min_time,
+      .max = new_end_pos,
+      .start_offset = clip->start_offset,
+      .speed = speed,
+    };
+  }
+
+  const double old_start_pos = clip->min_time;
+  double actual_min_length = clip->max_time - min_resize_pos + min_length;
+  double new_start_pos = math::max(clip->min_time + relative_ofs, 0.0);
+  double length = clip->max_time - new_start_pos;
+  double start_offset = clip->start_offset;
+  double speed = is_audio ? clip->audio.speed : 1.0;
+
+  if (length < actual_min_length) {
+    new_start_pos = clip->max_time - actual_min_length;
+  }
+
+  if (mode == ClipResizeMode::Resize) {
+    double sample_rate = 0.0;
+
+    if (is_audio) {
+      sample_rate = clip->get_asset_sample_rate();
+      start_offset = samples_to_beat(start_offset, sample_rate, beat_duration);
+    }
+
+    start_offset += new_start_pos - old_start_pos;
+
+    if (start_offset < 0.0) {
+      new_start_pos = new_start_pos - start_offset;
+    }
+
+    if (is_audio) {
+      start_offset = beat_to_samples(start_offset, sample_rate, beat_duration);
+    }
+  } else if (mode == ClipResizeMode::Stretch) {
+    AudioAsset* asset = clip->audio.asset;
+    if (asset) {
+      double sample_rate = (double)asset->sample.sample_rate;
+      double sample_count = (double)asset->sample.count;
+      double old_length = sample_count / speed;
+      double num_samples = beat_to_samples(old_start_pos - new_start_pos, sample_rate, beat_duration);
+      speed = sample_count / (old_length + num_samples);
+    }
+  }
+
+  return {
+    .min = new_start_pos,
+    .max = clip->max_time,
+    .start_offset = start_offset,
+    .speed = speed,
   };
 }
 

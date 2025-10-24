@@ -69,11 +69,16 @@ double calc_bar_division(double length_per_beat, double max_division, double gap
 }
 
 double round_to_grid(double time_pos, double length_per_beat, int32_t grid_mode, bool triplet) {
+  double max_division = get_grid_division(length_per_beat, grid_mode, triplet);
+  return math::round(time_pos * max_division) / max_division;
+}
+
+double get_grid_division(double length_per_beat, int32_t grid_mode, bool triplet) {
   const GridProperties& grid_props = grid_div_table[grid_mode];
   double max_division = grid_props.max_division;
   if (grid_props.max_division == DBL_MAX)
     max_division = calc_bar_division(length_per_beat, max_division, grid_props.gap_scale, triplet) * 0.25;
-  return math::round(time_pos * max_division) / max_division;
+  return max_division;
 }
 
 bool grid_combo_box(const char* str, int32_t* grid_mode, bool* triplet_grid) {

@@ -415,6 +415,16 @@ void CmdMoveClips::undo() {
 
 //
 
+bool CmdResizeClips::execute() {
+  
+  return false;
+}
+
+void CmdResizeClips::undo() {
+}
+
+//
+
 bool CmdDeleteClips::execute() {
   if (clip_spans.size() == 0)
     return false;
@@ -424,7 +434,7 @@ bool CmdDeleteClips::execute() {
   Engine2::begin_edit();
   for (int32_t i = first_track; const auto& clip_span : clip_spans) {
     Track* track = Engine2::tracks[i];
-    
+
     if (clip_span.contains_clip) {
       delete_region(clip_span, track, i, start_pos, end_pos, beat_duration);
       modified_tracks.push_back(i);

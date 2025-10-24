@@ -49,6 +49,18 @@ struct CmdMoveClips final : public CmdClip {
   void undo() override;
 };
 
+struct CmdResizeClips final : public CmdClip {
+  int first_track;
+  Vector<TrackClipResizeInfo> clips;
+  double relative_ofs;
+  double min_size;
+  bool stretch;
+  bool shift;
+
+  bool execute() override;
+  void undo() override;
+};
+
 struct CmdDeleteClips final : public CmdClip {
   int32_t first_track;
   Vector<ClipSpan> clip_spans;
