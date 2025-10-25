@@ -8,6 +8,7 @@
 #include "browser.h"
 #include "context_menu.h"
 #include "controls.h"
+#include "core/common.h"
 #include "engine/clip_command.h"
 #include "engine/clip_edit.h"
 #include "engine/command_manager2.h"
@@ -22,6 +23,7 @@
 #include "hotkeys.h"
 #include "plugins.h"
 #include "timeline_controls.h"
+#include "ui/command.h"
 
 namespace wb {
 
@@ -54,11 +56,11 @@ struct TimelineResizeState {
   bool left_side;
 };
 
-struct GeneralToolParam {
+struct TimelineToolState {
   int32_t initial_track_id;
   uint32_t clip_id;
-  double min_offset_pos;
-  bool left_handle;
+  double min_relative_ofs;
+  bool left_side;
 };
 
 struct TimelineState {
@@ -89,8 +91,7 @@ struct TimelineState {
 
   union {
     TimelineDragDropFilesState drag_drop_files;
-    TimelineMoveState move;
-    TimelineResizeState resize;
+    TimelineToolState tool;
   };
 
   bool in_action() const {
@@ -110,12 +111,12 @@ struct TimelineState {
       case Select: break;
       case DragDropFiles: drag_drop_files = {}; break;
       case Duplicate:
-      case Move: move = {}; break;
+      case Move: tool = {}; break;
       case Resize:
       case Stretch:
       case Nudge:
         resize_clips.resize(0);
-        resize = {};
+        tool = {};
         break;
       default: break;
     }
@@ -1226,6 +1227,7 @@ void timeline_handle_track_event() {
         if (!math::in_range_inclusive(track_idx, first_selected_track, last_selected_track) ||
             !math::in_range(hovered_position, selection_start_pos, selection_end_pos)) {
           tl_state_.clear_selection();
+          is_selected = false;
           redraw_ = true;
         }
       }
@@ -1267,9 +1269,9 @@ void timeline_handle_track_event() {
                 }
 
                 tl_state_.initial_pos = hovered_position;
-                tl_state_.resize.initial_track_id = track_idx;
-                tl_state_.resize.clip_id = i;
-                tl_state_.resize.left_side = true;
+                tl_state_.tool.initial_track_id = track_idx;
+                tl_state_.tool.clip_id = i;
+                tl_state_.tool.left_side = true;
 
                 if (is_selected) {
                   timeline_prepare_resize(clip->min_time, true);
@@ -1288,9 +1290,9 @@ void timeline_handle_track_event() {
                 }
 
                 tl_state_.initial_pos = hovered_position;
-                tl_state_.resize.initial_track_id = track_idx;
-                tl_state_.resize.clip_id = i;
-                tl_state_.resize.left_side = false;
+                tl_state_.tool.initial_track_id = track_idx;
+                tl_state_.tool.clip_id = i;
+                tl_state_.tool.left_side = false;
 
                 if (is_selected) {
                   timeline_prepare_resize(clip->max_time, false);
@@ -1302,10 +1304,10 @@ void timeline_handle_track_event() {
               if (left_mouse_clicked_) {
                 tl_state_.type = ImGui::IsKeyDown(ImGuiMod_Shift) ? TimelineState::Duplicate : TimelineState::Move;
                 tl_state_.initial_pos = hovered_position;
-                tl_state_.move = {
+                tl_state_.tool = {
                   .initial_track_id = track_idx,
                   .clip_id = i,
-                  .min_move_pos = is_selected ? -selection_start_pos : -clip->min_time,
+                  .min_relative_ofs = is_selected ? -selection_start_pos : -clip->min_time,
                 };
               }
               ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
@@ -1316,7 +1318,7 @@ void timeline_handle_track_event() {
               if (left_mouse_clicked_) {
                 tl_state_.type = TimelineState::Shift;
                 tl_state_.initial_pos = hovered_position;
-                tl_state_.move = {
+                tl_state_.tool = {
                   .initial_track_id = track_idx,
                   .clip_id = i,
                 };
@@ -1408,11 +1410,11 @@ void timeline_handle_track_event() {
       if (!left_mouse_down_) {
         if (tl_state_.select.is_selected) {
           int32_t track_size = (int32_t)Engine2::tracks.size();
-          int32_t src_track = tl_state_.move.initial_track_id;
+          int32_t src_track = tl_state_.tool.initial_track_id;
           int32_t min_track_move = src_track - (int32_t)first_selected_track;
           int32_t max_track_move = track_size - ((int32_t)last_selected_track - src_track) - 1;
           int32_t track_relative_ofs = math::clamp(hovered_track_id_.value(), min_track_move, max_track_move) - src_track;
-          double relative_pos = math::max(hovered_position - tl_state_.initial_pos, tl_state_.move.min_move_pos);
+          double relative_pos = math::max(hovered_position - tl_state_.initial_pos, tl_state_.tool.min_relative_ofs);
           CmdMoveClips* cmd = new CmdMoveClips();
 
           cmd->clip_spans = tl_state_.selected_track_clips;
@@ -1430,16 +1432,16 @@ void timeline_handle_track_event() {
           tl_state_.select.end_pos += relative_pos;
           timeline_query_selected_range();
         } else {
-          int32_t src_track = tl_state_.move.initial_track_id;
+          int32_t src_track = tl_state_.tool.initial_track_id;
           Track* track = Engine2::tracks[src_track];
-          Clip* clip = track->clips[tl_state_.move.clip_id];
+          Clip* clip = track->clips[tl_state_.tool.clip_id];
           double relative_pos = math::max(hovered_position - tl_state_.initial_pos, -clip->min_time);
 
           Vector<ClipSpan> clip_span;
           new (clip_span.emplace_back_raw()) ClipSpan{
             .contains_clip = true,
-            .first = tl_state_.move.clip_id,
-            .last = tl_state_.move.clip_id,
+            .first = tl_state_.tool.clip_id,
+            .last = tl_state_.tool.clip_id,
             .first_offset = 0.0,
             .last_offset = 0.0,
           };
@@ -1454,8 +1456,7 @@ void timeline_handle_track_event() {
           cmd->duplicate = tl_state_.type == TimelineState::Duplicate;
           CommandManager2::execute_command("Move clips", cmd);
         }
-      }
-      if (!left_mouse_down_) {
+
         hovered_track_id_.reset();
         tl_state_.end_action();
       }
@@ -1476,13 +1477,58 @@ void timeline_handle_track_event() {
     case TimelineState::Stretch:
     case TimelineState::Nudge:
       ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+      redraw_ = true;
 
       if (!left_mouse_down_) {
+        double min_length = 1.0 / get_grid_division(inv_view_scale, grid_mode_, triplet_);
+        double relative_ofs = hovered_position - tl_state_.initial_pos;
+
+        if (relative_ofs == 0.0) {
+          hovered_track_id_.reset();
+          tl_state_.end_action();
+          break;
+        }
+
+        if (tl_state_.select.is_selected) {
+          CmdResizeClips* cmd = new CmdResizeClips();
+          cmd->first_track = tl_state_.select.first_track_id;
+          cmd->clips = std::move(tl_state_.resize_clips);
+          cmd->relative_ofs = hovered_position - tl_state_.initial_pos;
+          cmd->min_clip_length = min_length;
+          cmd->min_relative_ofs = tl_state_.tool.min_relative_ofs;
+          cmd->mode = tl_state_.get_resize_mode();
+          cmd->left_side = tl_state_.tool.left_side;
+
+          switch (cmd->mode) {
+            case ClipResizeMode::Resize: CommandManager2::execute_command("Resize clips", cmd); break;
+            case ClipResizeMode::Stretch: CommandManager2::execute_command("Stretch clips", cmd); break;
+            case ClipResizeMode::Nudge: CommandManager2::execute_command("Nudge clips", cmd); break;
+            default: WB_UNREACHABLE();
+          }
+        } else {
+          bool left_side = tl_state_.tool.left_side;
+          Track* track = Engine2::tracks[tl_state_.tool.initial_track_id];
+          Clip* clip = track->clips[tl_state_.tool.clip_id];
+          CmdResizeClips* cmd = new CmdResizeClips();
+          cmd->first_track = tl_state_.tool.initial_track_id;
+          cmd->relative_ofs = hovered_position - tl_state_.initial_pos;
+          cmd->min_clip_length = min_length;
+          cmd->min_relative_ofs = left_side ? clip->max_time : clip->min_time;
+          cmd->mode = tl_state_.get_resize_mode();
+          cmd->left_side = tl_state_.tool.left_side;
+          cmd->clips.emplace_back(true, clip->id);
+
+          switch (cmd->mode) {
+            case ClipResizeMode::Resize: CommandManager2::execute_command("Resize clips", cmd); break;
+            case ClipResizeMode::Stretch: CommandManager2::execute_command("Stretch clips", cmd); break;
+            case ClipResizeMode::Nudge: CommandManager2::execute_command("Nudge clips", cmd); break;
+            default: WB_UNREACHABLE();
+          }
+        }
+
         hovered_track_id_.reset();
         tl_state_.end_action();
       }
-
-      redraw_ = true;
       break;
     default:
       hovered_track_id_.reset();
@@ -1550,7 +1596,7 @@ void timeline_prepare_resize(double resize_pos, bool left) {
       track_id++;
     }
 
-    tl_state_.resize.min_resize_pos = max_pos;
+    tl_state_.tool.min_relative_ofs = max_pos;
   } else {
     double min_pos = 0.0;
 
@@ -1562,7 +1608,7 @@ void timeline_prepare_resize(double resize_pos, bool left) {
       track_id++;
     }
 
-    tl_state_.resize.min_resize_pos = min_pos;
+    tl_state_.tool.min_relative_ofs = min_pos;
   }
 }
 
@@ -1589,6 +1635,7 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
   waveform_cmd2.resize(0);
 
   const bool move_or_shift = any_of(tl_state_.type, TimelineState::Move, TimelineState::Shift);
+  const bool is_resizing = any_of(tl_state_.type, TimelineState::Resize, TimelineState::Stretch, TimelineState::Nudge);
   const double beat_duration = Engine2::get_beat_duration();
   const double sample_scale = view_scale_ * beat_duration;
   const ImU32 track_line_color = Color(ImGui::GetColorU32(ImGuiCol_Separator)).change_alpha(0.85f).to_uint32();
@@ -1626,12 +1673,12 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
 
       if (any_of(tl_state_.type, TimelineState::Move, TimelineState::Duplicate)) {
         int32_t track_size = (int32_t)Engine2::tracks.size();
-        int32_t src_track = tl_state_.move.initial_track_id;
+        int32_t src_track = tl_state_.tool.initial_track_id;
         int32_t min_move = src_track - first_selected_track;
         int32_t max_move = track_size - (last_selected_track - src_track) - 1;
         track_move_offset = math::clamp(hovered_track_id_.value(), min_move, max_move) - src_track;
         first_track = first_track + track_move_offset;
-        relative_move_offset = math::max(relative_offset, tl_state_.move.min_move_pos);
+        relative_move_offset = math::max(relative_offset, tl_state_.tool.min_relative_ofs);
       } else {
         shift_amount = relative_offset;
       }
@@ -1670,13 +1717,6 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
             const double end_pos_moved = start_pos_moved + length;
             const double new_start_ofs =
                 shift_clip_content(clip, -selected_region.first_offset + shift_amount, beat_duration);
-            /*const double new_start_ofs = calc_clip_shift(
-              clip->is_audio(),
-              start_offset,
-              -selected_region.first_offset + shift_amount,
-              beat_duration,
-              clip->get_asset_sample_rate(),
-              speed); */
             start_pos = start_pos_moved;
             end_pos = end_pos_moved;
             start_offset = new_start_ofs;
@@ -1686,13 +1726,6 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
             const double end_pos_moved = start_pos_moved + (end_pos - new_start_pos);
             const double new_start_ofs =
                 shift_clip_content(clip, -selected_region.first_offset + shift_amount, beat_duration);
-            /* const double new_start_ofs = calc_clip_shift(
-                clip->is_audio(),
-                start_offset,
-                -selected_region.first_offset + shift_amount,
-                beat_duration,
-                clip->get_asset_sample_rate(),
-                speed); */
             start_pos = start_pos_moved;
             end_pos = end_pos_moved;
             start_offset = new_start_ofs;
@@ -1705,8 +1738,6 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
             end_pos = end_pos_moved;
 
             if (shift_amount != 0.0) {
-              /* start_offset = calc_clip_shift(
-                  clip->is_audio(), start_offset, shift_amount, beat_duration, clip->get_asset_sample_rate(), speed); */
               start_offset = shift_clip_content(clip, shift_amount, beat_duration);
             }
           } else [[likely]] {
@@ -1716,8 +1747,6 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
 
             if (shift_amount != 0.0) {
               start_offset = shift_clip_content(clip, shift_amount, beat_duration);
-              /* start_offset = calc_clip_shift(
-                  clip->is_audio(), start_offset, shift_amount, beat_duration, clip->get_asset_sample_rate(), speed); */
             }
           }
 
@@ -1725,10 +1754,10 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
               clip, inv_view_scale, start_pos, end_pos, start_offset, speed, track_pos_y, height, ClipDrawCmd2::Topmost);
         }
       }
-    } else if (any_of(tl_state_.type, TimelineState::Resize, TimelineState::Stretch, TimelineState::Nudge)) {
+    } else if (is_resizing) {
       const double hovered_pos = timeline_get_hovered_position();
       const double relative_offset = hovered_pos - tl_state_.initial_pos;
-      const double resize_limit = tl_state_.resize.min_resize_pos;
+      const double resize_limit = tl_state_.tool.min_relative_ofs;
       const double min_length = 1.0 / get_grid_division(inv_view_scale, grid_mode_, triplet_);
       const ClipResizeMode mode = tl_state_.get_resize_mode();
 
@@ -1749,8 +1778,8 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
 
         Clip* clip = track->clips[resize_clip.clip_id];
         double start_offset = clip->start_offset;
-        const auto [new_start_pos, new_end_pos, new_start_offset, new_speed] = calc_resize_clip(
-            clip, relative_offset, min_length, resize_limit, beat_duration, tl_state_.resize.left_side, mode);
+        const auto [new_start_pos, new_end_pos, new_start_offset, new_speed] =
+            calc_resize_clip(clip, relative_offset, min_length, resize_limit, beat_duration, tl_state_.tool.left_side, mode);
         timeline_add_clip_draw_data(
             clip,
             inv_view_scale,
@@ -1770,10 +1799,10 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
     switch (tl_state_.type) {
       case TimelineState::Move:
       case TimelineState::Duplicate: {
-        int32_t src_track = tl_state_.move.initial_track_id;
+        int32_t src_track = tl_state_.tool.initial_track_id;
         int32_t dst_track = hovered_track_id_.value();
         Track* track = Engine2::tracks[src_track];
-        Clip* clip = track->clips[tl_state_.move.clip_id];
+        Clip* clip = track->clips[tl_state_.tool.clip_id];
         double start_offset = clip->start_offset;
         float track_pos_y = track_stack_[dst_track] + view_min_.y - vscroll_;
         const double speed = clip->is_audio() ? clip->audio.speed : 1.0;
@@ -1792,13 +1821,11 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
         break;
       }
       case TimelineState::Shift: {
-        Track* track = Engine2::tracks[tl_state_.move.initial_track_id];
-        Clip* clip = track->clips[tl_state_.move.clip_id];
-        float track_pos_y = track_stack_[tl_state_.move.initial_track_id] + view_min_.y - vscroll_;
+        Track* track = Engine2::tracks[tl_state_.tool.initial_track_id];
+        Clip* clip = track->clips[tl_state_.tool.clip_id];
+        float track_pos_y = track_stack_[tl_state_.tool.initial_track_id] + view_min_.y - vscroll_;
         const double speed = clip->is_audio() ? clip->audio.speed : 1.0;
         double start_offset = shift_clip_content(clip, relative_offset, beat_duration);
-        /* double start_offset = calc_clip_shift(
-            clip->is_audio(), clip->start_offset, relative_offset, beat_duration, clip->get_asset_sample_rate(), speed); */
 
         timeline_add_clip_draw_data(
             clip,
@@ -1816,10 +1843,10 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
       case TimelineState::Stretch:
       case TimelineState::Nudge: {
         const ClipResizeMode mode = tl_state_.get_resize_mode();
-        bool left_side = tl_state_.resize.left_side;
-        Track* track = Engine2::tracks[tl_state_.resize.initial_track_id];
-        Clip* clip = track->clips[tl_state_.resize.clip_id];
-        float track_pos_y = track_stack_[tl_state_.resize.initial_track_id] + view_min_.y - vscroll_;
+        bool left_side = tl_state_.tool.left_side;
+        Track* track = Engine2::tracks[tl_state_.tool.initial_track_id];
+        Clip* clip = track->clips[tl_state_.tool.clip_id];
+        float track_pos_y = track_stack_[tl_state_.tool.initial_track_id] + view_min_.y - vscroll_;
         const double min_length = 1.0 / get_grid_division(inv_view_scale, grid_mode_, triplet_);
         const auto [new_start_pos, new_end_pos, new_start_offset, new_speed] = calc_resize_clip(
             clip,
@@ -1827,9 +1854,9 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
             min_length,
             left_side ? clip->max_time : clip->min_time,
             beat_duration,
-            tl_state_.resize.left_side,
+            tl_state_.tool.left_side,
             mode);
-        
+
         timeline_add_clip_draw_data(
             clip,
             inv_view_scale,
@@ -1856,7 +1883,7 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
 
     if (is_region_selected && i >= first_selected_track && i <= last_selected_track) {
       selected_clip_span = &tl_state_.selected_track_clips[i - first_selected_track];
-      if (tl_state_.type == TimelineState::Resize) {
+      if (is_resizing) {
         resize_clip = &tl_state_.resize_clips[i - first_selected_track];
       }
     }
@@ -1887,8 +1914,6 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
             } else if (left_side_partially_selected) {
               const double shift_amount = start_pos - selection_end_pos;
               const double rhs_start_ofs = shift_clip_content(clip, shift_amount, beat_duration);
-              // const double rhs_start_ofs = calc_clip_shift(is_audio, start_offset, shift_amount, beat_duration,
-              // sample_rate);
               timeline_add_clip_draw_data(
                   clip, inv_view_scale, selection_end_pos, end_pos, rhs_start_ofs, speed, track_pos_abs_y, height, 0);
               continue;
@@ -1900,14 +1925,14 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
               continue;
             }
           }
-        } else if (tl_state_.type == TimelineState::Resize && resize_clip->clip_id == j && resize_clip->should_resize) {
+        } else if (is_resizing && resize_clip->clip_id == j && resize_clip->should_resize) {
           continue;
         }
       } else {
         switch (tl_state_.type) {
           case TimelineState::Move:
           case TimelineState::Shift:
-            if (tl_state_.move.initial_track_id == i && tl_state_.move.clip_id == j) {
+            if (tl_state_.tool.initial_track_id == i && tl_state_.tool.clip_id == j) {
               continue;
             }
             break;
@@ -1915,7 +1940,7 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
           case TimelineState::Resize:
           case TimelineState::Stretch:
           case TimelineState::Nudge:
-            if (tl_state_.resize.initial_track_id == i && tl_state_.resize.clip_id == j) {
+            if (tl_state_.tool.initial_track_id == i && tl_state_.tool.clip_id == j) {
               continue;
             }
             break;

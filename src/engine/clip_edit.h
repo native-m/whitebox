@@ -40,14 +40,29 @@ static inline ClipResizeResult calc_resize_clip(
     const double old_end_pos = clip->max_time;
     double actual_min_length = min_resize_pos + min_length - clip->min_time;
     double new_end_pos = math::max(clip->max_time + relative_ofs, 0.0);
-    double length = new_end_pos - clip->min_time;
     double speed = is_audio ? clip->audio.speed : 1.0;
+    double length = new_end_pos - clip->min_time;
+    double start_offset = clip->start_offset;
 
     if (length < actual_min_length) {
       new_end_pos = clip->min_time + actual_min_length;
     }
 
-    if (mode == ClipResizeMode::Stretch) {
+    if (mode == ClipResizeMode::Nudge) {
+      double sample_rate = 0.0;
+
+      if (is_audio) {
+        sample_rate = clip->get_asset_sample_rate();
+        start_offset = samples_to_beat(start_offset, sample_rate, beat_duration);
+      }
+
+      start_offset += old_end_pos - new_end_pos;
+      start_offset = math::max(start_offset, 0.0);
+
+      if (is_audio) {
+        start_offset = beat_to_samples(start_offset, sample_rate, beat_duration);
+      }
+    } else if (mode == ClipResizeMode::Stretch) {
       AudioAsset* asset = clip->audio.asset;
       if (asset) {
         double sample_rate = (double)asset->sample.sample_rate;
@@ -61,7 +76,7 @@ static inline ClipResizeResult calc_resize_clip(
     return {
       .min = clip->min_time,
       .max = new_end_pos,
-      .start_offset = clip->start_offset,
+      .start_offset = start_offset,
       .speed = speed,
     };
   }
@@ -90,6 +105,8 @@ static inline ClipResizeResult calc_resize_clip(
     if (start_offset < 0.0) {
       new_start_pos = new_start_pos - start_offset;
     }
+
+    start_offset = math::max(start_offset, 0.0);
 
     if (is_audio) {
       start_offset = beat_to_samples(start_offset, sample_rate, beat_duration);

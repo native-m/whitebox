@@ -5,6 +5,7 @@
 #include "clip.h"
 #include "command2.h"
 #include "core/span.h"
+#include "engine/clip_edit.h"
 #include "etypes.h"
 
 namespace wb {
@@ -20,7 +21,8 @@ struct CmdClip : public Command2 {
       uint32_t track_id,
       double start_pos,
       double end_pos,
-      double beat_duration);
+      double beat_duration,
+      Clip* excluded_clip = nullptr);
 
   void resolve_id_for_added_clips();
 
@@ -50,12 +52,13 @@ struct CmdMoveClips final : public CmdClip {
 };
 
 struct CmdResizeClips final : public CmdClip {
-  int first_track;
+  int32_t first_track;
   Vector<TrackClipResizeInfo> clips;
   double relative_ofs;
-  double min_size;
-  bool stretch;
-  bool shift;
+  double min_clip_length;
+  double min_relative_ofs;
+  ClipResizeMode mode;
+  bool left_side;
 
   bool execute() override;
   void undo() override;

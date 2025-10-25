@@ -14,9 +14,15 @@ void CmdClip::delete_region(
     uint32_t track_id,
     double start_pos,
     double end_pos,
-    double beat_duration) {
+    double beat_duration,
+    Clip* excluded_clip) {
   for (uint32_t i = clip_span.first; i <= clip_span.last; i++) {
     Clip* clip = track->clips[i];
+
+    if (clip == excluded_clip) {
+      continue;
+    }
+
     if (clip_span.left_side_partially_selected(i) && clip_span.right_side_partially_selected(i)) {
       added_clips.emplace_back(track_id, 0, clip);
       deleted_clips.emplace_back(track_id, *clip);
@@ -166,7 +172,7 @@ bool CmdMoveClips::execute() {
 
       if (right_side_partially_selected && left_side_partially_selected) {
         if (last_clip == nullptr || last_clip->id != clip->id) {
-          Clip* left_side_truncated_clip = track->allocate_clip();
+          Clip* left_side_truncated_clip = Engine2::allocate_clip();
           assert(left_side_truncated_clip);
           new (left_side_truncated_clip) Clip(*clip);
           left_side_truncated_clip->max_time = reserve_min;
@@ -177,7 +183,7 @@ bool CmdMoveClips::execute() {
         }
 
         double right_shift_ofs = clip->min_time - reserve_max;
-        Clip* right_side_truncated_clip = track->allocate_clip();
+        Clip* right_side_truncated_clip = Engine2::allocate_clip();
         assert(right_side_truncated_clip);
         new (right_side_truncated_clip) Clip(*clip);
         right_side_truncated_clip->min_time = reserve_max;
@@ -187,7 +193,7 @@ bool CmdMoveClips::execute() {
         last_partially_truncated_clip = right_side_truncated_clip;
       } else if (right_side_partially_selected) {
         if (last_clip == nullptr || last_clip->id != clip->id) {
-          Clip* left_side_truncated_clip = track->allocate_clip();
+          Clip* left_side_truncated_clip = Engine2::allocate_clip();
           assert(left_side_truncated_clip);
           new (left_side_truncated_clip) Clip(*clip);
           left_side_truncated_clip->max_time = reserve_min;
@@ -198,7 +204,7 @@ bool CmdMoveClips::execute() {
         }
       } else if (left_side_partially_selected) {
         double right_shift_ofs = clip->min_time - reserve_max;
-        Clip* right_side_truncated_clip = track->allocate_clip();
+        Clip* right_side_truncated_clip = Engine2::allocate_clip();
         assert(right_side_truncated_clip);
         new (right_side_truncated_clip) Clip(*clip);
         right_side_truncated_clip->start_offset = shift_clip_content(clip, right_shift_ofs, beat_duration);
@@ -366,7 +372,7 @@ bool CmdMoveClips::execute() {
           min_move = new_max_time;
         }
 
-        Clip* new_clip = dst_track->allocate_clip();
+        Clip* new_clip = Engine2::allocate_clip();
         assert(new_clip);
         new (new_clip) Clip(*clip);
         new_clip->min_time = new_min_time;
@@ -416,11 +422,62 @@ void CmdMoveClips::undo() {
 //
 
 bool CmdResizeClips::execute() {
-  
-  return false;
+  if (clips.size() == 0)
+    return false;
+
+  bool changed = false;
+  double beat_duration = Engine2::get_beat_duration();
+  deleted_clips.reserve(clips.size());
+  added_clips.reserve(clips.size());
+
+  Engine2::begin_edit();
+
+  for (int32_t i = first_track; const auto& clip_resize_info : clips) {
+    if (clip_resize_info.should_resize) {
+      Track* track = Engine2::tracks[i];
+      Clip* clip = track->clips[clip_resize_info.clip_id];
+      const auto [new_start_pos, new_end_pos, new_start_ofs, new_speed] =
+          calc_resize_clip(clip, relative_ofs, min_clip_length, min_relative_ofs, beat_duration, left_side, mode);
+
+      if (const auto result = track->query_clip_by_range2(new_start_pos, new_end_pos)) {
+        delete_region(result, track, i, new_start_pos, new_end_pos, beat_duration, clip);
+      }
+
+      deleted_clips.emplace_back(i, *clip);
+      added_clips.emplace_back(i, 0, clip);
+
+      if (clip->min_time != new_start_pos || clip->max_time != new_end_pos || clip->start_offset != new_start_ofs) {
+        changed = true;
+      }
+
+      clip->min_time = new_start_pos;
+      clip->max_time = new_end_pos;
+      clip->start_offset = new_start_ofs;
+
+      if (clip->is_audio()) {
+        if (clip->audio.speed != new_speed) {
+          clip->audio.speed = new_speed;
+          changed = true;
+        }
+      }
+
+      Engine2::update_track_state(track);
+      modified_tracks.push_back(i);
+    }
+
+    i++;
+  }
+
+  Engine2::end_edit();
+  resolve_id_for_added_clips();
+
+  return changed;
 }
 
 void CmdResizeClips::undo() {
+  Engine2::begin_edit();
+  CmdClip::restore_clip_backups();
+  Engine2::end_edit();
 }
 
 //
