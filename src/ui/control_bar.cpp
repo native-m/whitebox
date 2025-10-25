@@ -13,6 +13,7 @@
 #include "file_dialog.h"
 #include "font.h"
 #include "timeline2.h"
+#include "ui/hotkeys.h"
 #include "window.h"
 #include "window_manager.h"
 
@@ -217,12 +218,12 @@ void main_control_bar() {
   if (ImGui::BeginPopup("WB_MAIN_MENU_POPUP")) {
     if (ImGui::BeginMenu("File")) {
       new_project = ImGui::MenuItem("New");
-      open_project = ImGui::MenuItem("Open...", "Ctrl+O");
+      open_project = ImGui::MenuItem("Open...", WB_HKEY_STR_CTRL "O");
       ImGui::MenuItem("Open recent");
       ImGui::Separator();
-      ImGui::MenuItem("Save", "Ctrl+S");
-      save_project = ImGui::MenuItem("Save as...", "Ctrl+Shift+S");
-      if (ImGui::MenuItem("Export...", "Ctrl+R")) {
+      ImGui::MenuItem("Save", WB_HKEY_STR_CTRL "S");
+      save_project = ImGui::MenuItem("Save as...", WB_HKEY_STR_CTRL WB_HKEY_STR_SHIFT "S");
+      if (ImGui::MenuItem("Export...", WB_HKEY_STR_CTRL "R")) {
         export_audio = true;
       }
       ImGui::Separator();
