@@ -86,6 +86,12 @@ void CmdClip::restore_clip_backups() {
   modified_tracks.resize(0);
 }
 
+void CmdClip::undo() {
+  Engine2::begin_edit();
+  restore_clip_backups();
+  Engine2::end_edit();
+}
+
 //
 
 bool CmdAddClipFromFile::execute() {
@@ -129,12 +135,6 @@ bool CmdAddClipFromFile::execute() {
   resolve_id_for_added_clips();
 
   return true;
-}
-
-void CmdAddClipFromFile::undo() {
-  Engine2::begin_edit();
-  CmdClip::restore_clip_backups();
-  Engine2::end_edit();
 }
 
 //
@@ -413,12 +413,6 @@ bool CmdMoveClips::execute() {
   return true;
 }
 
-void CmdMoveClips::undo() {
-  Engine2::begin_edit();
-  CmdClip::restore_clip_backups();
-  Engine2::end_edit();
-}
-
 //
 
 bool CmdResizeClips::execute() {
@@ -474,12 +468,6 @@ bool CmdResizeClips::execute() {
   return changed;
 }
 
-void CmdResizeClips::undo() {
-  Engine2::begin_edit();
-  CmdClip::restore_clip_backups();
-  Engine2::end_edit();
-}
-
 //
 
 bool CmdDeleteClips::execute() {
@@ -508,10 +496,34 @@ bool CmdDeleteClips::execute() {
   return clip_deleted;
 }
 
-void CmdDeleteClips::undo() {
+//
+
+bool CmdDeleteClip::execute() {
+  Track* track = Engine2::tracks[track_id];
+  Clip* clip = track->clips[clip_id];
+
   Engine2::begin_edit();
-  CmdClip::restore_clip_backups();
+  deleted_clips.emplace_back(track_id, *clip);
+  track->mark_clip_deleted(clip);
+  Engine2::update_track_state(track);
   Engine2::end_edit();
+
+  return true;
+}
+
+//
+
+bool CmdRenameClip::execute() {
+  Track* track = Engine2::tracks[track_id];
+  Clip* clip = track->clips[clip_id];
+  clip->name = new_name;
+  return true;
+}
+
+void CmdRenameClip::undo() {
+  Track* track = Engine2::tracks[track_id];
+  Clip* clip = track->clips[clip_id];
+  clip->name = old_name;
 }
 
 }  // namespace wb

@@ -27,6 +27,8 @@ struct CmdClip : public Command2 {
   void resolve_id_for_added_clips();
 
   void restore_clip_backups();
+
+  void undo() override;
 };
 
 struct CmdAddClipFromFile final : public CmdClip {
@@ -35,7 +37,6 @@ struct CmdAddClipFromFile final : public CmdClip {
   std::filesystem::path file_path;
 
   bool execute() override;
-  void undo() override;
 };
 
 struct CmdMoveClips final : public CmdClip {
@@ -48,7 +49,6 @@ struct CmdMoveClips final : public CmdClip {
   bool duplicate;
 
   bool execute() override;
-  void undo() override;
 };
 
 struct CmdResizeClips final : public CmdClip {
@@ -61,7 +61,6 @@ struct CmdResizeClips final : public CmdClip {
   bool left_side;
 
   bool execute() override;
-  void undo() override;
 };
 
 struct CmdDeleteClips final : public CmdClip {
@@ -69,6 +68,22 @@ struct CmdDeleteClips final : public CmdClip {
   Vector<ClipSpan> clip_spans;
   double start_pos;
   double end_pos;
+
+  bool execute() override;
+};
+
+struct CmdDeleteClip final : public CmdClip {
+  int32_t track_id;
+  uint32_t clip_id;
+
+  bool execute() override;
+};
+
+struct CmdRenameClip final : public Command2 {
+  int32_t track_id;
+  uint32_t clip_id;
+  std::string new_name;
+  std::string old_name;
 
   bool execute() override;
   void undo() override;
