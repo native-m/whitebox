@@ -99,7 +99,7 @@ ProjectFileResult read_project_file(
         }
 
         Log::debug("({}) Loading sample: {}", i, sample_path.string());
-        AudioAsset* asset = AssetManager::create_or_get_audio_asset(sample_path.generic_string());
+        AudioAsset* asset = AssetManager::create_or_get_audio_asset(sample_path.generic_u8string());
         if (asset == nullptr)
           Log::error("Cannot open sample: {}", sample_path.filename().string());
         audio_assets.push_back(asset);

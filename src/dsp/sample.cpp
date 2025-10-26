@@ -9,6 +9,7 @@
 #include "core/core_math.h"
 #include "core/debug.h"
 #include "core/defer.h"
+#include "core/fs.h"
 #include "extern/dr_mp3.h"
 
 namespace wb {
@@ -114,8 +115,9 @@ std::optional<Sample> Sample::load_file(const std::filesystem::path& path) noexc
     return {};
 
   // Try open with SF
+  std::wstring str_path = path.generic_wstring();
   SF_INFO info;
-  SNDFILE* file = sf_open(path.generic_string().c_str(), SFM_READ, &info);
+  SNDFILE* file = sf_wchar_open(str_path.c_str(), SFM_READ, &info);
   if (!file)
     return load_compressed_file(path);
 
@@ -209,7 +211,8 @@ std::optional<Sample> Sample::load_mp3_file(const std::filesystem::path& path) n
     return {};
 
   drmp3 mp3_file;
-  if (!drmp3_init_file(&mp3_file, path.generic_string().c_str(), nullptr)) {
+  std::u8string str_path = path.generic_u8string();
+  if (!drmp3_init_file(&mp3_file, (const char*)str_path.c_str(), nullptr)) {
     return {};
   }
 
@@ -268,8 +271,9 @@ std::optional<Sample> Sample::load_ogg_vorbis_file(const std::filesystem::path& 
   if (!std::filesystem::is_regular_file(path))
     return {};
 
+  std::u8string str_path;
   OggVorbis_File vf;
-  if (ov_fopen(path.generic_string().c_str(), &vf) != 0)
+  if (ov_fopen((const char*)str_path.c_str(), &vf) != 0)
     return {};
   defer(ov_clear(&vf));
 
@@ -321,8 +325,8 @@ std::optional<Sample> Sample::load_ogg_vorbis_file(const std::filesystem::path& 
 
 std::optional<SampleInfo> Sample::get_file_info(const std::filesystem::path& path) noexcept {
   SF_INFO sf_info{};
-  std::string str_path = path.generic_string();
-  SNDFILE* file = sf_open(str_path.c_str(), SFM_READ, &sf_info);
+  std::u8string str_path = path.generic_u8string();
+  SNDFILE* file = sf_open((const char*)str_path.c_str(), SFM_READ, &sf_info);
   if (file) {
     sf_close(file);
     return SampleInfo{
@@ -332,8 +336,8 @@ std::optional<SampleInfo> Sample::get_file_info(const std::filesystem::path& pat
     };
   }
 
-  drmp3 mp3{};
-  if (drmp3_init_file(&mp3, str_path.c_str(), nullptr)) {
+  drmp3 mp3;
+  if (drmp3_init_file(&mp3, (const char*)str_path.c_str(), nullptr)) {
     defer(drmp3_uninit(&mp3));
     return SampleInfo{
       .sample_count = drmp3_get_pcm_frame_count(&mp3),
@@ -343,7 +347,7 @@ std::optional<SampleInfo> Sample::get_file_info(const std::filesystem::path& pat
   }
 
   OggVorbis_File vf;
-  if (ov_fopen(path.generic_string().c_str(), &vf) == 0) {
+  if (ov_fopen((const char*)str_path.c_str(), &vf) == 0) {
     defer(ov_clear(&vf));
     return SampleInfo{
       .sample_count = (uint64_t)ov_pcm_total(&vf, -1),

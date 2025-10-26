@@ -47,7 +47,7 @@ std::unordered_map<uint64_t, AudioAsset> AssetManager::audio_assets;
 Pool<MidiAsset2> AssetManager::midi_assets;
 InplaceList<MidiAsset2> AssetManager::midi_asset_list;
 
-AudioAsset* AssetManager::create_or_get_audio_asset(const std::string& asset_path) {
+AudioAsset* AssetManager::create_or_get_audio_asset(const std::u8string& asset_path) {
   if (asset_path.size() == 0)
     return {};
 
@@ -70,7 +70,7 @@ AudioAsset* AssetManager::create_or_get_audio_asset(const std::string& asset_pat
   return &asset.first->second;
 }
 
-MidiAsset2* AssetManager::create_midi_asset_from_file(const std::string& asset_path) {
+MidiAsset2* AssetManager::create_midi_asset_from_file(const std::u8string& asset_path) {
   MidiAsset2* asset = create_midi_asset();
   if (!asset) {
     return nullptr;

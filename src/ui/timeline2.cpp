@@ -1525,11 +1525,12 @@ void timeline_handle_track_event() {
 
       if (!left_mouse_down_) {
         if (tl_state_.select.is_selected) {
+          int32_t hovered_track = hovered_track_id_.value();
           int32_t track_size = (int32_t)Engine2::tracks.size();
           int32_t src_track = tl_state_.tool.initial_track_id;
-          int32_t min_track_move = src_track - (int32_t)first_selected_track;
-          int32_t max_track_move = track_size - ((int32_t)last_selected_track - src_track) - 1;
-          int32_t track_relative_ofs = math::clamp(hovered_track_id_.value(), min_track_move, max_track_move) - src_track;
+          int32_t min_track_move = src_track - first_selected_track;
+          int32_t max_track_move = track_size - (last_selected_track - src_track) - 1;
+          int32_t track_relative_ofs = math::clamp(hovered_track, min_track_move, max_track_move) - src_track;
           double relative_pos = math::max(hovered_position - tl_state_.initial_pos, tl_state_.tool.min_relative_ofs);
           CmdMoveClips* cmd = new CmdMoveClips();
 

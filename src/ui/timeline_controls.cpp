@@ -309,7 +309,7 @@ TimelineRulerResult timeline_ruler(
   constexpr ImU32 playhead_color = 0xE553A3F9;
   float playhead_size = size.y;
   float playhead_half_size = size.y * 0.5f;
-  float playhead_pos = (float)std::round(scroll_offset + *time_pos * inv_view_scale) - playhead_half_size;
+  float playhead_pos = (float)std::round(scroll_offset + *time_pos * inv_view_scale) - playhead_half_size + 0.5f;
   if (math::in_range(playhead_pos, cursor_pos.x - playhead_size, max_bb.x + playhead_size)) {
     dl->AddTriangleFilled(
         ImVec2(playhead_pos, cursor_pos.y + 2.5f),

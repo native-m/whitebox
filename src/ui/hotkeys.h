@@ -5,19 +5,19 @@
 #ifdef WB_PLATFORM_MACOS
 #define WB_HKEY_STR_SHIFT "\u21E7"
 #else
-#define WB_HKEY_MOD_SHIFT "Shift+"
+#define WB_HKEY_STR_SHIFT "Shift+"
 #endif
 
 #ifdef WB_PLATFORM_MACOS
 #define WB_HKEY_STR_CTRL "\u2318"
 #else
-#define WB_HKEY_MOD_CTRL "Ctrl+"
+#define WB_HKEY_STR_CTRL "Ctrl+"
 #endif
 
 #ifdef WB_PLATFORM_MACOS
 #define WB_HKEY_STR_ALT "\u2325"
 #else
-#define WB_HKEY_MOD_ALT "Alt+"
+#define WB_HKEY_STR_ALT "Alt+"
 #endif
 
 namespace wb {

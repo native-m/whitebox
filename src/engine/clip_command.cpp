@@ -101,7 +101,7 @@ bool CmdAddClipFromFile::execute() {
   double end_pos = 0.0;
   Clip* clip = nullptr;
 
-  if (auto asset = AssetManager::create_or_get_audio_asset(file_path.generic_string())) {
+  if (auto asset = AssetManager::create_or_get_audio_asset(file_path.generic_u8string())) {
     const double ppq = Engine2::get_ppq();
     const double sample_rate = asset->sample.sample_rate;
     const double clip_length = samples_to_beat(asset->sample.count, sample_rate, beat_duration);
@@ -112,7 +112,7 @@ bool CmdAddClipFromFile::execute() {
       .speed = 1.0,
       .gain = 1.0f,
     });
-  } else if (auto asset = AssetManager::create_midi_asset_from_file(file_path.generic_string())) {
+  } else if (auto asset = AssetManager::create_midi_asset_from_file(file_path.generic_u8string())) {
     end_pos = position + asset->data.max_length;
     clip = Engine2::create_clip(name, track->color, position, end_pos);
     clip->init_as_midi_clip({ .asset = asset, .length = asset->data.max_length, .rate = 1 });
