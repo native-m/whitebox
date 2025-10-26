@@ -387,13 +387,16 @@ if (vst3sdk_ADDED)
     set(VST3_PUBLICSDK_PATH "${VST3_SDK_PATH}/public.sdk")
     set(VST3_SDK_COMMON_SRC
         "${VST3_PUBLICSDK_PATH}/source/common/commoniids.cpp"
+        "${VST3_PUBLICSDK_PATH}/source/common/commonstringconvert.cpp"
+        "${VST3_PUBLICSDK_PATH}/source/common/commonstringconvert.h"
         "${VST3_PUBLICSDK_PATH}/source/common/openurl.cpp"
         "${VST3_PUBLICSDK_PATH}/source/common/openurl.h"
         "${VST3_PUBLICSDK_PATH}/source/common/readfile.cpp"
         "${VST3_PUBLICSDK_PATH}/source/common/readfile.h"
         "${VST3_PUBLICSDK_PATH}/source/common/systemclipboard.h"
         "${VST3_PUBLICSDK_PATH}/source/common/threadchecker.h"
-        "${VST3_PUBLICSDK_PATH}/source/common/threadchecker_linux.cpp")
+        "${VST3_PUBLICSDK_PATH}/source/vst/vstpresetfile.cpp"
+        "${VST3_PUBLICSDK_PATH}/source/vst/vstpresetfile.h")
     
     if (WB_PLATFORM_WINDOWS)
         set(VST3_SDK_COMMON_SRC ${VST3_SDK_COMMON_SRC}
@@ -422,7 +425,6 @@ if (vst3sdk_ADDED)
         "${VST3_PUBLICSDK_PATH}/source/vst/hosting/hostclasses.h"
         "${VST3_PUBLICSDK_PATH}/source/vst/hosting/module.cpp"
         "${VST3_PUBLICSDK_PATH}/source/vst/hosting/module.h"
-        
         "${VST3_PUBLICSDK_PATH}/source/vst/hosting/parameterchanges.cpp"
         "${VST3_PUBLICSDK_PATH}/source/vst/hosting/parameterchanges.h"
         "${VST3_PUBLICSDK_PATH}/source/vst/hosting/pluginterfacesupport.cpp"
@@ -431,6 +433,7 @@ if (vst3sdk_ADDED)
         "${VST3_PUBLICSDK_PATH}/source/vst/hosting/plugprovider.h"
         "${VST3_PUBLICSDK_PATH}/source/vst/hosting/processdata.cpp"
         "${VST3_PUBLICSDK_PATH}/source/vst/hosting/processdata.h"
+
         "${VST3_PUBLICSDK_PATH}/source/vst/utility/optional.h"
         "${VST3_PUBLICSDK_PATH}/source/vst/utility/stringconvert.cpp"
         "${VST3_PUBLICSDK_PATH}/source/vst/utility/stringconvert.h"
