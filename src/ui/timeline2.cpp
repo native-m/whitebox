@@ -1039,7 +1039,7 @@ void timeline_render_track_lanes() {
     if (max_pos_x >= view_min_.x && min_pos_x < view_max_.x && max_pos_y >= view_min_.y && min_pos_y < view_max_.y) {
       float x = math::clamp((float)math::round(min_pos_x), view_min_.x + 4.0f, view_max_.x - floating_button_size_.x - 4.0f);
       float y = math::min(max_pos_y, view_max_.y - 32.0f);
-      ImVec4 border_color = Color(ImGui::GetColorU32(ImGuiCol_Border)).brighten(0.5f).to_vec4();
+      ImVec4 border_color = Color(ImGui::GetColorU32(ImGuiCol_Border)).brighten(0.25f).to_vec4();
       ImVec2 pos((float)x, y);
 
       ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2());

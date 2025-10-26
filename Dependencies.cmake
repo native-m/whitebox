@@ -186,8 +186,9 @@ CPMAddPackage(
 
 CPMAddPackage(
     NAME                vst3sdk
-    VERSION             3.7.11
-    URL                 https://download.steinberg.net/sdk_downloads/vst-sdk_3.7.11_build-10_2024-04-22.zip
+    VERSION             3.8.0
+    GITHUB_REPOSITORY   steinbergmedia/vst3sdk
+    GIT_TAG             v3.8.0_build_66
     DOWNLOAD_ONLY       YES
 )
 
@@ -285,7 +286,7 @@ endif()
 
 if (vst3sdk_ADDED)
     # VST3 Stuff
-    set(VST3_SDK_PATH "${vst3sdk_SOURCE_DIR}/vst3sdk")
+    set(VST3_SDK_PATH "${vst3sdk_SOURCE_DIR}")
     set(VST3_BASE_PATH "${VST3_SDK_PATH}/base")
     set(VST3_BASE_SRC
         "${VST3_BASE_PATH}/source/baseiids.cpp"
