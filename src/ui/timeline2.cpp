@@ -36,6 +36,19 @@ enum class TimelineTool {
   Shift,
 };
 
+enum class TimelineLaneType {
+  Track,
+  Automation,
+};
+
+struct TimelineLane {
+  TimelineLaneType type;
+
+  union {
+    Track* track;
+  };
+};
+
 struct TimelineDragDropFilesState {
   BrowserFilePayload* payload_data;
   double position;
@@ -186,6 +199,7 @@ static ImVec2 timeline_layout_size_;
 static ImVec2 timeline_display_size_{ 16.0f, 16.0f };
 static ImVec2 track_panel_pos_;
 static ImVec2 track_lanes_pos_;
+static ImVec2 floating_button_size_;
 static int32_t grid_mode_ = 4;
 static bool scrolling_;
 static bool triplet_;
@@ -245,6 +259,7 @@ static void timeline_render_navbar();
 static void timeline_render_splitter();
 static void timeline_render_track_panel();
 static void timeline_render_track_lanes();
+static void timeline_render_floating_btns();
 static void timeline_render_context_menu();
 static void timeline_handle_mouse_event();
 static void timeline_handle_key_event();
@@ -338,22 +353,6 @@ inline static void timeline_draw_clip_label(
   dl->AddText(font_, font_size_, label_pos, text_col, str, str + str_size, 0.0f, &clip_label_rect);
 }
 
-inline static float timeline_get_track_pos_y(int32_t id) {
-  uint32_t track_count = (uint32_t)Engine2::tracks.size();
-  if (id == 0 || track_count == 0) {
-    return view_min_.y;
-  }
-  if (id >= track_count) {
-    id = track_count - 1;
-  }
-  float track_pos_y = view_min_.y;
-  for (uint32_t i = 0; i < id; i++) {
-    Track* track = Engine2::tracks[i];
-    track_pos_y += track->get_height() + track_separator_height_;
-  }
-  return track_pos_y;
-}
-
 inline static double timeline_get_minimum_move_pos() {
   double min_pos = 0.0;
   for (int32_t i = 0; const auto& clip_span : tl_state_.selected_track_clips) {
@@ -370,8 +369,9 @@ inline static double timeline_get_minimum_move_pos() {
   return -min_pos;
 }
 
-inline static double timeline_get_minimum_shift_amount() {
-  return 0;
+inline static float timeline_get_track_end_pos_y(int32_t track_id) {
+  Track* track = Engine2::tracks[track_id];
+  return track_stack_[track_id] + track->get_height() + track_separator_height_;
 }
 
 void timeline_init() {
@@ -518,7 +518,7 @@ void timeline_render_toolbar() {
     if (controls::outline_toggle_button(ICON_MS_TEXT_SELECT_END "##tl_select", move_tool, icon_color, icon_size)) {
       current_tool_ = TimelineTool::Move;
     }
-    controls::item_tooltip("Move");
+    controls::item_tooltip("Select");
 
     if (controls::outline_toggle_button(ICON_MS_INK_SELECTION "##tl_select2", select_tool, icon_color, icon_size)) {
       current_tool_ = TimelineTool::Select;
@@ -1010,6 +1010,7 @@ void timeline_render_track_lanes() {
 
   view_scale_ = timeline_get_view_scale();
   const double scroll_pos_x = timeline_get_scroll_pos_x();
+  const double inv_view_scale = 1.0 / view_scale_;
   scroll_offset_x_ = (double)view_pos_.x - scroll_pos_x;
 
   if (redraw_) {
@@ -1020,13 +1021,58 @@ void timeline_render_track_lanes() {
   dl->AddImage(fb_tex_id, view_min_, view_min_ + display_size);
 
   if (Engine2::is_playing()) {
-    const double inv_view_scale = 1.0 / view_scale_;
     const double playhead_offset = Engine2::playhead * inv_view_scale;
     const float playhead_pos = (float)math::round(scroll_offset_x_ + playhead_offset);
     im_draw_vline(dl, playhead_pos, view_min_.y, view_max_.y, playhead_color_);
   }
 
   ImGui::PopClipRect();
+
+  if (!tl_state_.in_action() && tl_state_.select.is_selected) {
+    float selection_min_y = track_stack_[tl_state_.select.first_track_id];
+    float selection_max_y = timeline_get_track_end_pos_y(tl_state_.select.last_track_id);
+    double min_pos_x = scroll_offset_x_ + tl_state_.select.start_pos * inv_view_scale;
+    double max_pos_x = scroll_offset_x_ + tl_state_.select.end_pos * inv_view_scale;
+    float min_pos_y = view_min_.y - vscroll_ + selection_min_y + 4.0f;
+    float max_pos_y = view_min_.y - vscroll_ + selection_max_y + 4.0f;
+
+    if (max_pos_x >= view_min_.x && min_pos_x < view_max_.x && max_pos_y >= view_min_.y && min_pos_y < view_max_.y) {
+      float x = math::clamp((float)math::round(min_pos_x), view_min_.x + 4.0f, view_max_.x - floating_button_size_.x - 4.0f);
+      float y = math::min(max_pos_y, view_max_.y - 32.0f);
+      ImVec4 border_color = Color(ImGui::GetColorU32(ImGuiCol_Border)).brighten(0.5f).to_vec4();
+      ImVec2 pos((float)x, y);
+
+      ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2());
+      ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2());
+      ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0f);
+      ImGui::PushStyleColor(ImGuiCol_Border, border_color);
+
+      if (controls::begin_floating_window("tl_float_btns", pos)) {
+        static constexpr ImVec2 btn_size(28.0f, 28.0f);
+        font_push(FontType::Icon, 24.0f);
+        ImGui::Button(ICON_MS_MUSIC_NOTE_ADD, btn_size);
+        controls::item_tooltip("Create MIDI clips");
+        ImGui::SameLine(0.0f, 0.0f);
+        ImGui::Button(ICON_MS_TIMELINE, btn_size);
+        controls::item_tooltip("Create automation clips");
+        ImGui::SameLine(0.0f, 0.0f);
+        ImGui::Button(ICON_MS_REMOVE_SELECTION, btn_size);
+        controls::item_tooltip("Delete region");
+        ImGui::SameLine(0.0f, 0.0f);
+        ImGui::Button(ICON_MS_SURGICAL, btn_size);
+        controls::item_tooltip("Slice region");
+        font_pop();
+        floating_button_size_ = ImGui::GetWindowSize();
+      }
+
+      ImGui::PopStyleColor();
+      ImGui::PopStyleVar(3);
+      controls::end_floating_window();
+    }
+  }
+}
+
+void timeline_render_floating_btns() {
 }
 
 void timeline_render_context_menu() {

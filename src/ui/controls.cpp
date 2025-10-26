@@ -73,7 +73,7 @@ bool begin_floating_window(const char* str_id, const ImVec2& pos) {
   static constexpr uint32_t window_flags = ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
                                            ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings |
                                            ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDocking |
-                                           ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoFocusOnAppearing;
+                                           ImGuiWindowFlags_NoFocusOnAppearing;
   ImGui::SetNextWindowPos(pos, ImGuiCond_None);
   return ImGui::Begin(str_id, nullptr, window_flags);
 }
