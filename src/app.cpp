@@ -196,7 +196,7 @@ SDL_AppResult app_iterate(void* appstate) {
       ImGui::DockBuilderDockWindow("Assets", dock_left);
 
       // Right dock (central node)
-      ImGui::DockBuilderDockWindow("Timeline", dock_right);
+      ImGui::DockBuilderDockWindow("Timeline 2", dock_right);
 
       // Bottom-right dock
       ImGui::DockBuilderDockWindow("Mixer", dock_bottom_right);

@@ -79,6 +79,10 @@ struct ClipSpan {
     return last == id && last_offset < 0.0;
   }
 
+  uint32_t num_clips() const {
+    return contains_clip ? (last - first) + 1 : 0;
+  }
+
   operator bool() const {
     return contains_clip;
   }

@@ -139,6 +139,39 @@ bool CmdAddClipFromFile::execute() {
 
 //
 
+bool CmdAddMidiClips::execute() {
+  double beat_duration = Engine2::get_beat_duration();
+
+  added_clips.reserve(last_track - first_track + 1);
+  modified_tracks.reserve(last_track - first_track + 1);
+
+  Engine2::begin_edit();
+
+  for (int32_t i = first_track; i <= last_track; i++) {
+    Track* track = Engine2::tracks[i];
+
+    if (auto clip_span = track->query_clip_by_range2(start_pos, end_pos)) {
+      deleted_clips.expand_capacity(clip_span.num_clips());
+      delete_region(clip_span, track, i, start_pos, end_pos, beat_duration);
+    }
+
+    MidiAsset2* asset = AssetManager::create_midi_asset();
+    Clip* clip = Engine2::create_clip("MIDI", track->color, start_pos, end_pos);
+    clip->init_as_midi_clip({ .asset = asset, .length = asset->data.max_length, .rate = 1 });
+    track->clips.push_back(clip);
+    added_clips.emplace_back(i, 0u, clip);
+    modified_tracks.push_back(i);
+    Engine2::update_track_state(track);
+  }
+
+  Engine2::end_edit();
+  resolve_id_for_added_clips();
+
+  return true;
+}
+
+//
+
 bool CmdMoveClips::execute() {
   if (dst_track_relative_ofs == 0.0 && relative_move_ofs == 0.0) {
     return false;
@@ -164,6 +197,9 @@ bool CmdMoveClips::execute() {
                                 const ClipSpan& query_result,
                                 Clip* last_clip = nullptr) {
     Clip* last_partially_truncated_clip = nullptr;
+
+    truncated_clips.expand_capacity(query_result.num_clips());
+    added_clips.expand_capacity(query_result.num_clips());
 
     for (uint32_t i = query_result.first; i <= query_result.last; i++) {
       Clip* clip = track->clips[i];
@@ -225,7 +261,6 @@ bool CmdMoveClips::execute() {
 
   Engine2::begin_edit();
 
-  // 1. Take out the source region and reserve the destination region
   if (track_overlapped) {
     int32_t first_track = dst_track_relative_ofs >= 0 ? src_track_id : dst_track_id;
     int32_t last_track = dst_track_relative_ofs >= 0 ? dst_track_end : src_track_end;
@@ -245,8 +280,6 @@ bool CmdMoveClips::execute() {
       std::swap(src_end_pos, dst_end_pos);
     }
 
-    // bool overlapped_pos;
-    // Overlapped tracks case
     for (int32_t i = first_track; i < last_track; i++) {
       Track* track = Engine2::tracks[i];
 
@@ -323,7 +356,6 @@ bool CmdMoveClips::execute() {
     }
   }
 
-  // 2. Relocate clips
   for (int32_t i = 0; i < num_tracks; i++) {
     const ClipSpan& clip_span = clip_spans[i];
     uint32_t num_clips = (clip_span.last - clip_span.first) + 1;
@@ -334,7 +366,6 @@ bool CmdMoveClips::execute() {
 
     if (clip_span.contains_clip) {
       double min_move = 0.0;
-      dst_track->clips.expand_capacity(num_clips);
       added_clips.expand_capacity(num_clips);
 
       for (uint32_t i = clip_span.first; i <= clip_span.last; i++) {
@@ -387,6 +418,7 @@ bool CmdMoveClips::execute() {
   if (track_overlapped) {
     int32_t begin_track = dst_track_relative_ofs >= 0 ? src_track_id : dst_track_id;
     int32_t end_track = dst_track_relative_ofs >= 0 ? dst_track_end : src_track_end;
+    modified_tracks.reserve(end_track - begin_track);
 
     for (int32_t i = begin_track; i < end_track; i++) {
       Track* track = Engine2::tracks[i];
@@ -394,6 +426,8 @@ bool CmdMoveClips::execute() {
       Engine2::update_track_state(track);
     }
   } else {
+    modified_tracks.reserve((src_track_end - src_track_id) + (dst_track_end - dst_track_id));
+
     for (uint32_t i = src_track_id; i < src_track_end; i++) {
       Track* track = Engine2::tracks[i];
       modified_tracks.push_back(i);
@@ -421,8 +455,6 @@ bool CmdResizeClips::execute() {
 
   bool changed = false;
   double beat_duration = Engine2::get_beat_duration();
-  deleted_clips.reserve(clips.size());
-  added_clips.reserve(clips.size());
 
   Engine2::begin_edit();
 
@@ -434,6 +466,7 @@ bool CmdResizeClips::execute() {
           calc_resize_clip(clip, relative_ofs, min_clip_length, min_relative_ofs, beat_duration, left_side, mode);
 
       if (const auto result = track->query_clip_by_range2(new_start_pos, new_end_pos)) {
+        deleted_clips.expand_capacity(result.num_clips());
         delete_region(result, track, i, new_start_pos, new_end_pos, beat_duration, clip);
       }
 

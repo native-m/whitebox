@@ -374,7 +374,8 @@ struct Vector {
   }
 
   inline void expand_capacity(uint32_t added_capacity) {
-    reserve_internal_(capacity_ + added_capacity);
+    added_capacity += capacity_;
+    reserve_internal_(added_capacity > 8 ? added_capacity : 8);
   }
 
   inline void clear() {

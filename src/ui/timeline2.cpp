@@ -270,7 +270,10 @@ static void timeline_draw_edit_preview();
 static void timeline_draw_clips();
 static void timeline_update_track_stack(int32_t track_index = 0, int32_t num_tracks = -1);
 static void timeline_query_selected_range();
+
+static void timeline_add_midi_clips();
 static void timeline_add_clip_from_file();
+static void timeline_delete_region();
 
 inline static double timeline_get_view_scale() {
   return view_state_.get_view_scale(song_duration_, timeline_display_size_.x);
@@ -1028,13 +1031,18 @@ void timeline_render_track_lanes() {
 
   ImGui::PopClipRect();
 
+  timeline_render_floating_btns();
+}
+
+void timeline_render_floating_btns() {
   if (!tl_state_.in_action() && tl_state_.select.is_selected) {
-    float selection_min_y = track_stack_[tl_state_.select.first_track_id];
-    float selection_max_y = timeline_get_track_end_pos_y(tl_state_.select.last_track_id);
-    double min_pos_x = scroll_offset_x_ + tl_state_.select.start_pos * inv_view_scale;
-    double max_pos_x = scroll_offset_x_ + tl_state_.select.end_pos * inv_view_scale;
-    float min_pos_y = view_min_.y - vscroll_ + selection_min_y + 4.0f;
-    float max_pos_y = view_min_.y - vscroll_ + selection_max_y + 4.0f;
+    const double inv_view_scale = 1.0 / view_scale_;
+    const float selection_min_y = track_stack_[tl_state_.select.first_track_id];
+    const float selection_max_y = timeline_get_track_end_pos_y(tl_state_.select.last_track_id);
+    const double min_pos_x = scroll_offset_x_ + tl_state_.select.start_pos * inv_view_scale;
+    const double max_pos_x = scroll_offset_x_ + tl_state_.select.end_pos * inv_view_scale;
+    const float min_pos_y = view_min_.y - vscroll_ + selection_min_y + 4.0f;
+    const float max_pos_y = view_min_.y - vscroll_ + selection_max_y + 4.0f;
 
     if (max_pos_x >= view_min_.x && min_pos_x < view_max_.x && max_pos_y >= view_min_.y && min_pos_y < view_max_.y) {
       float x = math::clamp((float)math::round(min_pos_x), view_min_.x + 4.0f, view_max_.x - floating_button_size_.x - 4.0f);
@@ -1050,17 +1058,26 @@ void timeline_render_track_lanes() {
       if (controls::begin_floating_window("tl_float_btns", pos)) {
         static constexpr ImVec2 btn_size(28.0f, 28.0f);
         font_push(FontType::Icon, 24.0f);
-        ImGui::Button(ICON_MS_MUSIC_NOTE_ADD, btn_size);
+
+        if (ImGui::Button(ICON_MS_MUSIC_NOTE_ADD, btn_size)) {
+          timeline_add_midi_clips();
+        }
         controls::item_tooltip("Create MIDI clips");
         ImGui::SameLine(0.0f, 0.0f);
-        ImGui::Button(ICON_MS_TIMELINE, btn_size);
-        controls::item_tooltip("Create automation clips");
-        ImGui::SameLine(0.0f, 0.0f);
-        ImGui::Button(ICON_MS_REMOVE_SELECTION, btn_size);
+
+        // ImGui::Button(ICON_MS_TIMELINE, btn_size);
+        // controls::item_tooltip("Create automation clips");
+        // ImGui::SameLine(0.0f, 0.0f);
+
+        if (ImGui::Button(ICON_MS_REMOVE_SELECTION, btn_size)) {
+          timeline_delete_region();
+        }
         controls::item_tooltip("Delete region");
         ImGui::SameLine(0.0f, 0.0f);
-        ImGui::Button(ICON_MS_SURGICAL, btn_size);
-        controls::item_tooltip("Slice region");
+
+        // ImGui::Button(ICON_MS_SURGICAL, btn_size);
+        // controls::item_tooltip("Slice region");
+
         font_pop();
         floating_button_size_ = ImGui::GetWindowSize();
       }
@@ -1072,20 +1089,14 @@ void timeline_render_track_lanes() {
   }
 }
 
-void timeline_render_floating_btns() {
-}
-
 void timeline_render_context_menu() {
   bool open_rename_popup = false;
   bool open_change_color_popup = false;
 
   if (ImGui::BeginPopup("clip_ctx_menu")) {
-    if (selected_clip_) {
-      Track* track = Engine2::tracks[selected_clip_->first];
-      Clip* clip = track->clips[selected_clip_->second];
-
+    if (context_menu_track_ && context_menu_clip_) {
       if (ImGui::MenuItem("Rename")) {
-        tmp_name_ = clip->name;
+        tmp_name_ = context_menu_clip_->name;
         open_rename_popup = true;
       }
 
@@ -1095,8 +1106,8 @@ void timeline_render_context_menu() {
 
       if (ImGui::MenuItem("Delete", "Del")) {
         CmdDeleteClip* cmd = new CmdDeleteClip();
-        cmd->track_id = selected_clip_->first;
-        cmd->clip_id = selected_clip_->second;
+        cmd->track_id = context_menu_track_id_;
+        cmd->clip_id = context_menu_clip_->id;
         CommandManager2::execute_command("Delete clip", cmd);
         selected_clip_.reset();
       }
@@ -1109,27 +1120,30 @@ void timeline_render_context_menu() {
 
   if (open_rename_popup)
     ImGui::OpenPopup("rename_clip");
-  if (open_change_color_popup)
+  else if (open_change_color_popup)
     ImGui::OpenPopup("clip_change_color_popup");
 
-  if (selected_clip_) {
-    Track* track = Engine2::tracks[selected_clip_->first];
-    Clip* clip = track->clips[selected_clip_->second];
-
-    if (auto ret = rename_dialog("rename_clip", tmp_name_, &clip->name)) {
+  if (context_menu_clip_) {
+    if (auto ret = rename_dialog("rename_clip", tmp_name_, &context_menu_clip_->name)) {
       switch (ret) {
         case ConfirmDialog::ValueChanged: force_redraw_ = true; break;
         case ConfirmDialog::Ok: {
           CmdRenameClip* cmd = new CmdRenameClip();
-          cmd->track_id = selected_clip_->first;
-          cmd->clip_id = selected_clip_->second;
-          cmd->new_name = clip->name;
+          cmd->track_id = context_menu_track_id_;
+          cmd->clip_id = context_menu_clip_->id;
+          cmd->new_name = context_menu_clip_->name;
           cmd->old_name = tmp_name_;
           CommandManager2::execute_command("Rename clip", cmd);
+          context_menu_track_ = nullptr;
+          context_menu_clip_ = nullptr;
           force_redraw_ = true;
           break;
         }
-        case ConfirmDialog::Cancel: force_redraw_ = true; break;
+        case ConfirmDialog::Cancel:
+          context_menu_track_ = nullptr;
+          context_menu_clip_ = nullptr;
+          force_redraw_ = true;
+          break;
         case ConfirmDialog::None: break;
         default: break;
       }
@@ -1195,7 +1209,14 @@ void timeline_handle_mouse_event() {
     ImGui::EndDragDropTarget();
   }
 
-  bool requires_drag = any_of(tl_state_.type, TimelineState::Select, TimelineState::Move, TimelineState::Duplicate);
+  bool requires_drag = any_of(
+      tl_state_.type,
+      TimelineState::Select,
+      TimelineState::Move,
+      TimelineState::Duplicate,
+      TimelineState::Resize,
+      TimelineState::Stretch,
+      TimelineState::Nudge);
 
   // Handle automatic scrolling
   if (dragging_file || requires_drag) {
@@ -1262,17 +1283,11 @@ void timeline_handle_key_event() {
   }
 
   if (hkey_pressed(Hotkey::Delete)) {
-    if (tl_state_.select.is_selected) {
-      timeline_query_selected_range();
-      CmdDeleteClips* cmd = new CmdDeleteClips();
-      cmd->clip_spans = tl_state_.selected_track_clips;
-      cmd->first_track = tl_state_.select.first_track_id;
-      cmd->start_pos = tl_state_.select.start_pos;
-      cmd->end_pos = tl_state_.select.end_pos;
-      CommandManager2::execute_command("Delete selected region", cmd);
-      tl_state_.clear_selection();
-      redraw_ = true;
-    }
+    timeline_delete_region();
+  }
+
+  if (hkey_pressed(Hotkey::TimelineAddMidiClips)) {
+    timeline_add_midi_clips();
   }
 }
 
@@ -1477,7 +1492,9 @@ void timeline_handle_track_event() {
     redraw_ = true;
   }
 
-  if (right_mouse_clicked_) {
+  if (right_mouse_clicked_ && selected_clip) {
+    context_menu_track_ = Engine2::tracks[selected_clip->first];
+    context_menu_clip_ = context_menu_track_->clips[selected_clip->second];
     ImGui::OpenPopup("clip_ctx_menu");
   }
 
@@ -1699,8 +1716,6 @@ void timeline_prepare_resize(double resize_pos, bool left) {
 
     tl_state_.resize_clips.push_back(clip_resize);
   }
-
-  // tl_state_.resize_clips = std::move(resize_clips);
 
   if (left) {
     double max_pos = DBL_MAX;
@@ -2447,6 +2462,18 @@ void timeline_add_track() {
   force_redraw_ = true;
 }
 
+void timeline_add_midi_clips() {
+  if (tl_state_.select.is_selected) {
+    CmdAddMidiClips* cmd = new CmdAddMidiClips();
+    cmd->first_track = tl_state_.select.first_track_id;
+    cmd->last_track = tl_state_.select.last_track_id;
+    cmd->start_pos = tl_state_.select.start_pos;
+    cmd->end_pos = tl_state_.select.end_pos;
+    CommandManager2::execute_command("Add MIDI clips", cmd);
+    tl_state_.clear_selection();
+  }
+}
+
 void timeline_add_clip_from_file() {
   CmdAddClipFromFile* cmd = new CmdAddClipFromFile();
   cmd->track_id = tl_state_.drag_drop_files.first_track_id;
@@ -2454,6 +2481,20 @@ void timeline_add_clip_from_file() {
   cmd->file_path = tl_state_.drag_drop_files.payload_data->path;
   CommandManager2::execute_command("Add clip", cmd);
   tl_state_.clear_selection();
+}
+
+void timeline_delete_region() {
+  if (tl_state_.select.is_selected) {
+    timeline_query_selected_range();
+    CmdDeleteClips* cmd = new CmdDeleteClips();
+    cmd->clip_spans = tl_state_.selected_track_clips;
+    cmd->first_track = tl_state_.select.first_track_id;
+    cmd->start_pos = tl_state_.select.start_pos;
+    cmd->end_pos = tl_state_.select.end_pos;
+    CommandManager2::execute_command("Delete selected region", cmd);
+    tl_state_.clear_selection();
+    force_redraw_ = redraw_ = true;
+  }
 }
 
 }  // namespace wb

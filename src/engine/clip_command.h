@@ -39,6 +39,15 @@ struct CmdAddClipFromFile final : public CmdClip {
   bool execute() override;
 };
 
+struct CmdAddMidiClips final : public CmdClip {
+  int32_t first_track;
+  int32_t last_track;
+  double start_pos;
+  double end_pos;
+
+  bool execute() override;
+};
+
 struct CmdMoveClips final : public CmdClip {
   int32_t src_track_id;
   int32_t dst_track_relative_ofs;

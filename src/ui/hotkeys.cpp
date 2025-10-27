@@ -41,6 +41,8 @@ static HotkeyItem hotkey_table[(uint32_t)Hotkey::Count] = {
   { Hotkey::Mute, ImGuiMod_Ctrl, ImGuiKey_M },
   { Hotkey::Unmute, ImGuiMod_Ctrl | ImGuiMod_Alt, ImGuiKey_M },
 
+  { Hotkey::TimelineAddMidiClips, ImGuiMod_Ctrl | ImGuiMod_Shift, ImGuiKey_M },
+
   { Hotkey::PianoRollSelectTool, ImGuiMod_None, ImGuiKey_Z },
   { Hotkey::PianoRollDrawTool, ImGuiMod_None, ImGuiKey_X },
   { Hotkey::PianoRollMarkerTool, ImGuiMod_None, ImGuiKey_C },

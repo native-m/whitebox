@@ -38,6 +38,8 @@ enum class Hotkey : uint16_t {
   Mute,
   Unmute,
 
+  TimelineAddMidiClips,
+
   PianoRollSelectTool,
   PianoRollDrawTool,
   PianoRollMarkerTool,
