@@ -139,8 +139,8 @@ struct Clip : public InplaceList<Clip> {
         break;
       case ClipType::Midi:
         if (midi.asset) {
-          audio.asset->release();
-          audio.asset = nullptr;
+          midi.asset->release();
+          midi.asset = nullptr;
         }
         break;
       default: break;

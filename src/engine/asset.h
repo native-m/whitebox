@@ -41,7 +41,7 @@ struct AudioAsset {
 struct MidiAsset2 : public InplaceList<MidiAsset2> {
   MidiData data{};
   InplaceList<Clip> clip_refs;
-  uint32_t ref_count;
+  uint32_t ref_count = 1u;
 
   void add_ref() {
     ++ref_count;
