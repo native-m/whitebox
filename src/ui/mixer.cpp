@@ -9,11 +9,36 @@
 
 namespace wb {
 
+static void render_mixer_strip_fx(Track* track, const ImVec2& size) {
+  static constexpr int max_fx = 5;
+  ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
+  ImRect bb(cursor_pos, cursor_pos + size);
+  ImGuiID id = ImGui::GetID("##strip_fx");
+
+  ImGui::ItemSize(bb);
+  if (!ImGui::ItemAdd(bb, id))
+    return;
+
+  float font_size = GImGui->FontSize;
+  float item_height = font_size + GImGui->Style.FramePadding.y * 2.0f + 1.0f;
+  ImDrawList* dl = ImGui::GetWindowDrawList();
+  ImU32 separator_color = Color(ImGui::GetStyleColorVec4(ImGuiCol_Separator)).change_alpha(0.7f).premult_alpha().to_uint32();
+  dl->PushClipRect(bb.Min, bb.Max);
+
+  float y = cursor_pos.y;
+  for (int i = 0; i < max_fx; i++) {
+    y += item_height;
+    im_draw_hline(dl, y, bb.Min.x, bb.Max.x, separator_color);
+  }
+
+  dl->PopClipRect();
+}
+
 void MixerWindow::render() {
   ImGui::SetNextWindowSize(ImVec2(500, 300), ImGuiCond_FirstUseEver);
 
   ImVec2 window_padding = GImGui->Style.WindowPadding;
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(1.0f, 1.0f));
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
 
   if (!controls::begin_window(
           "Mixer", &g_mixer_window_open, ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_HorizontalScrollbar)) {
@@ -72,6 +97,82 @@ void MixerWindow::render() {
   };
 
   // Log::info("{}", size.y);
+
+  static constexpr float strip_width = 100.0f;
+  for (int32_t id = 0; auto track : Engine2::tracks) {
+    float volume = track->ui_parameter_state.volume_db;
+    float pan = track->ui_parameter_state.pan;
+    bool mute = track->ui_parameter_state.mute;
+    ImU32 color = track->color.to_uint32();
+    ImVec2 avail = ImGui::GetContentRegionAvail();
+
+    ImGui::PushID(id);
+    ImGui::BeginGroup();
+
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2());
+    controls::strip_label(track->name.c_str(), strip_width, 1, 5, track->color);
+    controls::hseparator(strip_width, 2.0f);
+    controls::collapse_header_button("Devices", strip_width, true);
+    render_mixer_strip_fx(track, ImVec2(strip_width, 120.0f));
+    controls::hseparator(strip_width, 2.0f);
+    controls::collapse_header_button("Sends", strip_width, false);
+    ImGui::PopStyleVar();  // ImGuiStyleVar_ItemSpacing
+
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 6.0f));
+    controls::hseparator(strip_width, 2.0f);
+
+    const float mix_control_width = 48.0f;
+    const float mix_control_padding = (strip_width - mix_control_width) * 0.5;
+    ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
+    ImGui::SetCursorScreenPos(cursor_pos + ImVec2(mix_control_padding, 0.0f));
+    ImGui::BeginGroup();
+
+    pan_knob.arc_color = color;
+    if (controls::knob(pan_knob, "##pan_knob", ImVec2(mix_control_width, 35.0f), &pan, pan_range))
+      track->set_pan(pan);
+
+    const float ms_btn_width = mix_control_width * 0.5f - 1.0f;
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2.0f, 0.0f));
+    if (controls::toggle_button("M", &mute, muted_color, ImVec2(ms_btn_width, 0.0f)))
+      track->set_mute(mute);
+
+    ImGui::SameLine(0.0f, 2.0f);
+    if (ImGui::Button("S", ImVec2(ms_btn_width, 0.0f)))
+      Engine2::solo_track(id);
+    ImGui::PopStyleVar();  // ImGuiStyleVar_FramePadding
+
+    const ImVec2 region_avail = ImGui::GetContentRegionAvail();
+    mixer_slider.grab_size.y = (region_avail.y < 200.0f) ? 22.0f : 28.0f;
+    mixer_slider.pointer_color = color;
+    // mixer_slider.grab_shade_color = track->color.brighten(0.25f).change_alpha(0.7f).premult_alpha().to_uint32();
+    if (controls::param_slider_db(mixer_slider, "##mixer_vol", ImVec2(22.0f, region_avail.y - 6.0f), &volume, db_range)) {
+      track->set_volume(volume);
+    }
+
+    ImGui::PopStyleVar();  // ImGuiStyleVar_ItemSpacing
+
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+      ImGui::OpenPopup("MIXER_VOLUME_CONTEXT_MENU");
+
+    ImGui::SameLine();
+    controls::level_meter(
+        "##mixer_vu_meter", ImVec2(18.0f, region_avail.y - 6.0f), 2, track->level_meter, track->level_meter_color);
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+      ImGui::OpenPopup("LEVEL_METER_MENU");
+
+    ImGui::EndGroup();
+
+    ImGui::EndGroup();
+    ImGui::SameLine(0.0f, 0.0f);
+
+    controls::vsplitter(id, avail.y, 2.0f);
+    ImGui::SameLine(0.0f, 0.0f);
+
+    ImGui::PopID();
+    id++;
+  }
+
+  /*
   int id = 0;
   for (auto track : Engine2::tracks) {
     float volume = track->ui_parameter_state.volume_db;
@@ -146,6 +247,7 @@ void MixerWindow::render() {
     ImGui::PopID();
     id++;
   }
+  */
 
   ImGui::PopStyleVar();
   ImGui::PopStyleVar();

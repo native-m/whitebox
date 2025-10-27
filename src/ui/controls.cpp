@@ -222,6 +222,61 @@ bool image_view(const char* str_id, const ImVec2& size, ImTextureRef tex_ref) {
 //     return hsplitter(ImGui::GetID(id), size, default_size, min_size, max_size);
 // }
 
+bool collapse_header_button(const char* str, float width, bool open) {
+  float font_size = GImGui->FontSize;
+  ImVec2 padding = GImGui->Style.FramePadding;
+  ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
+  ImRect bb(cursor_pos, cursor_pos + ImVec2(width, font_size + padding.y * 2.0f));
+  ImGuiID id = ImGui::GetID("##strip_fx");
+  ImU32 text_col = ImGui::GetColorU32(ImGuiCol_Text);
+
+  ImGui::ItemSize(bb);
+  if (!ImGui::ItemAdd(bb, id))
+    return false;
+
+  bool hovered = ImGui::IsItemHovered();
+
+  ImFont* font = GImGui->Font;
+  auto dl = ImGui::GetWindowDrawList();
+  dl->AddRectFilled(bb.Min, bb.Max, hovered ? ImGui::GetColorU32(ImGuiCol_ButtonHovered) : ImGui::GetColorU32(ImGuiCol_Button));
+  ImGui::RenderArrow(dl, bb.Min + padding - ImVec2(1.0f, 0.0f), text_col, open ? ImGuiDir_Down : ImGuiDir_Right);
+  dl->AddText(
+      font, font_size, bb.Min + padding + ImVec2(font_size + 2.0f, 0.0f), text_col, str, nullptr, 0.0f, &bb.AsVec4());
+
+  return false;
+}
+
+void hseparator(float width, float thickness) {
+  ImVec2 cur_pos = ImGui::GetCursorScreenPos();
+  ImVec2 size(width, thickness);
+  ImRect bb(cur_pos, cur_pos + size);
+  
+  ImGui::ItemSize(size);
+  if (!ImGui::ItemAdd(bb, 0))
+    return;
+
+  ImDrawList* dl = ImGui::GetWindowDrawList();
+  dl->AddRectFilled(bb.Min, bb.Max, ImGui::GetColorU32(ImGuiCol_Separator));
+
+  return;
+}
+
+bool vsplitter(ImGuiID id, float height, float thickness) {
+  ImVec2 cur_pos = ImGui::GetCursorScreenPos();
+  ImVec2 size(thickness, height);
+  ImRect bb(cur_pos, cur_pos + size);
+  ImGuiID real_id = ImGui::GetID(id);
+
+  ImGui::ItemSize(size);
+  if (!ImGui::ItemAdd(bb, id))
+    return false;
+
+  ImDrawList* dl = ImGui::GetWindowDrawList();
+  dl->AddRectFilled(bb.Min, bb.Max, ImGui::GetColorU32(ImGuiCol_Separator));
+
+  return false;
+}
+
 bool hsplitter(ImGuiID id, float* size, float default_size, float min_size, float max_size, float width) {
   ImGuiWindow* window = ImGui::GetCurrentWindow();
   if (window->SkipItems)
@@ -379,6 +434,27 @@ bool param_slider_db(
     float default_value) {
   const char* format = *value > db_range.min_val ? "%.3fdb" : "-INFdb";
   return slider2(properties, str_id, size, value, db_range, default_value, format);
+}
+
+bool strip_label(const char* caption, float width, uint32_t current_indent, uint32_t max_indent, const Color& color) {
+  float font_size = GImGui->FontSize;
+  ImVec2 padding = GImGui->Style.FramePadding;
+  ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
+  ImVec2 size(width, font_size + padding.y * 2.0f);
+  ImRect bb(cursor_pos, cursor_pos + size);
+  ImGuiID id = ImGui::GetID("##strip_lbl");
+
+  ImGui::ItemSize(bb);
+  if (!ImGui::ItemAdd(bb, id))
+    return false;
+
+  ImFont* font = GImGui->Font;
+  auto header_color = color.brighten(0.25f).change_alpha(0.7f).to_uint32();
+  auto dl = ImGui::GetWindowDrawList();
+  dl->AddRectFilled(bb.Min, bb.Max, color.to_uint32());
+  dl->AddText(font, font_size, bb.Min + padding, ImGui::GetColorU32(ImGuiCol_Text), caption, nullptr, 0.0f, &bb.AsVec4());
+
+  return true;
 }
 
 bool mixer_label(const char* caption, const float height, const Color& color) {

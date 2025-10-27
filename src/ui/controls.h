@@ -500,6 +500,12 @@ bool outline_toggle_button(const char* str, bool value, const ImVec4& toggled_co
 bool outline_toggle_button(const char* str, bool* value, const ImVec4& toggled_color, const ImVec2& size = ImVec2());
 bool image_view(const char* str_id, const ImVec2& size, ImTextureRef tex_ref);
 
+bool collapse_header_button(const char* str, float width, bool open);
+
+void hseparator(float width, float thickness = 1.0f);
+
+bool vsplitter(ImGuiID id, float height, float thickness = 1.0f);
+
 bool hsplitter(
     ImGuiID id,
     float* size,
@@ -532,6 +538,8 @@ bool param_slider_db(
     float* value,
     const NonLinearRange& db_range,
     float default_value = 0.0f);
+
+bool strip_label(const char* caption, float width, uint32_t current_indent, uint32_t max_indent, const Color& color);
 
 bool mixer_label(const char* caption, const float height, const Color& color);
 
