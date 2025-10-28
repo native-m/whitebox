@@ -227,14 +227,15 @@ bool collapse_header_button(const char* str, float width, bool open) {
   ImVec2 padding = GImGui->Style.FramePadding;
   ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
   ImRect bb(cursor_pos, cursor_pos + ImVec2(width, font_size + padding.y * 2.0f));
-  ImGuiID id = ImGui::GetID("##strip_fx");
+  ImGuiID id = ImGui::GetID(str);
   ImU32 text_col = ImGui::GetColorU32(ImGuiCol_Text);
 
   ImGui::ItemSize(bb);
   if (!ImGui::ItemAdd(bb, id))
     return false;
 
-  bool hovered = ImGui::IsItemHovered();
+  bool hovered, held;
+  bool pressed = ImGui::ButtonBehavior(bb, id, &hovered, &held, ImGuiButtonFlags_MouseButtonLeft);
 
   ImFont* font = GImGui->Font;
   auto dl = ImGui::GetWindowDrawList();
@@ -243,7 +244,7 @@ bool collapse_header_button(const char* str, float width, bool open) {
   dl->AddText(
       font, font_size, bb.Min + padding + ImVec2(font_size + 2.0f, 0.0f), text_col, str, nullptr, 0.0f, &bb.AsVec4());
 
-  return false;
+  return pressed;
 }
 
 void hseparator(float width, float thickness) {

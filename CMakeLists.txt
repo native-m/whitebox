@@ -234,6 +234,7 @@ set(WB_SOURCES
     "src/ui/popup_state_manager.h"
     "src/ui/settings.cpp"
     "src/ui/settings.h"
+    "src/ui/style.h"
     "src/ui/test_controls.cpp"
     "src/ui/timeline2.cpp"
     "src/ui/timeline2.h"

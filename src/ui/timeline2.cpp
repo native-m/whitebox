@@ -23,6 +23,7 @@
 #include "grid.h"
 #include "hotkeys.h"
 #include "plugins.h"
+#include "style.h"
 #include "timeline_controls.h"
 
 namespace wb {
@@ -420,7 +421,7 @@ void render_timeline() {
   ImGui::SetNextWindowSize(ImVec2(640.0f, 480.0f), ImGuiCond_FirstUseEver);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 1.0f));
   if (!controls::begin_window("Timeline 2", &g_timeline2_window_open)) {
-    ImGui::PopStyleVar();
+    ImGui::PopStyleVar(); // ImGuiStyleVar_WindowPadding
     controls::end_window();
     return;
   }
@@ -443,7 +444,7 @@ void render_timeline() {
   holding_alt_ = ImGui::IsKeyDown(ImGuiKey_ModAlt);
   timeline_focused_ = ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows);
 
-  ImGui::PopStyleVar();
+  ImGui::PopStyleVar(); // ImGuiStyleVar_WindowPadding
 
   if (should_update_track_stack_) {
     timeline_update_track_stack();
@@ -597,27 +598,27 @@ void timeline_render_navbar() {
 
   ImGui::SameLine(0.0f, 0.0f);*/
 
-  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 2.0f));
-  ImGui::SetCursorPosX(math::max(track_panel_width_, track_panel_min_width_) + separator_size + pos_x);
-  ImGui::BeginGroup();
+  IMGUI_STYLE_BLOCK(({ ImStyleItemSpacing(0.0f, 2.0f) })) {
+    ImGui::SetCursorPosX(math::max(track_panel_width_, track_panel_min_width_) + separator_size + pos_x);
+    ImGui::BeginGroup();
 
-  if (controls::timeline_scrollbar("tl_hscroll", navbar_w, 0.1, song_duration_, &view_state_)) {
-    redraw_ = true;
-  }
-
-  double time_pos = Engine2::playhead;
-  controls::TimelineRulerResult tr_result =
-      controls::timeline_ruler("tl_ruler", grid_mode_, triplet_, timeline_w, song_duration_, &time_pos, &view_state_);
-  if (tr_result != controls::TimelineRulerResult::None) {
-    switch (tr_result) {
-      case controls::TimelineRulerResult::Zoom: redraw_ = true; break;
-      case controls::TimelineRulerResult::TimePositionChanged: Engine2::set_playhead_position(time_pos); break;
-      default: break;
+    if (controls::timeline_scrollbar("tl_hscroll", navbar_w, 0.1, song_duration_, &view_state_)) {
+      redraw_ = true;
     }
-  }
 
-  ImGui::EndGroup();
-  ImGui::PopStyleVar();
+    double time_pos = Engine2::playhead;
+    controls::TimelineRulerResult tr_result =
+        controls::timeline_ruler("tl_ruler", grid_mode_, triplet_, timeline_w, song_duration_, &time_pos, &view_state_);
+    if (tr_result != controls::TimelineRulerResult::None) {
+      switch (tr_result) {
+        case controls::TimelineRulerResult::Zoom: redraw_ = true; break;
+        case controls::TimelineRulerResult::TimePositionChanged: Engine2::set_playhead_position(time_pos); break;
+        default: break;
+      }
+    }
+
+    ImGui::EndGroup();
+  }
 
   ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
   ImDrawList* draw_list = ImGui::GetWindowDrawList();
@@ -726,158 +727,154 @@ void timeline_render_track_panel() {
       bool mute = track->ui_parameter_state.mute;
 
       ImGui::PopStyleVar();  // ImGuiStyleVar_WindowPadding
-      ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, tmp_item_spacing);
-      ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(tmp_item_spacing.x, 2.0f));
 
-      if (controls::collapse_button2("##track_collapse", &track->shown)) {
-        redraw_ = true;
-      }
-      ImGui::SameLine(0.0f, 4.0f);
+      IMGUI_STYLE_BLOCK(({ ImStyleItemSpacing(tmp_item_spacing) })) {
+        const char* begin_name_str = track->name.c_str();
+        const char* end_name_str = begin_name_str + track->name.size();
 
-      const char* begin_name_str = track->name.c_str();
-      const char* end_name_str = begin_name_str + track->name.size();
-      ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 1.0f);
-      if (!track->name.empty()) {
-        ImGui::TextUnformatted(begin_name_str, end_name_str);
-      } else {
-        ImGui::BeginDisabled();
-        ImGui::TextUnformatted("(unnamed)");
-        ImGui::EndDisabled();
-      }
+        IMGUI_STYLE_BLOCK(({ ImStyleItemSpacing(tmp_item_spacing.x, 2.0f) })) {
+          if (controls::collapse_button2("##track_collapse", &track->shown)) {
+            redraw_ = true;
+          }
+          ImGui::SameLine(0.0f, 4.0f);
 
-      ImGui::PopStyleVar();  // ImGuiStyleVar_ItemSpacing
+          ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 1.0f);
+          if (!track->name.empty()) {
+            ImGui::TextUnformatted(begin_name_str, end_name_str);
+          } else {
+            ImGui::BeginDisabled();
+            ImGui::TextUnformatted("(unnamed)");
+            ImGui::EndDisabled();
+          }
+        }
 
-      if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
-        ImGui::SetDragDropPayload("WB_MOVE_TRACK", &i, sizeof(uint32_t), ImGuiCond_Once);
-        ImGui::Text("Move track: %s", begin_name_str);
-        ImGui::EndDragDropSource();
-      }
+        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
+          ImGui::SetDragDropPayload("WB_MOVE_TRACK", &i, sizeof(uint32_t), ImGuiCond_Once);
+          ImGui::Text("Move track: %s", begin_name_str);
+          ImGui::EndDragDropSource();
+        }
 
-      ImVec2 free_region = ImGui::GetContentRegionAvail();
-      float item_height = controls::get_item_height();
+        ImVec2 free_region = ImGui::GetContentRegionAvail();
+        float item_height = controls::get_item_height();
 
-      if (free_region.y < item_height * 1.5f) [[likely]] {
-        if (free_region.y < (item_height - style.ItemSpacing.y)) {
-          // Very compact
-          if (free_region.y >= item_height * 0.5f) {
-            if (controls::small_toggle_button("M", &mute, muted_color))
+        if (free_region.y < item_height * 1.5f) [[likely]] {
+          if (free_region.y < (item_height - style.ItemSpacing.y)) {
+            // Very compact
+            if (free_region.y >= item_height * 0.5f) {
+              if (controls::small_toggle_button("M", &mute, muted_color))
+                track->set_mute(!mute);
+              ImGui::SameLine(0.0f, 2.0f);
+              if (ImGui::SmallButton("S"))
+                Engine2::solo_track(i);
+
+              ImGui::SameLine(0.0f, 2.0f);
+              ImGui::BeginDisabled(is_recording);
+              if (controls::small_toggle_button("R", &track->input_attr.armed, muted_color))
+                Engine2::set_track_recording_state(i, !track->input_attr.armed);
+              if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+                ImGui::OpenPopup("track_input_context_menu");
+              ImGui::EndDisabled();
+            }
+          } else [[likely]] {
+            // Compact
+            if (controls::toggle_button("M", &mute, muted_color))
               track->set_mute(!mute);
+
             ImGui::SameLine(0.0f, 2.0f);
-            if (ImGui::SmallButton("S"))
+            if (ImGui::Button("S"))
               Engine2::solo_track(i);
 
             ImGui::SameLine(0.0f, 2.0f);
             ImGui::BeginDisabled(is_recording);
-            if (controls::small_toggle_button("R", &track->input_attr.armed, muted_color))
+            if (controls::toggle_button("R", &track->input_attr.armed, muted_color))
               Engine2::set_track_recording_state(i, !track->input_attr.armed);
             if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
               ImGui::OpenPopup("track_input_context_menu");
             ImGui::EndDisabled();
+
+            ImGui::SameLine(0.0f, 2.0f);
+            ImVec2 pos = ImGui::GetCursorPos();
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            if (controls::param_drag_db("##track_vol", &volume))
+              track->set_volume(volume);
           }
-        } else [[likely]] {
-          // Compact
-          if (controls::toggle_button("M", &mute, muted_color))
+        } else {
+          // Large
+          if (controls::param_drag_db("Vol.", &volume))
+            track->set_volume(volume);
+
+          if (free_region.y >= item_height * 2.5f) {
+            float pan = track->ui_parameter_state.pan;
+            if (controls::param_drag_panning("Pan", &pan)) {
+              track->set_pan(pan);
+            }
+          }
+
+          if (free_region.y >= item_height * 3.5f) {
+            IMGUI_STYLE_BLOCK(({ ImStyleWindowPadding(8.0f, 3.0f) })) {
+              const char* input_name = "None";
+              switch (track->input.type) {
+                case TrackInputType::ExternalStereo: {
+                  uint32_t index_mul = track->input.index * 2;
+                  ImFormatStringToTempBuffer(&input_name, nullptr, "%d+%d", index_mul + 1, index_mul + 2);
+                  break;
+                }
+                case TrackInputType::ExternalMono: {
+                  ImFormatStringToTempBuffer(&input_name, nullptr, "%d", track->input.index + 1);
+                  break;
+                }
+                default: break;
+              }
+
+              ImGui::BeginDisabled(is_recording);
+              if (ImGui::BeginCombo("Input", input_name)) {
+                track_input_context_menu(track, i);
+                ImGui::EndCombo();
+              }
+              ImGui::EndDisabled();
+            }
+          }
+
+          if (controls::small_toggle_button("M", &mute, muted_color))
             track->set_mute(!mute);
-
           ImGui::SameLine(0.0f, 2.0f);
-          if (ImGui::Button("S"))
+          if (ImGui::SmallButton("S"))
             Engine2::solo_track(i);
-
           ImGui::SameLine(0.0f, 2.0f);
+
           ImGui::BeginDisabled(is_recording);
-          if (controls::toggle_button("R", &track->input_attr.armed, muted_color))
+          if (controls::small_toggle_button("R", &track->input_attr.armed, muted_color))
             Engine2::set_track_recording_state(i, !track->input_attr.armed);
           if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
             ImGui::OpenPopup("track_input_context_menu");
           ImGui::EndDisabled();
 
+          font_push(FontType::Icon, 13.0f);
           ImGui::SameLine(0.0f, 2.0f);
-          ImVec2 pos = ImGui::GetCursorPos();
-          ImGui::SetNextItemWidth(-FLT_MIN);
-          if (controls::param_drag_db("##track_vol", &volume))
-            track->set_volume(volume);
-        }
-      } else {
-        // Large
-        if (controls::param_drag_db("Vol.", &volume))
-          track->set_volume(volume);
-
-        if (free_region.y >= item_height * 2.5f) {
-          float pan = track->ui_parameter_state.pan;
-          if (controls::param_drag_panning("Pan", &pan)) {
-            track->set_pan(pan);
-          }
+          if (ImGui::SmallButton(ICON_MS_POWER))
+            ImGui::OpenPopup("track_plugin_context_menu");
+          font_pop();
         }
 
-        if (free_region.y >= item_height * 3.5f) {
-          constexpr ImGuiSelectableFlags selected_flags = ImGuiSelectableFlags_Highlight;
-          ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 3.0f));
-
-          const char* input_name = "None";
-          switch (track->input.type) {
-            case TrackInputType::ExternalStereo: {
-              uint32_t index_mul = track->input.index * 2;
-              ImFormatStringToTempBuffer(&input_name, nullptr, "%d+%d", index_mul + 1, index_mul + 2);
-              break;
-            }
-            case TrackInputType::ExternalMono: {
-              ImFormatStringToTempBuffer(&input_name, nullptr, "%d", track->input.index + 1);
-              break;
-            }
-            default: break;
-          }
-
-          ImGui::BeginDisabled(is_recording);
-          if (ImGui::BeginCombo("Input", input_name)) {
-            track_input_context_menu(track, i);
-            ImGui::EndCombo();
-          }
-          ImGui::EndDisabled();
-
-          ImGui::PopStyleVar();  // ImGuiStyleVar_WindowPadding
+        if (ImGui::BeginPopup("track_input_context_menu")) {
+          track_input_context_menu(track, i);
+          ImGui::EndPopup();
         }
 
-        if (controls::small_toggle_button("M", &mute, muted_color))
-          track->set_mute(!mute);
-        ImGui::SameLine(0.0f, 2.0f);
-        if (ImGui::SmallButton("S"))
-          Engine2::solo_track(i);
-        ImGui::SameLine(0.0f, 2.0f);
+        if (ImGui::BeginPopup("track_plugin_context_menu")) {
+          track_plugin_context_menu(track);
+          ImGui::EndPopup();
+        }
 
-        ImGui::BeginDisabled(is_recording);
-        if (controls::small_toggle_button("R", &track->input_attr.armed, muted_color))
-          Engine2::set_track_recording_state(i, !track->input_attr.armed);
-        if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
-          ImGui::OpenPopup("track_input_context_menu");
-        ImGui::EndDisabled();
-
-        font_push(FontType::Icon, 13.0f);
-        ImGui::SameLine(0.0f, 2.0f);
-        if (ImGui::SmallButton(ICON_MS_POWER))
-          ImGui::OpenPopup("track_plugin_context_menu");
-        font_pop();
+        if (ImGui::IsWindowHovered() && !(ImGui::IsAnyItemActive() || ImGui::IsAnyItemHovered()) &&
+            ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+          context_menu_track_ = track;
+          context_menu_track_id_ = i;
+          tmp_color_ = track->color;
+          tmp_name_ = track->name;
+          open_track_context_menu = true;
+        }
       }
-
-      if (ImGui::BeginPopup("track_input_context_menu")) {
-        track_input_context_menu(track, i);
-        ImGui::EndPopup();
-      }
-
-      if (ImGui::BeginPopup("track_plugin_context_menu")) {
-        track_plugin_context_menu(track);
-        ImGui::EndPopup();
-      }
-
-      if (ImGui::IsWindowHovered() && !(ImGui::IsAnyItemActive() || ImGui::IsAnyItemHovered()) &&
-          ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
-        context_menu_track_ = track;
-        context_menu_track_id_ = i;
-        tmp_color_ = track->color;
-        tmp_name_ = track->name;
-        open_track_context_menu = true;
-      }
-
-      ImGui::PopStyleVar();  // ImGuiStyleVar_ItemSpacing
     } else {
       ImGui::PopStyleVar();  // ImGuiStyleVar_WindowPadding
     }
@@ -1050,40 +1047,43 @@ void timeline_render_floating_btns() {
       ImVec4 border_color = Color(ImGui::GetColorU32(ImGuiCol_Border)).brighten(0.25f).to_vec4();
       ImVec2 pos((float)x, y);
 
-      ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2());
-      ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2());
-      ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0f);
-      ImGui::PushStyleColor(ImGuiCol_Border, border_color);
+      IMGUI_STYLE_BLOCK(({
+        ImStyleWindowPadding(0.0f, 0.0f),
+        ImStyleFramePadding(0.0f, 0.0f),
+        ImStyleFrameRounding(0.0f),
+      })) {
+        ImGui::PushStyleColor(ImGuiCol_Border, border_color);
 
-      if (controls::begin_floating_window("tl_float_btns", pos)) {
-        static constexpr ImVec2 btn_size(28.0f, 28.0f);
-        font_push(FontType::Icon, 24.0f);
+        if (controls::begin_floating_window("tl_float_btns", pos)) {
+          static constexpr ImVec2 btn_size(28.0f, 28.0f);
+          font_push(FontType::Icon, 24.0f);
 
-        if (ImGui::Button(ICON_MS_MUSIC_NOTE_ADD, btn_size)) {
-          timeline_add_midi_clips();
+          if (ImGui::Button(ICON_MS_MUSIC_NOTE_ADD, btn_size)) {
+            timeline_add_midi_clips();
+          }
+          controls::item_tooltip("Create MIDI clips");
+          ImGui::SameLine(0.0f, 0.0f);
+
+          // ImGui::Button(ICON_MS_TIMELINE, btn_size);
+          // controls::item_tooltip("Create automation clips");
+          // ImGui::SameLine(0.0f, 0.0f);
+
+          if (ImGui::Button(ICON_MS_REMOVE_SELECTION, btn_size)) {
+            timeline_delete_region();
+          }
+          controls::item_tooltip("Delete region");
+          ImGui::SameLine(0.0f, 0.0f);
+
+          // ImGui::Button(ICON_MS_SURGICAL, btn_size);
+          // controls::item_tooltip("Slice region");
+
+          font_pop();
+          floating_button_size_ = ImGui::GetWindowSize();
         }
-        controls::item_tooltip("Create MIDI clips");
-        ImGui::SameLine(0.0f, 0.0f);
 
-        // ImGui::Button(ICON_MS_TIMELINE, btn_size);
-        // controls::item_tooltip("Create automation clips");
-        // ImGui::SameLine(0.0f, 0.0f);
-
-        if (ImGui::Button(ICON_MS_REMOVE_SELECTION, btn_size)) {
-          timeline_delete_region();
-        }
-        controls::item_tooltip("Delete region");
-        ImGui::SameLine(0.0f, 0.0f);
-
-        // ImGui::Button(ICON_MS_SURGICAL, btn_size);
-        // controls::item_tooltip("Slice region");
-
-        font_pop();
-        floating_button_size_ = ImGui::GetWindowSize();
+        ImGui::PopStyleColor();
       }
 
-      ImGui::PopStyleColor();
-      ImGui::PopStyleVar(3);
       controls::end_floating_window();
     }
   }

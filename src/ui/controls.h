@@ -66,6 +66,13 @@ static float get_item_height() {
   return GImGui->FontSize + GImGui->Style.FramePadding.y * 2.0f + GImGui->Style.ItemSpacing.y;
 }
 
+static bool empty_region(const ImVec2& size) {
+  ImVec2 cursor_pos = ImGui::GetCursorPos();
+  ImGui::Dummy(size);
+  ImGui::SetCursorPos(cursor_pos);
+  return ImGui::IsItemVisible();
+}
+
 template<typename T, typename Fn, typename ActionFn>
   requires ControlFn<T, Fn> && ControlActionFn<T, ActionFn>
 static bool with_command(T* value, Fn&& control_fn, ActionFn&& action_fn) {

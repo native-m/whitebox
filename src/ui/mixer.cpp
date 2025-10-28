@@ -1,9 +1,11 @@
 #include "mixer.h"
 
+#include "context_menu.h"
 #include "controls.h"
 #include "core/debug.h"
 #include "engine/engine2.h"
 #include "engine/track.h"
+#include "style.h"
 #include "timeline2.h"
 #include "window.h"
 
@@ -32,6 +34,34 @@ static void render_mixer_strip_fx(Track* track, const ImVec2& size) {
   }
 
   dl->PopClipRect();
+}
+
+static void strip_input_combo(const char* str, Track* track, uint32_t slot) {
+  constexpr ImGuiSelectableFlags selected_flags = ImGuiSelectableFlags_Highlight;
+  //ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 3.0f));
+
+  ImGui::PushStyleVarX(ImGuiStyleVar_ItemSpacing, 8.0f);
+
+  const char* input_name = "None";
+  switch (track->input.type) {
+    case TrackInputType::ExternalStereo: {
+      uint32_t index_mul = track->input.index * 2;
+      ImFormatStringToTempBuffer(&input_name, nullptr, "%d+%d", index_mul + 1, index_mul + 2);
+      break;
+    }
+    case TrackInputType::ExternalMono: {
+      ImFormatStringToTempBuffer(&input_name, nullptr, "%d", track->input.index + 1);
+      break;
+    }
+    default: break;
+  }
+
+  if (ImGui::BeginCombo(str, input_name)) {
+    track_input_context_menu(track, slot);
+    ImGui::EndCombo();
+  }
+
+  ImGui::PopStyleVar();
 }
 
 void MixerWindow::render() {
@@ -68,6 +98,7 @@ void MixerWindow::render() {
     ImGui::EndMenuBar();
   }
 
+  bool is_recording = Engine2::is_recording();
   ImVec2 size = ImGui::GetContentRegionAvail();
   const NonLinearRange db_range(-72.0f, 6.0f, -2.4f);
   const LinearRange pan_range{ -1.0f, 1.0f };
@@ -105,63 +136,91 @@ void MixerWindow::render() {
     bool mute = track->ui_parameter_state.mute;
     ImU32 color = track->color.to_uint32();
     ImVec2 avail = ImGui::GetContentRegionAvail();
+    ImVec2 cursor_pos = ImGui::GetCursorPos();
 
     ImGui::PushID(id);
+
     ImGui::BeginGroup();
+    if (controls::empty_region(ImVec2(strip_width, avail.y))) {
+      IMGUI_STYLE_BLOCK(({ ImStyleItemSpacing(0.0f, 0.0f) })) {
+        controls::strip_label(track->name.c_str(), strip_width, 1, 5, track->color);
 
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2());
-    controls::strip_label(track->name.c_str(), strip_width, 1, 5, track->color);
-    controls::hseparator(strip_width, 2.0f);
-    controls::collapse_header_button("Devices", strip_width, true);
-    render_mixer_strip_fx(track, ImVec2(strip_width, 120.0f));
-    controls::hseparator(strip_width, 2.0f);
-    controls::collapse_header_button("Sends", strip_width, false);
-    ImGui::PopStyleVar();  // ImGuiStyleVar_ItemSpacing
+        controls::hseparator(strip_width, 2.0f);
+        if (controls::collapse_header_button("Devices", strip_width, show_devices)) {
+          show_devices = !show_devices;
+        }
 
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 6.0f));
-    controls::hseparator(strip_width, 2.0f);
+        if (show_devices) {
+          render_mixer_strip_fx(track, ImVec2(strip_width, 80.0f));
+        }
 
-    const float mix_control_width = 48.0f;
-    const float mix_control_padding = (strip_width - mix_control_width) * 0.5;
-    ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
-    ImGui::SetCursorScreenPos(cursor_pos + ImVec2(mix_control_padding, 0.0f));
-    ImGui::BeginGroup();
+        controls::hseparator(strip_width, 2.0f);
+        if (controls::collapse_header_button("Sends", strip_width, show_sends)) {
+          show_sends = !show_sends;
+        }
 
-    pan_knob.arc_color = color;
-    if (controls::knob(pan_knob, "##pan_knob", ImVec2(mix_control_width, 35.0f), &pan, pan_range))
-      track->set_pan(pan);
+        IMGUI_STYLE_BLOCK(({ ImStyleItemSpacing(0.0f, 4.0f) })) {
+          controls::hseparator(strip_width, 2.0f);
 
-    const float ms_btn_width = mix_control_width * 0.5f - 1.0f;
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2.0f, 0.0f));
-    if (controls::toggle_button("M", &mute, muted_color, ImVec2(ms_btn_width, 0.0f)))
-      track->set_mute(mute);
+          cursor_pos = ImGui::GetCursorScreenPos();
+          ImGui::SetCursorScreenPos(cursor_pos + ImVec2(4.0f, 0.0f));
+          ImGui::BeginGroup();
+          {
+            ImGui::PushItemWidth(strip_width - 8.0f);
+            ImGui::Text("Input: ");
+            ImGui::BeginDisabled(is_recording);
+            strip_input_combo("##strip_in", track, id);
+            ImGui::EndDisabled();
+            ImGui::PopItemWidth();
+          }
+          ImGui::EndGroup();
+        }
+      }
 
-    ImGui::SameLine(0.0f, 2.0f);
-    if (ImGui::Button("S", ImVec2(ms_btn_width, 0.0f)))
-      Engine2::solo_track(id);
-    ImGui::PopStyleVar();  // ImGuiStyleVar_FramePadding
+      IMGUI_STYLE_BLOCK(({ ImStyleItemSpacing(8.0f, 6.0f) })) {
+        controls::hseparator(strip_width, 2.0f);
 
-    const ImVec2 region_avail = ImGui::GetContentRegionAvail();
-    mixer_slider.grab_size.y = (region_avail.y < 200.0f) ? 22.0f : 28.0f;
-    mixer_slider.pointer_color = color;
-    // mixer_slider.grab_shade_color = track->color.brighten(0.25f).change_alpha(0.7f).premult_alpha().to_uint32();
-    if (controls::param_slider_db(mixer_slider, "##mixer_vol", ImVec2(22.0f, region_avail.y - 6.0f), &volume, db_range)) {
-      track->set_volume(volume);
+        const float mix_control_width = 48.0f;
+        const float mix_control_padding = (strip_width - mix_control_width) * 0.5;
+        cursor_pos = ImGui::GetCursorScreenPos();
+        ImGui::SetCursorScreenPos(cursor_pos + ImVec2(mix_control_padding, 0.0f));
+        ImGui::BeginGroup();
+        {
+          pan_knob.arc_color = color;
+          if (controls::knob(pan_knob, "##pan_knob", ImVec2(mix_control_width, 35.0f), &pan, pan_range))
+            track->set_pan(pan);
+
+          IMGUI_STYLE_BLOCK(({ ImStyleFramePadding(2.0f, 0.0f) })) {
+            const float ms_btn_width = mix_control_width * 0.5f - 1.0f;
+            if (controls::toggle_button("M", &mute, muted_color, ImVec2(ms_btn_width, 0.0f)))
+              track->set_mute(mute);
+
+            ImGui::SameLine(0.0f, 2.0f);
+            if (ImGui::Button("S", ImVec2(ms_btn_width, 0.0f)))
+              Engine2::solo_track(id);
+          }
+
+          const ImVec2 region_avail = ImGui::GetContentRegionAvail();
+          mixer_slider.grab_size.y = (region_avail.y < 200.0f) ? 22.0f : 28.0f;
+          mixer_slider.pointer_color = color;
+          // mixer_slider.grab_shade_color = track->color.brighten(0.25f).change_alpha(0.7f).premult_alpha().to_uint32();
+          if (controls::param_slider_db(
+                  mixer_slider, "##mixer_vol", ImVec2(22.0f, region_avail.y - 6.0f), &volume, db_range)) {
+            track->set_volume(volume);
+          }
+
+          if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+            ImGui::OpenPopup("MIXER_VOLUME_CONTEXT_MENU");
+
+          ImGui::SameLine();
+          controls::level_meter(
+              "##mixer_vu_meter", ImVec2(18.0f, region_avail.y - 6.0f), 2, track->level_meter, track->level_meter_color);
+          if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+            ImGui::OpenPopup("LEVEL_METER_MENU");
+        }
+        ImGui::EndGroup();
+      }
     }
-
-    ImGui::PopStyleVar();  // ImGuiStyleVar_ItemSpacing
-
-    if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
-      ImGui::OpenPopup("MIXER_VOLUME_CONTEXT_MENU");
-
-    ImGui::SameLine();
-    controls::level_meter(
-        "##mixer_vu_meter", ImVec2(18.0f, region_avail.y - 6.0f), 2, track->level_meter, track->level_meter_color);
-    if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
-      ImGui::OpenPopup("LEVEL_METER_MENU");
-
-    ImGui::EndGroup();
-
     ImGui::EndGroup();
     ImGui::SameLine(0.0f, 0.0f);
 

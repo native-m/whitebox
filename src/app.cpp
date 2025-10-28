@@ -197,9 +197,9 @@ SDL_AppResult app_iterate(void* appstate) {
 
       // Right dock (central node)
       ImGui::DockBuilderDockWindow("Timeline 2", dock_right);
+      ImGui::DockBuilderDockWindow("Mixer", dock_right);
 
       // Bottom-right dock
-      ImGui::DockBuilderDockWindow("Mixer", dock_bottom_right);
       ImGui::DockBuilderDockWindow("Clip Editor", dock_bottom_right);
       ImGui::DockBuilderDockWindow("Env Editor", dock_bottom_right);
       ImGui::DockBuilderDockWindow("Test Controls", dock_bottom_right);
