@@ -304,10 +304,10 @@ inline static bool timeline_add_clip_draw_data(
     float track_pos_y,
     float height,
     uint32_t draw_flags) {
-  const double start_pos_x = math::round(scroll_offset_x_ + start_pos * clip_scale);
-  const double end_pos_x = math::round(scroll_offset_x_ + end_pos * clip_scale);
-  const float x0 = (float)start_pos_x;
-  const float x1 = (float)end_pos_x;
+  const double start_pos_x = scroll_offset_x_ + start_pos * clip_scale;
+  const double end_pos_x = scroll_offset_x_ + end_pos * clip_scale;
+  const float x0 = (float)math::round(start_pos_x);
+  const float x1 = (float)math::round(end_pos_x);
 
   if (x0 >= view_max_.x)
     return false;
@@ -2153,11 +2153,11 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
   }
 
   for (const auto& clip : clip_draw_buffer) {
-    const float x0 = (float)clip.start_pos_x;
-    const float x1 = (float)clip.end_pos_x;
+    const double x0 = clip.start_pos_x;
+    const double x1 = clip.end_pos_x;
     const float height = clip.height;
-    const float x0_clipped = math::max(x0, view_min_.x - 3.0f);
-    const float x1_clipped = math::min(x1 - 0.5f, view_max_.x + 3.0f);
+    const float x0_clipped = math::max((float)x0, view_min_.x - 3.0f);
+    const float x1_clipped = math::min((float)x1 - 0.5f, view_max_.x + 3.0f);
     const float clip_label_max_y = clip.pos_y + font_size_ + 5.0f;
 
     const ImVec2 clip_label_min_bb(x0_clipped, clip.pos_y);
