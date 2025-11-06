@@ -36,11 +36,25 @@ template<typename... Args>
 struct __ImGuiStyleVarWrapper {
   static constexpr int num_args = sizeof...(Args);
   __ImGuiStyleVarWrapper(Args&&... args) {
-    (ImGui::PushStyleVar(std::decay_t<decltype(args)>::var, args.value), ...);
+    (push_style_var(std::decay_t<decltype(args)>::var, args.value), ...);
   }
 
   ~__ImGuiStyleVarWrapper() {
     ImGui::PopStyleVar(num_args);
+  }
+
+  static void push_style_var(ImGuiStyleVar var, const ImVec2& v) {
+    if (v.y == -1.0f) {
+      ImGui::PushStyleVarX(var, v.x);
+    } else if (v.x == -1.0f) {
+      ImGui::PushStyleVarY(var, v.y);
+    } else [[likely]] {
+      ImGui::PushStyleVar(var, v);
+    }
+  }
+
+  static void push_style_var(ImGuiStyleVar var, float v) {
+    ImGui::PushStyleVar(var, v);
   }
 };
 

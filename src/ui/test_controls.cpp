@@ -31,7 +31,7 @@ void render_test_controls() {
 
   ImGui::SeparatorText("Slider");
   static float slider_value = 0.0f;
-  controls::slider2<float>(
+  controls::slider<float>(
       SliderProperties{
         .grab_color = 0xFF404040,
         .pointer_color = 0xFFED961C,
@@ -48,7 +48,7 @@ void render_test_controls() {
 
   ImGui::SameLine();
 
-  controls::slider2<float>(
+  controls::slider<float>(
       SliderProperties{
         .grab_color = 0xFF404040,
         .pointer_color = 0xFFED961C,

@@ -50,16 +50,6 @@ struct KnobProperties {
   bool bipolar = false;
 };
 
-struct ButtonProperties {
-  ImVec2 size;
-  ImU32 main_color;
-  ImU32 hovered_color;
-  ImU32 pressed_color;
-  ImU32 active_color;
-  ImU32 text_active_color;
-  float roundness = 0.0f;
-};
-
 struct WbPrivateState { };
 
 static float get_item_height() {
@@ -224,7 +214,7 @@ static bool collapse_button(const char* str_id, bool* shown) {
 
 template<typename T, typename Range>
   requires NormalizedRange<Range, T>
-static bool slider2(
+static bool slider(
     const SliderProperties& props,
     const char* str_id,
     const ImVec2& size,
@@ -464,6 +454,7 @@ static bool knob(
     const ImU32 body_color = !(hovered || held || dragging) ? props.body_color : props.body_color + 0x00101010;
     dl->AddCircleFilled(center, body_radius, body_color);
   }
+
   if (props.pointer_color != 0) {
     im_draw_line_segment(
         dl,
@@ -498,7 +489,6 @@ void end_floating_window();
 
 void song_position();
 void item_tooltip(const char* str);
-void button(const char* str, bool* value, const ButtonProperties& properties);
 bool toggle_button(const char* str, bool value, const ImVec4& toggled_color, const ImVec2& size = ImVec2());
 bool toggle_button(const char* str, bool* value, const ImVec4& toggled_color, const ImVec2& size = ImVec2());
 bool small_toggle_button(const char* str, bool value, const ImVec4& toggled_color, const ImVec2& size = ImVec2());

@@ -38,30 +38,28 @@ static void render_mixer_strip_fx(Track* track, const ImVec2& size) {
 
 static void strip_input_combo(const char* str, Track* track, uint32_t slot) {
   constexpr ImGuiSelectableFlags selected_flags = ImGuiSelectableFlags_Highlight;
-  //ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 3.0f));
+  // ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 3.0f));
 
-  ImGui::PushStyleVarX(ImGuiStyleVar_ItemSpacing, 8.0f);
-
-  const char* input_name = "None";
-  switch (track->input.type) {
-    case TrackInputType::ExternalStereo: {
-      uint32_t index_mul = track->input.index * 2;
-      ImFormatStringToTempBuffer(&input_name, nullptr, "%d+%d", index_mul + 1, index_mul + 2);
-      break;
+  IMGUI_STYLE_BLOCK(({ ImStyleItemSpacing(8.0f, -1.0f) })) {
+    const char* input_name = "None";
+    switch (track->input.type) {
+      case TrackInputType::ExternalStereo: {
+        uint32_t index_mul = track->input.index * 2;
+        ImFormatStringToTempBuffer(&input_name, nullptr, "%d+%d", index_mul + 1, index_mul + 2);
+        break;
+      }
+      case TrackInputType::ExternalMono: {
+        ImFormatStringToTempBuffer(&input_name, nullptr, "%d", track->input.index + 1);
+        break;
+      }
+      default: break;
     }
-    case TrackInputType::ExternalMono: {
-      ImFormatStringToTempBuffer(&input_name, nullptr, "%d", track->input.index + 1);
-      break;
+
+    if (ImGui::BeginCombo(str, input_name)) {
+      track_input_context_menu(track, slot);
+      ImGui::EndCombo();
     }
-    default: break;
   }
-
-  if (ImGui::BeginCombo(str, input_name)) {
-    track_input_context_menu(track, slot);
-    ImGui::EndCombo();
-  }
-
-  ImGui::PopStyleVar();
 }
 
 void MixerWindow::render() {

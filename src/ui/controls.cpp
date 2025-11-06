@@ -434,7 +434,7 @@ bool param_slider_db(
     const NonLinearRange& db_range,
     float default_value) {
   const char* format = *value > db_range.min_val ? "%.3fdb" : "-INFdb";
-  return slider2(properties, str_id, size, value, db_range, default_value, format);
+  return slider(properties, str_id, size, value, db_range, default_value, format);
 }
 
 bool strip_label(const char* caption, float width, uint32_t current_indent, uint32_t max_indent, const Color& color) {
