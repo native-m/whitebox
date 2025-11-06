@@ -951,9 +951,9 @@ void timeline_render_track_panel() {
   }
 
   if (ImGui::BeginPopup("track_context_menu")) {
-    /*if (track_context_menu(context_menu_track_, context_menu_track_id_, &tmp_name_, &tmp_color_)) {
+    if (track_context_menu(context_menu_track_, context_menu_track_id_, &tmp_name_, &tmp_color_)) {
       redraw_ = true;
-    }*/
+    }
     ImGui::EndPopup();
   }
 

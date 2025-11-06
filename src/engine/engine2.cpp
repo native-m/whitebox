@@ -200,14 +200,18 @@ Track* Engine2::create_track(const std::string& name, const Color& color, float 
       new Track(name, color, height, true, TrackParameterState{ .volume_db = volume_db, .pan = pan, .mute = false });
   if (is_audio_engine_running())
     track->prepare_effect_buffer(current_engine_config.num_output_channels, current_engine_config.buffer_size);
+  return track;
+}
+
+Track* Engine2::add_track(const std::string& name, const Color& color, float height, float volume_db, float pan) {
+  Track* track = create_track(name, color, height, volume_db, pan);
   std::scoped_lock lock(edit_lock_);
   tracks.push_back(track);
   return track;
 }
 
-void Engine2::delete_track(uint32_t slot) {
+void Engine2::delete_track(int32_t slot) {
   Track* track = tracks[slot];
-  std::scoped_lock lock(edit_lock_);
   if (track->input.type != TrackInputType::None)
     set_track_input(track, TrackInputType::None, 0, false);
   tracks.erase_at(slot);

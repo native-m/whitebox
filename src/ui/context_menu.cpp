@@ -3,6 +3,8 @@
 #include <imgui.h>
 
 #include "engine/audio_io.h"
+#include "engine/command_manager2.h"
+#include "engine/track_command.h"
 #include "engine/engine2.h"
 #include "engine/track.h"
 #include "forms.h"
@@ -10,13 +12,14 @@
 
 namespace wb {
 
-bool track_context_menu(Track* track, int track_id, const std::string* tmp_name, const Color* tmp_color) {
+bool track_context_menu(Track* track, int32_t track_id, const std::string* tmp_name, const Color* tmp_color) {
   bool ret = false;
   if (track->name.size() > 0) {
     ImGui::MenuItem(track->name.c_str(), nullptr, false, false);
   } else {
     ImGui::MenuItem("(unnamed)", nullptr, false, false);
   }
+
   ImGui::Separator();
 
   if (ImGui::BeginMenu("Rename")) {
@@ -49,7 +52,9 @@ bool track_context_menu(Track* track, int track_id, const std::string* tmp_name,
 
   ImGui::BeginDisabled(Engine2::is_recording());
   if (ImGui::MenuItem("Delete")) {
-    Engine2::delete_track((uint32_t)track_id);
+    CmdDeleteTrack* cmd = new CmdDeleteTrack();
+    cmd->track_ids.push_back(track_id);
+    CommandManager2::execute_command("Delete track", cmd);
     ret = true;
   }
   ImGui::EndDisabled();
