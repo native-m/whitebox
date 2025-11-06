@@ -151,7 +151,6 @@ struct Vector {
   }
 
   inline Vector<T>& operator=(Vector<T>&& other) noexcept
-    requires std::movable<T>
   {
     destroy_();
     data_ = other.data_;

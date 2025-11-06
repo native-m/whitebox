@@ -26,7 +26,7 @@
 #include "ui/file_dropper.h"
 #include "ui/font.h"
 #include "ui/hotkeys.h"
-#include "ui/timeline.h"
+#include "ui/timeline2.h"
 #include "ui/window.h"
 #include "window_manager.h"
 
@@ -91,10 +91,6 @@ SDL_AppResult app_init(void** appstate, int argc, char** argv) {
     Engine2::start_audio_engine();
   // start_audio_engine();
 
-  g_cmd_manager.init(10);
-  g_engine.set_bpm(140.0f);
-  g_engine.set_audio_channel_config(2, 2, 512, 44100);
-
   return SDL_APP_CONTINUE;
 }
 
@@ -122,7 +118,7 @@ SDL_AppResult app_iterate(void* appstate) {
   if (hkey_pressed(Hotkey::Play)) {
     if (is_playing) {
       Engine2::stop();
-      g_timeline.redraw_screen();
+      timeline_redraw_window();
     } else {
       Engine2::play();
     }

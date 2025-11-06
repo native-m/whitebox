@@ -8,11 +8,11 @@
 
 namespace wb {
 
-void* allocate_virtual(size_t size) noexcept;
+WB_RESTRICT_FN void* allocate_virtual(size_t size) noexcept;
 void free_virtual(void* ptr, size_t size) noexcept;
 uint32_t get_virtual_page_size() noexcept;
 
-inline void* allocate_aligned(size_t size, size_t alignment = 16) noexcept {
+WB_RESTRICT_FN inline void* allocate_aligned(size_t size, size_t alignment = 16) noexcept {
 #ifdef WB_PLATFORM_WINDOWS
   return _aligned_malloc(size, alignment);
 #else
@@ -62,7 +62,7 @@ struct Pool {
     }
   }
 
-  void* allocate() noexcept {
+  WB_RESTRICT_FN void* allocate() noexcept {
     if (num_allocated >= num_reserved) {
       if (!_reserve_new_block()) {
         return nullptr;
