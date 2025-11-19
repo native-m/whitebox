@@ -85,7 +85,7 @@ void CmdDeleteTrack::undo() {
         Engine2::create_track(track.name, track.color, track.height, track.param_state.volume_db, track.param_state.pan);
     restored_track->set_mute(track.param_state.mute);
     restored_track->ui_parameter_state.solo = track.param_state.solo;
-    
+
     for (auto& clip : track.clips) {
       Clip* restored_clip = Engine2::allocate_clip();
       new (restored_clip) Clip(std::move(clip));
@@ -98,6 +98,58 @@ void CmdDeleteTrack::undo() {
 
   Engine2::end_edit();
   backups.resize(0);
+}
+
+//
+
+bool CmdRenameTrack::execute() {
+  Track* track = Engine2::tracks[track_id];
+  track->name = new_name;
+  return true;
+}
+
+void CmdRenameTrack::undo() {
+  Track* track = Engine2::tracks[track_id];
+  track->name = old_name;
+}
+
+//
+
+bool CmdChangeTrackColor::execute() {
+  Track* track = Engine2::tracks[track_id];
+  track->color = new_color;
+  return true;
+}
+
+void CmdChangeTrackColor::undo() {
+  Track* track = Engine2::tracks[track_id];
+  track->color = old_color;
+}
+
+//
+
+bool CmdApplyTrackColorToClips::execute() {
+  for (auto track_id : track_ids) {
+    Track* track = Engine2::tracks[track_id];
+    for (auto clip : track->clips) {
+      backup_colors.push_back({
+        .track_id = track_id,
+        .clip_id = clip->id,
+        .color = clip->color.to_uint32(),
+      });
+      clip->color = track->color;
+    }
+  }
+  return true;
+}
+
+void CmdApplyTrackColorToClips::undo() {
+  for (const auto& backup_color : backup_colors) {
+    Track* track = Engine2::tracks[backup_color.track_id];
+    Clip* clip = track->clips[backup_color.clip_id];
+    clip->color = backup_color.color;
+  }
+  backup_colors.resize(0);
 }
 
 }  // namespace wb

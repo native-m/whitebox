@@ -4,16 +4,17 @@
 
 #include "engine/audio_io.h"
 #include "engine/command_manager2.h"
-#include "engine/track_command.h"
 #include "engine/engine2.h"
 #include "engine/track.h"
+#include "engine/track_command.h"
 #include "forms.h"
 #include "window_manager.h"
 
 namespace wb {
 
-bool track_context_menu(Track* track, int32_t track_id, const std::string* tmp_name, const Color* tmp_color) {
-  bool ret = false;
+TrackContextMenuResult
+track_context_menu(Track* track, int32_t track_id, const std::string* tmp_name, const Color* tmp_color) {
+  TrackContextMenuResult ret{};
   if (track->name.size() > 0) {
     ImGui::MenuItem(track->name.c_str(), nullptr, false, false);
   } else {
@@ -22,32 +23,21 @@ bool track_context_menu(Track* track, int32_t track_id, const std::string* tmp_n
 
   ImGui::Separator();
 
-  if (ImGui::BeginMenu("Rename")) {
-    FormResult result = rename_form(&track->name, tmp_name);
-    if (result == FormResult::Close) {
-      ImGui::CloseCurrentPopup();
-      ret = true;
-    }
-    ImGui::EndMenu();
+  if (ImGui::MenuItem("Rename")) {
+    ret = TrackContextMenuResult::Rename;
+    ImGui::CloseCurrentPopup();
   }
 
-  if (ImGui::BeginMenu("Change color")) {
-    FormResult result = color_picker_form(&track->color, *tmp_color);
-    switch (result) {
-      case FormResult::ValueChanged: ret = true; break;
-      case FormResult::Close:
-        ImGui::CloseCurrentPopup();
-        ret = true;
-        break;
-      default: break;
-    }
-    ImGui::EndMenu();
+  if (ImGui::MenuItem("Change color")) {
+    ret = TrackContextMenuResult::ChangeColor;
+    ImGui::CloseCurrentPopup();
   }
 
   if (ImGui::MenuItem("Apply track color to every clip")) {
-    for (auto clip : track->clips)
-      clip->color = track->color;
-    ret = true;
+    CmdApplyTrackColorToClips* cmd = new CmdApplyTrackColorToClips();
+    cmd->track_ids.push_back(track_id);
+    CommandManager2::execute_command("Apply track color to every clip", cmd);
+    ret = TrackContextMenuResult::Done;
   }
 
   ImGui::BeginDisabled(Engine2::is_recording());
@@ -55,7 +45,7 @@ bool track_context_menu(Track* track, int32_t track_id, const std::string* tmp_n
     CmdDeleteTrack* cmd = new CmdDeleteTrack();
     cmd->track_ids.push_back(track_id);
     CommandManager2::execute_command("Delete track", cmd);
-    ret = true;
+    ret = TrackContextMenuResult::Done;
   }
   ImGui::EndDisabled();
 
@@ -64,7 +54,7 @@ bool track_context_menu(Track* track, int32_t track_id, const std::string* tmp_n
   if (ImGui::MenuItem("Reset height")) {
     ImGui::CloseCurrentPopup();
     track->height = 60.0f;
-    ret = true;
+    ret = TrackContextMenuResult::Done;
   }
 
   return ret;

@@ -43,16 +43,33 @@ struct CmdDeleteTrack final : public Command2 {
   void undo() override;
 };
 
+struct CmdRenameTrack : public Command2 {
+  int32_t track_id;
+  std::string new_name;
+  std::string old_name;
+  
+  bool execute() override;
+  void undo() override;
+};
+
+struct CmdChangeTrackColor : public Command2 {
+  int32_t track_id;
+  ColorU32 new_color;
+  ColorU32 old_color;
+
+  bool execute() override;
+  void undo() override;
+};
+
 struct CmdApplyTrackColorToClips : public Command2 {
   struct ColorStorage {
     int32_t track_id;
     uint32_t clip_id;
-    Color colors;
+    ColorU32 color;
   };
 
-  int32_t first_track;
-  Vector<Color> track_color;
-  Vector<ColorStorage> clip_colors;
+  Vector<int32_t> track_ids;
+  Vector<ColorStorage> backup_colors;
 
   bool execute() override;
   void undo() override;

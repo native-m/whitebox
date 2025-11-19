@@ -248,7 +248,7 @@ static Vector<WaveformDrawCmd> waveform_cmd1;
 static Vector<WaveformDrawCmd> waveform_cmd2;
 
 static Track* context_menu_track_{};
-static uint32_t context_menu_track_id_{};
+static int32_t context_menu_track_id_{};
 static Clip* context_menu_clip_{};
 static Color tmp_color_;
 static std::string tmp_name_;
@@ -421,7 +421,7 @@ void render_timeline() {
   ImGui::SetNextWindowSize(ImVec2(640.0f, 480.0f), ImGuiCond_FirstUseEver);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 1.0f));
   if (!controls::begin_window("Timeline 2", &g_timeline2_window_open)) {
-    ImGui::PopStyleVar(); // ImGuiStyleVar_WindowPadding
+    ImGui::PopStyleVar();  // ImGuiStyleVar_WindowPadding
     controls::end_window();
     return;
   }
@@ -444,7 +444,7 @@ void render_timeline() {
   holding_alt_ = ImGui::IsKeyDown(ImGuiKey_ModAlt);
   timeline_focused_ = ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows);
 
-  ImGui::PopStyleVar(); // ImGuiStyleVar_WindowPadding
+  ImGui::PopStyleVar();  // ImGuiStyleVar_WindowPadding
 
   if (should_update_track_stack_) {
     timeline_update_track_stack();
@@ -950,11 +950,61 @@ void timeline_render_track_panel() {
     ImGui::OpenPopup("track_context_menu");
   }
 
+  bool open_rename_track_dialog = false;
+  bool open_change_color_dialog = false;
+
   if (ImGui::BeginPopup("track_context_menu")) {
-    if (track_context_menu(context_menu_track_, context_menu_track_id_, &tmp_name_, &tmp_color_)) {
+    if (auto ret = track_context_menu(context_menu_track_, context_menu_track_id_, &tmp_name_, &tmp_color_);
+        ret != TrackContextMenuResult::None) {
+      switch (ret) {
+        case TrackContextMenuResult::Rename: open_rename_track_dialog = true; break;
+        case TrackContextMenuResult::ChangeColor: open_change_color_dialog = true; break;
+        case TrackContextMenuResult::Done: context_menu_track_ = nullptr; break;
+      }
       redraw_ = true;
     }
     ImGui::EndPopup();
+  }
+
+  if (context_menu_track_) {
+    if (open_rename_track_dialog) {
+      ImGui::OpenPopup("tl_rename_trk");
+    }
+
+    if (open_change_color_dialog) {
+      ImGui::OpenPopup("tl_pick_color_trk");
+    }
+
+    if (auto ret = rename_dialog("tl_rename_trk", tmp_name_, &context_menu_track_->name); ret != ConfirmDialog::None) {
+      switch (ret) {
+        case ConfirmDialog::Ok: {
+          CmdRenameTrack* cmd = new CmdRenameTrack();
+          cmd->track_id = context_menu_track_id_;
+          cmd->new_name = context_menu_track_->name;
+          cmd->old_name = tmp_name_;
+          CommandManager2::execute_command("Rename track", cmd);
+          redraw_ = true;
+          break;
+        }
+        default: break;
+      }
+    }
+
+    if (auto ret = color_picker_dialog("tl_pick_color_trk", tmp_color_, &context_menu_track_->color);
+        ret != ConfirmDialog::None) {
+      switch (ret) {
+        case ConfirmDialog::Ok: {
+          CmdChangeTrackColor* cmd = new CmdChangeTrackColor();
+          cmd->track_id = context_menu_track_id_;
+          cmd->new_color = context_menu_track_->color.to_uint32();
+          cmd->old_color = tmp_color_.to_uint32();
+          CommandManager2::execute_command("Change track color", cmd);
+          redraw_ = true;
+          break;
+        }
+        default: break;
+      }
+    }
   }
 
   track_lanes_height_ = ImGui::GetCursorPos().y;
@@ -2156,8 +2206,8 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
     const double x0 = clip.start_pos_x;
     const double x1 = clip.end_pos_x;
     const float height = clip.height;
-    const float x0_clipped = math::max((float)x0, view_min_.x - 3.0f);
-    const float x1_clipped = math::min((float)x1 - 0.5f, view_max_.x + 3.0f);
+    const float x0_clipped = math::max((float)math::round(x0), view_min_.x - 3.0f);
+    const float x1_clipped = math::min((float)math::round(x1) - 0.5f, view_max_.x + 3.0f);
     const float clip_label_max_y = clip.pos_y + font_size_ + 5.0f;
 
     const ImVec2 clip_label_min_bb(x0_clipped, clip.pos_y);

@@ -37,6 +37,8 @@ struct ColorLCH {
 };
 
 struct Color {
+  static constexpr float div_255 = (float)(1.0 / 255.0);
+
   float r, g, b, a;
 
   constexpr Color() : r(0.0f), g(0.0f), b(0.0f), a(1.0f) {
@@ -53,10 +55,10 @@ struct Color {
   }
 
   constexpr Color(ColorU32 rgba)
-      : r((float)WB_COLOR_U32_GET_R(rgba) * (1.0 / 255.0f)),
-        g((float)WB_COLOR_U32_GET_G(rgba) * (1.0 / 255.0f)),
-        b((float)WB_COLOR_U32_GET_B(rgba) * (1.0 / 255.0f)),
-        a((float)WB_COLOR_U32_GET_A(rgba) * (1.0 / 255.0f)) {
+      : r((float)WB_COLOR_U32_GET_R(rgba) * div_255),
+        g((float)WB_COLOR_U32_GET_G(rgba) * div_255),
+        b((float)WB_COLOR_U32_GET_B(rgba) * div_255),
+        a((float)WB_COLOR_U32_GET_A(rgba) * div_255) {
   }
 
   Color(const ImVec4& vec4);
