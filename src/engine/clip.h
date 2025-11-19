@@ -14,6 +14,8 @@
 
 namespace wb {
 
+using ClipID = uint32_t;
+
 enum class ClipType {
   Unknown,
   Audio,
@@ -56,7 +58,7 @@ struct MidiClip {
 };
 
 struct Clip : public InplaceList<Clip> {
-  uint32_t id{};
+  ClipID id{};
 
   // General clip information
   ClipType type{};

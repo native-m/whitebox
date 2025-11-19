@@ -11,14 +11,14 @@
 namespace wb {
 
 struct CmdClip : public Command2 {
-  Vector<Pair<int32_t, Clip>> deleted_clips;
-  Vector<std::tuple<int32_t, uint32_t, Clip*>> added_clips;
-  Vector<uint32_t> modified_tracks;
+  Vector<Pair<TrackID, Clip>> deleted_clips;
+  Vector<std::tuple<TrackID, ClipID, Clip*>> added_clips;
+  Vector<TrackID> modified_tracks;
 
   void delete_region(
       const ClipSpan& clip_span,
       Track* track,
-      uint32_t track_id,
+      TrackID track_id,
       double start_pos,
       double end_pos,
       double beat_duration,
@@ -32,7 +32,7 @@ struct CmdClip : public Command2 {
 };
 
 struct CmdAddClipFromFile final : public CmdClip {
-  int32_t track_id;
+  TrackID track_id;
   double position;
   std::filesystem::path file_path;
 
@@ -40,8 +40,8 @@ struct CmdAddClipFromFile final : public CmdClip {
 };
 
 struct CmdAddMidiClips final : public CmdClip {
-  int32_t first_track;
-  int32_t last_track;
+  TrackID first_track;
+  TrackID last_track;
   double start_pos;
   double end_pos;
 
@@ -49,7 +49,7 @@ struct CmdAddMidiClips final : public CmdClip {
 };
 
 struct CmdMoveClips final : public CmdClip {
-  int32_t src_track_id;
+  TrackID src_track_id;
   int32_t dst_track_relative_ofs;
   Vector<ClipSpan> clip_spans;
   double start_pos;
@@ -61,7 +61,7 @@ struct CmdMoveClips final : public CmdClip {
 };
 
 struct CmdResizeClips final : public CmdClip {
-  int32_t first_track;
+  TrackID first_track;
   Vector<TrackClipResizeInfo> clips;
   double relative_ofs;
   double min_clip_length;
@@ -73,7 +73,7 @@ struct CmdResizeClips final : public CmdClip {
 };
 
 struct CmdDeleteClips final : public CmdClip {
-  int32_t first_track;
+  TrackID first_track;
   Vector<ClipSpan> clip_spans;
   double start_pos;
   double end_pos;
@@ -82,14 +82,14 @@ struct CmdDeleteClips final : public CmdClip {
 };
 
 struct CmdDeleteClip final : public CmdClip {
-  int32_t track_id;
+  TrackID track_id;
   uint32_t clip_id;
 
   bool execute() override;
 };
 
 struct CmdRenameClip final : public Command2 {
-  int32_t track_id;
+  TrackID track_id;
   uint32_t clip_id;
   std::string new_name;
   std::string old_name;

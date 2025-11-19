@@ -248,7 +248,7 @@ static Vector<WaveformDrawCmd> waveform_cmd1;
 static Vector<WaveformDrawCmd> waveform_cmd2;
 
 static Track* context_menu_track_{};
-static int32_t context_menu_track_id_{};
+static TrackID context_menu_track_id_{};
 static Clip* context_menu_clip_{};
 static Color tmp_color_;
 static std::string tmp_name_;

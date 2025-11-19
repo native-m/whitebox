@@ -9,6 +9,8 @@ namespace wb {
 
 struct Track;
 
+using TrackID = int32_t;
+
 enum class ClipSelectStatus {
   NotSelected,
   Selected,
@@ -42,20 +44,20 @@ struct ClipResizeResult {
 
 struct TrackClipResizeInfo {
   bool should_resize;
-  uint32_t clip_id;
+  ClipID clip_id;
 };
 
 struct ClipQueryResult {
-  uint32_t first;
-  uint32_t last;
+  ClipID first;
+  ClipID last;
   double first_offset;
   double last_offset;
 
-  bool right_side_partially_selected(uint32_t id) const {
+  bool right_side_partially_selected(ClipID id) const {
     return first == id && first_offset > 0.0;
   }
 
-  bool left_side_partially_selected(uint32_t id) const {
+  bool left_side_partially_selected(ClipID id) const {
     return last == id && last_offset < 0.0;
   }
 
@@ -66,16 +68,16 @@ struct ClipQueryResult {
 
 struct ClipSpan {
   bool contains_clip;
-  uint32_t first;
-  uint32_t last;
+  ClipID first;
+  ClipID last;
   double first_offset;
   double last_offset;
 
-  bool right_side_partially_selected(uint32_t id) const {
+  bool right_side_partially_selected(ClipID id) const {
     return first == id && first_offset > 0.0;
   }
 
-  bool left_side_partially_selected(uint32_t id) const {
+  bool left_side_partially_selected(ClipID id) const {
     return last == id && last_offset < 0.0;
   }
 

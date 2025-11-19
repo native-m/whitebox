@@ -62,9 +62,9 @@ struct Engine2 {
   create_track(const std::string& name, const Color& color, float height, float volume_db = 0.0f, float pan = 0.0f);
   static Track*
   add_track(const std::string& name, const Color& color, float height, float volume_db = 0.0f, float pan = 0.0f);
-  static void delete_track(int32_t slot);
-  static void solo_track(uint32_t slot);
-  static void set_track_recording_state(uint32_t slot, bool armed);
+  static void delete_track(TrackID slot);
+  static void solo_track(TrackID slot);
+  static void set_track_recording_state(TrackID slot, bool armed);
   static void set_track_input(Track* track, TrackInputType type, uint32_t index, bool armed);
   static void update_track_state(Track* track);
 

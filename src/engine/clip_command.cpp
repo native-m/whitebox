@@ -11,7 +11,7 @@ namespace wb {
 void CmdClip::delete_region(
     const ClipSpan& clip_span,
     Track* track,
-    uint32_t track_id,
+    TrackID track_id,
     double start_pos,
     double end_pos,
     double beat_duration,
@@ -147,7 +147,7 @@ bool CmdAddMidiClips::execute() {
 
   Engine2::begin_edit();
 
-  for (int32_t i = first_track; i <= last_track; i++) {
+  for (TrackID i = first_track; i <= last_track; i++) {
     Track* track = Engine2::tracks[i];
 
     if (auto clip_span = track->query_clip_by_range2(start_pos, end_pos)) {
@@ -280,7 +280,7 @@ bool CmdMoveClips::execute() {
       std::swap(src_end_pos, dst_end_pos);
     }
 
-    for (int32_t i = first_track; i < last_track; i++) {
+    for (TrackID i = first_track; i < last_track; i++) {
       Track* track = Engine2::tracks[i];
 
       if (duplicate) {
@@ -331,7 +331,7 @@ bool CmdMoveClips::execute() {
   } else {
     if (!duplicate) {
       for (int32_t i = 0; i < clip_spans.size(); i++) {
-        int32_t track_id = src_track_id + i;
+        TrackID track_id = src_track_id + i;
         Track* track = Engine2::tracks[track_id];
         const ClipSpan& clip_span = clip_spans[i];
         if (clip_span.contains_clip) {
@@ -341,7 +341,7 @@ bool CmdMoveClips::execute() {
     }
 
     for (int32_t i = 0; i < clip_spans.size(); i++) {
-      int32_t track_id = dst_track_id + i;
+      TrackID track_id = dst_track_id + i;
       Track* track = Engine2::tracks[track_id];
       if (auto clip_span = track->query_clip_by_range2(start_pos_moved, end_pos_moved)) {
         clear_track_region(track, track_id, start_pos_moved, end_pos_moved, clip_span);
@@ -359,8 +359,8 @@ bool CmdMoveClips::execute() {
   for (int32_t i = 0; i < num_tracks; i++) {
     const ClipSpan& clip_span = clip_spans[i];
     uint32_t num_clips = (clip_span.last - clip_span.first) + 1;
-    uint32_t src_index = src_track_id + i;
-    uint32_t dst_index = dst_track_id + i;
+    TrackID src_index = src_track_id + i;
+    TrackID dst_index = dst_track_id + i;
     Track* src_track = Engine2::tracks[src_index];
     Track* dst_track = Engine2::tracks[dst_index];
 
@@ -416,11 +416,11 @@ bool CmdMoveClips::execute() {
   }
 
   if (track_overlapped) {
-    int32_t begin_track = dst_track_relative_ofs >= 0 ? src_track_id : dst_track_id;
-    int32_t end_track = dst_track_relative_ofs >= 0 ? dst_track_end : src_track_end;
+    TrackID begin_track = dst_track_relative_ofs >= 0 ? src_track_id : dst_track_id;
+    TrackID end_track = dst_track_relative_ofs >= 0 ? dst_track_end : src_track_end;
     modified_tracks.reserve(end_track - begin_track);
 
-    for (int32_t i = begin_track; i < end_track; i++) {
+    for (TrackID i = begin_track; i < end_track; i++) {
       Track* track = Engine2::tracks[i];
       modified_tracks.push_back(i);
       Engine2::update_track_state(track);
@@ -428,13 +428,13 @@ bool CmdMoveClips::execute() {
   } else {
     modified_tracks.reserve((src_track_end - src_track_id) + (dst_track_end - dst_track_id));
 
-    for (uint32_t i = src_track_id; i < src_track_end; i++) {
+    for (TrackID i = src_track_id; i < src_track_end; i++) {
       Track* track = Engine2::tracks[i];
       modified_tracks.push_back(i);
       Engine2::update_track_state(track);
     }
 
-    for (uint32_t i = dst_track_id; i < dst_track_end; i++) {
+    for (TrackID i = dst_track_id; i < dst_track_end; i++) {
       Track* track = Engine2::tracks[i];
       modified_tracks.push_back(i);
       Engine2::update_track_state(track);
@@ -458,7 +458,7 @@ bool CmdResizeClips::execute() {
 
   Engine2::begin_edit();
 
-  for (int32_t i = first_track; const auto& clip_resize_info : clips) {
+  for (TrackID i = first_track; const auto& clip_resize_info : clips) {
     if (clip_resize_info.should_resize) {
       Track* track = Engine2::tracks[i];
       Clip* clip = track->clips[clip_resize_info.clip_id];
@@ -510,7 +510,7 @@ bool CmdDeleteClips::execute() {
   bool clip_deleted = false;
   double beat_duration = Engine2::get_beat_duration();
   Engine2::begin_edit();
-  for (int32_t i = first_track; const auto& clip_span : clip_spans) {
+  for (TrackID i = first_track; const auto& clip_span : clip_spans) {
     Track* track = Engine2::tracks[i];
 
     if (clip_span.contains_clip) {

@@ -210,7 +210,7 @@ Track* Engine2::add_track(const std::string& name, const Color& color, float hei
   return track;
 }
 
-void Engine2::delete_track(int32_t slot) {
+void Engine2::delete_track(TrackID slot) {
   Track* track = tracks[slot];
   if (track->input.type != TrackInputType::None)
     set_track_input(track, TrackInputType::None, 0, false);
@@ -218,7 +218,7 @@ void Engine2::delete_track(int32_t slot) {
   delete track;
 }
 
-void Engine2::solo_track(uint32_t slot) {
+void Engine2::solo_track(TrackID slot) {
   bool mute = false;
   if (tracks[slot]->ui_parameter_state.solo) {
     tracks[slot]->ui_parameter_state.solo = false;
@@ -228,7 +228,7 @@ void Engine2::solo_track(uint32_t slot) {
     mute = true;
   }
 
-  for (uint32_t i = 0; i < tracks.size(); i++) {
+  for (TrackID i = 0; i < tracks.size(); i++) {
     if (i == slot)
       continue;
     if (tracks[i]->ui_parameter_state.solo)
@@ -237,7 +237,7 @@ void Engine2::solo_track(uint32_t slot) {
   }
 }
 
-void Engine2::set_track_recording_state(uint32_t slot, bool armed) {
+void Engine2::set_track_recording_state(TrackID slot, bool armed) {
   Track* track = tracks[slot];
   set_track_input(track, track->input.type, track->input.index, armed);
 }

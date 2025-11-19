@@ -8,7 +8,7 @@
 namespace wb {
 
 struct TrackBackup {
-  int32_t id;
+  TrackID id;
   ColorU32 color;
   float height;
   std::string name;
@@ -20,15 +20,15 @@ struct TrackBackup {
 struct CmdAddTrack final : public Command2 {
   std::string name;
   Color color;
-  int32_t track_id;
+  TrackID track_id;
 
   bool execute() override;
   void undo() override;
 };
 
 struct CmdMoveTrack final : public Command2 {
-  int32_t src_slot;
-  int32_t dst_slot;
+  TrackID src_slot;
+  TrackID dst_slot;
 
   bool execute() override;
   void undo() override;
@@ -36,7 +36,7 @@ struct CmdMoveTrack final : public Command2 {
 };
 
 struct CmdDeleteTrack final : public Command2 {
-  Vector<int32_t> track_ids;
+  Vector<TrackID> track_ids;
   Vector<TrackBackup> backups;
 
   bool execute() override;
@@ -44,7 +44,7 @@ struct CmdDeleteTrack final : public Command2 {
 };
 
 struct CmdRenameTrack : public Command2 {
-  int32_t track_id;
+  TrackID track_id;
   std::string new_name;
   std::string old_name;
   
@@ -53,7 +53,7 @@ struct CmdRenameTrack : public Command2 {
 };
 
 struct CmdChangeTrackColor : public Command2 {
-  int32_t track_id;
+  TrackID track_id;
   ColorU32 new_color;
   ColorU32 old_color;
 
@@ -63,8 +63,8 @@ struct CmdChangeTrackColor : public Command2 {
 
 struct CmdApplyTrackColorToClips : public Command2 {
   struct ColorStorage {
-    int32_t track_id;
-    uint32_t clip_id;
+    TrackID track_id;
+    ClipID clip_id;
     ColorU32 color;
   };
 
