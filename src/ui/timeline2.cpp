@@ -275,7 +275,7 @@ static void timeline_query_selected_range();
 
 static void timeline_add_midi_clips();
 static void timeline_add_clip_from_file();
-static void timeline_delete_region();
+static bool timeline_delete_region();
 
 inline static double timeline_get_view_scale() {
   return view_state_.get_view_scale(song_duration_, timeline_display_size_.x);
@@ -1334,7 +1334,16 @@ void timeline_handle_key_event() {
   }
 
   if (hkey_pressed(Hotkey::Delete)) {
-    timeline_delete_region();
+    // try delete region first
+    if (!timeline_delete_region()) {
+      if (selected_clip_) {
+        CmdDeleteClip* cmd = new CmdDeleteClip();
+        cmd->track_id = selected_clip_->first;
+        cmd->clip_id = selected_clip_->second;
+        selected_clip_.reset();
+        CommandManager2::execute_command("Delete clip", cmd);
+      }
+    }
   }
 
   if (hkey_pressed(Hotkey::TimelineAddMidiClips)) {
@@ -2536,7 +2545,7 @@ void timeline_add_clip_from_file() {
   tl_state_.clear_selection();
 }
 
-void timeline_delete_region() {
+bool timeline_delete_region() {
   if (tl_state_.select.is_selected) {
     timeline_query_selected_range();
     CmdDeleteClips* cmd = new CmdDeleteClips();
@@ -2547,7 +2556,9 @@ void timeline_delete_region() {
     CommandManager2::execute_command("Delete selected region", cmd);
     tl_state_.clear_selection();
     force_redraw_ = redraw_ = true;
+    return true;
   }
+  return false;
 }
 
 }  // namespace wb

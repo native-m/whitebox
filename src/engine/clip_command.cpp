@@ -157,7 +157,7 @@ bool CmdAddMidiClips::execute() {
 
     MidiAsset2* asset = AssetManager::create_midi_asset();
     Clip* clip = Engine2::create_clip("MIDI", track->color, start_pos, end_pos);
-    clip->init_as_midi_clip({ .asset = asset, .length = asset->data.max_length, .rate = 1 });
+    clip->init_as_midi_clip({ .asset = asset, .length = end_pos - start_pos, .rate = 1 });
     track->clips.push_back(clip);
     added_clips.emplace_back(i, 0u, clip);
     modified_tracks.push_back(i);
@@ -510,6 +510,7 @@ bool CmdDeleteClips::execute() {
   bool clip_deleted = false;
   double beat_duration = Engine2::get_beat_duration();
   Engine2::begin_edit();
+
   for (TrackID i = first_track; const auto& clip_span : clip_spans) {
     Track* track = Engine2::tracks[i];
 
@@ -536,12 +537,25 @@ bool CmdDeleteClip::execute() {
   Clip* clip = track->clips[clip_id];
 
   Engine2::begin_edit();
-  deleted_clips.emplace_back(track_id, *clip);
+  backup_clip.emplace(*clip);
   track->mark_clip_deleted(clip);
   Engine2::update_track_state(track);
   Engine2::end_edit();
 
   return true;
+}
+
+void CmdDeleteClip::undo() {
+  Track* track = Engine2::tracks[track_id];
+  Clip* clip = Engine2::allocate_clip();
+  new (clip) Clip(backup_clip.value());
+
+  Engine2::begin_edit();
+  track->clips.push_back(clip);
+  Engine2::update_track_state(track);
+  Engine2::end_edit();
+
+  backup_clip.reset();
 }
 
 //

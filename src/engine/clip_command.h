@@ -81,11 +81,13 @@ struct CmdDeleteClips final : public CmdClip {
   bool execute() override;
 };
 
-struct CmdDeleteClip final : public CmdClip {
+struct CmdDeleteClip final : public Command2 {
   TrackID track_id;
   uint32_t clip_id;
+  std::optional<Clip> backup_clip;
 
   bool execute() override;
+  void undo() override;
 };
 
 struct CmdRenameClip final : public Command2 {
