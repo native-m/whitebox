@@ -6,6 +6,7 @@
 
 #include "IconsMaterialSymbols.h"
 #include "browser.h"
+#include "clip_editor.h"
 #include "context_menu.h"
 #include "controls.h"
 #include "core/common.h"
@@ -1535,8 +1536,10 @@ void timeline_handle_track_event() {
 
   if (left_mouse_clicked_ || right_mouse_clicked_) {
     if (selected_clip) {
+      clip_editor_set_clip(selected_clip->first, selected_clip->second);
       selected_clip_ = std::move(selected_clip);
     } else {
+      clip_editor_unset_clip();
       selected_clip_.reset();
     }
     redraw_ = true;

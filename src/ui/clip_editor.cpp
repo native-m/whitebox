@@ -5,7 +5,7 @@
 #include "IconsMaterialSymbols.h"
 #include "command_manager.h"
 #include "controls.h"
-#include "engine/engine.h"
+#include "engine/engine2.h"
 #include "engine/track.h"
 #include "font.h"
 #include "gfx/renderer.h"
@@ -215,7 +215,7 @@ static void clip_editor_prepare_resize(double min_length, double resize_pos, Pia
   double shortest_length = DBL_MAX;
   bool first = true;
 
-  // Find shortest voice
+  // Find shortest note
   for (uint32_t id = 0; const auto& note : midi_data->note_sequence) {
     if (contain_bit(note.flags, MidiNoteFlags::Selected)) {
       double length = note.max_time - note.min_time;
@@ -1330,7 +1330,7 @@ static void clip_editor_render_note_editor() {
   ImDrawList* dl = ImGui::GetWindowDrawList();
   dl->AddImage(fb_tex_id, fb_image_pos, fb_image_pos + region_size);
 
-  if (g_engine.is_playing()) {
+  if (Engine2::is_playing()) {
     const double clip_rate = (double)current_clip->midi.rate;
     const double playhead_offset = (clip_editor_base.playhead - current_clip->min_time) * clip_rate * inv_view_scale;
     const float playhead_pos = (float)math::round(view_min.x - scroll_pos_x + playhead_offset);
@@ -1571,13 +1571,15 @@ static void clip_editor_render_event_editor() {
 
 static void clip_editor_render_piano_roll() {
   ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
+  
   clip_editor_base.render_horizontal_scrollbar();
   const double clip_rate = (double)current_clip->midi.rate;
-  const double playhead_start = (g_engine.playhead_start - current_clip->min_time) * clip_rate;
+  const double playhead_start = (Engine2::get_playhead_start() - current_clip->min_time) * clip_rate;
   double new_time_pos = (clip_editor_base.playhead - current_clip->min_time) * clip_rate;
   if (clip_editor_base.render_time_ruler(&new_time_pos, playhead_start, selection_start_pos, selection_end_pos, false)) {
-    g_engine.set_playhead_position(new_time_pos / clip_rate + current_clip->min_time);
+    Engine2::set_playhead_position(new_time_pos / clip_rate + current_clip->min_time);
   }
+
   ImGui::PopStyleVar();
 
   ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
@@ -1724,8 +1726,8 @@ void clip_editor_shutdown() {
     g_renderer->destroy_texture(event_editor_fb);
 }
 
-void clip_editor_set_clip(uint32_t track_id, uint32_t clip_id) {
-  current_track = g_engine.tracks[track_id];
+void clip_editor_set_clip(TrackID track_id, ClipID clip_id) {
+  current_track = Engine2::tracks[track_id];
   current_clip = current_track->clips[clip_id];
   current_track_id = track_id;
   current_clip_id = clip_id;
@@ -1761,7 +1763,7 @@ void render_clip_editor() {
   }
   ImGui::PopStyleVar();
 
-  /*if (current_track == nullptr && current_clip == nullptr) {
+  if (current_track == nullptr && current_clip == nullptr) {
     auto size = ImGui::GetWindowSize();
     auto text_size = ImGui::CalcTextSize("No clip selected");
     ImGui::SetCursorPos((size - text_size) * 0.5f);
@@ -1773,7 +1775,7 @@ void render_clip_editor() {
   if (!current_clip->is_midi()) {
     controls::end_window();
     return;
-  }*/
+  }
 
   clip_editor_base.redraw = force_redraw;
   if (force_redraw)
@@ -1783,11 +1785,11 @@ void render_clip_editor() {
 
   border_color = ImGui::GetColorU32(ImGuiCol_Border);
   font = ImGui::GetFont();
-  clip_editor_base.playhead = g_engine.playhead;
+  clip_editor_base.playhead = Engine2::playhead;
 
   if (ImGui::BeginChild(
           "##piano_roll_control", ImVec2(200.0f, 0.0f), ImGuiChildFlags_AlwaysUseWindowPadding, ImGuiWindowFlags_MenuBar)) {
-    //clip_editor_render_control_sidebar();
+    clip_editor_render_control_sidebar();
   }
   ImGui::EndChild();
   ImGui::SameLine(0.0f, 0.0f);
@@ -1799,7 +1801,7 @@ void render_clip_editor() {
   ImGui::SameLine(0.0f, 1.0f);
   if (ImGui::BeginChild("##piano_roll_control2", ImVec2(-FLT_MIN, 0.0f), 0, ImGuiWindowFlags_NoBackground)) {
     clip_editor_render_toolbar();
-    //clip_editor_render_piano_roll();
+    clip_editor_render_piano_roll();
   }
 
   if (open_context_menu) {

@@ -144,6 +144,10 @@ void Engine2::set_bpm(double bpm) {
   }
 }
 
+double Engine2::get_playhead_start() {
+  return playhead_start_;
+}
+
 double Engine2::get_song_duration() {
   return song_duration_;
 }
