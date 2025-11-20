@@ -206,6 +206,7 @@ TimelineRulerResult timeline_ruler(
     bool triplet,
     float width,
     double song_length,
+    double playhead_start,
     double* time_pos,
     TimelineViewState* view_range) {
   ImDrawList* dl = ImGui::GetWindowDrawList();
@@ -290,6 +291,17 @@ TimelineRulerResult timeline_ruler(
   ImVec2 max_bb = cursor_pos + size;
   dl->PushClipRect(cursor_pos, max_bb);
 
+  float playhead_size = size.y;
+  float playhead_half_size = size.y * 0.5f;
+  float playhead_start_pos = (float)std::round(scroll_offset + playhead_start * inv_view_scale) - playhead_half_size + 0.5f;
+  if (math::in_range(playhead_start_pos, cursor_pos.x - playhead_size, max_bb.x + playhead_size)) {
+    dl->AddTriangleFilled(
+        ImVec2(playhead_start_pos, cursor_pos.y + 2.5f),
+        ImVec2(playhead_start_pos + playhead_size, cursor_pos.y + 2.5f),
+        ImVec2(playhead_start_pos + playhead_half_size, cursor_pos.y + playhead_size - 2.5f),
+        tick_color);
+  }
+
   // Draw time points
   uint32_t step = (uint32_t)mult;
   float tick_pos_y = cursor_pos.y + size.y;
@@ -307,8 +319,6 @@ TimelineRulerResult timeline_ruler(
 
   // Draw playhead arrow
   constexpr ImU32 playhead_color = 0xE553A3F9;
-  float playhead_size = size.y;
-  float playhead_half_size = size.y * 0.5f;
   float playhead_pos = (float)std::round(scroll_offset + *time_pos * inv_view_scale) - playhead_half_size + 0.5f;
   if (math::in_range(playhead_pos, cursor_pos.x - playhead_size, max_bb.x + playhead_size)) {
     dl->AddTriangleFilled(

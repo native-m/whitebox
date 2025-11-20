@@ -35,6 +35,7 @@ TimelineRulerResult timeline_ruler(
     bool triplet,
     float width,
     double song_length,
+    double playhead_start,
     double* time_pos,
     TimelineViewState* view_range);
 

@@ -608,8 +608,9 @@ void timeline_render_navbar() {
     }
 
     double time_pos = Engine2::playhead;
-    controls::TimelineRulerResult tr_result =
-        controls::timeline_ruler("tl_ruler", grid_mode_, triplet_, timeline_w, song_duration_, &time_pos, &view_state_);
+    double playback_start_pos = Engine2::get_playhead_start();
+    controls::TimelineRulerResult tr_result = controls::timeline_ruler(
+        "tl_ruler", grid_mode_, triplet_, timeline_w, song_duration_, playback_start_pos, &time_pos, &view_state_);
     if (tr_result != controls::TimelineRulerResult::None) {
       switch (tr_result) {
         case controls::TimelineRulerResult::Zoom: redraw_ = true; break;
