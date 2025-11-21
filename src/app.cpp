@@ -3,18 +3,18 @@
 #include <SDL3/SDL_events.h>
 // #include <SDL_mouse.h>
 #include <imgui.h>
-#include <imgui_internal.h>
 #include <imgui_impl_sdl3.h>
+#include <imgui_internal.h>
 
 #include "app_event.h"
 #include "config.h"
 #include "core/debug.h"
 #include "core/deferred_job.h"
-#include "engine/audio_io.h"
 #include "engine/asset.h"
+#include "engine/audio_io.h"
+#include "engine/command_manager2.h"
 #include "engine/engine.h"
 #include "engine/engine2.h"
-#include "engine/command_manager2.h"
 #include "engine/project.h"
 #include "gfx/renderer.h"
 #include "path_def.h"
@@ -76,7 +76,7 @@ SDL_AppResult app_init(void** appstate, int argc, char** argv) {
   style.FontScaleDpi = main_scale;
   style.FontSizeBase = 13.0f;
   style.CircleTessellationMaxError = 0.15f;
-  
+
   SDL_Window* main_window = wm_get_main_window();
   ImGui_ImplSDL3_InitForOther(main_window);
   init_renderer(main_window);
@@ -100,7 +100,7 @@ SDL_AppResult app_iterate(void* appstate) {
   ImGui::NewFrame();
 
   ImGui::GetDrawListSharedData()->InitialFringeScale = 1.0f;
-  
+
   ImGuiViewport* main_viewport = ImGui::GetMainViewport();
 
   ImGuiID main_dockspace_id = ImGui::DockSpaceOverViewport(0, main_viewport, ImGuiDockNodeFlags_PassthruCentralNode);
@@ -124,12 +124,13 @@ SDL_AppResult app_iterate(void* appstate) {
     }
   }
 
-  if (hkey_pressed(Hotkey::Undo)) {
-    CommandManager2::undo();
-  }
-
-  if (hkey_pressed(Hotkey::Redo)) {
-    CommandManager2::redo();
+  if (!ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopup)) {
+    if (hkey_pressed(Hotkey::Undo)) {
+      CommandManager2::undo();
+    }
+    if (hkey_pressed(Hotkey::Redo)) {
+      CommandManager2::redo();
+    }
   }
 
   Engine2::update_audio_visualization(GImGui->IO.Framerate);

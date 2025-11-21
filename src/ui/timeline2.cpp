@@ -1447,6 +1447,8 @@ void timeline_handle_track_event() {
                   tl_state_.type = TimelineState::Resize;
                 }
 
+                CommandManager2::lock();
+
                 tl_state_.initial_pos = hovered_position;
                 tl_state_.tool.initial_track_id = track_idx;
                 tl_state_.tool.clip_id = i;
@@ -1468,6 +1470,8 @@ void timeline_handle_track_event() {
                   tl_state_.type = TimelineState::Resize;
                 }
 
+                CommandManager2::lock();
+
                 tl_state_.initial_pos = hovered_position;
                 tl_state_.tool.initial_track_id = track_idx;
                 tl_state_.tool.clip_id = i;
@@ -1481,6 +1485,8 @@ void timeline_handle_track_event() {
               can_select = false;
             } else {
               if (left_mouse_clicked_) {
+                CommandManager2::lock();
+
                 tl_state_.type = ImGui::IsKeyDown(ImGuiMod_Shift) ? TimelineState::Duplicate : TimelineState::Move;
                 tl_state_.initial_pos = hovered_position;
                 tl_state_.tool = {
@@ -1495,6 +1501,8 @@ void timeline_handle_track_event() {
           } else {
             if (ImGui::IsKeyDown(ImGuiMod_Shift)) {
               if (left_mouse_clicked_) {
+                CommandManager2::lock();
+
                 tl_state_.type = TimelineState::Shift;
                 tl_state_.initial_pos = hovered_position;
                 tl_state_.tool = {
@@ -1513,6 +1521,8 @@ void timeline_handle_track_event() {
 
       if (can_select) {
         if (left_mouse_clicked_) {
+          CommandManager2::lock();
+
           tl_state_.type = TimelineState::Select;
           tl_state_.select = {
             .start_pos = hovered_position,
@@ -1566,6 +1576,7 @@ void timeline_handle_track_event() {
       if (tl_state_.drag_drop_files.item_dropped) {
         hovered_track_id_.reset();
         timeline_add_clip_from_file();
+        CommandManager2::unlock();
       }
       redraw_ = true;
       break;
@@ -1596,6 +1607,7 @@ void timeline_handle_track_event() {
         redraw_ = true;
         hovered_track_id_.reset();
         tl_state_.end_action();
+        CommandManager2::unlock();
       }
 
       break;
@@ -1656,6 +1668,7 @@ void timeline_handle_track_event() {
 
         hovered_track_id_.reset();
         tl_state_.end_action();
+        CommandManager2::unlock();
       }
 
       redraw_ = true;
@@ -1666,6 +1679,7 @@ void timeline_handle_track_event() {
       if (!left_mouse_down_) {
         hovered_track_id_.reset();
         tl_state_.end_action();
+        CommandManager2::unlock();
       }
 
       redraw_ = true;
@@ -1725,11 +1739,13 @@ void timeline_handle_track_event() {
 
         hovered_track_id_.reset();
         tl_state_.end_action();
+        CommandManager2::unlock();
       }
       break;
     default:
       hovered_track_id_.reset();
       tl_state_.end_action();
+      CommandManager2::unlock();
       break;
   }
 
