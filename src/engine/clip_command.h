@@ -83,7 +83,7 @@ struct CmdDeleteClips final : public CmdClip {
 
 struct CmdDeleteClip final : public Command2 {
   TrackID track_id;
-  uint32_t clip_id;
+  ClipID clip_id;
   std::optional<Clip> backup_clip;
 
   bool execute() override;
@@ -92,9 +92,19 @@ struct CmdDeleteClip final : public Command2 {
 
 struct CmdRenameClip final : public Command2 {
   TrackID track_id;
-  uint32_t clip_id;
+  ClipID clip_id;
   std::string new_name;
   std::string old_name;
+
+  bool execute() override;
+  void undo() override;
+};
+
+struct CmdChangeClipColor final : public Command2 {
+  TrackID track_id;
+  ClipID clip_id;
+  ColorU32 new_color;
+  ColorU32 old_color;
 
   bool execute() override;
   void undo() override;

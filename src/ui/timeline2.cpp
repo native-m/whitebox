@@ -252,7 +252,7 @@ static Track* context_menu_track_{};
 static TrackID context_menu_track_id_{};
 static Clip* context_menu_clip_{};
 static Color tmp_color_;
-static std::string tmp_name_;
+static std::string tmp_str_;
 
 bool g_timeline2_window_open = true;
 
@@ -398,6 +398,8 @@ void timeline_init() {
       should_update_track_stack_ = true;
     }
 
+    clip_editor_unset_clip();
+    selected_clip_.reset();
     force_redraw_ = true;
   });
 
@@ -873,7 +875,7 @@ void timeline_render_track_panel() {
           context_menu_track_ = track;
           context_menu_track_id_ = i;
           tmp_color_ = track->color;
-          tmp_name_ = track->name;
+          tmp_str_ = track->name;
           open_track_context_menu = true;
         }
       }
@@ -956,7 +958,7 @@ void timeline_render_track_panel() {
   bool open_change_color_dialog = false;
 
   if (ImGui::BeginPopup("track_context_menu")) {
-    if (auto ret = track_context_menu(context_menu_track_, context_menu_track_id_, &tmp_name_, &tmp_color_);
+    if (auto ret = track_context_menu(context_menu_track_, context_menu_track_id_, &tmp_str_, &tmp_color_);
         ret != TrackContextMenuResult::None) {
       switch (ret) {
         case TrackContextMenuResult::Rename: open_rename_track_dialog = true; break;
@@ -977,13 +979,13 @@ void timeline_render_track_panel() {
       ImGui::OpenPopup("tl_pick_color_trk");
     }
 
-    if (auto ret = rename_dialog("tl_rename_trk", tmp_name_, &context_menu_track_->name); ret != ConfirmDialog::None) {
+    if (auto ret = rename_dialog("tl_rename_trk", tmp_str_, &context_menu_track_->name); ret != ConfirmDialog::None) {
       switch (ret) {
         case ConfirmDialog::Ok: {
           CmdRenameTrack* cmd = new CmdRenameTrack();
           cmd->track_id = context_menu_track_id_;
           cmd->new_name = context_menu_track_->name;
-          cmd->old_name = tmp_name_;
+          cmd->old_name = tmp_str_;
           CommandManager2::execute_command("Rename track", cmd);
           redraw_ = true;
           break;
@@ -1113,7 +1115,7 @@ void timeline_render_floating_btns() {
           if (ImGui::Button(ICON_MS_MUSIC_NOTE_ADD, btn_size)) {
             timeline_add_midi_clips();
           }
-          controls::item_tooltip("Create MIDI clips");
+          controls::item_tooltip("Create MIDI clip");
           ImGui::SameLine(0.0f, 0.0f);
 
           // ImGui::Button(ICON_MS_TIMELINE, btn_size);
@@ -1148,7 +1150,7 @@ void timeline_render_context_menu() {
   if (ImGui::BeginPopup("clip_ctx_menu")) {
     if (context_menu_track_ && context_menu_clip_) {
       if (ImGui::MenuItem("Rename")) {
-        tmp_name_ = context_menu_clip_->name;
+        tmp_str_ = context_menu_clip_->name;
         open_rename_popup = true;
       }
 
@@ -1173,10 +1175,12 @@ void timeline_render_context_menu() {
   if (open_rename_popup)
     ImGui::OpenPopup("rename_clip");
   else if (open_change_color_popup)
-    ImGui::OpenPopup("clip_change_color_popup");
+    ImGui::OpenPopup("clip_color_picker");
 
   if (context_menu_clip_) {
-    if (auto ret = rename_dialog("rename_clip", tmp_name_, &context_menu_clip_->name)) {
+    bool done = false;
+
+    if (auto ret = rename_dialog("rename_clip", tmp_str_, &context_menu_clip_->name); ret != ConfirmDialog::None) {
       switch (ret) {
         case ConfirmDialog::ValueChanged: force_redraw_ = true; break;
         case ConfirmDialog::Ok: {
@@ -1184,21 +1188,41 @@ void timeline_render_context_menu() {
           cmd->track_id = context_menu_track_id_;
           cmd->clip_id = context_menu_clip_->id;
           cmd->new_name = context_menu_clip_->name;
-          cmd->old_name = tmp_name_;
+          cmd->old_name = tmp_str_;
           CommandManager2::execute_command("Rename clip", cmd);
-          context_menu_track_ = nullptr;
-          context_menu_clip_ = nullptr;
-          force_redraw_ = true;
+          done = true;
           break;
         }
-        case ConfirmDialog::Cancel:
-          context_menu_track_ = nullptr;
-          context_menu_clip_ = nullptr;
-          force_redraw_ = true;
-          break;
+        case ConfirmDialog::Cancel: done = true; break;
         case ConfirmDialog::None: break;
         default: break;
       }
+    }
+
+    if (auto ret = color_picker_dialog("clip_color_picker", tmp_color_, &context_menu_clip_->color);
+        ret != ConfirmDialog::None) {
+      switch (ret) {
+        case ConfirmDialog::ValueChanged: force_redraw_ = true; break;
+        case ConfirmDialog::Ok: {
+          CmdChangeClipColor* cmd = new CmdChangeClipColor();
+          cmd->track_id = context_menu_track_id_;
+          cmd->clip_id = context_menu_clip_->id;
+          cmd->new_color = context_menu_clip_->color.to_uint32();
+          cmd->old_color = tmp_color_.to_uint32();
+          CommandManager2::execute_command("Change clip color", cmd);
+          done = true;
+          break;
+        }
+        case ConfirmDialog::Cancel: done = true; break;
+        case ConfirmDialog::None: break;
+        default: break;
+      }
+    }
+
+    if (done) {
+      context_menu_track_ = nullptr;
+      context_menu_clip_ = nullptr;
+      force_redraw_ = true;
     }
   }
 }
@@ -1568,6 +1592,8 @@ void timeline_handle_track_event() {
   if (right_mouse_clicked_ && selected_clip) {
     context_menu_track_ = Engine2::tracks[selected_clip->first];
     context_menu_clip_ = context_menu_track_->clips[selected_clip->second];
+    tmp_str_ = context_menu_clip_->name;
+    tmp_color_ = context_menu_clip_->color;
     ImGui::OpenPopup("clip_ctx_menu");
   }
 

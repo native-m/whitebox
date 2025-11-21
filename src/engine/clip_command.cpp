@@ -573,4 +573,19 @@ void CmdRenameClip::undo() {
   clip->name = old_name;
 }
 
+//
+
+bool CmdChangeClipColor::execute() {
+  Track* track = Engine2::tracks[track_id];
+  Clip* clip = track->clips[clip_id];
+  clip->color = new_color;
+  return true;
+}
+
+void CmdChangeClipColor::undo() {
+  Track* track = Engine2::tracks[track_id];
+  Clip* clip = track->clips[clip_id];
+  clip->color = old_color;
+}
+
 }  // namespace wb
