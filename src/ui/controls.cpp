@@ -171,7 +171,8 @@ bool outline_toggle_button(const char* str, bool* value, const ImVec4& toggled_c
   ImVec2 pos = window->DC.CursorPos;
   /*if ((flags & ImGuiButtonFlags_AlignTextBaseLine) && style.FramePadding.y < window->DC.CurrLineTextBaseOffset)
     pos.y += window->DC.CurrLineTextBaseOffset - style.FramePadding.y;*/
-  ImVec2 sz = ImGui::CalcItemSize(size, label_size.x + style.FramePadding.x * 2.0f, label_size.y + style.FramePadding.y * 2.0f);
+  ImVec2 sz =
+      ImGui::CalcItemSize(size, label_size.x + style.FramePadding.x * 2.0f, label_size.y + style.FramePadding.y * 2.0f);
 
   const ImRect bb(pos, pos + sz);
   ImGui::ItemSize(sz, style.FramePadding.y);
@@ -199,8 +200,7 @@ bool outline_toggle_button(const char* str, bool* value, const ImVec4& toggled_c
   else
     g.Style.Colors[ImGuiCol_Text] = ImGui::GetStyleColorVec4(ImGuiCol_Text);
 
-  ImGui::RenderTextClipped(
-      bb.Min, bb.Max, str, nullptr, &label_size, style.ButtonTextAlign, &bb);
+  ImGui::RenderTextClipped(bb.Min, bb.Max, str, nullptr, &label_size, style.ButtonTextAlign, &bb);
 
   g.Style.Colors[ImGuiCol_Text] = backup_color;
 
@@ -211,7 +211,7 @@ bool image_view(const char* str_id, const ImVec2& size, ImTextureRef tex_ref) {
   ImVec2 cur_pos = ImGui::GetCursorScreenPos();
   ImRect bb(cur_pos, cur_pos + size);
   bool ret = ImGui::InvisibleButton(str_id, size, ImGuiButtonFlags_MouseButtonLeft);
-  
+
   ImDrawList* dl = ImGui::GetWindowDrawList();
   dl->AddRect(bb.Min, bb.Max, ImGui::GetColorU32(ImGuiCol_Border));
 
@@ -239,10 +239,11 @@ bool collapse_header_button(const char* str, float width, bool open) {
 
   ImFont* font = GImGui->Font;
   auto dl = ImGui::GetWindowDrawList();
-  dl->AddRectFilled(bb.Min, bb.Max, hovered ? ImGui::GetColorU32(ImGuiCol_ButtonHovered) : ImGui::GetColorU32(ImGuiCol_Button));
-  ImGui::RenderArrow(dl, bb.Min + padding - ImVec2(1.0f, 0.0f), text_col, open ? ImGuiDir_Down : ImGuiDir_Right);
-  dl->AddText(
-      font, font_size, bb.Min + padding + ImVec2(font_size + 2.0f, 0.0f), text_col, str, nullptr, 0.0f, &bb.AsVec4());
+  ImVec2 text_position(bb.Min.x + 2.0f, bb.Min.y + padding.y);
+  dl->AddRectFilled(
+      bb.Min, bb.Max, hovered ? ImGui::GetColorU32(ImGuiCol_ButtonHovered) : ImGui::GetColorU32(ImGuiCol_Button));
+  ImGui::RenderArrow(dl, text_position, text_col, open ? ImGuiDir_Down : ImGuiDir_Right);
+  dl->AddText(font, font_size, text_position + ImVec2(font_size + 3.0f, 0.0f), text_col, str, nullptr, 0.0f, &bb.AsVec4());
 
   return pressed;
 }
@@ -251,7 +252,7 @@ void hseparator(float width, float thickness) {
   ImVec2 cur_pos = ImGui::GetCursorScreenPos();
   ImVec2 size(width, thickness);
   ImRect bb(cur_pos, cur_pos + size);
-  
+
   ImGui::ItemSize(size);
   if (!ImGui::ItemAdd(bb, 0))
     return;

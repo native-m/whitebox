@@ -112,12 +112,13 @@ void Sample::resize(size_t new_sample_count, uint32_t new_channels, bool discard
 
 std::optional<Sample> Sample::load_file(const std::filesystem::path& path) noexcept {
   if (!std::filesystem::is_regular_file(path))
-    return {};
+    return {}; 
 
   // Try open with SF
-  std::wstring str_path = path.generic_wstring();
+  std::string str_path = path.generic_string();
   SF_INFO info;
-  SNDFILE* file = sf_wchar_open(str_path.c_str(), SFM_READ, &info);
+  SNDFILE* file = sf_open(str_path.c_str(), SFM_READ, &info);
+  //SNDFILE* file = sf_wchar_open(str_path.c_str(), SFM_READ, &info);
   if (!file)
     return load_compressed_file(path);
 

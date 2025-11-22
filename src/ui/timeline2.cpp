@@ -744,7 +744,8 @@ void timeline_render_track_panel() {
     ImVec2 track_controls_min_bb = ImGui::GetCursorScreenPos() + padding;
     ImVec2 track_controls_max_bb = track_controls_min_bb + track_controls_size;
 
-    if (ImGui::BeginChild("##track_controls", track_controls_size, 0, track_control_window_flags_)) {
+    if (ImGui::BeginChild(
+            "##track_controls", track_controls_size, ImGuiChildFlags_AlwaysUseWindowPadding, track_control_window_flags_)) {
       float volume = track->ui_parameter_state.volume_db;
       bool mute = track->ui_parameter_state.mute;
 
@@ -984,6 +985,7 @@ void timeline_render_track_panel() {
         case TrackContextMenuResult::Rename: open_rename_track_dialog = true; break;
         case TrackContextMenuResult::ChangeColor: open_change_color_dialog = true; break;
         case TrackContextMenuResult::Done: context_menu_track_ = nullptr; break;
+        default: break;
       }
       redraw_ = true;
     }
