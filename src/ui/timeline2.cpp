@@ -172,8 +172,7 @@ static constexpr uint32_t timeline_mouse_btn_flags_ =
     ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_MouseButtonMiddle;
 
 static constexpr ImGuiWindowFlags track_control_window_flags_ =
-    ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoBackground |
-    ImGuiWindowFlags_AlwaysUseWindowPadding;
+    ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoBackground;
 
 static constexpr float zoom_sensitivity_ = 0.12f;
 static constexpr float track_separator_height_ = 2.0f;
@@ -442,9 +441,9 @@ void render_timeline() {
   mouse_wheel_h_ = io.MouseWheelH;
   text_color_ = ImGui::GetColorU32(ImGuiCol_Text);
   text_transparent_color_ = Color(ImGui::GetColorU32(ImGuiCol_Text)).change_alpha(0.7f).to_uint32();
-  holding_shift_ = ImGui::IsKeyDown(ImGuiKey_ModShift);
-  holding_ctrl_ = ImGui::IsKeyDown(ImGuiKey_ModCtrl);
-  holding_alt_ = ImGui::IsKeyDown(ImGuiKey_ModAlt);
+  holding_shift_ = ImGui::IsKeyDown(ImGuiMod_Shift);
+  holding_ctrl_ = ImGui::IsKeyDown(ImGuiMod_Ctrl);
+  holding_alt_ = ImGui::IsKeyDown(ImGuiMod_Alt);
   timeline_focused_ = ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows);
 
   ImGui::PopStyleVar();  // ImGuiStyleVar_WindowPadding
@@ -586,7 +585,11 @@ void timeline_render_navbar() {
   float navbar_h = (font_size + style.FramePadding.y * 2.0f) * 2.0f;
 
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4.0f, 4.0f));
-  if (ImGui::BeginChild("track_add", ImVec2(track_panel_width_, navbar_h), 0, track_control_window_flags_)) {
+  if (ImGui::BeginChild(
+          "track_add",
+          ImVec2(track_panel_width_, navbar_h),
+          ImGuiChildFlags_AlwaysUseWindowPadding,
+          track_control_window_flags_)) {
     ImVec2 region_avail = ImGui::GetContentRegionAvail();
 
     font_push(FontType::Icon, 22.0f);
@@ -1848,7 +1851,7 @@ void timeline_prepare_resize(double resize_pos, bool left) {
       track_id++;
     }
 
-    assert(max_pos != DBL_MAX); // Impossible
+    assert(max_pos != DBL_MAX && "No clip selected");
     tl_state_.tool.min_relative_ofs = max_pos;
   } else {
     double min_pos = 0.0;

@@ -625,9 +625,9 @@ static void clip_editor_render_note_editor() {
   bool right_mouse_clicked = is_activated && ImGui::IsMouseClicked(ImGuiMouseButton_Right);
   bool right_mouse_down = is_active && ImGui::IsMouseDown(ImGuiMouseButton_Right);
 
-  holding_shift = ImGui::IsKeyDown(ImGuiKey_ModShift);
-  holding_ctrl = ImGui::IsKeyDown(ImGuiKey_ModCtrl);
-  holding_alt = ImGui::IsKeyDown(ImGuiKey_ModAlt);
+  holding_shift = ImGui::IsKeyDown(ImGuiMod_Shift);
+  holding_ctrl = ImGui::IsKeyDown(ImGuiMod_Ctrl);
+  holding_alt = ImGui::IsKeyDown(ImGuiMod_Alt);
 
   if (is_piano_roll_hovered && mouse_wheel_h != 0.0f) {
     clip_editor_base.scroll_horizontal(mouse_wheel_h, clip_editor_base.song_length, -view_scale * 64.0);

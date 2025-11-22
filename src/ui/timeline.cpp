@@ -90,9 +90,9 @@ void TimelineWindow::render() {
   middle_mouse_clicked = ImGui::IsMouseClicked(ImGuiMouseButton_Middle);
   middle_mouse_down = ImGui::IsMouseDown(ImGuiMouseButton_Middle);
   right_mouse_clicked = ImGui::IsMouseDown(ImGuiMouseButton_Right);
-  holding_shift = ImGui::IsKeyDown(ImGuiKey_ModShift);
-  holding_ctrl = ImGui::IsKeyDown(ImGuiKey_ModCtrl);
-  holding_alt = ImGui::IsKeyDown(ImGuiKey_ModAlt);
+  holding_shift = ImGui::IsKeyDown(ImGuiMod_Shift);
+  holding_ctrl = ImGui::IsKeyDown(ImGuiMod_Ctrl);
+  holding_alt = ImGui::IsKeyDown(ImGuiMod_Alt);
   can_select = holding_ctrl && !holding_shift;
 
   ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
@@ -186,9 +186,8 @@ void TimelineWindow::render_splitter() {
 }
 
 void TimelineWindow::render_track_controls() {
-  constexpr ImGuiWindowFlags track_control_window_flags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse |
-                                                          ImGuiWindowFlags_NoBackground |
-                                                          ImGuiWindowFlags_AlwaysUseWindowPadding;
+  constexpr ImGuiWindowFlags track_control_window_flags =
+      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoBackground;
 
   static constexpr ImVec4 muted_color(0.951f, 0.322f, 0.322f, 1.000f);
   static constexpr float track_color_width = 8.0f;
@@ -224,7 +223,7 @@ void TimelineWindow::render_track_controls() {
     const ImVec2 pos_start = ImGui::GetCursorScreenPos();
     const ImVec2 pos_end = pos_start + size;
 
-    if (ImGui::BeginChild("##track_control", size, 0, track_control_window_flags)) {
+    if (ImGui::BeginChild("##track_control", size, ImGuiChildFlags_AlwaysUseWindowPadding, track_control_window_flags)) {
       ImGuiSliderFlags slider_flags = ImGuiSliderFlags_Vertical;
       float volume = track->ui_parameter_state.volume_db;
       bool mute = track->ui_parameter_state.mute;
@@ -1010,7 +1009,7 @@ void TimelineWindow::render_track_lanes() {
     layer_draw_data.OwnerViewport = owner_viewport;
     layer_draw_data.AddDrawList(layer1_draw_list);
     g_renderer->render_imgui_draw_data(&layer_draw_data);
-    //gfx_draw_waveform_batch(waveform_cmd_list1, 0, 0, (int32_t)timeline_area.x, (int32_t)timeline_area.y);
+    // gfx_draw_waveform_batch(waveform_cmd_list1, 0, 0, (int32_t)timeline_area.x, (int32_t)timeline_area.y);
 
     layer_draw_data.Clear();
     layer_draw_data.DisplayPos = view_min;
@@ -1020,7 +1019,7 @@ void TimelineWindow::render_track_lanes() {
     layer_draw_data.OwnerViewport = owner_viewport;
     layer_draw_data.AddDrawList(layer2_draw_list);
     g_renderer->render_imgui_draw_data(&layer_draw_data);
-    //gfx_draw_waveform_batch(waveform_cmd_list2, 0, 0, (int32_t)timeline_area.x, (int32_t)timeline_area.y);
+    // gfx_draw_waveform_batch(waveform_cmd_list2, 0, 0, (int32_t)timeline_area.x, (int32_t)timeline_area.y);
 
     layer_draw_data.Clear();
     layer_draw_data.DisplayPos = view_min;
@@ -1134,7 +1133,8 @@ void TimelineWindow::render_track(
   }
 
   bool move_or_shift_cmd = any_of(edit_command, TimelineCommand::ClipMove, TimelineCommand::ClipShift);
-  bool resize_or_shift_cmd = math::in_range_inclusive(edit_command, TimelineCommand::ClipResizeLeft, TimelineCommand::ClipShiftRight);
+  bool resize_or_shift_cmd =
+      math::in_range_inclusive(edit_command, TimelineCommand::ClipResizeLeft, TimelineCommand::ClipShiftRight);
   bool unset_clip_editor = false;
 
   for (size_t i = 0; i < track->clips.size(); i++) {
