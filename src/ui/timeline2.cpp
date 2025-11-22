@@ -70,8 +70,8 @@ struct TimelineState {
     None,
     Select,
     DragDropFiles,
-    Move,
     Duplicate,
+    Move,
     Shift,
     Resize,
     Stretch,
@@ -109,7 +109,7 @@ struct TimelineState {
 
   void end_action() {
     switch (type) {
-      case None:
+      case None: break;
       case Select: break;
       case DragDropFiles: drag_drop_files = {}; break;
       case Duplicate:
@@ -554,11 +554,6 @@ void timeline_render_toolbar() {
     }
     controls::item_tooltip("Strech mode");
 
-    ImGui::Separator();
-
-    if (ImGui::Button(ICON_MS_VARIABLE_ADD, icon_size)) {
-      timeline_add_track();
-    }
     ImGui::PopStyleVar();  // ImGuiStyleVar_FramePadding
 
     font_pop();
@@ -590,16 +585,36 @@ void timeline_render_navbar() {
   float navbar_w = region_size.x - track_panel_width_;
   float navbar_h = (font_size + style.FramePadding.y * 2.0f) * 2.0f;
 
-  /*ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4.0f, 4.0f));
-  if (ImGui::BeginChild("track_add", ImVec2(track_panel_width_, navbar_h - 1.0f), 0, track_control_window_flags_)) {
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4.0f, 4.0f));
+  if (ImGui::BeginChild("track_add", ImVec2(track_panel_width_, navbar_h), 0, track_control_window_flags_)) {
     ImVec2 region_avail = ImGui::GetContentRegionAvail();
-    if (ImGui::Button("+ Track", ImVec2(region_avail.x, region_avail.y)))
+
+    font_push(FontType::Icon, 22.0f);
+    bool open_grid_options = ImGui::Button(ICON_MS_GRID_4X4 "##tl_grid", ImVec2(0.0f, region_avail.y));
+    font_pop();
+
+    ImGui::SameLine(0.0f, 4.0f);
+
+    if (ImGui::Button("+ Track", ImVec2(0.0f, region_avail.y))) {
       timeline_add_track();
+    }
+
+    if (open_grid_options)
+      ImGui::OpenPopup("tl_change_grid");
+
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 8.0f));
+    if (ImGui::BeginPopup("tl_change_grid")) {
+      if (grid_selector(&grid_mode_, &triplet_)) {
+        redraw_ = true;
+      }
+      ImGui::EndPopup();
+    }
+    ImGui::PopStyleVar();
   }
   ImGui::EndChild();
   ImGui::PopStyleVar();
 
-  ImGui::SameLine(0.0f, 0.0f);*/
+  ImGui::SameLine(0.0f, 0.0f);
 
   IMGUI_STYLE_BLOCK(({ ImStyleItemSpacing(0.0f, 2.0f) })) {
     ImGui::SetCursorPosX(math::max(track_panel_width_, track_panel_min_width_) + separator_size + pos_x);
@@ -931,6 +946,7 @@ void timeline_render_track_panel() {
     timeline_update_track_stack(resize_track_id.value());
   }
 
+  /*
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4.0f, 4.0f));
   if (ImGui::BeginChild("##tl_add_track_child", ImVec2(track_panel_width_, 60.0f), 0, track_control_window_flags_)) {
     ImVec2 size = ImGui::GetContentRegionAvail();
@@ -941,6 +957,7 @@ void timeline_render_track_panel() {
   }
   ImGui::PopStyleVar();  // ImGuiStyleVar_WindowPadding
   ImGui::EndChild();
+  */
 
   if (move_track) {
     CmdMoveTrack* cmd = new CmdMoveTrack();
@@ -1115,7 +1132,7 @@ void timeline_render_floating_btns() {
           if (ImGui::Button(ICON_MS_MUSIC_NOTE_ADD, btn_size)) {
             timeline_add_midi_clips();
           }
-          controls::item_tooltip("Create MIDI clip");
+          controls::item_tooltip("Create MIDI clips");
           ImGui::SameLine(0.0f, 0.0f);
 
           // ImGui::Button(ICON_MS_TIMELINE, btn_size);
@@ -1701,14 +1718,12 @@ void timeline_handle_track_event() {
       break;
     case TimelineState::Shift:
       ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
-
+      redraw_ = true;
       if (!left_mouse_down_) {
         hovered_track_id_.reset();
         tl_state_.end_action();
         CommandManager2::unlock();
       }
-
-      redraw_ = true;
       break;
     case TimelineState::Resize:
     case TimelineState::Stretch:
@@ -1833,6 +1848,7 @@ void timeline_prepare_resize(double resize_pos, bool left) {
       track_id++;
     }
 
+    assert(max_pos != DBL_MAX); // Impossible
     tl_state_.tool.min_relative_ofs = max_pos;
   } else {
     double min_pos = 0.0;
@@ -1896,7 +1912,7 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
   }
 
   draw_musical_guidestripes(layer1_dl_, view_min_, display_size, scroll_pos_x, view_scale_);
-  draw_musical_grid(layer1_dl_, view_min_, display_size, scroll_pos_x, inv_view_scale, grid_props, 1.0f, false);
+  draw_musical_grid(layer1_dl_, view_min_, display_size, scroll_pos_x, inv_view_scale, grid_props, 1.0f, triplet_);
 
   int32_t track_move_offset = 0;
   double relative_move_offset = 0;

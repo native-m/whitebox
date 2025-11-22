@@ -81,6 +81,36 @@ double get_grid_division(double length_per_beat, int32_t grid_mode, bool triplet
   return max_division;
 }
 
+bool grid_selector(int32_t* grid_mode, bool* triplet_grid) {
+  bool value_changed = false;
+  int32_t mode = *grid_mode;
+
+  controls::push_style_compact();
+  if (ImGui::Checkbox("Triplet", triplet_grid)) {
+    value_changed = true;
+  }
+  controls::pop_style_compact();
+  
+  for (uint32_t i = 0; auto type : grid_size_table) {
+    if (type == WB_GRID_SIZE_HEADER_AUTO) {
+      ImGui::SeparatorText("Auto");
+    } else if (type == WB_GRID_SIZE_HEADER_BARS) {
+      ImGui::SeparatorText("Bars");
+    } else if (type == WB_GRID_SIZE_HEADER_BAR_DIVISION) {
+      ImGui::SeparatorText("Bar division");
+    } else {
+      if (ImGui::Selectable(type, mode == i)) {
+        value_changed = true;
+        *grid_mode = i;
+        // beat_division = grid_div_table[i].max_division * 0.25;
+      }
+    }
+    i++;
+  }
+
+  return value_changed;
+}
+
 bool grid_combo_box(const char* str, int32_t* grid_mode, bool* triplet_grid) {
   bool value_changed = false;
   const char* grid_size_text = nullptr;
@@ -88,27 +118,7 @@ bool grid_combo_box(const char* str, int32_t* grid_mode, bool* triplet_grid) {
 
   ImFormatStringToTempBuffer(&grid_size_text, nullptr, "Grid: %s", grid_size_table[mode]);
   if (ImGui::BeginCombo(str, grid_size_text, ImGuiComboFlags_HeightLarge)) {
-    controls::push_style_compact();
-    if (ImGui::Checkbox("Triplet", triplet_grid)) {
-      value_changed = true;
-    }
-    controls::pop_style_compact();
-    for (uint32_t i = 0; auto type : grid_size_table) {
-      if (type == WB_GRID_SIZE_HEADER_AUTO) {
-        ImGui::SeparatorText("Auto");
-      } else if (type == WB_GRID_SIZE_HEADER_BARS) {
-        ImGui::SeparatorText("Bars");
-      } else if (type == WB_GRID_SIZE_HEADER_BAR_DIVISION) {
-        ImGui::SeparatorText("Bar division");
-      } else {
-        if (ImGui::Selectable(type, mode == i)) {
-          value_changed = true;
-          *grid_mode = i;
-          // beat_division = grid_div_table[i].max_division * 0.25;
-        }
-      }
-      i++;
-    }
+    value_changed = grid_selector(grid_mode, triplet_grid);
     ImGui::EndCombo();
   }
 
