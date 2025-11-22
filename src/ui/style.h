@@ -31,6 +31,7 @@ IMGUI_STYLE_DEF_VEC2(ImStyleItemInnerSpacing, ImGuiStyleVar_ItemInnerSpacing);
 IMGUI_STYLE_DEF_VEC2(ImStyleItemCellPadding, ImGuiStyleVar_CellPadding);
 
 IMGUI_STYLE_DEF_FLOAT(ImStyleFrameRounding, ImGuiStyleVar_FrameRounding);
+IMGUI_STYLE_DEF_FLOAT(ImStyleFrameBorderSize, ImGuiStyleVar_FrameBorderSize);
 
 template<typename... Args>
 struct __ImGuiStyleVarWrapper {

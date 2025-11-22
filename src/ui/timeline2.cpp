@@ -1137,21 +1137,22 @@ void timeline_render_floating_btns() {
           if (ImGui::Button(ICON_MS_MUSIC_NOTE_ADD, btn_size)) {
             timeline_add_midi_clips();
           }
-          controls::item_tooltip("Create MIDI clips");
+          controls::item_tooltip("New MIDI clip");
           ImGui::SameLine(0.0f, 0.0f);
 
           // ImGui::Button(ICON_MS_TIMELINE, btn_size);
           // controls::item_tooltip("Create automation clips");
           // ImGui::SameLine(0.0f, 0.0f);
 
+          ImGui::Button(ICON_MS_SURGICAL, btn_size);
+          controls::item_tooltip("Slice region");
+          ImGui::SameLine(0.0f, 0.0f);
+
           if (ImGui::Button(ICON_MS_REMOVE_SELECTION, btn_size)) {
             timeline_delete_region();
           }
           controls::item_tooltip("Delete region");
           ImGui::SameLine(0.0f, 0.0f);
-
-          // ImGui::Button(ICON_MS_SURGICAL, btn_size);
-          // controls::item_tooltip("Slice region");
 
           font_pop();
           floating_button_size_ = ImGui::GetWindowSize();
@@ -2057,12 +2058,13 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
     switch (tl_state_.type) {
       case TimelineState::Move:
       case TimelineState::Duplicate: {
-        int32_t src_track = tl_state_.tool.initial_track_id;
-        int32_t dst_track = hovered_track_id_.value();
-        Track* track = Engine2::tracks[src_track];
-        Clip* clip = track->clips[tl_state_.tool.clip_id];
+        int32_t src_track_id = tl_state_.tool.initial_track_id;
+        int32_t dst_track_id = hovered_track_id_.value();
+        Track* src_track = Engine2::tracks[src_track_id];
+        Track* dst_track = Engine2::tracks[dst_track_id];
+        Clip* clip = src_track->clips[tl_state_.tool.clip_id];
         double start_offset = clip->start_offset;
-        float track_pos_y = track_stack_[dst_track] + view_min_.y - vscroll_;
+        float track_pos_y = track_stack_[dst_track_id] + view_min_.y - vscroll_;
         const double speed = clip->is_audio() ? clip->audio.speed : 1.0;
         const auto [start_pos, end_pos] = calc_move_clip(clip, relative_offset, 0.0);
 
@@ -2074,7 +2076,7 @@ void timeline_draw_track_lanes(const ImVec2& display_size, const ImVec2& view_si
             start_offset,
             speed,
             track_pos_y,
-            track->get_height(),
+            dst_track->get_height(),
             ClipDrawCmd2::Topmost);
         break;
       }
