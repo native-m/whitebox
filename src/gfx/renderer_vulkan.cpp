@@ -1,7 +1,7 @@
 #include "renderer_vulkan.h"
 
-#include <imgui_internal.h>
 #include <imgui_impl_sdl3.h>
+#include <imgui_internal.h>
 
 #include "core/bit_manipulation.h"
 #include "core/debug.h"
@@ -546,6 +546,7 @@ GPUBuffer* GPURendererVK::create_buffer(
     bool dedicated_allocation,
     size_t init_size,
     const void* init_data) {
+  std::scoped_lock lock(mtx_);
   void* buffer_ptr = buffer_pool_.allocate();
   if (!buffer_ptr)
     return nullptr;
@@ -647,6 +648,7 @@ GPUTexture* GPURendererVK::create_texture(
     uint32_t init_w,
     uint32_t init_h,
     const void* init_data) {
+  std::scoped_lock lock(mtx_);
   void* texture_ptr = texture_pool_.allocate();
   if (!texture_ptr)
     return nullptr;
@@ -980,6 +982,7 @@ GPUPipeline* GPURendererVK::create_pipeline(const GPUPipelineDesc& desc) {
   if (VK_FAILED(vkCreateGraphicsPipelines(device_, nullptr, 1, &pipeline_info, nullptr, &pipeline)))
     return nullptr;
 
+  std::scoped_lock lock(mtx_);
   GPUPipelineVK* new_pipeline = (GPUPipelineVK*)pipeline_pool_.allocate();
   if (!new_pipeline)
     return nullptr;
@@ -992,6 +995,7 @@ GPUPipeline* GPURendererVK::create_pipeline(const GPUPipelineDesc& desc) {
 }
 
 void GPURendererVK::destroy_buffer(GPUBuffer* buffer) {
+  std::scoped_lock lock(mtx_);
   GPUBufferVK* impl = static_cast<GPUBufferVK*>(buffer);
   dispose_buffer_(impl);
   if (impl->is_connected_to_list())
@@ -1000,6 +1004,7 @@ void GPURendererVK::destroy_buffer(GPUBuffer* buffer) {
 }
 
 void GPURendererVK::destroy_texture(GPUTexture* texture) {
+  std::scoped_lock lock(mtx_);
   GPUTextureVK* impl = static_cast<GPUTextureVK*>(texture);
   dispose_texture_(impl);
   if (impl->is_connected_to_list())
@@ -1008,11 +1013,13 @@ void GPURendererVK::destroy_texture(GPUTexture* texture) {
 }
 
 void GPURendererVK::destroy_pipeline(GPUPipeline* pipeline) {
+  std::scoped_lock lock(mtx_);
   dispose_pipeline_(static_cast<GPUPipelineVK*>(pipeline));
   pipeline_pool_.free(pipeline);
 }
 
 void GPURendererVK::add_viewport(ImGuiViewport* viewport) {
+  std::scoped_lock lock(mtx_);
   SDL_Window* window = SDL_GetWindowFromID((uint32_t)(uint64_t)viewport->PlatformHandle);
   VkSurfaceKHR surface = create_surface(instance_, window);
   assert(surface != VK_NULL_HANDLE);
@@ -1027,6 +1034,7 @@ void GPURendererVK::add_viewport(ImGuiViewport* viewport) {
 }
 
 void GPURendererVK::remove_viewport(ImGuiViewport* viewport) {
+  std::scoped_lock lock(mtx_);
   GPUViewportDataVK* removed_viewport = nullptr;
   Vector<GPUViewportDataVK*> old_viewports;
   uint32_t index = 0;
@@ -1047,6 +1055,7 @@ void GPURendererVK::remove_viewport(ImGuiViewport* viewport) {
 }
 
 void GPURendererVK::resize_viewport(ImGuiViewport* viewport, ImVec2 vec) {
+  std::scoped_lock lock(mtx_);
   if (GImGui->Viewports[0] == viewport) {
     static_cast<GPUViewportDataVK*>(main_vp)->need_rebuild = true;
     return;
@@ -1536,6 +1545,7 @@ void GPURendererVK::enqueue_resource_upload_(
 }
 
 void GPURendererVK::submit_pending_uploads_() {
+  std::scoped_lock lock(mtx_);
   upload_id_ = (upload_id_ + 1) % num_inflight_frames_;
 
   bool emit_memory_barrier = false;
@@ -1958,7 +1968,6 @@ bool GPURendererVK::create_or_recreate_swapchain_(GPUViewportDataVK* vp_data) {
 }
 
 void GPURendererVK::dispose_buffer_(GPUBufferVK* buffer) {
-  std::scoped_lock lock(mtx_);
   for (uint32_t i = 0; i < buffer->num_resources; i++) {
     GPUResourceDisposeItemVK& buf = resource_disposal_.emplace_back();
     buf.type = GPUResourceDisposeItemVK::Buffer;
@@ -1971,7 +1980,6 @@ void GPURendererVK::dispose_buffer_(GPUBufferVK* buffer) {
 }
 
 void GPURendererVK::dispose_texture_(GPUTextureVK* texture) {
-  std::scoped_lock lock(mtx_);
   for (uint32_t i = 0; i < texture->num_resources; i++) {
     GPUResourceDisposeItemVK& tex = resource_disposal_.emplace_back();
     tex.type = GPUResourceDisposeItemVK::Texture;
@@ -1986,7 +1994,6 @@ void GPURendererVK::dispose_texture_(GPUTextureVK* texture) {
 }
 
 void GPURendererVK::dispose_pipeline_(GPUPipelineVK* pipeline) {
-  std::scoped_lock lock(mtx_);
   GPUResourceDisposeItemVK& item = resource_disposal_.emplace_back();
   item.type = GPUResourceDisposeItemVK::Pipeline;
   item.frame_stamp = frame_count_;
@@ -1994,7 +2001,6 @@ void GPURendererVK::dispose_pipeline_(GPUPipelineVK* pipeline) {
 }
 
 void GPURendererVK::dispose_viewport_data_(GPUViewportDataVK* vp_data, VkSurfaceKHR surface) {
-  std::scoped_lock lock(mtx_);
   GPUTextureVK* vk_texture = static_cast<GPUTextureVK*>(vp_data->render_target);
   for (uint32_t i = 0; i < vk_texture->num_resources; i++) {
     GPUResourceDisposeItemVK& tex = resource_disposal_.emplace_back();
