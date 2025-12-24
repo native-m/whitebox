@@ -15,7 +15,11 @@ void CmdClip::delete_region(
     double start_pos,
     double end_pos,
     double beat_duration,
+    bool ripple,
     Clip* excluded_clip) {
+  uint32_t ripple_start_idx = clip_span.last;
+  Clip* skip_ripple_delete = nullptr;
+
   for (uint32_t i = clip_span.first; i <= clip_span.last; i++) {
     Clip* clip = track->clips[i];
 
@@ -33,7 +37,12 @@ void CmdClip::delete_region(
       new_clip->min_time = end_pos;
       clip->max_time = start_pos;
       track->clips.push_back(new_clip);
-      added_clips.emplace_back(track_id, 0, new_clip);
+      if (ripple) {
+        ripple_start_idx++;
+        skip_ripple_delete = new_clip;
+      } else {
+        added_clips.emplace_back(track_id, 0, new_clip);
+      }
     } else if (clip_span.left_side_partially_selected(i)) {
       added_clips.emplace_back(track_id, 0, clip);
       deleted_clips.emplace_back(track_id, *clip);
@@ -49,10 +58,24 @@ void CmdClip::delete_region(
       track->mark_clip_deleted(clip);
     }
   }
+
+  if (ripple) {
+    double shift_distance = end_pos - start_pos;
+    uint32_t next_last_clip_idx = ripple_start_idx;
+    uint32_t num_clips = track->clips.size() - next_last_clip_idx;
+    for (uint32_t i = 0; i < num_clips; i++) {
+      uint32_t clip_idx = next_last_clip_idx + i;
+      Clip* clip = track->clips[clip_idx];
+      if (clip != skip_ripple_delete)
+        deleted_clips.emplace_back(track_id, *clip);
+      clip->min_time -= shift_distance;
+      clip->max_time -= shift_distance;
+      added_clips.emplace_back(track_id, 0, clip);
+    }
+  }
 }
 
-void CmdClip::resolve_id_for_added_clips() {
-  // Resolve IDs for added clips
+void CmdClip::resolve_added_clips_id() {
   for (auto& [_, clip_id, clip] : added_clips) {
     assert(clip);
     clip_id = clip->id;
@@ -127,12 +150,12 @@ bool CmdAddClipFromFile::execute() {
   Engine2::begin_edit();
 
   if (clip_span)
-    delete_region(clip_span, track, track_id, position, end_pos, beat_duration);
+    delete_region(clip_span, track, track_id, position, end_pos, beat_duration, false);
 
   track->clips.push_back(clip);
   Engine2::update_track_state(track);
   Engine2::end_edit();
-  resolve_id_for_added_clips();
+  resolve_added_clips_id();
 
   return true;
 }
@@ -152,7 +175,7 @@ bool CmdAddMidiClips::execute() {
 
     if (auto clip_span = track->query_clip_by_range2(start_pos, end_pos)) {
       deleted_clips.expand_capacity(clip_span.num_clips());
-      delete_region(clip_span, track, i, start_pos, end_pos, beat_duration);
+      delete_region(clip_span, track, i, start_pos, end_pos, beat_duration, false);
     }
 
     MidiAsset2* asset = AssetManager::create_midi_asset();
@@ -165,7 +188,7 @@ bool CmdAddMidiClips::execute() {
   }
 
   Engine2::end_edit();
-  resolve_id_for_added_clips();
+  resolve_added_clips_id();
 
   return true;
 }
@@ -442,7 +465,7 @@ bool CmdMoveClips::execute() {
   }
 
   Engine2::end_edit();
-  resolve_id_for_added_clips();
+  resolve_added_clips_id();
 
   return true;
 }
@@ -496,7 +519,7 @@ bool CmdResizeClips::execute() {
   }
 
   Engine2::end_edit();
-  resolve_id_for_added_clips();
+  resolve_added_clips_id();
 
   return changed;
 }
@@ -515,7 +538,7 @@ bool CmdDeleteClips::execute() {
     Track* track = Engine2::tracks[i];
 
     if (clip_span.contains_clip) {
-      delete_region(clip_span, track, i, start_pos, end_pos, beat_duration);
+      delete_region(clip_span, track, i, start_pos, end_pos, beat_duration, ripple);
       modified_tracks.push_back(i);
       Engine2::update_track_state(track);
       clip_deleted = true;
@@ -525,7 +548,7 @@ bool CmdDeleteClips::execute() {
   }
 
   Engine2::end_edit();
-  resolve_id_for_added_clips();
+  resolve_added_clips_id();
 
   return clip_deleted;
 }

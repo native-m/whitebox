@@ -35,6 +35,7 @@ struct Engine2 {
   static AudioDeviceProperties input_device_properties;
   static AudioEngineConfig current_engine_config;
   static AudioEngineConfig audio_engine_config;
+  static ProjectInfo project_info;
 
   static void initialize();
   static void shutdown();

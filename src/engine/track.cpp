@@ -276,7 +276,6 @@ void Track::reset_playback_state(double time_pos, bool refresh_voices) {
     event_state.clip_idx = next_clip;
     event_state.midi_note_idx = 0;
     event_state.partially_ended = false;
-    midi_voice_state.voice_mask = 0;
     midi_voice_state.release_all();
   }
   event_state.refresh_voice = refresh_voices;
@@ -303,7 +302,6 @@ void Track::stop() {
   audio_event_buffer.resize(0);
   midi_event_list.clear();
   stop_record();
-  // midi_voice_state.voice_mask = 0;
 }
 
 void Track::process_event(
@@ -515,7 +513,7 @@ void Track::process_midi_event(
   const MidiNoteBuffer& buffer = asset->data.note_sequence;
   uint32_t midi_note_idx = event_state.midi_note_idx;
   uint32_t note_count = (uint32_t)buffer.size();
-  double max_clip_time = clip->max_time;
+  double clip_end_time = clip->max_time;
   double time_offset = clip->min_time - clip->start_offset;
   double mult = 1.0 / (double)clip->midi.rate;
   int16_t semitone_offset = clip->midi.transpose;
@@ -524,9 +522,9 @@ void Track::process_midi_event(
     const MidiNote& note = buffer[midi_note_idx];
     double min_time = time_offset + note.min_time * mult;  // math::round((time_offset + note.min_time) * ppq) * inv_ppq;
     double max_time = math::min(
-        time_offset + note.max_time * mult, max_clip_time);  // math::round((time_offset + note.max_time) * ppq) * inv_ppq;
+        time_offset + note.max_time * mult, clip_end_time);  // math::round((time_offset + note.max_time) * ppq) * inv_ppq;
 
-    if (min_time > end_time || min_time >= clip->max_time)
+    if (min_time > end_time || min_time >= clip_end_time)
       break;
 
     while (auto voice = midi_voice_state.release_voice(min_time)) {
@@ -551,16 +549,16 @@ void Track::process_midi_event(
 #endif
     }
 
-    double offset_from_start = beat_to_samples(min_time - start_time, sample_rate, beat_duration);
-    double sample_offset = sample_position + offset_from_start;
-    uint32_t buffer_offset = (uint32_t)((uint64_t)sample_offset % (uint64_t)buffer_size);
-    int16_t key = note.key + semitone_offset;
-
     // Skip muted notes
     if (contain_bit(note.flags, MidiNoteFlags::Muted)) {
       midi_note_idx++;
       continue;
     }
+
+    double offset_from_start = beat_to_samples(min_time - start_time, sample_rate, beat_duration);
+    double sample_offset = sample_position + offset_from_start;
+    uint32_t buffer_offset = (uint32_t)((uint64_t)sample_offset % (uint64_t)buffer_size);
+    int16_t key = note.key + semitone_offset;
 
     bool voice_added = midi_voice_state.add_voice({
       .max_time = max_time,

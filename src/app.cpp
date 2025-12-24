@@ -102,7 +102,6 @@ SDL_AppResult app_iterate(void* appstate) {
   ImGui::GetDrawListSharedData()->InitialFringeScale = 1.0f;
 
   ImGuiViewport* main_viewport = ImGui::GetMainViewport();
-
   ImGuiID main_dockspace_id = ImGui::DockSpaceOverViewport(0, main_viewport, ImGuiDockNodeFlags_PassthruCentralNode);
 
   if (!g_file_drop.empty()) {
@@ -167,7 +166,7 @@ SDL_AppResult app_iterate(void* appstate) {
   switch (get_file_dialog_payload("save_project_exit", FileDialogType::SaveFile, &save_file_path)) {
     case FileDialogStatus::Accepted: {
       shutdown_audio_io();
-      auto result = write_project_file(*save_file_path, g_engine, g_sample_table, g_midi_table, g_timeline);
+      auto result = write_project_file(*save_file_path);
       if (result != ProjectFileResult::Ok) {
         Log::error("Failed to open project {}", (uint32_t)result);
         assert(false);
@@ -207,6 +206,7 @@ SDL_AppResult app_iterate(void* appstate) {
   }
 
   ImGui::Render();
+
   g_renderer->begin_render(g_renderer->main_vp->render_target, { 0.0f, 0.0f, 0.0f, 1.0f });
   g_renderer->render_imgui_draw_data(ImGui::GetDrawData());
   g_renderer->end_render();

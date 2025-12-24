@@ -17,6 +17,13 @@ enum class ClipSelectStatus {
   PartiallySelected,
 };
 
+struct ProjectInfo {
+  std::string author;
+  std::string title;
+  std::string genre;
+  std::string description;
+};
+
 struct AudioEngineConfig {
   AudioDeviceID input_device_id;
   AudioDeviceID output_device_id;

@@ -32,8 +32,10 @@ static HotkeyItem hotkey_table[(uint32_t)Hotkey::Count] = {
 
 #ifdef WB_PLATFORM_MACOS
   { Hotkey::Delete, ImGuiMod_None, ImGuiKey_Backspace },
+  { Hotkey::Delete, ImGuiMod_Shift, ImGuiKey_Backspace },
 #else
   { Hotkey::Delete, ImGuiMod_None, ImGuiKey_Delete },
+  { Hotkey::Delete2, ImGuiMod_Shift, ImGuiKey_Delete },
 #endif
 
   { Hotkey::SelectAll, ImGuiMod_Ctrl, ImGuiKey_A },

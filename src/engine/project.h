@@ -4,9 +4,8 @@
 #include <unordered_map>
 
 #include "assets_table.h"
+#include "clip.h"
 #include "core/common.h"
-#include "engine.h"
-#include "ui/timeline.h"
 
 namespace wb {
 
@@ -96,17 +95,8 @@ enum class ProjectFileResult {
   ErrInvalidFormat,
 };
 
-ProjectFileResult read_project_file(
-    const std::filesystem::path& filepath,
-    Engine& engine,
-    SampleTable& sample_table,
-    MidiTable& midi_table,
-    TimelineWindow& timeline);
-ProjectFileResult write_project_file(
-    const std::filesystem::path& filepath,
-    Engine& engine,
-    SampleTable& sample_table,
-    MidiTable& midi_table,
-    TimelineWindow& timeline);
+ProjectFileResult read_project_file(const std::filesystem::path& filepath);
+
+ProjectFileResult write_project_file(const std::filesystem::path& filepath);
 
 }  // namespace wb

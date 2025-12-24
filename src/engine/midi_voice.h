@@ -20,7 +20,6 @@ struct MidiVoiceState {
   Vector<MidiVoice> voices;
   InplaceList<MidiVoice> allocated_voices;
   InplaceList<MidiVoice> free_voices;
-  uint64_t voice_mask{};
   uint32_t used_voices{};
   uint32_t max_used_voices{};
 

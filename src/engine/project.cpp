@@ -5,8 +5,10 @@
 #include "core/serdes.h"
 #include "core/stream.h"
 #include "core/vector.h"
-#include "engine/track.h"
+#include "engine2.h"
+#include "track.h"
 #include "ui/browser.h"
+#include "ui/timeline2.h"
 
 #define WB_INVALID_ASSET_ID (~0U)
 
@@ -19,12 +21,7 @@ static constexpr uint32_t project_midi_table_version = 1;
 static constexpr uint32_t project_track_version = 1;
 static constexpr uint32_t project_clip_version = 2;
 
-ProjectFileResult read_project_file(
-    const std::filesystem::path& filepath,
-    Engine& engine,
-    SampleTable& sample_table,
-    MidiTable& midi_table,
-    TimelineWindow& timeline) {
+ProjectFileResult read_project_file(const std::filesystem::path& filepath) {
   File file;
   if (!file.open(filepath, IOOpenMode::Read))
     return ProjectFileResult::ErrCannotAccessFile;
@@ -43,17 +40,18 @@ ProjectFileResult read_project_file(
   if (auto project = view.map_find("wbpr")) {
     double initial_bpm = project.map_find("bpm").as_number(120.0);
     double playhead_pos = project.map_find("playhead_pos").as_number(0.0);
+    double timeline_scroll_start = project.map_find("timeline_view_min").as_number(0.0);
+    double timeline_scroll_end = project.map_find("timeline_view_max").as_number(1.0);
 
-    engine.set_bpm(initial_bpm);
-    engine.set_playhead_position(playhead_pos);
-    timeline.min_hscroll = project.map_find("timeline_view_min").as_number(0.0);
-    timeline.max_hscroll = project.map_find("timeline_view_max").as_number(1.0);
+    Engine2::set_bpm(initial_bpm);
+    Engine2::set_playhead_position(playhead_pos);
+    timeline_set_scroll_position(timeline_scroll_start, timeline_scroll_end);
 
     if (auto p_info = project.map_find("project_info")) {
-      engine.project_info.author = p_info.map_find("author").as_str();
-      engine.project_info.title = p_info.map_find("title").as_str();
-      engine.project_info.genre = p_info.map_find("genre").as_str();
-      engine.project_info.description = p_info.map_find("desc").as_str();
+      Engine2::project_info.author = p_info.map_find("author").as_str();
+      Engine2::project_info.title = p_info.map_find("title").as_str();
+      Engine2::project_info.genre = p_info.map_find("genre").as_str();
+      Engine2::project_info.description = p_info.map_find("desc").as_str();
     }
 
     Vector<AudioAsset*> audio_assets;
@@ -209,7 +207,7 @@ ProjectFileResult read_project_file(
             }
           }
 
-          engine.tracks.push_back(track);
+          Engine2::tracks.push_back(track);
         }
       }
     }
@@ -218,12 +216,7 @@ ProjectFileResult read_project_file(
   return ProjectFileResult::Ok;
 }
 
-ProjectFileResult write_project_file(
-    const std::filesystem::path& filepath,
-    Engine& engine,
-    SampleTable& sample_table,
-    MidiTable& midi_table,
-    TimelineWindow& timeline) {
+ProjectFileResult write_project_file(const std::filesystem::path& filepath) {
   File file;
   if (!file.open(filepath, IOOpenMode::Write | IOOpenMode::Truncate))
     return ProjectFileResult::ErrCannotAccessFile;
@@ -234,18 +227,18 @@ ProjectFileResult write_project_file(
   w.write_map(1);
   w.write_kv_map("wbpr", 10);
   w.write_kv_num("version", 1);
-  w.write_kv_num("bpm", engine.get_bpm());
-  w.write_kv_num("playhead_pos", engine.playhead_pos());
-  w.write_kv_num("timeline_view_min", timeline.min_hscroll);
-  w.write_kv_num("timeline_view_max", timeline.max_hscroll);
+  w.write_kv_num("bpm", Engine2::get_bpm());
+  w.write_kv_num("playhead_pos", Engine2::playhead);
+  w.write_kv_num("timeline_view_min", timeline_get_start_scroll());
+  w.write_kv_num("timeline_view_max", timeline_get_end_scroll());
   w.write_kv_num("main_vol", 0.0f);
 
   w.write_kv_map("project_info", 4);
   {
-    w.write_kv_str("author", engine.project_info.author);
-    w.write_kv_str("title", engine.project_info.title);
-    w.write_kv_str("genre", engine.project_info.genre);
-    w.write_kv_str("desc", engine.project_info.description);
+    w.write_kv_str("author", Engine2::project_info.author);
+    w.write_kv_str("title", Engine2::project_info.title);
+    w.write_kv_str("genre", Engine2::project_info.genre);
+    w.write_kv_str("desc", Engine2::project_info.description);
   }
 
   w.write_kv_array("sample_table", AssetManager::audio_assets.size());
@@ -283,9 +276,9 @@ ProjectFileResult write_project_file(
     }
   }
 
-  w.write_kv_array("tracks", engine.tracks.size());
+  w.write_kv_array("tracks", Engine2::tracks.size());
   {
-    for (Track* track : engine.tracks) {
+    for (Track* track : Engine2::tracks) {
       w.write_map(9);
       w.write_kv_str("name", track->name);
       w.write_kv_num("col", track->color.to_uint32());

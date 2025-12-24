@@ -22,9 +22,10 @@ struct CmdClip : public Command2 {
       double start_pos,
       double end_pos,
       double beat_duration,
+      bool ripple,
       Clip* excluded_clip = nullptr);
 
-  void resolve_id_for_added_clips();
+  void resolve_added_clips_id();
 
   void restore_clip_backups();
 
@@ -77,6 +78,7 @@ struct CmdDeleteClips final : public CmdClip {
   Vector<ClipSpan> clip_spans;
   double start_pos;
   double end_pos;
+  bool ripple;
 
   bool execute() override;
 };

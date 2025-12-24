@@ -33,6 +33,7 @@ enum class Hotkey : uint16_t {
   SaveAs,
 
   Delete,
+  Delete2, // Used on ripple delete
   SelectAll,
   Duplicate,
   Mute,

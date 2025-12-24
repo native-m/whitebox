@@ -262,9 +262,6 @@ void main_control_bar() {
     // shutdown_audio_io();
     Engine2::clear_all();
     CommandManager2::flush();
-    g_timeline.reset();
-    g_timeline.add_track();
-    g_timeline.recalculate_song_length();
     timeline_redraw_window();
     // start_audio_engine();
   } else if (open_project) {
@@ -280,7 +277,17 @@ void main_control_bar() {
   const std::filesystem::path* open_file_path;
   if (auto ret = get_file_dialog_payload("open_project", FileDialogType::OpenFile, &open_file_path);
       ret == FileDialogStatus::Accepted) {
-    // shutdown_audio_io();
+    Engine2::stop_audio_engine();
+    Engine2::clear_all();
+    CommandManager2::flush();
+
+    auto result = read_project_file(*open_file_path);
+    if (result != ProjectFileResult::Ok) {
+      Log::error("Failed to open project {}", (uint32_t)result);
+    }
+
+    Engine2::start_audio_engine();
+
     /*g_engine.clear_all();
     g_cmd_manager.reset(true);
     auto result = read_project_file(*open_file_path, g_engine, g_sample_table, g_midi_table, g_timeline);
@@ -296,14 +303,14 @@ void main_control_bar() {
   const std::filesystem::path* save_file_path;
   if (auto ret = get_file_dialog_payload("save_project", FileDialogType::SaveFile, &save_file_path);
       ret == FileDialogStatus::Accepted) {
-    // shutdown_audio_io();
-    /*auto result = write_project_file(*save_file_path, g_engine, g_sample_table, g_midi_table, g_timeline);
+    Engine2::stop_audio_engine();
+    auto result = write_project_file(*save_file_path);
     if (result != ProjectFileResult::Ok) {
       Log::error("Failed to open project {}", (uint32_t)result);
       assert(false);
     }
-    g_cmd_manager.is_modified = false;*/
-    // start_audio_engine();
+    Engine2::start_audio_engine();
+    // g_cmd_manager.is_modified = false;
   }
 }
 }  // namespace wb

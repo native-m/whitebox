@@ -133,6 +133,8 @@ set(WB_SOURCES
     "src/engine/clip_command.h"
     "src/engine/clip.h"
     "src/engine/clip_edit.h"
+    "src/engine/clip_editor_command.cpp"
+    "src/engine/clip_editor_command.h"
     "src/engine/command_manager2.cpp"
     "src/engine/command_manager2.h"
     "src/engine/command2.cpp"

@@ -16,13 +16,6 @@ namespace wb {
 
 struct Track;
 
-struct ProjectInfo {
-  std::string author;
-  std::string title;
-  std::string genre;
-  std::string description;
-};
-
 struct Engine {
   using OnBpmChangeFn = std::function<void(double, double)>;
 

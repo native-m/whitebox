@@ -79,6 +79,7 @@ AudioDeviceProperties Engine2::output_device_properties;
 AudioDeviceProperties Engine2::input_device_properties;
 AudioEngineConfig Engine2::current_engine_config;
 AudioEngineConfig Engine2::audio_engine_config;
+ProjectInfo Engine2::project_info;
 
 static void call_device_removed_listener(void* userdata, bool reset_audio_device);
 static void call_device_format_changed_listener(void* userdata);
@@ -103,6 +104,7 @@ void Engine2::clear_all() {
   for (auto track : tracks) {
     delete track;
   }
+  tracks.clear();
 }
 
 void Engine2::play() {

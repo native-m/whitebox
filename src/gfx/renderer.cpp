@@ -32,7 +32,10 @@ static void imgui_renderer_render_window(ImGuiViewport* viewport, void* userdata
   }
 }
 
-static void imgui_renderer_swap_buffers(ImGuiViewport* viewport, void* userdata) {
+static void imgui_dummy_swap_buffers(ImGuiViewport* viewport, void* userdata) {
+}
+
+static void imgui_dummy_render_window(ImGuiViewport* viewport, void* userdata) {
 }
 
 bool GPURenderer::init(SDL_Window* window) {
@@ -348,11 +351,13 @@ void init_renderer(SDL_Window* window) {
   io.BackendFlags |= ImGuiBackendFlags_RendererHasTextures;
 
   ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
+  platform_io.Platform_RenderWindow = imgui_dummy_render_window;
+  platform_io.Platform_SwapBuffers = imgui_dummy_swap_buffers;
   platform_io.Renderer_CreateWindow = imgui_renderer_create_window;
   platform_io.Renderer_DestroyWindow = imgui_renderer_destroy_window;
   platform_io.Renderer_SetWindowSize = imgui_renderer_set_window_size;
   platform_io.Renderer_RenderWindow = imgui_renderer_render_window;
-  platform_io.Renderer_SwapBuffers = imgui_renderer_swap_buffers;
+  platform_io.Renderer_SwapBuffers = imgui_dummy_swap_buffers;
 }
 
 void shutdown_renderer() {
