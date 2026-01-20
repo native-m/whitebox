@@ -123,10 +123,9 @@ set(WB_SOURCES
     "src/engine/audio_io.cpp"
     "src/engine/audio_io.h"
     "src/engine/audio_io_coreaudio.cpp"
-    "src/engine/audio_io_pulseaudio.cpp"
+    
     "src/engine/audio_io_types.h"
     "src/engine/audio_io_wasapi.cpp"
-    "src/engine/audio_io_wasapi2.cpp"
     "src/engine/audio_record.cpp"
     "src/engine/audio_record.h"
     "src/engine/clip_command.cpp"

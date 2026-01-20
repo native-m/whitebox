@@ -165,7 +165,6 @@ SDL_AppResult app_iterate(void* appstate) {
   const std::filesystem::path* save_file_path;
   switch (get_file_dialog_payload("save_project_exit", FileDialogType::SaveFile, &save_file_path)) {
     case FileDialogStatus::Accepted: {
-      shutdown_audio_io();
       auto result = write_project_file(*save_file_path);
       if (result != ProjectFileResult::Ok) {
         Log::error("Failed to open project {}", (uint32_t)result);
@@ -299,7 +298,6 @@ void app_quit(void* appstate, SDL_AppResult result) {
   wm_close_all_plugin_window();
   save_settings_data();
   shutdown_windows();
-  shutdown_audio_io();
   g_engine.clear_all();
   g_cmd_manager.reset();
   g_sample_table.shutdown();
