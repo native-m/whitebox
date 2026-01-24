@@ -1,14 +1,21 @@
 #pragma once
 
 #include "command2.h"
+#include "core/vector.h"
 
 namespace wb {
 
-struct CmdMidi : public Command2 { };
+struct CmdMidi : public Command2 {
+  Vector<uint32_t> modified_notes;
+  uint32_t track_id;
+  uint32_t clip_id;
 
-struct CmdMidiAddNote : public Command2 {
-  double min_time;
-  double max_time;
+  void restore();
+};
+
+struct CmdMidiAddNote : public CmdMidi {
+  double start_time;
+  double end_time;
   float velocity;
   int16_t note_key;
   uint16_t channel;

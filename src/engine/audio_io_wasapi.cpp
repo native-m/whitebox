@@ -1009,7 +1009,7 @@ void AudioIOWASAPI2::audio_thread_runner(AudioIOWASAPI2* io, AudioThreadPriority
   output_client->Stop();
 }
 
-AudioIO2* create_audio_io_wasapi2() {
+AudioIO2* create_audio_io_wasapi() {
   AudioIOWASAPI2* audio_io = new (std::nothrow) AudioIOWASAPI2();
   if (!audio_io)
     return nullptr;

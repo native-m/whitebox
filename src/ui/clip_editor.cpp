@@ -5,6 +5,8 @@
 #include "IconsMaterialSymbols.h"
 #include "command_manager.h"
 #include "controls.h"
+#include "engine/command_manager2.h"
+#include "engine/clip_editor_command.h"
 #include "engine/engine2.h"
 #include "engine/track.h"
 #include "font.h"
@@ -14,8 +16,8 @@
 #include "timeline.h"
 #include "timeline_base.h"
 
-#define WB_ENABLE_CLIP_EDITOR_DEBUG_CONTROLS    1
-#define WB_SHOW_CLIP_EDITOR_HIDDEN_CONTROLS 1
+#define WB_ENABLE_CLIP_EDITOR_DEBUG_CONTROLS 1
+#define WB_SHOW_CLIP_EDITOR_HIDDEN_CONTROLS  1
 
 #ifdef NDEBUG
 #undef WB_ENABLE_CLIP_EDITOR_DEBUG_MENU
@@ -794,15 +796,15 @@ static void clip_editor_render_note_editor() {
     // Any edits will not be applied until the action is released.
     switch (edit_command) {
       case PianoRollCmd::Draw: {
-        MidiAddNoteCmd* cmd = new MidiAddNoteCmd();
+        CmdMidiAddNote* cmd = new CmdMidiAddNote();
         cmd->track_id = current_track_id.value();
         cmd->clip_id = current_clip_id.value();
-        cmd->min_time = hovered_position_grid;
-        cmd->max_time = hovered_position_grid + note_length;
+        cmd->start_time = hovered_position_grid;
+        cmd->end_time = hovered_position_grid + note_length;
         cmd->velocity = note_velocity / 127.0f;
         cmd->note_key = hovered_key;
         cmd->channel = 0;
-        g_cmd_manager.execute("Clip editor: Draw tool", cmd);
+        CommandManager2::execute_command("Clip editor: Draw tool", cmd);
         break;
       }
       case PianoRollCmd::Marker: {
@@ -873,7 +875,7 @@ static void clip_editor_render_note_editor() {
     }
 
     if (preview_note_data) {
-      current_track->send_note_message(false, last_preview_note_key, preview_note_data->velocity);
+      //current_track->send_note_message(false, last_preview_note_key, preview_note_data->velocity);
       preview_note_data.reset();
       last_preview_note_key = -1;
     }
@@ -884,6 +886,7 @@ static void clip_editor_render_note_editor() {
       note_length = note.max_time - note.min_time;
     }
 
+    clip_editor_recalculate_length();
     clip_editor_base.redraw = true;
     g_timeline.redraw_screen();
     edit_command = PianoRollCmd::None;
@@ -894,7 +897,6 @@ static void clip_editor_render_note_editor() {
     edited_note_id = WB_INVALID_NOTE_ID;
     g_cmd_manager.unlock();
     fg_notes.resize_fast(0);
-    clip_editor_recalculate_length();
 
     if (!painted_notes.empty()) {
       painted_notes.resize(0);
@@ -1571,7 +1573,7 @@ static void clip_editor_render_event_editor() {
 
 static void clip_editor_render_piano_roll() {
   ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
-  
+
   clip_editor_base.render_horizontal_scrollbar();
   const double clip_rate = (double)current_clip->midi.rate;
   const double playhead_start = (Engine2::get_playhead_start() - current_clip->min_time) * clip_rate;
@@ -1609,8 +1611,8 @@ static void clip_editor_render_piano_roll() {
 
   if (ImGui::BeginChild("NoteEditor", ImVec2(0.0f, note_editor_height), 0, ImGuiWindowFlags_NoBackground)) {
     const Color base_color = current_clip->color;
-    indicator_frame_color = base_color.change_alpha(0.5f).darken(0.6f).to_uint32();
     indicator_color = base_color.darken(0.6f).to_uint32();
+    indicator_frame_color = base_color.change_alpha(0.5f).darken(0.6f).to_uint32();
     note_color = base_color.brighten(0.75f).change_alpha(0.85f).to_uint32();
     muted_note_color = base_color.brighten(0.50f).greyscale().to_uint32();
     text_color = base_color.darken(1.5f).to_uint32();

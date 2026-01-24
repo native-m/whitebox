@@ -51,8 +51,6 @@ bool CommandManager2::execute_command(std::string_view name, Command2* cmd) {
     ++num_commands_;
   }
 
-  call_history_update_listener(false);
-
   return true;
 }
 

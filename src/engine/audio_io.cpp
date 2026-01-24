@@ -4,13 +4,13 @@
 
 namespace wb {
 
-extern AudioIO2* create_audio_io_wasapi2();
-extern AudioIO2* create_audio_io_coreaudio();
+extern AudioIO2* create_audio_io_wasapi(); // See audio_io_wasapi.cpp
+extern AudioIO2* create_audio_io_coreaudio(); // See audio_io_coreaudio.cpp
 
 AudioIO2* AudioIO2::create(AudioIOType type) {
   switch (type) {
     case AudioIOType::NoAudio: break;
-    case AudioIOType::WASAPI: return create_audio_io_wasapi2();
+    case AudioIOType::WASAPI: return create_audio_io_wasapi();
     case AudioIOType::CoreAudio: return create_audio_io_coreaudio();
     default: assert(false && "Unknown Audio IO"); break;
   }

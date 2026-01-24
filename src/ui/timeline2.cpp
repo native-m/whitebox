@@ -393,7 +393,7 @@ void timeline_init() {
       song_duration_ = new_song_duration;
     }
 
-    clip_editor_unset_clip();
+    //clip_editor_unset_clip();
     selected_clip_.reset();
     force_redraw_ = true;
   });
