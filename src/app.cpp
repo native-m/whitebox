@@ -62,7 +62,7 @@ SDL_AppResult app_init(void** appstate, int argc, char** argv) {
   imgui_ini_filepath = path_def::imgui_ini_path.string();
   ImGuiIO& io = ImGui::GetIO();
   // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-  io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+  //io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
   io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
   io.ConfigDpiScaleFonts = true;
   io.ConfigDpiScaleViewports = true;

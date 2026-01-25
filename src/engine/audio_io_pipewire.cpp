@@ -37,33 +37,10 @@ struct AudioDevicePipeWire2 {
   uint32_t index = 0;
   uint32_t pw_id = 0;
   AudioDeviceProperties properties{};
-  char* node_name = nullptr;
+
+  char node_name[256]{};
 
   AudioDevicePipeWire2() = default;
-
-  AudioDevicePipeWire2(const AudioDevicePipeWire2&) = delete;
-  AudioDevicePipeWire2& operator=(const AudioDevicePipeWire2&) = delete;
-
-  AudioDevicePipeWire2(AudioDevicePipeWire2&& other) noexcept
-      : index(other.index), pw_id(other.pw_id), properties(other.properties), node_name(other.node_name) {
-    other.node_name = nullptr;
-  }
-
-  AudioDevicePipeWire2& operator=(AudioDevicePipeWire2&& other) noexcept {
-    if (this != &other) {
-      if (node_name) free(node_name);
-
-      index = other.index;
-      pw_id = other.pw_id;
-      properties = other.properties;
-      node_name = other.node_name;
-
-      other.node_name = nullptr;
-    }
-    return *this;
-  }
-
-  ~AudioDevicePipeWire2();
 };
 
 struct ActiveDevicePipeWire2 {
@@ -78,7 +55,7 @@ struct ActiveDevicePipeWire2 {
   bool open(
       pw_core* core,
       pw_thread_loop* thread_loop,
-      const char* node_name,
+      char node_name[256],
       bool is_input_device,
       AudioFormat format,
       uint32_t rate,
@@ -178,22 +155,20 @@ inline static spa_audio_format get_spa_format(AudioFormat format) {
   }
 }
 
-
-AudioDevicePipeWire2::~AudioDevicePipeWire2() {
-  if (node_name)
-    free(node_name);
-}
-
-
 bool ActiveDevicePipeWire2::open(
     pw_core* core,
     pw_thread_loop* thread_loop,
-    const char* node_name,
+    char node_name[256],
     bool is_input_device,
     AudioFormat format,
     uint32_t rate,
     uint32_t channels,
     uint32_t buf_size) {
+
+  if (!thread_loop || !core || !node_name) return false;
+
+  pw_loop* loop = pw_thread_loop_get_loop(thread_loop);
+  if (!loop) return false;
 
   is_input = is_input_device;
   sample_format = format;
@@ -208,15 +183,20 @@ bool ActiveDevicePipeWire2::open(
       PW_KEY_NODE_NAME, node_name,
       nullptr);
 
-  stream = pw_stream_new_simple(
-      pw_thread_loop_get_loop(thread_loop),
+  if (!props) return false;
+
+  stream = pw_stream_new(
+      core,
       is_input ? "Whitebox Input" : "Whitebox Output",
-      props,
-      nullptr,
-      nullptr);
+      props
+  );
 
   if (!stream)
     return false;
+
+  static const pw_stream_events stream_events = {};
+
+  pw_stream_add_listener(stream, &stream_listener, &stream_events, this);
 
   return true;
 }
@@ -308,15 +288,17 @@ static void on_registry_global(
   device.properties.id = make_device_id_hash(id, node_name);
   device.properties.type = is_input ? AudioDeviceType::Input : AudioDeviceType::Output;
   device.properties.io_type = AudioIOType::PipeWire;
-  device.node_name = strdup(node_name);
+
+  strncpy(device.node_name, node_name, sizeof(device.node_name) - 1);
+  device.node_name[sizeof(device.node_name) - 1] = '\0';
 
   snprintf(device.properties.name, sizeof(device.properties.name), "%s",
            node_desc ? node_desc : node_name);
 
   if (is_input)
-    io->input_devices.push_back(std::move(device));
+    io->input_devices.push_back(device);
   else
-    io->output_devices.push_back(std::move(device));
+    io->output_devices.push_back(device);
 }
 
 static void on_registry_global_remove(void* data, uint32_t id) {
@@ -495,9 +477,10 @@ bool AudioIOPipeWire2::open_device(uint32_t input_device_idx, uint32_t output_de
   if (output_device_idx == WB_INVALID_AUDIO_DEVICE_INDEX)
     return false;
 
-  if (output_device_idx >= output_devices.size())
+  if (output_device_idx >= output_devices.size()) {
+    pw_thread_loop_unlock(thread_loop);
     return false;
-
+  }
   const AudioDevicePipeWire2& output_device = output_devices[output_device_idx];
   current_output_device_id = output_device.properties.id;
 
@@ -558,12 +541,14 @@ bool AudioIOPipeWire2::start(
   if (running)
     return false;
 
+  if (!thread_loop) return false;
+
   uint32_t sample_rate_value = get_sample_rate_value(sample_rate);
 
   pw_thread_loop_lock(thread_loop);
 
   uint32_t output_device_idx = get_output_device_index(current_output_device_id);
-  const char* output_node_name = output_devices[output_device_idx].node_name;
+  char* output_node_name = output_devices[output_device_idx].node_name;
 
   if (!output.open(core, thread_loop, output_node_name, false, output_format,
                    sample_rate_value, num_output_channels, buffer_size)) {
@@ -573,7 +558,7 @@ bool AudioIOPipeWire2::start(
 
   if (current_input_device_id != WB_INVALID_AUDIO_DEVICE_INDEX) {
     uint32_t input_device_idx = get_input_device_index(current_input_device_id);
-    const char* input_node_name = input_devices[input_device_idx].node_name;
+    char* input_node_name = input_devices[input_device_idx].node_name;
 
     if (!input.open(core, thread_loop, input_node_name, true, input_format,
                     sample_rate_value, num_input_channels, buffer_size)){
