@@ -262,6 +262,7 @@ set(WB_SOURCES
     "src/window_manager.cpp"
     "src/window_manager.h"
         src/core/fs_linux.cpp
+        src/engine/audio_io_pipewire.cpp
 )
 
 set(WB_LINK_LIBRARIES
@@ -283,7 +284,7 @@ set(WB_LINK_LIBRARIES
 if (WB_PLATFORM_WINDOWS)
     set(WB_LINK_LIBRARIES ${WB_LINK_LIBRARIES} imgui-d3d11 Avrt Dwmapi)
 elseif (WB_PLATFORM_LINUX)
-    set(WB_LINK_LIBRARIES ${WB_LINK_LIBRARIES} PkgConfig::LIBPULSE xcb X11 X11-xcb)
+    set(WB_LINK_LIBRARIES ${WB_LINK_LIBRARIES} PkgConfig::LIBPULSE PkgConfig::PIPEWIRE xcb X11 X11-xcb)
 elseif (WB_PLATFORM_MACOS)
     set(WB_LINK_LIBRARIES
         ${WB_LINK_LIBRARIES}

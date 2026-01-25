@@ -12,7 +12,8 @@ enum class AudioIOType {
   WASAPI,
   ASIO,       // Unimplemented
   CoreAudio,  // Unimplemented
-  PulseAudio,
+  PulseAudio, // Unimplemented
+  PipeWire,
 };
 
 enum class AudioDeviceType {

@@ -166,11 +166,15 @@ struct AudioBuffer {
     }
 
     T** new_channel_buffers = (T**)std::malloc(channel_count * sizeof(T*));
+    uint32_t items = std::min(n_channels, channel_capacity);
     assert(new_channel_buffers && "Cannot allocate memory for audio channel array");
-    std::memcpy(new_channel_buffers, channel_buffers, n_channels * sizeof(T*));
-    std::free(channel_buffers);
+    std::memcpy(new_channel_buffers, channel_buffers, items * sizeof(T*));
+    if (channel_buffers != internal_channel_buffers) {
+      std::free(channel_buffers);
+    }
     channel_buffers = new_channel_buffers;
     n_channels = channel_count;
+    channel_capacity = channel_count;
   }
 };
 

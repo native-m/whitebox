@@ -10,6 +10,9 @@ extern AudioIO2* create_audio_io_wasapi(); // See audio_io_wasapi.cpp
 #ifdef WB_PLATFORM_MACOS
 extern AudioIO2* create_audio_io_coreaudio(); // See audio_io_coreaudio.cpp
 #endif
+#ifdef WB_PLATFORM_LINUX
+extern AudioIO2* create_audio_io_pipewire();
+#endif
 
 AudioIO2* AudioIO2::create(AudioIOType type) {
   switch (type) {
@@ -20,6 +23,11 @@ AudioIO2* AudioIO2::create(AudioIOType type) {
       #ifdef WB_PLATFORM_MACOS
     case AudioIOType::CoreAudio: return create_audio_io_coreaudio();
       #endif
+#ifdef WB_PLATFORM_LINUX
+    case AudioIOType::PipeWire:
+      return create_audio_io_pipewire();
+#endif
+
 
     default: assert(false && "Unknown Audio IO"); break;
   }
@@ -30,7 +38,7 @@ AudioIOType AudioIO2::get_platform_recommended_audio_io_type() {
 #if defined(WB_PLATFORM_WINDOWS)
   return AudioIOType::WASAPI;
 #elif defined(WB_PLATFORM_LINUX)
-  return AudioIOType::PulseAudio;
+  return AudioIOType::PipeWire;
 #elif defined(WB_PLATFORM_MACOS)
   return AudioIOType::CoreAudio;
 #else

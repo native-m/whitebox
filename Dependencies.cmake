@@ -195,6 +195,7 @@ CPMAddPackage(
 if (UNIX AND NOT APPLE)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(LIBPULSE REQUIRED IMPORTED_TARGET libpulse)
+    pkg_check_modules(PIPEWIRE REQUIRED IMPORTED_TARGET libpipewire-0.3)
 endif()
 
 # Here we define targets that are not using CMake
