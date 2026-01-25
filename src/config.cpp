@@ -68,7 +68,7 @@ void load_settings_data() {
       if (audio_io_type_str == "wasapi") {
         Engine2::audio_io_type = AudioIOType::WASAPI;
       } else if (audio_io_type_str == "pulseaudio") {
-        Engine2::audio_io_type = AudioIOType::PulseAudio;
+        Engine2::audio_io_type = AudioIOType::PipeWire;
       } else {
         Engine2::audio_io_type = default_type;
       }
@@ -136,7 +136,7 @@ void save_settings_data() {
     case AudioIOType::WASAPI: settings["audio"]["type"] = "wasapi"; break;
 #endif
 #ifdef WB_PLATFORM_LINUX
-    case AudioIOType::PulseAudio: settings["audio"]["type"] = "pulseaudio"; break;
+    case AudioIOType::PipeWire: settings["audio"]["type"] = "pipewire"; break;
 #endif
 #ifdef WB_PLATFORM_MACOS
     case AudioIOType::CoreAudio: settings["audio"]["type"] = "coreaudio"; break;

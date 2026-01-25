@@ -1,29 +1,18 @@
 #include "audio_io.h"
 
 #ifdef WB_PLATFORM_LINUX
-#include <pipewire-0.3/pipewire/pipewire.h>
-#include <pipewire-0.3/pipewire/stream.h>
-#include <pipewire-0.3/pipewire/thread-loop.h>
-#include <pipewire-0.3/pipewire/context.h>
-#include <pipewire-0.3/pipewire/core.h>
-#include <pipewire-0.3/pipewire/proxy.h>
-#include <pipewire-0.3/pipewire/node.h>
-#include <pipewire-0.3/pipewire/type.h>
-#include <pipewire-0.3/pipewire/properties.h>
-#include <pipewire-0.3/pipewire/keys.h>
-#include <pipewire-0.3/pipewire/port.h>
-#include <spa-0.2/spa/param/audio/raw.h>
-#include <spa-0.2/spa/param/param.h>
-#include <spa-0.2/spa/pod/builder.h>
-#include <spa-0.2/spa/utils/ringbuffer.h>
-#include <spa-0.2/spa/utils/hook.h>
-#include <spa-0.2/spa/utils/dict.h>
-#include <spa-0.2/spa/param/audio/raw-utils.h>
-#include <spa-0.2/spa/utils/defs.h>
+#include <pipewire/pipewire.h>
+#include <spa/param/audio/raw.h>
+#include <spa/param/param.h>
+#include <spa/pod/builder.h>
+#include <spa/utils/ringbuffer.h>
+#include <spa/utils/hook.h>
+#include <spa/utils/dict.h>
+#include <spa/param/audio/raw-utils.h>
+#include <spa/utils/defs.h>
 #include <atomic>
 #include <cstring>
 #include <optional>
-#include <thread>
 
 #include "core/debug.h"
 #include "core/vector.h"
@@ -51,8 +40,10 @@ struct ActiveDevicePipeWire2 {
   uint32_t num_channels{};
   uint32_t buffer_size{};
   bool is_input{};
+  AudioIOPipeWire2* io{};
 
   bool open(
+      AudioIOPipeWire2* parent_io,
       pw_core* core,
       pw_thread_loop* thread_loop,
       char node_name[256],
@@ -93,16 +84,10 @@ struct AudioIOPipeWire2 final : public AudioIO2 {
   uint32_t stream_buffer_size{};
   double stream_sample_rate{};
   std::atomic_bool running{};
-  std::thread audio_thread;
   AudioStreamFn stream_fn{};
 
-  float* input_ring_buffer{};
-  float* output_ring_buffer{};
-  uint32_t ring_buffer_capacity{};
-  std::atomic<uint32_t> input_write_pos{};
-  std::atomic<uint32_t> input_read_pos{};
-  std::atomic<uint32_t> output_write_pos{};
-  std::atomic<uint32_t> output_read_pos{};
+  AudioBuffer<float> input_buffer;
+  AudioBuffer<float> output_buffer;
 
   ~AudioIOPipeWire2();
   bool init();
@@ -134,7 +119,6 @@ struct AudioIOPipeWire2 final : public AudioIO2 {
       AudioThreadPriority priority,
       AudioStreamFn stream_callback_fn) override;
 
-  static void audio_thread_runner(AudioIOPipeWire2* io, AudioThreadPriority priority);
   static void on_process_input(void* userdata);
   static void on_process_output(void* userdata);
 };
@@ -156,6 +140,7 @@ inline static spa_audio_format get_spa_format(AudioFormat format) {
 }
 
 bool ActiveDevicePipeWire2::open(
+    AudioIOPipeWire2* parent_io,
     pw_core* core,
     pw_thread_loop* thread_loop,
     char node_name[256],
@@ -170,6 +155,7 @@ bool ActiveDevicePipeWire2::open(
   pw_loop* loop = pw_thread_loop_get_loop(thread_loop);
   if (!loop) return false;
 
+  io = parent_io;
   is_input = is_input_device;
   sample_format = format;
   sample_rate = rate;
@@ -194,9 +180,18 @@ bool ActiveDevicePipeWire2::open(
   if (!stream)
     return false;
 
-  static const pw_stream_events stream_events = {};
+  static const pw_stream_events stream_events_input = {
+    .version = PW_VERSION_STREAM_EVENTS,
+    .process = AudioIOPipeWire2::on_process_input,
+  };
 
-  pw_stream_add_listener(stream, &stream_listener, &stream_events, this);
+  static const pw_stream_events stream_events_output = {
+    .version = PW_VERSION_STREAM_EVENTS,
+    .process = AudioIOPipeWire2::on_process_output,
+  };
+
+  pw_stream_add_listener(stream, &stream_listener,
+      is_input ? &stream_events_input : &stream_events_output, this);
 
   return true;
 }
@@ -240,7 +235,6 @@ bool ActiveDevicePipeWire2::start() {
       params,
       1
   );
-
 
   return true;
 }
@@ -478,7 +472,6 @@ bool AudioIOPipeWire2::open_device(uint32_t input_device_idx, uint32_t output_de
     return false;
 
   if (output_device_idx >= output_devices.size()) {
-    pw_thread_loop_unlock(thread_loop);
     return false;
   }
   const AudioDevicePipeWire2& output_device = output_devices[output_device_idx];
@@ -502,7 +495,6 @@ void AudioIOPipeWire2::close_device() {
 
   if (running) {
     running = false;
-    audio_thread.join();
 
     pw_thread_loop_lock(thread_loop);
     input.stop();
@@ -510,16 +502,6 @@ void AudioIOPipeWire2::close_device() {
     input.close();
     output.close();
     pw_thread_loop_unlock(thread_loop);
-
-    if (input_ring_buffer) {
-      free(input_ring_buffer);
-      input_ring_buffer = nullptr;
-    }
-
-    if (output_ring_buffer) {
-      free(output_ring_buffer);
-      output_ring_buffer = nullptr;
-    }
   }
 
   open = false;
@@ -550,22 +532,22 @@ bool AudioIOPipeWire2::start(
   uint32_t output_device_idx = get_output_device_index(current_output_device_id);
   char* output_node_name = output_devices[output_device_idx].node_name;
 
-  if (!output.open(core, thread_loop, output_node_name, false, output_format,
+  if (!output.open(this, core, thread_loop, output_node_name, false, output_format,
                    sample_rate_value, num_output_channels, buffer_size)) {
     pw_thread_loop_unlock(thread_loop);
     return false;
-                   }
+  }
 
   if (current_input_device_id != WB_INVALID_AUDIO_DEVICE_INDEX) {
     uint32_t input_device_idx = get_input_device_index(current_input_device_id);
     char* input_node_name = input_devices[input_device_idx].node_name;
 
-    if (!input.open(core, thread_loop, input_node_name, true, input_format,
+    if (!input.open(this, core, thread_loop, input_node_name, true, input_format,
                     sample_rate_value, num_input_channels, buffer_size)){
       output.close();
       pw_thread_loop_unlock(thread_loop);
       return false;
-                    }
+    }
 
     current_input_format = {
       .sample_rate = sample_rate,
@@ -580,19 +562,13 @@ bool AudioIOPipeWire2::start(
     .num_channels = num_output_channels,
   };
 
-  ring_buffer_capacity = buffer_size * 4;
-  input_ring_buffer = (float*)calloc(ring_buffer_capacity * num_input_channels, sizeof(float));
-  output_ring_buffer = (float*)calloc(ring_buffer_capacity * num_output_channels, sizeof(float));
-
-  input_write_pos = 0;
-  input_read_pos = 0;
-  output_write_pos = 0;
-  output_read_pos = 0;
-
   stream_sample_rate = (double)sample_rate_value;
   stream_buffer_size = buffer_size;
   stream_period = buffer_size_to_period(buffer_size, sample_rate_value);
   stream_fn = stream_callback_fn;
+
+  input_buffer = AudioBuffer<float>(buffer_size, num_input_channels);
+  output_buffer = AudioBuffer<float>(buffer_size, num_output_channels);
 
   if (!input.start() || !output.start()) {
     input.close();
@@ -601,37 +577,72 @@ bool AudioIOPipeWire2::start(
     return false;
   }
 
-  pw_thread_loop_unlock(thread_loop);
-
   running = true;
-  audio_thread = std::thread(audio_thread_runner, this, priority);
+
+  pw_thread_loop_unlock(thread_loop);
 
   return true;
 }
 
-void AudioIOPipeWire2::audio_thread_runner(AudioIOPipeWire2* io, AudioThreadPriority priority) {
-  int policy = SCHED_FIFO;
-  sched_param param{};
+void AudioIOPipeWire2::on_process_input(void* userdata) {
+  ActiveDevicePipeWire2* device = static_cast<ActiveDevicePipeWire2*>(userdata);
+  AudioIOPipeWire2* io = device->io;
 
-  switch (priority) {
-    case AudioThreadPriority::Lowest: param.sched_priority = 10; break;
-    case AudioThreadPriority::Low: param.sched_priority = 30; break;
-    case AudioThreadPriority::Normal: param.sched_priority = 50; break;
-    case AudioThreadPriority::High: param.sched_priority = 70; break;
-    case AudioThreadPriority::Highest: param.sched_priority = 90; break;
+  pw_buffer* buf = pw_stream_dequeue_buffer(device->stream);
+  if (!buf)
+    return;
+
+  spa_buffer* spa_buf = buf->buffer;
+  float* src = static_cast<float*>(spa_buf->datas[0].data);
+  if (!src) {
+    pw_stream_queue_buffer(device->stream, buf);
+    return;
   }
 
-  pthread_setschedparam(pthread_self(), policy, &param);
+  uint32_t n_frames = spa_buf->datas[0].chunk->size / (device->num_channels * sizeof(float));
+  uint32_t num_channels = device->num_channels;
 
-  AudioBuffer<float> input_buffer(io->stream_buffer_size, io->current_input_format.num_channels);
-  AudioBuffer<float> output_buffer(io->stream_buffer_size, io->current_output_format.num_channels);
-
-  while (io->running.load(std::memory_order_relaxed)) {
-    io->stream_fn(output_buffer, input_buffer, io->stream_sample_rate);
-
-    std::this_thread::sleep_for(
-        std::chrono::microseconds(io->stream_buffer_size * 1000000 / (uint64_t)io->stream_sample_rate));
+  for (uint32_t i = 0; i < n_frames && i < io->input_buffer.n_channels; i++) {
+    for (uint32_t ch = 0; ch < num_channels; ch++) {
+      io->input_buffer.channel_buffers[ch][i] = src[i * num_channels + ch];
+    }
   }
+
+  pw_stream_queue_buffer(device->stream, buf);
+}
+
+void AudioIOPipeWire2::on_process_output(void* userdata) {
+  ActiveDevicePipeWire2* device = static_cast<ActiveDevicePipeWire2*>(userdata);
+  AudioIOPipeWire2* io = device->io;
+
+  pw_buffer* buf = pw_stream_dequeue_buffer(device->stream);
+  if (!buf)
+    return;
+
+  spa_buffer* spa_buf = buf->buffer;
+  float* dst = static_cast<float*>(spa_buf->datas[0].data);
+  if (!dst) {
+    pw_stream_queue_buffer(device->stream, buf);
+    return;
+  }
+
+  io->stream_fn(io->output_buffer, io->input_buffer, io->stream_sample_rate);
+
+  uint32_t n_frames = SPA_MIN(io->stream_buffer_size,
+      spa_buf->datas[0].maxsize / (device->num_channels * sizeof(float)));
+  uint32_t num_channels = device->num_channels;
+
+  for (uint32_t i = 0; i < n_frames; i++) {
+    for (uint32_t ch = 0; ch < num_channels; ch++) {
+      dst[i * num_channels + ch] = io->output_buffer.channel_buffers[ch][i];
+    }
+  }
+
+  spa_buf->datas[0].chunk->offset = 0;
+  spa_buf->datas[0].chunk->stride = num_channels * sizeof(float);
+  spa_buf->datas[0].chunk->size = n_frames * num_channels * sizeof(float);
+
+  pw_stream_queue_buffer(device->stream, buf);
 }
 
 AudioIO2* create_audio_io_pipewire() {
@@ -647,7 +658,7 @@ AudioIO2* create_audio_io_pipewire() {
   return static_cast<AudioIO2*>(audio_io);
 }
 
-}  // namespace wb
+}
 
 #else
 
@@ -657,6 +668,6 @@ AudioIO2* create_audio_io_pipewire() {
   return nullptr;
 }
 
-}  // namespace wb
+}
 
 #endif

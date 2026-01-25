@@ -6,7 +6,7 @@
 #include "core/common.h"
 #include "core/list.h"
 
-#define WB_GPU_RENDER_BUFFER_SIZE 2
+#define WB_GPU_RENDER_BUFFER_SIZE 3
 
 namespace wb {
 

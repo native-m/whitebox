@@ -10,7 +10,7 @@
 #include "window.h"
 
 static const char* io_types[] = {
-  "(No Audio)", "Windows Core Audio (WASAPI)", "ASIO", "CoreAudio", "PulseAudio",
+  "(No Audio)", "Windows Core Audio (WASAPI)", "ASIO", "CoreAudio", "PipeWire",
 };
 
 static const char* sample_rates[] = {
@@ -72,7 +72,7 @@ void render_audio_settings() {
         if (type != AudioIOType::WASAPI)
           continue;
 #elif defined(WB_PLATFORM_LINUX)
-        if (type != AudioIOType::PulseAudio)
+        if (type != AudioIOType::PipeWire)
           continue;
 #elif defined(WB_PLATFORM_MACOS)
         if (type != AudioIOType::CoreAudio)

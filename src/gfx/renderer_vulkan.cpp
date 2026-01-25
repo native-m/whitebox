@@ -1855,7 +1855,7 @@ bool GPURendererVK::create_or_recreate_swapchain_(GPUViewportDataVK* vp_data) {
   VkSurfaceCapabilitiesKHR surface_caps;
   vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device_, surface, &surface_caps);
 
-  if (surface_caps.minImageCount > 2) {
+  if (surface_caps.minImageCount > 3) {
     return false;
   }
 
