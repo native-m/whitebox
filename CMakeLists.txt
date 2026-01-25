@@ -261,6 +261,7 @@ set(WB_SOURCES
     "src/window_manager_win32.cpp"
     "src/window_manager.cpp"
     "src/window_manager.h"
+        src/core/fs_linux.cpp
 )
 
 set(WB_LINK_LIBRARIES

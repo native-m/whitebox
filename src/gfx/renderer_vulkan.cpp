@@ -179,8 +179,8 @@ static VkSurfaceKHR create_surface(VkInstance instance, SDL_Window* window) {
 #else
   VkXcbSurfaceCreateInfoKHR surface_info{
     .sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
-    .connection = XGetXCBConnection(handle.display),
-    .window = static_cast<xcb_window_t>(handle.window),
+    .connection = XGetXCBConnection((Display*)handle.display),
+    .window = static_cast<xcb_window_t>(reinterpret_cast<uintptr_t>(handle.window)),
   };
 
   if (VK_FAILED(vkCreateXcbSurfaceKHR(instance, &surface_info, nullptr, &surface))) {
@@ -2135,7 +2135,7 @@ GPURenderer* GPURendererVK::create(SDL_Window* window) {
       has_platform_surface = true;
     } else if (std::strncmp(name, "VK_KHR_wayland_surface", sizeof(ext.extensionName)) == 0) {
       enabled_extensions.push_back("VK_KHR_wayland_surface");
-      has_platform_surface = true
+      has_platform_surface = true;
     }
 #elif defined(WB_PLATFORM_MACOS)
     else if (std::strncmp(name, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME, sizeof(ext.extensionName)) == 0) {

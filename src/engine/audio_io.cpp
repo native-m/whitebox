@@ -4,14 +4,23 @@
 
 namespace wb {
 
+#ifdef WB_PLATFORM_WINDOWS
 extern AudioIO2* create_audio_io_wasapi(); // See audio_io_wasapi.cpp
+#endif
+#ifdef WB_PLATFORM_MACOS
 extern AudioIO2* create_audio_io_coreaudio(); // See audio_io_coreaudio.cpp
+#endif
 
 AudioIO2* AudioIO2::create(AudioIOType type) {
   switch (type) {
     case AudioIOType::NoAudio: break;
+      #ifdef WB_PLATFORM_WINDOWS
     case AudioIOType::WASAPI: return create_audio_io_wasapi();
+      #endif
+      #ifdef WB_PLATFORM_MACOS
     case AudioIOType::CoreAudio: return create_audio_io_coreaudio();
+      #endif
+
     default: assert(false && "Unknown Audio IO"); break;
   }
   return nullptr;

@@ -4,6 +4,7 @@
 
 #include <atomic>
 #include <string>
+#include <utility>
 
 #include "asset.h"
 #include "assets_table.h"
