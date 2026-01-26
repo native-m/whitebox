@@ -567,8 +567,10 @@ bool AudioIOPipeWire2::start(
   stream_period = buffer_size_to_period(buffer_size, sample_rate_value);
   stream_fn = stream_callback_fn;
 
-  input_buffer = AudioBuffer<float>(buffer_size, num_input_channels);
-  output_buffer = AudioBuffer<float>(buffer_size, num_output_channels);
+  input_buffer.resize(buffer_size, true);
+  input_buffer.resize_channel(num_input_channels);
+  output_buffer.resize(buffer_size, true);
+  output_buffer.resize_channel(num_output_channels);
 
   if (!input.start() || !output.start()) {
     input.close();
