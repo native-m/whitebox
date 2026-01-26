@@ -264,8 +264,8 @@ std::optional<uint32_t> Track::find_next_clip(double time_pos, uint32_t hint) {
 }
 
 void Track::prepare_effect_buffer(uint32_t num_channels, uint32_t num_samples) {
-  effect_buffer.resize(num_samples);
   effect_buffer.resize_channel(num_channels);
+  effect_buffer.resize(num_samples);
 }
 
 void Track::reset_playback_state(double time_pos, bool refresh_voices) {

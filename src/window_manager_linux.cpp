@@ -2,9 +2,9 @@
 
 #undef None
 
-#include "window_manager.h"
 #include <X11/Xlib.h>
 
+#include "window_manager.h"
 
 #ifdef WB_PLATFORM_LINUX
 
@@ -25,6 +25,7 @@ WindowNativeHandle wm_get_native_window_handle(SDL_Window* window) {
     Window xwindow = (Window)SDL_GetNumberProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0);
     if (xdisplay && xwindow) {
       return {
+        WMType::X11,
         (void*)xwindow,
         xdisplay,
       };
@@ -36,6 +37,7 @@ WindowNativeHandle wm_get_native_window_handle(SDL_Window* window) {
         SDL_GetWindowProperties(window), SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, NULL);
     if (display && surface) {
       return {
+        WMType::Wayland,
         surface,
         display,
       };
@@ -55,7 +57,6 @@ void wm_set_taskbar_progress_value(float progress) {
 }
 
 void wm_set_dark_mode(SDL_Window*) {
-
 }
 
 }  // namespace wb

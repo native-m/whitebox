@@ -110,7 +110,7 @@ struct AudioBuffer {
   }
 
   inline void resize_channel(uint32_t channel_count) {
-    assert(n_samples != 0);
+    assert(channel_count != 0);
     if (channel_count == n_channels)
       return;
     uint32_t old_channel_count = n_channels;

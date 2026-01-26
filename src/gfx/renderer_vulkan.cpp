@@ -163,31 +163,32 @@ static VkSurfaceKHR create_surface(VkInstance instance, SDL_Window* window) {
     return VK_NULL_HANDLE;
   }
 #elif defined(WB_PLATFORM_LINUX)
-#ifdef VK_USE_PLATFORM_XLIB_KHR
-  Display* display = handle.display;
+  if (handle.type == WMType::X11) {
+    VkXcbSurfaceCreateInfoKHR surface_info{
+      .sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
+      .connection = XGetXCBConnection((Display*)handle.display),
+      .window = static_cast<xcb_window_t>(reinterpret_cast<uintptr_t>(handle.window)),
+    };
+  
+    if (VK_FAILED(vkCreateXcbSurfaceKHR(instance, &surface_info, nullptr, &surface))) {
+      Log::error("Failed to create window surface");
+      return VK_NULL_HANDLE;
+    }
+  } else if (handle.type == WMType::Wayland) {
+    struct wl_display* display = (struct wl_display*)handle.display;
+    struct wl_surface* wl_surf = (struct wl_surface*)handle.window;
 
-  VkXlibSurfaceCreateInfoKHR surface_info{
-    .sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
-    .dpy = display,
-    .window = handle.window,
-  };
+    VkWaylandSurfaceCreateInfoKHR surface_info {
+      .sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR,
+      .display = display,
+      .surface = wl_surf,
+    };
 
-  if (VK_FAILED(vkCreateXlibSurfaceKHR(instance, &surface_info, nullptr, &surface))) {
-    Log::error("Failed to create window surface");
-    return VK_NULL_HANDLE;
+    if (VK_FAILED(vkCreateWaylandSurfaceKHR(instance, &surface_info, nullptr, &surface))) {
+      Log::error("Failed to create window surface");
+      return VK_NULL_HANDLE;
+    }
   }
-#else
-  VkXcbSurfaceCreateInfoKHR surface_info{
-    .sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
-    .connection = XGetXCBConnection((Display*)handle.display),
-    .window = static_cast<xcb_window_t>(reinterpret_cast<uintptr_t>(handle.window)),
-  };
-
-  if (VK_FAILED(vkCreateXcbSurfaceKHR(instance, &surface_info, nullptr, &surface))) {
-    Log::error("Failed to create window surface");
-    return VK_NULL_HANDLE;
-  }
-#endif
 #elif defined(WB_PLATFORM_MACOS)
   SDL_MetalView mtl_view = SDL_Metal_CreateView(window);
   SDL_PropertiesID window_props = SDL_GetWindowProperties(window);
@@ -1866,9 +1867,14 @@ bool GPURendererVK::create_or_recreate_swapchain_(GPUViewportDataVK* vp_data) {
   VkPresentModeKHR present_modes[6]{};
   uint32_t present_mode_count = 6;
   vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device_, surface, &present_mode_count, present_modes);
-
+  
+  SDL_Window* window = vp_data->window;
+  int32_t window_w, window_h;
+  SDL_GetWindowSizeInPixels(window, &window_w, &window_h);
+  surface_caps.currentExtent.width = window_w;
+  surface_caps.currentExtent.height = window_h;
+  
   uint32_t queue_family_indicies[2]{ graphics_queue_index_, present_queue_index_ };
-
   VkSwapchainCreateInfoKHR swapchain_info{
     .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
     .surface = surface,

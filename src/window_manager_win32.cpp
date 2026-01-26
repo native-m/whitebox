@@ -40,6 +40,7 @@ WindowNativeHandle wm_get_native_window_handle(SDL_Window* window) {
   HWND hwnd = (HWND)SDL_GetPointerProperty(props, SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
   if (hwnd) {
     return {
+      WMType::Windows,
       hwnd,
       nullptr,
     };

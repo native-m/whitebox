@@ -398,8 +398,8 @@ bool AudioIOPipeWire2::init() {
     exclusive_output_format_bit_flags |= (1U << (uint32_t)format);
   }
 
-  max_input_channel_count = 32;
-  max_output_channel_count = 32;
+  max_input_channel_count = 2;
+  max_output_channel_count = 2;
   min_period = 128;
   buffer_alignment = 1;
 

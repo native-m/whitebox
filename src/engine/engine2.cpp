@@ -513,8 +513,8 @@ bool Engine2::start_audio_engine() {
   audio_engine_config.num_input_channels = audio_io->max_input_channel_count;
   audio_engine_config.num_output_channels = audio_io->max_output_channel_count;
   audio_engine_config.priority = AudioThreadPriority::Highest;
-  mixing_buffer_.resize(audio_engine_config.buffer_size, true);
   mixing_buffer_.resize_channel(audio_engine_config.num_output_channels);
+  mixing_buffer_.resize(audio_engine_config.buffer_size, true);
 
   for (auto track : tracks)
     track->prepare_effect_buffer(audio_engine_config.num_output_channels, audio_engine_config.buffer_size);

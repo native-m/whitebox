@@ -8,7 +8,15 @@ struct ImGuiViewport;
 
 namespace wb {
 
+enum class WMType {
+  Windows,
+  MacOS,
+  X11,
+  Wayland,
+};
+
 struct WindowNativeHandle {
+  WMType type;
   void* window;
   void* display;
 };

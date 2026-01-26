@@ -57,13 +57,6 @@ CPMAddPackage(
 )
 
 CPMAddPackage(
-    NAME                implot
-    VERSION             0.16
-    GITHUB_REPOSITORY   epezent/implot
-    DOWNLOAD_ONLY       YES
-)
-
-CPMAddPackage(
     NAME                leveldb
     VERSION             1.23
     GIT_TAG             1.23

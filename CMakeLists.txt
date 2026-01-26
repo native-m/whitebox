@@ -256,14 +256,20 @@ set(WB_SOURCES
     "src/config.h"
     "src/path_def.cpp"
     "src/path_def.h"
-    "src/window_manager_macos.mm"
-    "src/window_manager_linux.cpp"
     "src/window_manager_win32.cpp"
+    "src/window_manager_linux.cpp"
     "src/window_manager.cpp"
     "src/window_manager.h"
-        src/core/fs_linux.cpp
-        src/engine/audio_io_pipewire.cpp
+    "src/core/fs_linux.cpp"
+    "src/engine/audio_io_pipewire.cpp"
 )
+
+if (WB_PLATFORM_MACOS)
+    set(WB_SOURCES
+        ${WB_SOURCES}
+        "src/window_manager_macos.mm"
+    )
+endif()
 
 set(WB_LINK_LIBRARIES
     SDL3::SDL3-static

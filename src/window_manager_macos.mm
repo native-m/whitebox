@@ -17,7 +17,7 @@ void shutdown_platform_window_manager() {
 WindowNativeHandle wm_get_native_window_handle(SDL_Window* window) {
   SDL_PropertiesID props = SDL_GetWindowProperties(window);
   NSWindow* native_window = (NSWindow*)SDL_GetPointerProperty(props, SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
-  return { .window = native_window };
+  return { .type = WMType::MacOS, .window = native_window };
 }
 
 void wm_enable_taskbar_progress_indicator(bool enable) {
