@@ -37,6 +37,9 @@ struct AudioBuffer {
     }
   }
 
+  inline AudioBuffer(const AudioBuffer&) = delete;
+  inline AudioBuffer(AudioBuffer&&) = delete;
+
   inline ~AudioBuffer() {
     for (uint32_t i = 0; i < n_channels; i++) {
       free_aligned(channel_buffers[i]);
@@ -45,6 +48,9 @@ struct AudioBuffer {
     if (channel_buffers != internal_channel_buffers)
       std::free(channel_buffers);
   }
+
+  inline AudioBuffer& operator=(const AudioBuffer&) = delete;
+  inline AudioBuffer& operator=(AudioBuffer&&) = delete;
 
   inline T* get_write_pointer(uint32_t channel, uint32_t sample_offset = 0) {
     assert(channel < n_channels && "Channel out of range");
