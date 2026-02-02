@@ -107,8 +107,15 @@ set(WB_SOURCES
     "src/core/types.h"
     "src/core/vector.h"
 
-    "src/dsp/codec.cpp"
-    "src/dsp/codec.h"
+
+    "src/codec/codec.cpp"
+    "src/codec/codec.h"
+    "src/codec/flac_decoder.cpp"
+    "src/codec/flac_decoder.h"
+    "src/codec/mp3_decoder.cpp"
+    "src/codec/mp3_decoder.h"
+    "src/codec/ogg_decoder.cpp"
+    "src/codec/ogg_decoder.h"
     "src/dsp/dsp_ops.h"
     "src/dsp/param_queue.h"
     "src/dsp/sample.cpp"

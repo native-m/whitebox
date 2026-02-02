@@ -1,12 +1,12 @@
 #include <imgui.h>
 #include <imgui_stdlib.h>
 
+#include "../codec/codec.h"
 #include "config.h"
 #include "controls.h"
 #include "core/bit_manipulation.h"
 #include "core/deferred_job.h"
 #include "dialogs.h"
-#include "dsp/codec.h"
 #include "engine/engine.h"
 #include "export_prop.h"
 

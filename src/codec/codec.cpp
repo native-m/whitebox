@@ -1,6 +1,82 @@
 #include "codec.h"
 
-namespace wb::dsp {
+#include <algorithm>
+
+#include "core/defer.h"
+#include "extern/dr_mp3.h"
+#include "flac_decoder.h"
+#include "mp3_decoder.h"
+#include "ogg_decoder.h"
+#include "vorbis/vorbisfile.h"
+
+namespace wb::codec {
+
+std::optional<DecodedAudio> decode_audio_file(const std::filesystem::path& path, size_t padding) {
+  if (!std::filesystem::is_regular_file(path))
+    return {};
+
+  auto ext = path.extension().string();
+  std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+
+  if (ext == ".mp3") {
+    return decode_mp3_file(path);
+  }
+
+  if (ext == ".flac") {
+    return decode_flac_file(path, padding);
+  }
+
+  if (ext == ".ogg") {
+    return decode_ogg_vorbis_file(path);
+  }
+
+  return {};
+}
+
+std::optional<AudioFileInfo> get_audio_file_info(const std::filesystem::path& path) {
+  if (!std::filesystem::is_regular_file(path))
+    return {};
+
+  SF_INFO sf_info{};
+  std::u8string str_path = path.generic_u8string();
+  SNDFILE* file = sf_open((const char*)str_path.c_str(), SFM_READ, &sf_info);
+  if (file) {
+    sf_close(file);
+    return AudioFileInfo{
+      .sample_count = (uint64_t)sf_info.frames,
+      .channel_count = (uint32_t)sf_info.channels,
+      .sample_rate = (uint32_t)sf_info.samplerate,
+    };
+  }
+
+  drmp3 mp3;
+  if (drmp3_init_file(&mp3, (const char*)str_path.c_str(), nullptr)) {
+    defer(drmp3_uninit(&mp3));
+    return AudioFileInfo{
+      .sample_count = drmp3_get_pcm_frame_count(&mp3),
+      .channel_count = mp3.channels,
+      .sample_rate = mp3.sampleRate,
+    };
+  }
+
+  OggVorbis_File vf;
+  if (ov_fopen((const char*)str_path.c_str(), &vf) == 0) {
+    defer(ov_clear(&vf));
+    return AudioFileInfo{
+      .sample_count = (uint64_t)ov_pcm_total(&vf, -1),
+      .channel_count = (uint32_t)vf.vi->channels,
+      .sample_rate = (uint32_t)vf.vi->rate,
+    };
+  }
+
+  if (auto flac_info = get_flac_file_info(path)) {
+    return AudioFileInfo{ .sample_count = flac_info->total_samples,
+                          .channel_count = flac_info->channels,
+                          .sample_rate = flac_info->sample_rate };
+  }
+
+  return {};
+}
 
 AudioSFEncoder::AudioSFEncoder(uint32_t file_format, AudioFormat sample_format)
     : file_format_(file_format),
@@ -16,6 +92,9 @@ bool AudioSFEncoder::open(const char* file, uint32_t n_channels) {
     return false;
 
   SF_INFO info{};
+  info.channels = n_channels;
+  info.samplerate = 44100;
+
   switch (sample_format_) {
     case AudioFormat::I16: info.format |= SF_FORMAT_PCM_16; break;
     case AudioFormat::I24: info.format |= SF_FORMAT_PCM_24; break;
@@ -46,8 +125,6 @@ void AudioSFEncoder::close() {
 size_t AudioSFEncoder::write(const float* data, uint32_t n_channels, uint32_t num_frames) {
   return sf_writef_float(snd_file_, data, num_frames);
 }
-
-// --------------------------------------------------------------------------------------------------
 
 AudioSFDecoder::~AudioSFDecoder() {
   close();
@@ -93,4 +170,4 @@ size_t AudioSFDecoder::read_f32(float* data, uint32_t n_channels, uint32_t num_f
   return sf_readf_float(snd_file, data, num_frames);
 }
 
-}  // namespace wb::dsp
+}  // namespace wb::codec

@@ -2,11 +2,31 @@
 
 #include <sndfile.h>
 
-#include <string_view>
+#include <filesystem>
+#include <optional>
 
 #include "core/audio_format.h"
+#include "core/vector.h"
 
-namespace wb::dsp {
+namespace wb::codec {
+
+struct DecodedAudio {
+  AudioFormat format{};
+  uint32_t channels{};
+  uint32_t sample_rate{};
+  uint64_t total_samples{};
+  Vector<std::byte*> channel_data{};
+};
+
+struct AudioFileInfo {
+  uint64_t sample_count;
+  uint32_t channel_count;
+  uint32_t sample_rate;
+};
+
+std::optional<DecodedAudio> decode_audio_file(const std::filesystem::path& path, size_t padding = 0);
+
+std::optional<AudioFileInfo> get_audio_file_info(const std::filesystem::path& path);
 
 struct AudioEncoder {
   virtual ~AudioEncoder() {
@@ -58,4 +78,4 @@ struct AudioSFDecoder final : public AudioDecoder {
   size_t read_f32(float* data, uint32_t n_channels, uint32_t num_frames) override;
 };
 
-}  // namespace wb::dsp
+}  // namespace wb::codec

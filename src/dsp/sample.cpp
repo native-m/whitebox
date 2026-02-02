@@ -1,35 +1,13 @@
 #include "sample.h"
 
 #include <sndfile.h>
-#include <vorbis/vorbisfile.h>
-#include <FLAC/stream_decoder.h>
-#include <memory>
 #include <utility>
 
+#include "codec/codec.h"
 #include "core/core_math.h"
 #include "core/debug.h"
-#include "core/defer.h"
-#include "core/fs.h"
-#include "extern/dr_mp3.h"
 
 namespace wb {
-
-struct FlacClientData {
-  Vector<std::byte*> channel_data;
-  uint64_t total_samples = 0;
-  uint32_t sample_rate = 0;
-  uint32_t channels = 0;
-  uint32_t bits_per_sample = 0;
-  AudioFormat format = AudioFormat::Unknown;
-  uint64_t frames_decoded = 0;
-  bool error = false;
-
-  ~FlacClientData() {
-    if (error) {
-      for (auto ptr : channel_data) std::free(ptr);
-    }
-  }
-};
 
 static AudioFormat from_sf_format(int sf_format) {
   // Only supports uncompressed format
@@ -60,7 +38,8 @@ static sf_count_t deinterleave_samples(
   return num_frames_written + num_read;
 }
 
-Sample::Sample(AudioFormat format, uint32_t sample_rate) : format(format), sample_rate(sample_rate) {
+Sample::Sample(AudioFormat format, uint32_t sample_rate)
+    : format(format), sample_rate(sample_rate) {
 }
 
 Sample::Sample(Sample&& other) noexcept
@@ -129,19 +108,20 @@ void Sample::resize(size_t new_sample_count, uint32_t new_channels, bool discard
 
 std::optional<Sample> Sample::load_file(const std::filesystem::path& path) noexcept {
   if (!std::filesystem::is_regular_file(path))
-    return {}; 
+    return {};
 
-  // Try open with SF
+  // Try libsndfile first for uncompressed formats (WAV, AIFF, etc.)
   std::string str_path = path.generic_string();
   SF_INFO info;
   SNDFILE* file = sf_open(str_path.c_str(), SFM_READ, &info);
-  //SNDFILE* file = sf_wchar_open(str_path.c_str(), SFM_READ, &info);
   if (!file)
     return load_compressed_file(path);
 
   AudioFormat format = from_sf_format(info.format & SF_FORMAT_SUBMASK);
-  if (format == AudioFormat::Unknown)
+  if (format == AudioFormat::Unknown) {
+    sf_close(file);
     return {};
+  }
 
   uint32_t sample_size = get_audio_format_size(format);
   size_t data_size = (info.frames + sample_padding) * sample_size;
@@ -151,7 +131,6 @@ std::optional<Sample> Sample::load_file(const std::filesystem::path& path) noexc
   for (int i = 0; i < info.channels; i++) {
     std::byte* channel_data = (std::byte*)std::malloc(data_size);
     if (!channel_data) {
-      // Cleanup if failed
       for (auto allocated_data : data)
         std::free(allocated_data);
       sf_close(file);
@@ -217,324 +196,31 @@ std::optional<Sample> Sample::load_file(const std::filesystem::path& path) noexc
 }
 
 std::optional<Sample> Sample::load_compressed_file(const std::filesystem::path& path) noexcept {
-  if (auto mp3 = load_mp3_file(path))
-    return mp3;
-  if (auto ogv = load_ogg_vorbis_file(path))
-    return ogv;
-  if (auto flac = load_flac_file(path))
-    return flac;
-  return {};
-}
-
-std::optional<Sample> Sample::load_mp3_file(const std::filesystem::path& path) noexcept {
-  if (!std::filesystem::is_regular_file(path))
+  auto decoded = codec::decode_audio_file(path, sample_padding);
+  if (!decoded)
     return {};
-
-  drmp3 mp3_file;
-  std::u8string str_path = path.generic_u8string();
-  if (!drmp3_init_file(&mp3_file, (const char*)str_path.c_str(), nullptr)) {
-    return {};
-  }
-
-  uint64_t buffer_len_per_channel = 1024;
-  float* decode_buffer = (float*)std::malloc(buffer_len_per_channel * mp3_file.channels * sizeof(float));
-  if (!decode_buffer) {
-    drmp3_uninit(&mp3_file);
-    return {};
-  }
-
-  uint64_t total_frame_count = drmp3_get_pcm_frame_count(&mp3_file);
-  Vector<std::byte*> channel_samples;
-  channel_samples.reserve(mp3_file.channels);
-
-  for (uint32_t i = 0; i < mp3_file.channels; i++) {
-    std::byte* mem = (std::byte*)std::malloc(total_frame_count * sizeof(float));
-    if (!mem) {
-      for (auto sample_data : channel_samples)
-        std::free(sample_data);
-      std::free(decode_buffer);
-      drmp3_uninit(&mp3_file);
-      return {};
-    }
-    channel_samples.push_back(mem);
-  }
-
-  uint64_t num_frames_read = 0;
-  sf_count_t num_frames_written = 0;
-  while (true) {
-    num_frames_read = drmp3_read_pcm_frames_f32(&mp3_file, buffer_len_per_channel, decode_buffer);
-    if (num_frames_read == 0)
-      break;
-    num_frames_written = deinterleave_samples(
-        channel_samples, decode_buffer, num_frames_read, total_frame_count, num_frames_written, mp3_file.channels);
-  }
-
-  drmp3_uninit(&mp3_file);
-  std::free(decode_buffer);
 
   std::optional<Sample> ret;
-  ret.emplace(AudioFormat::F32, (uint32_t)mp3_file.sampleRate);
+  ret.emplace(decoded->format, decoded->sample_rate);
   ret->name = path.filename().string();
   ret->path = path;
-  ret->channels = mp3_file.channels;
-  ret->count = total_frame_count;
-  ret->sample_data = std::move(channel_samples);
-
-  return ret;
-}
-
-static FLAC__StreamDecoderWriteStatus flac_write_callback(
-    const FLAC__StreamDecoder* decoder,
-    const FLAC__Frame* frame,
-    const FLAC__int32* const buffer[],
-    void* client_data) {
-
-  auto* data = (FlacClientData*)client_data;
-  if (data->error) return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
-
-  if (data->frames_decoded + frame->header.blocksize > data->total_samples) {
-    data->error = true;
-    // Should this abort or continue? Determine this, Gusti
-    return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
-  }
-
-  for (uint32_t c = 0; c < data->channels; c++) {
-    const FLAC__int32* src_channel = buffer[c];
-
-    if (data->format == AudioFormat::I16) {
-      int16_t* dst = (int16_t*)data->channel_data[c];
-      dst += data->frames_decoded;
-      for (unsigned i = 0; i < frame->header.blocksize; i++) {
-        dst[i] = (int16_t)src_channel[i];
-      }
-    }
-    else if (data->format == AudioFormat::I32) {
-      int32_t* dst = (int32_t*)data->channel_data[c];
-      dst += data->frames_decoded;
-
-      if (data->bits_per_sample == 24) {
-        for (unsigned i = 0; i < frame->header.blocksize; i++) {
-          dst[i] = (int32_t)(src_channel[i] << 8);
-        }
-      } else {
-        for (unsigned i = 0; i < frame->header.blocksize; i++) {
-          dst[i] = (int32_t)src_channel[i];
-        }
-      }
-    }
-  }
-
-  data->frames_decoded += frame->header.blocksize;
-  return FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE;
-}
-
-static void flac_metadata_callback(
-    const FLAC__StreamDecoder* decoder,
-    const FLAC__StreamMetadata* metadata,
-    void* client_data) {
-
-  auto* data = (FlacClientData*)client_data;
-
-  if (metadata->type == FLAC__METADATA_TYPE_STREAMINFO) {
-    data->total_samples = metadata->data.stream_info.total_samples;
-    data->sample_rate = metadata->data.stream_info.sample_rate;
-    data->channels = metadata->data.stream_info.channels;
-    data->bits_per_sample = metadata->data.stream_info.bits_per_sample;
-
-    if (data->bits_per_sample <= 16) {
-      data->format = AudioFormat::I16;
-    } else {
-      data->format = AudioFormat::I32;
-    }
-
-    uint32_t sample_size = get_audio_format_size(data->format);
-    size_t byte_size = (data->total_samples + Sample::sample_padding) * sample_size;
-
-
-    data->channel_data.reserve(data->channels);
-    for (uint32_t i = 0; i < data->channels; i++) {
-      std::byte* mem = (std::byte*)std::malloc(byte_size);
-      if (!mem) {
-        data->error = true;
-        return;
-      }
-      data->channel_data.push_back(mem);
-    }
-  }
-}
-
-static void flac_error_callback(
-    const FLAC__StreamDecoder* decoder,
-    FLAC__StreamDecoderErrorStatus status,
-    void* client_data) {
-  ((FlacClientData*)client_data)->error = true;
-}
-
-std::optional<Sample> Sample::load_flac_file(const std::filesystem::path& path) noexcept {
-  if (!std::filesystem::is_regular_file(path))
-    return {};
-
-  FLAC__StreamDecoder* decoder = FLAC__stream_decoder_new();
-  if (!decoder) return {};
-
-  defer(FLAC__stream_decoder_delete(decoder));
-
-  FlacClientData client_data;
-
-  FLAC__stream_decoder_set_md5_checking(decoder, true);
-
-  FLAC__StreamDecoderInitStatus init_status = FLAC__stream_decoder_init_file(
-      decoder,
-      path.string().c_str(),
-      flac_write_callback,
-      flac_metadata_callback,
-      flac_error_callback,
-      &client_data
-  );
-
-  if (init_status != FLAC__STREAM_DECODER_INIT_STATUS_OK) {
-    return {};
-  }
-
-  FLAC__bool success = FLAC__stream_decoder_process_until_end_of_stream(decoder);
-
-  if (!success || client_data.error || client_data.channel_data.empty()) {
-    return {};
-  }
-
-  std::optional<Sample> ret;
-  ret.emplace(client_data.format, client_data.sample_rate);
-  ret->name = path.filename().string();
-  ret->path = path;
-  ret->channels = client_data.channels;
-  ret->count = client_data.total_samples;
-  ret->sample_data = std::move(client_data.channel_data);
-
-  return ret;
-}
-
-std::optional<Sample> Sample::load_ogg_vorbis_file(const std::filesystem::path& path) noexcept {
-  if (!std::filesystem::is_regular_file(path))
-    return {};
-
-  std::u8string str_path;
-  OggVorbis_File vf;
-  if (ov_fopen((const char*)str_path.c_str(), &vf) != 0)
-    return {};
-  defer(ov_clear(&vf));
-
-  vorbis_info* info = ov_info(&vf, -1);
-  int channels = math::min(info->channels, 32);  // Maximum number of channel is 32
-  uint64_t buffer_len_per_channel = 1024;
-  uint64_t total_frame_count = ov_pcm_total(&vf, -1);
-  Vector<std::byte*> channel_samples;
-  channel_samples.reserve(info->channels);
-
-  for (uint32_t i = 0; i < info->channels; i++) {
-    std::byte* mem = (std::byte*)std::malloc(total_frame_count * sizeof(float));
-    if (!mem) {
-      for (auto sample_data : channel_samples)
-        std::free(sample_data);
-      return {};
-    }
-    channel_samples.push_back(mem);
-  }
-
-  uint64_t num_frames_written = 0;
-  int current_bitstream = 0;
-  float** decode_channels = nullptr;
-  while (true) {
-    int ret = ov_read_float(&vf, &decode_channels, buffer_len_per_channel, &current_bitstream);
-    if (ret == 0) {
-      break;
-    } else if (ret < 0) {
-      Log::error("Failed to decode Ogg Vorbis file. ov_read_float() returned {}", ret);
-      break;
-    }
-    for (int c = 0; c < channels; c++) {
-      float* channel_data = (float*)channel_samples[c];
-      std::memcpy(channel_data + num_frames_written, decode_channels[c], ret * sizeof(float));
-    }
-    num_frames_written += ret;
-  }
-
-  std::optional<Sample> ret;
-  ret.emplace(AudioFormat::F32, info->rate);
-  ret->name = path.filename().string();
-  ret->path = path;
-  ret->channels = channels;
-  ret->count = total_frame_count;
-  ret->sample_data = std::move(channel_samples);
+  ret->channels = decoded->channels;
+  ret->count = decoded->total_samples;
+  ret->sample_data = std::move(decoded->channel_data);
 
   return ret;
 }
 
 std::optional<SampleInfo> Sample::get_file_info(const std::filesystem::path& path) noexcept {
-  SF_INFO sf_info{};
-  std::u8string str_path = path.generic_u8string();
-  SNDFILE* file = sf_open((const char*)str_path.c_str(), SFM_READ, &sf_info);
-  if (file) {
-    sf_close(file);
-    return SampleInfo{
-      .sample_count = (uint64_t)sf_info.frames,
-      .channel_count = (uint32_t)sf_info.channels,
-      .rate = (uint32_t)sf_info.samplerate,
-    };
-  }
+  auto info = codec::get_audio_file_info(path);
+  if (!info)
+    return {};
 
-  drmp3 mp3;
-  if (drmp3_init_file(&mp3, (const char*)str_path.c_str(), nullptr)) {
-    defer(drmp3_uninit(&mp3));
-    return SampleInfo{
-      .sample_count = drmp3_get_pcm_frame_count(&mp3),
-      .channel_count = mp3.channels,
-      .rate = mp3.sampleRate,
-    };
-  }
-
-  OggVorbis_File vf;
-  if (ov_fopen((const char*)str_path.c_str(), &vf) == 0) {
-    defer(ov_clear(&vf));
-    return SampleInfo{
-      .sample_count = (uint64_t)ov_pcm_total(&vf, -1),
-      .channel_count = (uint32_t)vf.vi->channels,
-      .rate = (uint32_t)vf.vi->rate,
-    };
-  }
-
-  if (path.extension() == ".flac" || path.extension() == ".FLAC") {
-    FLAC__StreamDecoder* decoder = FLAC__stream_decoder_new();
-    if (decoder) {
-      defer(FLAC__stream_decoder_delete(decoder));
-      FlacClientData info_data;
-
-      auto meta_cb = [](const FLAC__StreamDecoder*, const FLAC__StreamMetadata* m, void* d) {
-        if (m->type == FLAC__METADATA_TYPE_STREAMINFO) {
-          auto* dat = (FlacClientData*)d;
-          dat->total_samples = m->data.stream_info.total_samples;
-          dat->channels = m->data.stream_info.channels;
-          dat->sample_rate = m->data.stream_info.sample_rate;
-        }
-      };
-      auto err_cb = [](const FLAC__StreamDecoder*, FLAC__StreamDecoderErrorStatus, void*) {};
-      auto write_cb = [](const FLAC__StreamDecoder*, const FLAC__Frame*, const FLAC__int32* const[], void*) {
-        return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
-      };
-
-      if (FLAC__stream_decoder_init_file(decoder, path.string().c_str(), write_cb, meta_cb, err_cb, &info_data) == FLAC__STREAM_DECODER_INIT_STATUS_OK) {
-        FLAC__stream_decoder_process_until_end_of_metadata(decoder);
-        if (info_data.total_samples > 0) {
-          return SampleInfo{
-            .sample_count = info_data.total_samples,
-            .channel_count = info_data.channels,
-            .rate = info_data.sample_rate
-        };
-        }
-      }
-    }
-  }
-
-  return {};
+  return SampleInfo{
+    .sample_count = info->sample_count,
+    .channel_count = info->channel_count,
+    .rate = info->sample_rate
+  };
 }
 
 }  // namespace wb
