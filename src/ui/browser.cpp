@@ -70,7 +70,7 @@ void BrowserWindow::glob_path(const std::filesystem::path& path, BrowserItem& it
     } else if (dir_entry.is_file()) {
       std::filesystem::path ext{ dir_entry.name.extension() };
       BrowserItem::FileType file_type{};
-      if (any_of(ext, ".wav", ".wave", ".aiff", ".mp3", ".ogg", ".aifc", ".aif", ".iff", ".8svx")) {
+      if (any_of(ext, ".wav", ".wave", ".aiff", ".mp3", ".ogg", ".aifc", ".aif", ".iff", ".8svx", ".flac")) {
         file_type = BrowserItem::Sample;
       } else if (any_of(ext, ".mid", ".midi")) {
         file_type = BrowserItem::Midi;

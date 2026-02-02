@@ -185,6 +185,21 @@ CPMAddPackage(
     DOWNLOAD_ONLY       YES
 )
 
+CPMAddPackage(
+        NAME                flac
+        GITHUB_REPOSITORY   xiph/flac
+        VERSION             1.4.3
+        GIT_TAG             1.4.3
+        OPTIONS             "BUILD_PROGRAMS OFF"
+        "BUILD_EXAMPLES OFF"
+        "BUILD_TESTING OFF"
+        "BUILD_DOCS OFF"
+        "INSTALL_CMAKE_CONFIG_MODULE OFF"
+        "WITH_OGG ON"
+        "BUILD_SHARED_LIBS OFF"
+        EXCLUDE_FROM_ALL
+)
+
 if (UNIX AND NOT APPLE)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(LIBPULSE REQUIRED IMPORTED_TARGET libpulse)

@@ -272,20 +272,21 @@ if (WB_PLATFORM_MACOS)
 endif()
 
 set(WB_LINK_LIBRARIES
-    SDL3::SDL3-static
-    spdlog::spdlog
-    Vulkan::Headers
-    VulkanMemoryAllocator
-    volk_headers
-    imgui-sdl3
-    imgui-cpp
-    imgui-freetype
-    leveldb
-    msgpack-cxx
-    sndfile
-    vorbisfile
-    midi-parser
-    vst3-sdk-hosting)
+        SDL3::SDL3-static
+        spdlog::spdlog
+        Vulkan::Headers
+        VulkanMemoryAllocator
+        volk_headers
+        imgui-sdl3
+        imgui-cpp
+        imgui-freetype
+        leveldb
+        msgpack-cxx
+        sndfile
+        vorbisfile
+        FLAC
+        midi-parser
+        vst3-sdk-hosting)
 
 if (WB_PLATFORM_WINDOWS)
     set(WB_LINK_LIBRARIES ${WB_LINK_LIBRARIES} imgui-d3d11 Avrt Dwmapi)
