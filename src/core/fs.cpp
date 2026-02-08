@@ -43,6 +43,14 @@ void explore_folder(const std::filesystem::path& path) {
 #ifdef WB_PLATFORM_WINDOWS
   ShellExecute(nullptr, L"explore", path.native().c_str(), nullptr, nullptr, SW_SHOWNORMAL);
 #endif
+#ifdef WB_PLATFORM_LINUX
+  pid_t pid = fork();
+  if (pid == 0) {
+    execlp("xdg-open", "xdg-open", path.c_str(), nullptr);
+    exit(0);
+  }
+#endif
+
 }
 void locate_file(const std::filesystem::path& path) {
   if (!std::filesystem::is_regular_file(path))
@@ -57,6 +65,38 @@ void locate_file(const std::filesystem::path& path) {
   ILFree(dir_il);
   ILFree(file_il);
 #endif
+
+#ifdef WB_PLATFORM_LINUX
+  std::string uri = file_uri_encode(std::filesystem::absolute(path).string());
+
+  std::string cmd =
+      "dbus-send --session "
+      "--dest=org.freedesktop.FileManager1 "
+      "--type=method_call "
+      "/org/freedesktop/FileManager1 "
+      "org.freedesktop.FileManager1.ShowItems "
+      "array:string:\"" + uri + "\" "
+      "string:\"\"";
+
+  std::system(cmd.c_str());
+
+
+#endif
+}
+
+std::string file_uri_encode(const std::string& path) {
+  std::ostringstream escaped;
+  escaped << "file://";
+  escaped << std::hex << std::uppercase << std::setfill('0');
+
+  for (unsigned char c : path) {
+    if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~' || c == '/') {
+      escaped << c;
+    } else {
+      escaped << '%' << std::setw(2) << (int)c;
+    }
+  }
+  return escaped.str();
 }
 
 std::optional<std::filesystem::path> find_file_recursive(
