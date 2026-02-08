@@ -1,9 +1,3 @@
-#include <X11/Xlib.h>
-
-#undef None
-
-#include <X11/Xlib.h>
-
 #include "window_manager.h"
 
 #ifdef WB_PLATFORM_LINUX
