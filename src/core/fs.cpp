@@ -55,6 +55,7 @@ void explore_folder(const std::filesystem::path& path) {
 void locate_file(const std::filesystem::path& path) {
   if (!std::filesystem::is_regular_file(path))
     return;
+
 #ifdef WB_PLATFORM_WINDOWS
   // Convert forward slash to backward slash
   auto parent_folder = path.parent_path().make_preferred();
@@ -68,7 +69,6 @@ void locate_file(const std::filesystem::path& path) {
 
 #ifdef WB_PLATFORM_LINUX
   std::string uri = file_uri_encode(std::filesystem::absolute(path).string());
-
   std::string cmd =
       "dbus-send --session "
       "--dest=org.freedesktop.FileManager1 "
@@ -77,10 +77,7 @@ void locate_file(const std::filesystem::path& path) {
       "org.freedesktop.FileManager1.ShowItems "
       "array:string:\"" + uri + "\" "
       "string:\"\"";
-
   std::system(cmd.c_str());
-
-
 #endif
 }
 
@@ -96,6 +93,7 @@ std::string file_uri_encode(const std::string& path) {
       escaped << '%' << std::setw(2) << (int)c;
     }
   }
+
   return escaped.str();
 }
 

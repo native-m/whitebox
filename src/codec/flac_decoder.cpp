@@ -134,11 +134,13 @@ std::optional<DecodedAudio> decode_flac_file(const std::filesystem::path& path, 
     return {};
   }
 
-  return DecodedAudio{ .format = client_data.format,
-                       .channels = client_data.channels,
-                       .sample_rate = client_data.sample_rate,
-                       .total_samples = client_data.total_samples,
-                       .channel_data = std::move(client_data.channel_data) };
+  return DecodedAudio{
+    .format = client_data.format,
+    .channels = client_data.channels,
+    .sample_rate = client_data.sample_rate,
+    .total_samples = client_data.total_samples,
+    .channel_data = std::move(client_data.channel_data),
+  };
 }
 
 std::optional<FlacFileInfo> get_flac_file_info(const std::filesystem::path& path) {
