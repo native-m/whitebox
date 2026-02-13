@@ -74,6 +74,7 @@ volatile double Engine2::playhead;
 Vector<Track*> Engine2::tracks;
 PerformanceMeasurer Engine2::perf_measurer;
 AudioIO2* Engine2::audio_io;
+MidiIO* Engine2::midi_io;
 AudioIOType Engine2::audio_io_type;
 AudioDeviceProperties Engine2::output_device_properties;
 AudioDeviceProperties Engine2::input_device_properties;
@@ -451,6 +452,16 @@ bool Engine2::init_audio_io() {
     audio_io->set_device_removed_listener(nullptr, call_device_removed_listener);
     audio_io->set_device_format_changed_listener(nullptr, call_device_format_changed_listener);
   }
+
+  // Initialize MIDI IO
+  if (!midi_io) {
+    midi_io = MidiIO::create(audio_io_type);
+    if (midi_io && !midi_io->init()) {
+      delete midi_io;
+      midi_io = nullptr;
+    }
+  }
+
   return audio_io != nullptr;
 }
 
@@ -461,6 +472,13 @@ void Engine2::shutdown_audio_io() {
     stop_audio_engine();
   delete audio_io;
   audio_io = nullptr;
+
+  // Shutdown MIDI IO
+  if (midi_io) {
+    midi_io->disconnect();
+    delete midi_io;
+    midi_io = nullptr;
+  }
 }
 
 void Engine2::rescan_audio_device() {

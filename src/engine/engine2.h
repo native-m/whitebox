@@ -4,6 +4,7 @@
 
 #include "asset.h"
 #include "audio_io.h"
+#include "midi_io.h"
 #include "core/audio_buffer.h"
 #include "core/color.h"
 #include "core/thread.h"
@@ -30,6 +31,7 @@ struct Engine2 {
   static Vector<Track*> tracks;
   static PerformanceMeasurer perf_measurer;
   static AudioIO2* audio_io;
+  static MidiIO* midi_io;
   static AudioIOType audio_io_type;
   static AudioDeviceProperties output_device_properties;
   static AudioDeviceProperties input_device_properties;

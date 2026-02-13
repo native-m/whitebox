@@ -2,6 +2,8 @@
 
 #ifdef WB_PLATFORM_LINUX
 
+#include <X11/Xlib.h>
+
 namespace wb {
 
 void init_platform_window_manager() {
