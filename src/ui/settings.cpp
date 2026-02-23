@@ -7,6 +7,7 @@
 #include "config.h"
 #include "engine/audio_io.h"
 #include "engine/engine2.h"
+#include "engine/midi_io.h"
 #include "window.h"
 
 static const char* io_types[] = {
@@ -24,15 +25,29 @@ static const char* buffer_sizes[] = {
 namespace wb {
 
 static void render_audio_settings();
+static void render_midi_settings();
 
 void render_settings() {
-  ImGui::SetNextWindowSize(ImVec2(300.0f, 200.0f), ImGuiCond_FirstUseEver);
-  if (!ImGui::Begin("Settings", &g_settings_window_open, ImGuiWindowFlags_NoDocking)) {
+  // I don't know what I'm doing @Gusti. Docking settings yang sebelumnya jelek banget parah.
+  // kaga bisa pencet menu audio sama midi. Gw bikin enak dulu sementara.
+  // gabisa keluar viewport but who cares sih ga ngecrash lagi.
+
+  ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoCollapse;
+  ImGui::SetNextWindowSize(ImVec2(500.0f, 400.0f), ImGuiCond_FirstUseEver);
+
+  ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+  ImGui::SetNextWindowPos(center, ImGuiCond_FirstUseEver, ImVec2(0.5f, 0.5f));
+
+  if (!ImGui::Begin("Settings", &g_settings_window_open, window_flags)) {
     ImGui::End();
     return;
   }
 
-  if (ImGui::BeginTabBar("settings_tab")) {
+  if (ImGui::IsWindowAppearing()) {
+    ImGui::SetWindowFocus();
+  }
+
+  if (ImGui::BeginTabBar("settings_tab", ImGuiTabBarFlags_NoCloseWithMiddleMouseButton)) {
     if (ImGui::BeginTabItem("General")) {
       ImGui::Button("Test");
       ImGui::EndTabItem();
@@ -44,7 +59,7 @@ void render_settings() {
     }
 
     if (ImGui::BeginTabItem("MIDI")) {
-      ImGui::Button("TODO");
+      render_midi_settings();
       ImGui::EndTabItem();
     }
 
@@ -52,6 +67,73 @@ void render_settings() {
   }
 
   ImGui::End();
+}
+
+static void render_midi_settings() {
+  MidiIO* midi_io = Engine2::midi_io;
+
+  if (!midi_io) {
+    ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.0f, 1.0f), "MIDI not available");
+    ImGui::TextWrapped("MIDI I/O is not initialized. Make sure audio engine is running.");
+    return;
+  }
+
+  if (ImGui::Button("Rescan Devices")) {
+    midi_io->rescan();
+  }
+
+  ImGui::SameLine();
+
+  if (midi_io->is_connected()) {
+    ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "Connected");
+  } else {
+    ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "Not connected");
+  }
+
+  ImGui::Separator();
+
+  std::vector<MidiDeviceInfo> devices = midi_io->get_devices();
+
+  if (devices.empty()) {
+    ImGui::TextWrapped("No MIDI devices found. Connect a MIDI device and click 'Rescan Devices'.");
+    return;
+  }
+
+  ImGui::Text("Available MIDI Devices:");
+  ImGui::Spacing();
+
+  uint32_t connected_id = midi_io->get_connected_device_id();
+
+  for (const auto& device : devices) {
+    bool is_connected = midi_io->is_connected() && device.id == connected_id;
+
+    ImGui::PushID(device.id);
+
+    const char* type_str = device.is_input ? "Input" : (device.is_output ? "Output" : "Unknown");
+
+    if (is_connected) {
+      ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "[*]");
+      ImGui::SameLine();
+    }
+
+    ImGui::Text("%s", device.name.c_str());
+    ImGui::SameLine();
+    ImGui::TextDisabled("(%s)", type_str);
+
+    ImGui::SameLine(ImGui::GetWindowWidth() - 100);
+
+    if (is_connected) {
+      if (ImGui::Button("Disconnect")) {
+        midi_io->disconnect();
+      }
+    } else {
+      if (ImGui::Button("Connect")) {
+        midi_io->connect(device.id);
+      }
+    }
+
+    ImGui::PopID();
+  }
 }
 
 void render_audio_settings() {

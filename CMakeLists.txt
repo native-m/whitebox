@@ -155,6 +155,9 @@ set(WB_SOURCES
     "src/engine/event_list.h"
     "src/engine/midi_data.cpp"
     "src/engine/midi_data.h"
+    "src/engine/midi_io.cpp"
+    "src/engine/midi_io.h"
+    "src/engine/midi_io_alsa.cpp"
     "src/engine/midi_voice.cpp"
     "src/engine/midi_voice.h"
     "src/engine/param_changes.h"
@@ -298,7 +301,7 @@ set(WB_LINK_LIBRARIES
 if (WB_PLATFORM_WINDOWS)
     set(WB_LINK_LIBRARIES ${WB_LINK_LIBRARIES} imgui-d3d11 Avrt Dwmapi)
 elseif (WB_PLATFORM_LINUX)
-    set(WB_LINK_LIBRARIES ${WB_LINK_LIBRARIES} PkgConfig::LIBPULSE PkgConfig::PIPEWIRE xcb X11 X11-xcb)
+    set(WB_LINK_LIBRARIES ${WB_LINK_LIBRARIES} PkgConfig::LIBPULSE PkgConfig::PIPEWIRE PkgConfig::ALSA xcb X11 X11-xcb)
 elseif (WB_PLATFORM_MACOS)
     set(WB_LINK_LIBRARIES
         ${WB_LINK_LIBRARIES}

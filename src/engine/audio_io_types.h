@@ -13,6 +13,7 @@ enum class AudioIOType {
   ASIO,       // Unimplemented
   CoreAudio,  // Unimplemented
   PipeWire,
+  ALSA, // (Midi only for now)
 };
 
 enum class AudioDeviceType {
